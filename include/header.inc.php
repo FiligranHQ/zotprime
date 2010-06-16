@@ -89,6 +89,10 @@ define('Z_ENV_CONTROLLER_PATH', Z_ENV_BASE_PATH . 'controllers/');
 define('Z_ENV_MODEL_PATH', Z_ENV_BASE_PATH . 'model/');
 define('Z_ENV_TMP_PATH', Z_ENV_BASE_PATH . 'tmp/');
 
+if (!is_writable(Z_ENV_TMP_PATH)) {
+	throw new Exception("Temp directory is not writable");
+}
+
 require('HTMLPurifier/HTMLPurifier.standalone.php');
 $c = HTMLPurifier_Config::createDefault();
 $c->set('HTML.Doctype', 'XHTML 1.0 Strict');
