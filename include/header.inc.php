@@ -87,11 +87,13 @@ define('Z_ENV_BASE_PATH', substr($_SERVER['DOCUMENT_ROOT'], 0, strrpos($_SERVER[
 // Environmental variables that may change based on where the app is running
 define('Z_ENV_CONTROLLER_PATH', Z_ENV_BASE_PATH . 'controllers/');
 define('Z_ENV_MODEL_PATH', Z_ENV_BASE_PATH . 'model/');
+define('Z_ENV_TMP_PATH', Z_ENV_BASE_PATH . 'tmp/');
 
-require 'HTMLPurifier/HTMLPurifier.standalone.php';
-$htmlpurifierconfig = HTMLPurifier_Config::createDefault();
-$htmlpurifierconfig->set('HTML', 'Doctype', 'XHTML 1.0 Strict');
-$HTMLPurifier = new HTMLPurifier($htmlpurifierconfig);
+require('HTMLPurifier/HTMLPurifier.standalone.php');
+$c = HTMLPurifier_Config::createDefault();
+$c->set('HTML.Doctype', 'XHTML 1.0 Strict');
+$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
+$HTMLPurifier = new HTMLPurifier($c);
 
 // Check if on testing port and set testing mode params if so
 if (Z_CONFIG::$TESTING_SITE) {
