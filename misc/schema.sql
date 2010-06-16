@@ -893,13 +893,6 @@ CREATE TABLE `syncDownloadQueue` (
 
 
 
-CREATE TABLE `syncDownloadQueueWeight` (
-  `syncDownloadQueueID` int(10) unsigned NOT NULL,
-  KEY `syncDownloadQueueID` (`syncDownloadQueueID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
 CREATE TABLE `syncProcesses` (
   `syncProcessID` int(10) unsigned NOT NULL,
   `userID` int(10) unsigned NOT NULL,
@@ -995,13 +988,6 @@ CREATE TABLE `syncUploadQueuePostWriteLog` (
   `ids` varchar(30) NOT NULL,
   `action` enum('update','delete') NOT NULL,
   PRIMARY KEY (`syncUploadQueueID`,`objectType`,`ids`,`action`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
-CREATE TABLE `syncUploadQueueWeight` (
-  `syncUploadQueueID` int(10) unsigned NOT NULL,
-  KEY `syncUploadQueueID` (`syncUploadQueueID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -1178,9 +1164,6 @@ ALTER TABLE `syncDownloadQueue`
   ADD CONSTRAINT `syncDownloadQueue_ibfk_2` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`),
   ADD CONSTRAINT `syncDownloadQueue_ibfk_3` FOREIGN KEY (`sessionID`) REFERENCES `zotero_sessions`.`sessions` (`sessionID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE `syncDownloadQueueWeight`
-  ADD CONSTRAINT `syncDownloadQueueWeight_ibfk_1` FOREIGN KEY (`syncDownloadQueueID`) REFERENCES `syncDownloadQueue` (`syncDownloadQueueID`) ON DELETE CASCADE;
-
 ALTER TABLE `syncProcesses`
   ADD CONSTRAINT `syncProcesses_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`);
 
@@ -1203,9 +1186,6 @@ ALTER TABLE `syncUploadProcessLog`
 
 ALTER TABLE `syncUploadQueuePostWriteLog`
   ADD CONSTRAINT `syncUploadQueuePostWriteLog_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncQueue` (`syncQueueID`) ON DELETE CASCADE;
-
-ALTER TABLE `syncUploadQueueWeight`
-  ADD CONSTRAINT `syncUploadQueueWeight_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncQueue` (`syncQueueID`) ON DELETE CASCADE;
 
 ALTER TABLE `tags`
   ADD CONSTRAINT `tags_ibfk_1` FOREIGN KEY (`tagDataID`) REFERENCES `tagData` (`tagDataID`) ON DELETE CASCADE,

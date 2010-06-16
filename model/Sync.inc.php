@@ -229,12 +229,6 @@ class Zotero_Sync {
 			throw ($e);
 		}
 		
-		$sql = "INSERT INTO syncUploadQueueWeight VALUES ";
-		// Smaller uploads get inserted more times -- graph this to see the distribution
-		$rows = ceil(50 / (1 + ($length / 20000)));
-		$vals = array_fill(0, $rows, $syncQueueID);
-		Zotero_DB::bulkInsert($sql, $vals, 50);
-		
 		Zotero_DB::commit();
 		
 		return $syncQueueID;
@@ -377,53 +371,28 @@ class Zotero_Sync {
 		
 		// Get a queued process
 		$smallestFirst = Z_CONFIG::$SYNC_UPLOAD_SMALLEST_FIRST;
-		$sortByQuota = Z_CONFIG::$SYNC_UPLOAD_SORT_BY_QUOTA;
-		if (true) {
-			$sql = "SELECT syncQueue.* FROM syncQueue ";
-			if ($sortByQuota) {
-				$sql .= "LEFT JOIN storageAccounts USING (userID) ";
-			}
-			$sql .= "WHERE started IS NULL ";
-			if (self::$minErrorCheckRequiredSize) {
-				$sql .= "AND (errorCheck=2 OR dataLength<" . self::$minErrorCheckRequiredSize . ") ";
-			}
-			if ($smallestFirst && self::$maxSmallestSize) {
-				$sql .= "AND dataLength<" . self::$maxSmallestSize . " ";
-			}
-			$sql .= "ORDER BY tries > 4, ";
-			if ($sortByQuota) {
-				$sql .= "quota DESC, ";
-			}
-			if ($smallestFirst) {
-				$sql .= "ROUND(dataLength / 1024 / 10), ";
-			}
-			$sql .= "added LIMIT 1 FOR UPDATE";
-			$row = Zotero_DB::rowQuery($sql);
+		$sortByQuota = !empty(Z_CONFIG::$SYNC_UPLOAD_SORT_BY_QUOTA);
+		
+		$sql = "SELECT syncQueue.* FROM syncQueue ";
+		if ($sortByQuota) {
+			$sql .= "LEFT JOIN storageAccounts USING (userID) ";
 		}
-		// unused
-		else {
-			$sql = "SELECT id FROM (
-						SELECT syncUploadQueueID AS id, added
-							FROM syncUploadQueueWeight
-							JOIN syncQueue ON (syncUploadQueueID=syncQueueID)
-							WHERE started IS NULL ";
-							if (self::$minErrorCheckRequiredSize) {
-								$sql .= "AND (errorCheck=2 OR dataLength<" . self::$minErrorCheckRequiredSize . ") ";
-							}
-							$sql .= "ORDER BY tries > 4, dataLength > 6000, RAND()
-							LIMIT 1
-							FOR UPDATE
-						) AS rand
-					ORDER BY added LIMIT 1";
-			$syncQueueID = Zotero_DB::valueQuery($sql);
-			// No pending processes
-			if (!$syncQueueID) {
-				Zotero_DB::commit();
-				return 0;
-			}
-			$sql = "SELECT * FROM syncQueue WHERE syncQueueID=?";
-			$row = Zotero_DB::rowQuery($sql, $syncQueueID);
+		$sql .= "WHERE started IS NULL ";
+		if (self::$minErrorCheckRequiredSize) {
+			$sql .= "AND (errorCheck=2 OR dataLength<" . self::$minErrorCheckRequiredSize . ") ";
 		}
+		if ($smallestFirst && self::$maxSmallestSize) {
+			$sql .= "AND dataLength<" . self::$maxSmallestSize . " ";
+		}
+		$sql .= "ORDER BY tries > 4, ";
+		if ($sortByQuota) {
+			$sql .= "quota DESC, ";
+		}
+		if ($smallestFirst) {
+			$sql .= "ROUND(dataLength / 1024 / 10), ";
+		}
+		$sql .= "added LIMIT 1 FOR UPDATE";
+		$row = Zotero_DB::rowQuery($sql);
 		
 		// No pending processes
 		if (!$row) {
