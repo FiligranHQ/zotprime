@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0">
+  <start>
+    <element name="data">
+      <attribute name="version">
+        <value>8</value>
+      </attribute>
+      <externalRef href="data8.rng"/>
+    </element>
+  </start>
+</grammar>

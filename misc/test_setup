@@ -1,0 +1,55 @@
+#!/usr/bin/php
+<?
+set_include_path("../include");
+require("header.inc.php");
+
+if (!Z_ENV_DEV_SITE) {
+	die("Test setup script can be run only on dev sites\n");
+}
+
+// Recreate test data
+Zotero_DB::query("TRUNCATE TABLE libraries");
+Zotero_DB::query("TRUNCATE TABLE itemDataValues");
+Zotero_DB::query("TRUNCATE TABLE items");
+Zotero_DB::query("TRUNCATE TABLE groups");
+Zotero_DB::query("TRUNCATE TABLE zotero_www_test.users");
+
+Zotero_DB::query("INSERT INTO libraries VALUES (1, 'user', '0000-00-00 00:00:00', 0)");
+Zotero_DB::query("INSERT INTO libraries VALUES (2, 'user', '0000-00-00 00:00:00', 0)");
+Zotero_DB::query("INSERT INTO libraries VALUES (3, 'group', '0000-00-00 00:00:00', 0)");
+Zotero_DB::query("INSERT INTO users VALUES (1, 1, 'testuser', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
+Zotero_DB::query("INSERT INTO users VALUES (2, 2, 'testuser2', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
+Zotero_DB::query("INSERT INTO groups VALUES (1, 3, 'Test Group', 'test_group', 'Private', 1, 'admins', 'all', 'members', '', '', 0, '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
+Zotero_DB::query("INSERT INTO groupUsers VALUES (1, 1, 'owner', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
+Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (1, 'testuser', 'faf7ab3527c09bddeac9adde1a2475ad0f4e9499', 'test@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser')");
+Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (2, 'testuser2', 'faf7ab3527c09bddeac9adde1a2475ad0f4e9499', 'test2@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser2')");
+
+// Sample data for user 1
+$itemObj = new Zotero_Item();
+$itemObj->setField('libraryID', 1);
+$itemObj->setField('key', "AAAA2222", false, true);
+$itemObj->setField('itemTypeID', 2, false, true);
+$itemObj->save();
+
+// Sample data for private user 2
+$itemObj = new Zotero_Item();
+$itemObj->setField('libraryID', 2);
+$itemObj->setField('key', "BBBB2222", false, true);
+$itemObj->setField('itemTypeID', 2, false, true);
+$itemObj->save();
+
+// Sample data for group 1
+$itemObj = new Zotero_Item();
+$itemObj->setField('libraryID', 3);
+$itemObj->setField('key', "CCCC2222", false, true);
+$itemObj->setField('itemTypeID', 2, false, true);
+$itemObj->save();
+
+// Sample attachment for group 1
+$itemObj = new Zotero_Item();
+$itemObj->setField('libraryID', 3);
+$itemObj->setField('key', "CCCC3333", false, true);
+$itemObj->setField('itemTypeID', 14, false, true);
+$itemID = $itemObj->save();
+
+?>

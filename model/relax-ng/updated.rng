@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0" datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <start>
+    <element name="response">
+      <attribute name="timestamp">
+        <data type="decimal"/>
+      </attribute>
+      <group>
+        <attribute name="version">
+          <value>8</value>
+        </attribute>
+        <element name="updated">
+          <externalRef href="data8.rng"/>
+        </element>
+      </group>
+      <attribute name="userID">
+        <data type="integer"/>
+      </attribute>
+      <attribute name="defaultLibraryID">
+        <data type="integer"/>
+      </attribute>
+      <attribute name="updateKey">
+        <data type="string">
+          <param name="pattern">[abcdefg0-9]{32}</param>
+        </data>
+      </attribute>
+      <attribute name="earliest">
+        <data type="decimal"/>
+      </attribute>
+    </element>
+  </start>
+</grammar>

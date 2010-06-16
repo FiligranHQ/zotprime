@@ -1,0 +1,18 @@
+<?
+function Zotero_dbConnectAuth($db) {
+	if ($db == 'main') {
+		$host = '';
+		$db = '';
+		$user = '';
+		$pass = '';
+	}
+	else if ($db == 'sessions') {
+		$host = '';
+		$db = '';
+		$user = '';
+		$pass = '';
+	}
+	
+	return array('host'=>$host, 'db'=>$db, 'user'=>$user, 'pass'=>$pass);
+}
+?>

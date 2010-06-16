@@ -1,0 +1,14 @@
+Zotero Data Server
+Copyright © 2010 Center for History and New Media
+George Mason University, Fairfax, Virginia, USA
+http://zotero.org
+
+The Center for History and New Media distributes the Zotero Data Server source code
+under the GNU Affero General Public License, version 3 (AGPLv3).
+
+The Zotero name is a registered trademark of George Mason University.
+See http://zotero.org/trademark for more information.
+
+Third-party copyright in this distribution is noted where applicable.
+
+All rights not expressly granted are reserved.

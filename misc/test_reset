@@ -1,0 +1,10 @@
+#!/bin/sh
+echo "DROP DATABASE IF EXISTS zoterotest" | mysql -u root
+echo "DROP DATABASE IF EXISTS zoterotest_sessions" | mysql -u root
+echo "CREATE DATABASE zoterotest" | mysql -u root
+echo "CREATE DATABASE zoterotest_sessions" | mysql -u root
+
+cat schema.sql | sed 's/zotero_sessions/zoterotest_sessions/g' | mysql -u root zoterotest
+mysql -u root zoterotest < coredata.sql
+
+./test_setup

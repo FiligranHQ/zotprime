@@ -1,0 +1,220 @@
+libraryID = attribute libraryID { xsd:integer }
+key = attribute key { keyPattern }
+keyPattern = xsd:string { pattern = "[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}" }
+md5Pattern = xsd:string { pattern = "[abcdefg0-9]{32}" }
+keys = list { keyPattern+ }
+dateAdded = attribute dateAdded { xsd:string { pattern = "\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31) ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])" } }
+dateModified = attribute dateModified { xsd:string { pattern = "\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31) ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])" } }
+index = attribute index { xsd:integer }
+field = element field { attribute name { text }, text }
+id = attribute id { xsd:integer }
+
+start =
+	element items {
+		element item {
+			(
+				key
+			|
+				(
+					libraryID,
+					key,
+					attribute createdByUserID { xsd:integer }?,
+					attribute lastModifiedByUserID { xsd:integer }?
+				)
+			),
+			dateAdded,
+			dateModified,
+			attribute deleted { xsd:boolean }?,
+			(
+				(
+					attribute itemType { text },
+					(
+						field*,
+						element creator {
+							libraryID?,
+							key,
+							attribute creatorType { text },
+							index,
+							element creator {
+								libraryID?,
+								key,
+								dateAdded,
+								dateModified,
+								(
+									(
+										element name { text },
+										element fieldMode { "1" }
+									)
+										|
+									(
+										element firstName { text },
+										element lastName { text },
+										element fieldMode { "0" }?
+									)
+								),
+								element birthYear { xsd:integer }?
+							}?
+						}*
+					)
+				)
+					|
+				(
+					attribute itemType { "note" },
+					attribute sourceItem { keyPattern | "undefined" }?,
+					element note { text }
+				)
+					|
+				(
+					attribute itemType { "attachment" },
+					attribute sourceItem { keyPattern | "undefined" }?,
+					attribute mimeType { text },
+					attribute charset { text }?,
+					(
+						(
+							(
+								attribute linkMode { "0" | "1" | "2" },
+								attribute storageModTime { xsd:integer }?,
+								attribute storageHash { md5Pattern }?,
+								field*,
+								element path { text }
+							)
+								|
+							(
+								attribute linkMode { "3" },
+								field*
+							)
+						),
+						element note { text }?
+					)
+				)
+			),
+			element related {
+				keys
+			}?
+		}+
+	}?
+	& element creators {
+		element creator {
+			libraryID?,
+			key,
+			dateAdded,
+			dateModified,
+			(
+				(
+					element name { text },
+					element fieldMode { "1" }
+				)
+					|
+				(
+					element firstName { text },
+					element lastName { text },
+					element fieldMode { "0" }?
+				)
+			),
+			element birthYear { xsd:integer }?
+		}+
+	}?
+	& element collections {
+		element collection {
+			libraryID?,
+			key,
+			attribute name { text },
+			dateAdded,
+			dateModified,
+			attribute parent { keyPattern }?,
+			element items {
+				keys
+			}?
+		}+
+	}?
+	& element searches {
+		element search {
+			libraryID?,
+			key,
+			attribute name { text },
+			dateAdded,
+			dateModified,
+			element condition {
+				id,
+				attribute condition { text },
+				attribute mode { text }?,
+				attribute operator { text },
+				attribute value { text },
+				attribute required { "0" | "1" }?
+			}*
+		}+
+	}?
+	& element tags {
+		element tag {
+			libraryID?,
+			key,
+			attribute name { text },
+			attribute type { xsd:integer }?,
+			dateAdded,
+			dateModified,
+			element items {
+				keys
+			}?
+		}+
+	}?
+	& element groups {
+		element group {
+			libraryID?,
+			id,
+			attribute name { text },
+			attribute editable { "0" | "1" },
+			attribute filesEditable { "0" | "1" },
+			element description { text }?,
+			element url { xsd:anyURI }?,
+			element items {
+				keys
+			}?
+		}+
+	}?
+	& element relations {
+		element relation {
+			element subject { xsd:anyURI },
+			element predicate { xsd:anyURI },
+			element object { xsd:anyURI }
+		}+
+	}?
+	& element deleted {
+		element items {
+			element item {
+				libraryID?, key
+			}+
+		}? &
+		element creators {
+			element creator {
+				libraryID?, key
+			}+
+		}? &
+		element collections {
+			element collection {
+				libraryID?, key
+			}+
+		}? &
+		element searches {
+			element search {
+				libraryID?, key
+			}+
+		}? &
+		element tags {
+			element tag {
+				libraryID?, key
+			}+
+		}? &
+		element groups {
+			list { xsd:integer+ }
+		}? &
+		element relations {
+			element relation {
+				libraryID?,
+				attribute hash {
+					xsd:string {
+						pattern = "[1234567890ABCDEF]{32}"
+					}
+				}
+			}+
+		}?
+	}?

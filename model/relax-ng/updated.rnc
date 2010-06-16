@@ -1,0 +1,13 @@
+start = element response {
+	attribute timestamp { xsd:decimal  },
+	(
+		(
+			attribute version { "8" },
+			element updated { external "data8.rnc" }
+		)
+	),
+	attribute userID { xsd:integer },
+	attribute defaultLibraryID { xsd:integer },
+	attribute updateKey { xsd:string { pattern = "[abcdefg0-9]{32}" } },
+	attribute earliest { xsd:decimal }
+}

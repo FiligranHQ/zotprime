@@ -1,0 +1,6 @@
+start = element data {
+	(
+		attribute version { "8" },
+		external "data8.rnc"
+	)
+}
