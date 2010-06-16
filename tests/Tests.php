@@ -435,8 +435,8 @@ EOD;
 
 class UsersTests extends PHPUnit_Framework_TestCase {
 	public function testExists() {
-		$this->assertEquals(Zotero_Users::exists(6), true);
-		$this->assertEquals(Zotero_Users::exists(1), false);
+		$this->assertEquals(Zotero_Users::exists(1), true);
+		$this->assertEquals(Zotero_Users::exists(100), false);
 	}
 	
 	public function testAuthenticate() {
