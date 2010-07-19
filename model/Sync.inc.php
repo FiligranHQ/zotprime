@@ -352,18 +352,18 @@ class Zotero_Sync {
 	public static function processUploadFromQueue($syncProcessID) {
 		Zotero_DB::beginTransaction();
 		
-		if (Z_Functions::probability(30)) {
+		if (Z_Core::probability(30)) {
 			$sql = "DELETE FROM syncProcesses WHERE started < (NOW() - INTERVAL 45 MINUTE)";
 			$row = Zotero_DB::query($sql);
 		}
 		
-		if (Z_Functions::probability(30)) {
+		if (Z_Core::probability(30)) {
 			$sql = "UPDATE syncQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck!=1 AND
 						started < (NOW() - INTERVAL 12 MINUTE) AND finished IS NULL AND dataLength<250000";
 			$row = Zotero_DB::rowQuery($sql);
 		}
 		
-		if (Z_Functions::probability(30)) {
+		if (Z_Core::probability(30)) {
 			$sql = "UPDATE syncQueue SET tries=0 WHERE started IS NULL AND
 					tries>=5 AND finished IS NULL";
 			$row = Zotero_DB::rowQuery($sql);
@@ -535,7 +535,7 @@ class Zotero_Sync {
 	public static function checkUploadForErrors($syncProcessID) {
 		Zotero_DB::beginTransaction();
 		
-		if (Z_Functions::probability(30)) {
+		if (Z_Core::probability(30)) {
 			$sql = "UPDATE syncQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck=1 AND
 						started < (NOW() - INTERVAL 12 MINUTE) AND finished IS NULL AND dataLength<250000";
 			$row = Zotero_DB::rowQuery($sql);
