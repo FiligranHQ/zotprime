@@ -43,7 +43,14 @@ class Zotero_Permissions {
 			return true;
 		}
 		
+		if (!$libraryID) {
+			throw new Exception('libraryID not provided');
+		}
+		
 		// If requested permission is explicitly set
+		//
+		// This assumes that permissions can't be incorrectly set
+		// (e.g., are properly removed when a user loses group access)
 		if (!empty($this->permissions[$libraryID][$permission])) {
 			return true;
 		}
@@ -53,24 +60,22 @@ class Zotero_Permissions {
 		switch ($libraryType) {
 			case 'user':
 				$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
-				// Allow user access to their library
-				if ($this->userID == $userID) {
-					return true;
-				}
 				$privacy = $this->getUserPrivacy($userID);
 				break;
 			
 			case 'group':
 				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
-				// Allow user access to readable group libraries
-				/*if ($this->userID) {
+				
+				// If key has access to all groups, grant access if user
+				// has read access to group
+				if (!empty($this->permissions[0]['library'])) {
 					$group = Zotero_Groups::get($groupID);
-					return $group->userCanRead($this->userID);
-				}*/
-				$privacy = $this->getGroupPrivacy($groupID);
-				if ($permission == 'group' && $privacy['publishGroup']) {
-					return true;
+					if ($group->userCanRead($this->userID)) {
+						return true;
+					}
 				}
+				
+				$privacy = $this->getGroupPrivacy($groupID);
 				break;
 			
 			default:
@@ -104,7 +109,6 @@ class Zotero_Permissions {
 			case 'library':
 			case 'notes':
 			case 'files':
-			case 'group':
 				break;
 			
 			default:
@@ -200,12 +204,10 @@ class Zotero_Permissions {
 		}
 		$privacy = array();
 		if ($group->isPublic()) {
-			$privacy['publishGroup'] = true;
 			$privacy['publishLibrary'] = true;
 			$privacy['publishNotes'] = true;
 		}
 		else {
-			$privacy['publishGroup'] = false;
 			$privacy['publishLibrary'] = false;
 			$privacy['publishNotes'] = false;
 		}

@@ -386,6 +386,10 @@ class Zotero_Group {
 			throw new Exception("Cannot delete owner of group $this->id", Z_ERROR_CANNOT_DELETE_GROUP_OWNER);
 		}
 		
+		// Remove group from permissions the user has granted
+		$sql = "DELETE KP FROM keyPermissions KP JOIN `keys` USING (keyID) WHERE userID=? AND libraryID=?";
+		Zotero_DB::query($sql, array($userID, $this->libraryID));
+		
 		$sql = "DELETE FROM groupUsers WHERE groupID=? AND userID=?";
 		Zotero_DB::query($sql, array($this->id, $userID));
 		
@@ -418,11 +422,13 @@ class Zotero_Group {
 			return false;
 		}
 		
+		// All members can read
 		$role = $this->getUserRole($userID);
 		if ($role) {
 			return true;
 		}
-		return $this->libraryReading == 'all';
+		
+		return $this->isPublic() && $this->libraryReading == 'all';
 	}
 	
 	

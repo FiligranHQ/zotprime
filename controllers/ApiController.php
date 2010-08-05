@@ -1160,7 +1160,7 @@ class ApiController extends Controller {
 		// Single group
 		if ($groupID) {
 			$group = Zotero_Groups::get($groupID);
-			if (!$this->permissions->canAccess($this->objectLibraryID, 'group')) {
+			if (!$this->permissions->canAccess($this->objectLibraryID)) {
 				$this->e403();
 			}
 			if (!$group) {
@@ -1674,8 +1674,8 @@ class ApiController extends Controller {
 		$fields['access'] = array();
 		foreach ($xml->access as $access) {
 			$a = array();
-			if (isset($access['groupID'])) {
-				$a['groupID'] = (int) $access['groupID'];
+			if (isset($access['group'])) {
+				$a['group'] = $access['group'] == 'all' ? 0 : (int) $access['group'];
 			}
 			else {
 				$a['library'] = (int) $access['library'];
@@ -1689,16 +1689,22 @@ class ApiController extends Controller {
 	
 	private function setKeyPermissions($keyObj, $accessElement) {
 		foreach ($accessElement as $accessField=>$accessVal) {
-			// Group library access (<access groupID="23456"/>)
-			if ($accessField == 'groupID') {
-				$group = Zotero_Groups::get($accessVal);
-				if (!$group) {
-					$this->e400("Group not found");
+			// Group library access (<access group="23456"/>)
+			if ($accessField == 'group') {
+				// Grant access to all groups
+				if ($accessVal === 0) {
+					$keyObj->setPermission(0, 'group', true);
 				}
-				if (!$group->hasUser($this->objectUserID)) {
-					$this->e400("User $this->id is not a member of group $group->id");
+				else {
+					$group = Zotero_Groups::get($accessVal);
+					if (!$group) {
+						$this->e400("Group not found");
+					}
+					if (!$group->hasUser($this->objectUserID)) {
+						$this->e400("User $this->id is not a member of group $group->id");
+					}
+					$keyObj->setPermission($group->libraryID, 'library', true);
 				}
-				$keyObj->setPermission($group->libraryID, 'group', $accessVal);
 			}
 			// Personal library access (<access library="1" notes="0"/>)
 			else {

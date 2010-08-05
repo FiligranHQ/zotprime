@@ -118,7 +118,7 @@ class Zotero_Key {
 	}
 	
 	
-	public function getPermission($libraryID, $permission) {
+	/*public function getPermission($libraryID, $permission) {
 		if ($this->erased) {
 			throw new Exception("Cannot access permission of deleted key $this->id");
 		}
@@ -128,7 +128,7 @@ class Zotero_Key {
 		}
 		
 		return $this->permissions[$libraryID][$permission];
-	}
+	}*/
 	
 	
 	public function setPermission($libraryID, $permission, $enabled) {
@@ -143,11 +143,25 @@ class Zotero_Key {
 		
 		$enabled = !!$enabled;
 		
+		// libraryID=0, permission='group' is a special case for all-group access
+		if ($libraryID === 0) {
+			if ($permission != 'group') {
+				throw new Exception("libraryID 0 is valid only with permission 'group'");
+			}
+			// Convert 'group' to 'library'
+			$permission = 'library';
+		}
+		else if ($permission == 'group') {
+			throw new Exception("'group' permission is valid only with libraryID 0");
+		}
+		else if (!$libraryID) {
+			throw new Exception("libraryID not set");
+		}
+		
 		switch ($permission) {
 			case 'library':
 			case 'notes':
 			case 'files':
-			case 'group':
 				break;
 			
 			default:
@@ -163,11 +177,6 @@ class Zotero_Key {
 	public function save() {
 		if (!$this->loaded) {
 			Z_Core::debug("Not saving unloaded key $this->id");
-			return;
-		}
-		
-		if (empty($this->changed)) {
-			Z_Core::debug("Key $this->id has not changed", 4);
 			return;
 		}
 		
@@ -282,6 +291,13 @@ class Zotero_Key {
 		if ($this->permissions) {
 			foreach ($this->permissions as $libraryID=>$p) {
 				$access = $xml->addChild('access');
+				
+				// group="all" is stored as libraryID 0
+				if ($libraryID === 0) {
+					$access['group'] = 'all';
+					continue;
+				}
+				
 				$type = Zotero_Libraries::getType($libraryID);
 				switch ($type) {
 					case 'user':
@@ -292,7 +308,7 @@ class Zotero_Key {
 						break;
 						
 					case 'group':
-						$access['groupID'] = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+						$access['group'] = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 						break;
 				}
 			}
