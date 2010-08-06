@@ -1170,15 +1170,20 @@ class ApiController extends Controller {
 		}
 		// Multiple groups
 		else {
-			// For now, only allow root group search
-			if (!$this->permissions->isSuper()) {
-				$this->e403();
-			}
-			
 			if ($this->objectUserID) {
+				// Users (or their keys) can see only their own groups
+				if ($this->userID != $this->objectUserID) {
+					$this->e403();
+				}
+				
 				$title = Zotero_Users::getUsername($this->objectUserID) . "’s Groups";
 			}
 			else {
+				// For now, only root can do unrestricted group searches
+				if (!$this->permissions->isSuper()) {
+					$this->e403();
+				}
+				
 				$title = "Groups";
 			}
 			
@@ -1192,6 +1197,17 @@ class ApiController extends Controller {
 				}
 				$this->e500($e->getMessage());
 			}
+			
+			// Remove groups that can't be accessed
+			for ($i=0; $i<sizeOf($results['groups']); $i++) {
+				$libraryID = (int) $results['groups'][$i]->libraryID;
+				if (!$this->permissions->canAccess($libraryID)) {
+					array_splice($results['groups'], $i, 1);
+					$results['total']--;
+					$i--;
+				}
+			}
+			
 			$groups = $results['groups'];
 			$totalResults = $results['total'];
 			
