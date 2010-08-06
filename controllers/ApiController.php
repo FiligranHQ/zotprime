@@ -1172,7 +1172,7 @@ class ApiController extends Controller {
 		else {
 			if ($this->objectUserID) {
 				// Users (or their keys) can see only their own groups
-				if ($this->userID != $this->objectUserID) {
+				if (!$this->permissions->isSuper() && $this->userID != $this->objectUserID) {
 					$this->e403();
 				}
 				
