@@ -22,7 +22,7 @@ Zotero_DB::query("INSERT INTO users VALUES (2, 2, 'testuser2', '0000-00-00 00:00
 Zotero_DB::query("INSERT INTO groups VALUES (1, 3, 'Test Group', 'test_group', 'Private', 1, 'admins', 'all', 'members', '', '', 0, '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
 Zotero_DB::query("INSERT INTO groupUsers VALUES (1, 1, 'owner', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
 Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (1, 'testuser', 'b7a875fc1ea228b9061041b7cec4bd3c52ab3ce3', 'test@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser')");
-Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (2, 'testuser2', 'b7a875fc1ea228b9061041b7cec4bd3c52ab3ce3', 'test2@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser2')");
+Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (2, 'testuser2', 'fc707fc0b8c62cfeeafffde7273978d29d6d2374', 'test2@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser2')");
 
 // Sample data for user 1
 $itemObj = new Zotero_Item();
@@ -31,12 +31,19 @@ $itemObj->setField('key', "AAAA2222", false, true);
 $itemObj->setField('itemTypeID', 2, false, true);
 $itemObj->save();
 
-// Sample data for private user 2
+// Sample data for user 2
 $itemObj = new Zotero_Item();
 $itemObj->setField('libraryID', 2);
 $itemObj->setField('key', "BBBB2222", false, true);
 $itemObj->setField('itemTypeID', 2, false, true);
 $itemObj->save();
+
+// Sample attachment for user 2
+$itemObj = new Zotero_Item();
+$itemObj->setField('libraryID', 2);
+$itemObj->setField('key', "CCCC4444", false, true);
+$itemObj->setField('itemTypeID', 14, false, true);
+$itemID = $itemObj->save();
 
 // Sample data for group 1
 $itemObj = new Zotero_Item();
