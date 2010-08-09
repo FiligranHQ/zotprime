@@ -35,7 +35,7 @@ class Zotero_Groups {
 	}
 	
 	
-	public static function getAllAdvanced($userID=false, $params) {
+	public static function getAllAdvanced($userID=false, $params=array()) {
 		$results = array('groups' => array(), 'total' => 0);
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS groupID FROM groups WHERE 1 ";

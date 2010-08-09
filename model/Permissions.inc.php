@@ -55,7 +55,6 @@ class Zotero_Permissions {
 			return true;
 		}
 		
-		// Implicit permission based on user's access to library
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
 			case 'user':
@@ -103,6 +102,14 @@ class Zotero_Permissions {
 	public function setPermission($libraryID, $permission, $enabled) {
 		if ($this->super) {
 			throw new Exception("Super-user permissions already set");
+		}
+		
+		// Shortcut for setting all permissions on library
+		if ($permission == 'all') {
+			$this->setPermission($libraryID, 'library', $enabled);
+			$this->setPermission($libraryID, 'notes', $enabled);
+			$this->setPermission($libraryID, 'files', $enabled);
+			return;
 		}
 		
 		switch ($permission) {
@@ -182,6 +189,7 @@ class Zotero_Permissions {
 		}
 		
 		$xml = new SimpleXMLElement($xml);
+		
 		$zapiContent = $xml->content->children(Zotero_Atom::$nsZoteroAPI);
 		$privacy = array();
 		$privacy['publishLibrary'] = (bool) (int) $zapiContent->privacy->publishLibrary;

@@ -103,6 +103,16 @@ class ApiController extends Controller {
 				}
 				$this->userID = $userID;
 				$this->permissions = new Zotero_Permissions($userID);
+				$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+				
+				// Grant user all permissions on own library
+				$this->permissions->setPermission($libraryID, 'all', true);
+				
+				// Grant user permissions on allowed groups
+				$groups = Zotero_Groups::getAllAdvanced($userID);
+				foreach ($groups['groups'] as $group) {
+					$this->permissions->setPermission($group->libraryID, 'all', true);
+				}
 			}
 			
 			else {
@@ -1840,6 +1850,7 @@ class ApiController extends Controller {
 	
 	public function handleException(Exception $e) {
 		if (Z_ENV_TESTING_SITE) {
+			error_log($e);
 			$this->e500($e);
 		}
 		
