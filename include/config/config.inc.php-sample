@@ -23,15 +23,24 @@ class Z_CONFIG {
 		'api.example.com' => 'sync.example.com'
 	);
 	
+	public static $LOG_TIMEZONE = 'US/Eastern';
+	
 	public static $SYNC_PROCESSOR_BIND_ADDRESS = '192.168.1.255';
-	public static $SYNC_PROCESSOR_DOWNLOAD_PORT = 3451;
-	public static $SYNC_PROCESSOR_UPLOAD_PORT = 3452;
-	public static $SYNC_PROCESSOR_ERROR_PORT = 3453;
+	public static $SYNC_PROCESSOR_PORT_DOWNLOAD = 3455;
+	public static $SYNC_PROCESSOR_PORT_UPLOAD = 3456;
+	public static $SYNC_PROCESSOR_PORT_ERROR = 3457;
+	
+	public static $SYNC_PROCESSOR_LOG_ADDRESS = '';
+	public static $SYNC_PROCESSOR_LOG_PORT = 1463;
+	public static $SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD = 'sync-processor-download';
+	public static $SYNC_PROCESSOR_LOG_TARGET_UPLOAD = 'sync-processor-upload';
+	public static $SYNC_PROCESSOR_LOG_TARGET_ERROR = 'sync-processor-error';
 	
 	public static $SYNC_DOWNLOAD_SMALLEST_FIRST = false;
 	public static $SYNC_UPLOAD_SMALLEST_FIRST = false;
 	
 	// Set some things manually for running via command line
+	public static $CLI_PHP_PATH = '/usr/bin/php';
 	public static $CLI_DOCUMENT_ROOT = "/var/www/sync.example.com/";
 	public static $CLI_SERVER_NAME = "sync.example.com";
 	public static $CLI_SERVER_PORT = "80";

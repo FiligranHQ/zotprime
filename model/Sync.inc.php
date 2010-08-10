@@ -729,7 +729,7 @@ class Zotero_Sync {
 	 */
 	public static function notifyDownloadProcessor($signal="NEXT") {
 		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$SYNC_PROCESSOR_DOWNLOAD_PORT;
+		$port = Z_CONFIG::$SYNC_PROCESSOR_PORT_DOWNLOAD;
 		self::notifyProcessor('download', $addr, $port, $signal);
 	}
 	
@@ -739,7 +739,7 @@ class Zotero_Sync {
 	 */
 	public static function notifyUploadProcessor($signal="NEXT") {
 		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$SYNC_PROCESSOR_UPLOAD_PORT;
+		$port = Z_CONFIG::$SYNC_PROCESSOR_PORT_UPLOAD;
 		self::notifyProcessor('upload', $addr, $port, $signal);
 	}
 	
@@ -749,7 +749,7 @@ class Zotero_Sync {
 	 */
 	public static function notifyErrorProcessor($signal="NEXT") {
 		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$SYNC_PROCESSOR_ERROR_PORT;
+		$port = Z_CONFIG::$SYNC_PROCESSOR_PORT_ERROR;
 		self::notifyProcessor('error', $addr, $port, $signal);
 	}
 	

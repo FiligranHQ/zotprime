@@ -133,6 +133,8 @@ include('Memcached.inc.php');
 
 require('interfaces/IAuthenticationPlugin.inc.php');
 
+include('log.inc.php');
+
 // Load in functions
 require('functions/string.inc.php');
 require('functions/array.inc.php');

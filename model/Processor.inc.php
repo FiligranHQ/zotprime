@@ -25,7 +25,7 @@
 */
 
 abstract class Zotero_Processor {
-	private $id;
+	protected $id;
 	
 	public function run($id=null) {
 		$this->id = $id;
@@ -33,7 +33,7 @@ abstract class Zotero_Processor {
 		$this->log("Starting sync processor");
 		
 		$startTime = microtime(true);
-		$processed = $this->processFromQueue($id);
+		$processed = $this->processFromQueue();
 		$duration = microtime(true) - $startTime;
 		
 		$error = false;
@@ -66,20 +66,21 @@ abstract class Zotero_Processor {
 		}
 	}
 	
-	private function log($msg) {
-		Z_Core::logError("[" . $this->id . "] $msg");
-	}
-	
 	//
 	// Abstract methods
 	//
-	abstract protected function processFromQueue($id);
+	abstract protected function log($msg);
+	abstract protected function processFromQueue();
 	abstract protected function notifyProcessor($signal);
 }
 
 class Zotero_Download_Processor extends Zotero_Processor {
-	protected function processFromQueue($id) {
-		return Zotero_Sync::processDownloadFromQueue($id);
+	protected function log($msg) {
+		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD, "[" . $this->id . "] $msg");
+	}
+	
+	protected function processFromQueue() {
+		return Zotero_Sync::processDownloadFromQueue($this->id);
 	}
 	
 	protected function notifyProcessor($signal) {
@@ -88,8 +89,12 @@ class Zotero_Download_Processor extends Zotero_Processor {
 }
 
 class Zotero_Upload_Processor extends Zotero_Processor {
-	protected function processFromQueue($id) {
-		return Zotero_Sync::processUploadFromQueue($id);
+	protected function log($msg) {
+		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_UPLOAD, "[" . $this->id . "] $msg");
+	}
+	
+	protected function processFromQueue() {
+		return Zotero_Sync::processUploadFromQueue($this->id);
 	}
 	
 	protected function notifyProcessor($signal) {
@@ -98,8 +103,12 @@ class Zotero_Upload_Processor extends Zotero_Processor {
 }
 
 class Zotero_Error_Processor extends Zotero_Processor {
-	protected function processFromQueue($id) {
-		return Zotero_Sync::checkUploadForErrors($id);
+	protected function log($msg) {
+		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_ERROR, "[" . $this->id . "] $msg");
+	}
+	
+	protected function processFromQueue() {
+		return Zotero_Sync::checkUploadForErrors($this->id);
 	}
 	
 	protected function notifyProcessor($signal) {

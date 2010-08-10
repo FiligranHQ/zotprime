@@ -25,8 +25,6 @@
 */
 
 abstract class Zotero_Processor_Daemon {
-	private $phpPath = '/usr/bin/php';
-	//private $phpPath = '/usr/bin/php --define=xdebug.profiler_enable=1';
 	// Default is no concurrency
 	private $minProcessors = 1;
 	private $maxProcessors = 1;
@@ -200,7 +198,10 @@ abstract class Zotero_Processor_Daemon {
 					// Start new processors
 					for ($i=0; $i<$toStart; $i++) {
 						$id = Zotero_ID::getBigInt();
-						$pid = shell_exec($this->phpPath . " " . Z_ENV_BASE_PATH . "processor/" . $this->name . "/processor.php $id > /dev/null & echo $!");
+						$pid = shell_exec(
+							Z_CONFIG::$CLI_PHP_PATH . " " . Z_ENV_BASE_PATH . "processor/"
+							. $this->name . "/processor.php $id > /dev/null & echo $!"
+						);
 						$this->processors[$id] = $pid;
 					}
 				}
@@ -219,13 +220,6 @@ abstract class Zotero_Processor_Daemon {
 		while ($buffer != 'QUIT');
 		
 		$this->log("QUIT received — exiting");
-	}
-	
-	
-	public function log($msg) {
-		echo $msg . "\n";
-		// If not using multilog's auto-prepended timestamps
-		//echo date("M d H:m:s") . " " . $msg . "\n";
 	}
 	
 	
@@ -305,6 +299,7 @@ abstract class Zotero_Processor_Daemon {
 	//
 	// Abstract methods
 	//
+	abstract public function log($msg);
 	abstract protected function countQueuedProcesses();
 	
 	/**
@@ -324,7 +319,7 @@ class Zotero_Download_Processor_Daemon extends Zotero_Processor_Daemon {
 	protected $name = 'download';
 	
 	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$SYNC_PROCESSOR_DOWNLOAD_PORT;
+		$this->port = Z_CONFIG::$SYNC_PROCESSOR_PORT_DOWNLOAD;
 		if (!$config || !isset($config['minProcessors'])) {
 			$config['minProcessors'] = 2;
 		}
@@ -332,6 +327,10 @@ class Zotero_Download_Processor_Daemon extends Zotero_Processor_Daemon {
 			$config['maxProcessors'] = 3;
 		}
 		parent::__construct($config);
+	}
+	
+	public function log($msg) {
+		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD, $msg);
 	}
 	
 	protected function countQueuedProcesses() {
@@ -352,8 +351,12 @@ class Zotero_Upload_Processor_Daemon extends Zotero_Processor_Daemon {
 	protected $name = 'upload';
 	
 	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$SYNC_PROCESSOR_UPLOAD_PORT;
+		$this->port = Z_CONFIG::$SYNC_PROCESSOR_PORT_UPLOAD;
 		parent::__construct($config);
+	}
+	
+	public function log($msg) {
+		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_UPLOAD, $msg);
 	}
 	
 	protected function countQueuedProcesses() {
@@ -374,11 +377,15 @@ class Zotero_Error_Processor_Daemon extends Zotero_Processor_Daemon {
 	protected $name = 'error';
 	
 	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$SYNC_PROCESSOR_ERROR_PORT;
+		$this->port = Z_CONFIG::$SYNC_PROCESSOR_PORT_ERROR;
 		if (!$config || !isset($config['minQueuedProcesses'])) {
 			$config['minQueuedProcesses'] = 1; // TODO: increase
 		}
 		parent::__construct($config);
+	}
+	
+	public function log($msg) {
+		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_ERROR, $msg);
 	}
 	
 	protected function countQueuedProcesses() {
