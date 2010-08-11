@@ -481,6 +481,16 @@ class Zotero_Sync {
 		}
 		// Save error
 		else {
+			// As of PHP 5.3.2 we can't serialize objects containing SimpleXMLElements,
+			// and since the stack trace includes one, we have to catch this and
+			// manually reconstruct an extension
+			try {
+				$serialized = serialize($e);
+			}
+			catch (Exception $e2) {
+				$serialized = serialize(new Exception($msg, $e->getCode()));
+			}
+			
 			Z_Core::logError($e);
 			$sql = "UPDATE syncQueue SET finished=?, finishedMS=?, errorCode=?, errorMessage=? WHERE syncQueueID=?";
 			Zotero_DB::query(
@@ -489,7 +499,7 @@ class Zotero_Sync {
 					Zotero_DB::getTransactionTimestamp(),
 					Zotero_DB::getTransactionTimestampMS(),
 					$e->getCode(),
-					serialize($e),
+					$serialized,
 					$row['syncQueueID']
 				)
 			);
