@@ -119,7 +119,7 @@ class Zotero_Sync {
 	 * Get all the libraryIDs referenced in upload XML
 	 */
 	public static function parseAffectedLibraries(SimpleXMLElement $xml) {
-		set_time_limit(210);
+		set_time_limit(800);
 		$nodes = $xml->xpath('//*[@libraryID]');
 		$unique = array();
 		foreach ($nodes as $node) {
@@ -930,7 +930,7 @@ class Zotero_Sync {
 	//
 	//
 	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null, $skipValidation=false) {
-		set_time_limit(600);
+		set_time_limit(900);
 		
 		if ($syncDownloadQueueID) {
 			self::addDownloadProcess($syncDownloadQueueID, $syncDownloadProcessID);
@@ -1122,7 +1122,7 @@ class Zotero_Sync {
 		}
 		$processID = self::addUploadProcess($userID, $affectedLibraries, $syncQueueID, $syncProcessID);
 		
-		set_time_limit(600);
+		set_time_limit(1800);
 		
 		$profile = false;
 		if ($profile) {
@@ -1256,7 +1256,7 @@ class Zotero_Sync {
 				if ($count != $added) {
 					$sql = "SELECT FK.creatorDataID FROM tmpCreatorFKCheck FK
 							LEFT JOIN creatorData CD USING (creatorDataID)
-							WHERE FK.creatorDataID IS NULL";
+							WHERE CD.creatorDataID IS NULL";
 					$missing = Zotero_DB::columnQuery($sql);
 					throw new Exception("creatorDataIDs inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ")");
 				}
