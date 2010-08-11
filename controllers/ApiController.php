@@ -164,7 +164,7 @@ class ApiController extends Controller {
 			$this->apiVersion = (int) $_REQUEST['version'];
 		}
 		
-		$this->uri = Z_CONFIG::$API_BASE_URI . $_SERVER["REQUEST_URI"];
+		$this->uri = Z_CONFIG::$API_BASE_URI . substr($_SERVER["REQUEST_URI"], 1);
 		
 		// Get object user
 		if (!empty($extra['userID'])) {
