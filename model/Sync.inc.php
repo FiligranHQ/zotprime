@@ -389,7 +389,8 @@ class Zotero_Sync {
 			$sql .= "quota DESC, ";
 		}
 		if ($smallestFirst) {
-			$sql .= "ROUND(dataLength / 1024 / 10), ";
+			//$sql .= "ROUND(dataLength / 1024 / 10), ";
+			$sql .= "dataLength, ";
 		}
 		$sql .= "added LIMIT 1 FOR UPDATE";
 		$row = Zotero_DB::rowQuery($sql);
