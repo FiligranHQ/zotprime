@@ -75,7 +75,6 @@ class SyncController extends Controller {
 		
 		if (empty($_REQUEST['version'])) {
 			if ($action == 'index') {
-				header("HTTP/1.1 400 Bad Request");
 				echo "Nothing to see here.";
 				exit;
 			}

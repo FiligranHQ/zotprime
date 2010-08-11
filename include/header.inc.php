@@ -111,6 +111,7 @@ if (Z_CONFIG::$TESTING_SITE) {
 }
 else {
 	define('Z_ENV_TESTING_SITE', false);
+	define('Z_ENV_DEV_SITE', false);
 	ini_set("display_errors", "0");
 }
 

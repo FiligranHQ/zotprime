@@ -185,6 +185,7 @@ class Zotero_Permissions {
 		
 		$xml = @file_get_contents($url);
 		if (!$xml) {
+			error_log($url);
 			trigger_error("User $userID doesn't exist", E_USER_ERROR);
 		}
 		

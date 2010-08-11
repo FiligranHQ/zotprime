@@ -1258,7 +1258,7 @@ class Zotero_Sync {
 							LEFT JOIN creatorData CD USING (creatorDataID)
 							WHERE CD.creatorDataID IS NULL";
 					$missing = Zotero_DB::columnQuery($sql);
-					throw new Exception("creatorDataIDs inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ")");
+					throw new Exception("creatorDataIDs inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ")  $added $count");
 				}
 				Zotero_DB::query("DROP TEMPORARY TABLE tmpCreatorFKCheck");
 				

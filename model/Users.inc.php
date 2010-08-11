@@ -215,7 +215,7 @@ class Zotero_Users {
 	
 	
 	private static function getXMLFromAPI($userID) {
-		if (CM_ENV_DEV_SITE) {
+		if (Z_ENV_DEV_SITE) {
 			throw new Exception("External requests disabled on dev site");
 		}
 		
@@ -238,7 +238,7 @@ class Zotero_Users {
 	
 	
 	private static function getXMLFromAPIByUsername($username) {
-		if (CM_ENV_DEV_SITE) {
+		if (Z_ENV_DEV_SITE) {
 			throw new Exception("External requests disabled on dev site");
 		}
 		
