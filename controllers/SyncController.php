@@ -68,10 +68,10 @@ class SyncController extends Controller {
 		
 		$this->responseXML = Zotero_Sync::getResponseXML();
 		
-		//if ($_SERVER["REMOTE_ADDR"] != '') {
-			//$this->error(503, 'SERVER_ERROR', "Server updates in progress. Please try again in a few minutes.");
-		//}
-		
+		//if (!Z_CONFIG::$SYNC_ENABLED && $_SERVER["REMOTE_ADDR"] != '') {
+		if (!Z_CONFIG::$SYNC_ENABLED) {
+			$this->error(503, 'SERVER_ERROR', Z_CONFIG::$MAINTENANCE_MESSAGE);
+		}
 		
 		if (empty($_REQUEST['version'])) {
 			if ($action == 'index') {

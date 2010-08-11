@@ -52,7 +52,9 @@ class ApiController extends Controller {
 	
 	
 	public function __construct($action, $settings, $extra) {
-		//$this->e503();
+		if (!Z_CONFIG::$API_ENABLED) {
+			$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
+		}
 		
 		set_exception_handler(array($this, 'handleException'));
 		require_once('../model/Error.inc.php');
