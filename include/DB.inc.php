@@ -268,7 +268,6 @@ class Zotero_DB {
 			}
 		}
 		catch (Exception $e) {
-			var_dump($e);
 			self::error($e, $sql, $params);
 		}
 		
