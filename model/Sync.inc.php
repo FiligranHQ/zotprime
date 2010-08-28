@@ -1419,7 +1419,9 @@ class Zotero_Sync {
 					
 					// Fix an error if there's leading or trailing whitespace,
 					// which was possible in 2.0.3
-					$xmlItems = trim($xmlItems->nodeValue);
+					if ($xmlItems) {
+						$xmlItems = trim($xmlItems->nodeValue);
+					}
 					
 					$arr = array(
 						'obj' => $collectionObj,
