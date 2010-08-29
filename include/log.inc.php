@@ -65,7 +65,14 @@ class Z_Log {
 			);
 		}
 		
+		self::logToStdOut($messages);
 		self::logToScribe($messages);
+	}
+	
+	private static function logToStdOut($messages) {
+		foreach ($messages as $message) {
+			echo $message['message'] . "\n";
+		}
 	}
 	
 	private static function logToScribe($messages) {
