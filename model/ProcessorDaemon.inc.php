@@ -91,7 +91,7 @@ abstract class Zotero_Processor_Daemon {
 				$first = false;
 			}
 			else {
-				$this->log("Waiting for command");
+				//$this->log("Waiting for command");
 				$from = '';
 				$port = 0;
 				socket_recvfrom($socket, $buffer, 32, MSG_WAITALL, $from, $port);
@@ -140,7 +140,7 @@ abstract class Zotero_Processor_Daemon {
 				$numProcessors = $this->countProcessors();
 				
 				if ($numProcessors >= $this->maxProcessors) {
-					$this->log("Already at max " . $this->maxProcessors . " processors");
+					//$this->log("Already at max " . $this->maxProcessors . " processors");
 					continue;
 				}
 				
