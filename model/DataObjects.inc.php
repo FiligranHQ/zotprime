@@ -93,13 +93,25 @@ class Zotero_DataObjects {
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
 			
-			$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
-			$rows = Zotero_DB::query($sql, $libraryID);
+			$rows = Z_Core::$MC->get($type . 'IDsByKey_' . $libraryID);
+			$memcached = !!$rows;
+			
+			if (!$rows) {
+				$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
+				$rows = Zotero_DB::query($sql, $libraryID);
+			}
+			
 			if (!$rows) {
 				return false;
 			}
+			
 			foreach ($rows as $row) {
 				self::$idCache[$type][$libraryID][$row['key']] = $row['id'];
+			}
+			
+			if (!$memcached) {
+				// TODO: remove expiration time
+				Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 600);
 			}
 		}
 		
@@ -136,6 +148,9 @@ class Zotero_DataObjects {
 		}
 		
 		self::$idCache[$type][$libraryID][$key] = $id;
+		
+		// TODO: remove expiration time
+		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 600);
 	}
 	
 	
