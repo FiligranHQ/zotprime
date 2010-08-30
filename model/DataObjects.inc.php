@@ -93,25 +93,24 @@ class Zotero_DataObjects {
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
 			
-			$rows = Z_Core::$MC->get($type . 'IDsByKey_' . $libraryID);
-			$memcached = !!$rows;
-			
-			if (!$rows) {
+			$ids = Z_Core::$MC->get($type . 'IDsByKey_' . $libraryID);
+			if ($ids) {
+				self::$idCache[$type][$libraryID] = $ids;
+			}
+			else {
 				$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
 				$rows = Zotero_DB::query($sql, $libraryID);
-			}
-			
-			if (!$rows) {
-				return false;
-			}
-			
-			foreach ($rows as $row) {
-				self::$idCache[$type][$libraryID][$row['key']] = $row['id'];
-			}
-			
-			if (!$memcached) {
+				
+				if (!$rows) {
+					return false;
+				}
+				
+				foreach ($rows as $row) {
+					self::$idCache[$type][$libraryID][$row['key']] = $row['id'];
+				}
+				
 				// TODO: remove expiration time
-				Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 600);
+				Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
 			}
 		}
 		
@@ -150,7 +149,7 @@ class Zotero_DataObjects {
 		self::$idCache[$type][$libraryID][$key] = $id;
 		
 		// TODO: remove expiration time
-		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 600);
+		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
 	}
 	
 	
@@ -261,6 +260,7 @@ class Zotero_DataObjects {
 		$deleted = Zotero_DB::query($sql, array($libraryID, $key));
 		
 		unset(self::$idCache[$type][$libraryID][$key]);
+		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
 		
 		if ($deleted) {
 			$sql = "INSERT INTO syncDeleteLogKeys (libraryID, objectType, `key`, timestamp, timestampMS)
