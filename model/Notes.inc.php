@@ -71,7 +71,7 @@ class Zotero_Notes {
 	
 	
 	public static function updateHash($itemID, $value) {
-		if ($value !== false) {
+		if ($value) {
 			self::$hashCache[$itemID] = $value;
 		}
 		else {
@@ -152,13 +152,15 @@ class Zotero_Notes {
 	
 	
 	public static function loadHashes($libraryID) {
-		$sql = "SELECT itemID, MD5(note) AS hash FROM itemNotes JOIN items USING (itemID) WHERE libraryID=?";
+		$sql = "SELECT itemID, IF(note='','',MD5(note)) AS hash FROM itemNotes JOIN items USING (itemID) WHERE libraryID=?";
 		$hashes = Zotero_DB::query($sql, $libraryID);
 		if (!$hashes) {
 			return;
 		}
 		foreach ($hashes as $hash) {
-			self::$hashCache[$hash['itemID']] = $hash['hash'];
+			if ($hash['hash']) {
+				self::$hashCache[$hash['itemID']] = $hash['hash'];
+			}
 		}
 		self::$hashCacheCachedUsers[$libraryID] = true;
 	}

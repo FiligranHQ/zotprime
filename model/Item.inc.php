@@ -1154,20 +1154,22 @@ class Zotero_Item {
 					$title = Zotero_Notes::noteToTitle($this->noteText);
 					
 					$sql = "INSERT INTO itemNotes
-							(itemID, sourceItemID, note, title) VALUES
-							(?,?,?,?)";
+							(itemID, sourceItemID, note, title, hash) VALUES
+							(?,?,?,?,?)";
 					$parent = $this->isNote() ? $this->getSource() : null;
 					$noteText = $this->noteText ? $this->noteText : '';
+					$hash = $noteText ? md5($noteText) : '';
 					$bindParams = array(
 						$itemID,
 						$parent ? $parent : null,
 						$noteText,
-						$title
+						$title,
+						$hash
 					);
 					
 					Zotero_DB::query($sql, $bindParams);
 					Zotero_Notes::updateNoteCache($itemID, $noteText);
-					Zotero_Notes::updateHash($itemID, md5($noteText));
+					Zotero_Notes::updateHash($itemID, $hash);
 				}
 				
 				
@@ -1558,18 +1560,19 @@ class Zotero_Item {
 					$sourceItemID = !empty($sourceItemID) ? $sourceItemID : null;
 					$noteText = $this->noteText ? $this->noteText : '';
 					$title = Zotero_Notes::noteToTitle($this->noteText);
+					$hash = $noteText ? md5($noteText) : '';
 					$sql = "INSERT INTO itemNotes
-							(itemID, sourceItemID, note, title) VALUES
-							(?,?,?,?) ON DUPLICATE KEY UPDATE
-							sourceItemID=?, note=?, title=?";
+							(itemID, sourceItemID, note, title, hash) VALUES
+							(?,?,?,?,?) ON DUPLICATE KEY UPDATE
+							sourceItemID=?, note=?, title=?, hash=?";
 					$bindParams = array(
 						$this->id,
-						$sourceItemID, $noteText, $title,
-						$sourceItemID, $noteText, $title
+						$sourceItemID, $noteText, $title, $hash,
+						$sourceItemID, $noteText, $title, $hash
 					);
 					Zotero_DB::query($sql, $bindParams);
 					Zotero_Notes::updateNoteCache($this->id, $noteText);
-					Zotero_Notes::updateHash($this->id, md5($noteText));
+					Zotero_Notes::updateHash($this->id, $hash);
 					
 					// TODO: handle changed source?
 				}
@@ -2164,7 +2167,7 @@ class Zotero_Item {
 		}
 		
 		$currentHash = $this->getNoteHash();
-		$hash = md5($text);
+		$hash = $text ? md5($text) : false;
 		if ($currentHash == $hash) {
 			Z_Core::debug("Note text hasn't changed in setNote()");
 			return;
