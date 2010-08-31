@@ -152,7 +152,7 @@ class Zotero_Notes {
 	
 	
 	public static function loadHashes($libraryID) {
-		$sql = "SELECT itemID, IF(note='','',MD5(note)) AS hash FROM itemNotes JOIN items USING (itemID) WHERE libraryID=?";
+		$sql = "SELECT itemID, hash FROM itemNotes JOIN items USING (itemID) WHERE libraryID=?";
 		$hashes = Zotero_DB::query($sql, $libraryID);
 		if (!$hashes) {
 			return;
