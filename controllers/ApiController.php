@@ -651,15 +651,14 @@ class ApiController extends Controller {
 			
 			// Reject file if it would put account over quota
 			if ($group) {
-				$values = Zotero_S3::getUserValues($group->ownerUserID);
+				$quota = Zotero_S3::getEffectiveUserQuota($group->ownerUserID);
 				$usage = Zotero_S3::getUserUsage($group->ownerUserID);
 			}
 			else {
-				$values = Zotero_S3::getUserValues($this->objectUserID);
+				$quota = Zotero_S3::getEffectiveUserQuota($this->objectUserID);
 				$usage = Zotero_S3::getUserUsage($this->objectUserID);
 			}
 			
-			$quota = $values ? $values['quota'] : Zotero_S3::$defaultQuota;
 			$total = $usage['total'];
 			$fileSizeMB = round($_POST['filesize'] / 1024 / 1024, 1);
 			if ($total + $fileSizeMB > $quota) {

@@ -348,7 +348,7 @@ class Zotero_S3 {
 	public static function purgeUnusedFiles() {
 		self::requireLibrary();
 		
-		// Get all used files and files that have been deleted within the last month
+		// Get all used files and files that were last deleted more than a month ago
 		$sql = "SELECT MD5(CONCAT(hash, filename, zip)) AS file FROM storageFiles
 					JOIN storageFileItems USING (storageFileID)
 				UNION
@@ -405,6 +405,9 @@ class Zotero_S3 {
 	}
 	
 	public static function setUserValues($userID, $quota, $expiration) {
+		$cacheKey = "userStorageQuota_" . $userID;
+		Z_Core::$MC->delete($cacheKey);
+		
 		if ($expiration == 0 && $quota == 0) {
 			$sql = "DELETE FROM storageAccounts WHERE userID=?";
 			Zotero_DB::query($sql, $userID);
@@ -428,6 +431,43 @@ class Zotero_S3 {
 		}
 	}
 	
+	public static function getEffectiveUserQuota($userID) {
+		$cacheKey = "userStorageQuota_" . $userID;
+		
+		$quota = Z_Core::$MC->get($cacheKey);
+		if ($quota) {
+			return $quota;
+		}
+		
+		$personalQuota = self::getUserValues($userID);
+		$personalQuota = $personalQuota ? $personalQuota['quota'] : 0;
+		
+		// TODO: config
+		$databaseName = "zotero_www";
+		if (Z_ENV_TESTING_SITE) {
+			$databaseName .= "_test";
+		}
+		
+		// Get maximum institutional quota by e-mail domain
+		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
+				JOIN $databaseName.storage_institutions ON (SUBSTRING_INDEX(email, '@', -1)=domain)
+				WHERE userID=?";
+		$institutionalDomainQuota = Zotero_DB::valueQuery($sql, $userID);
+		
+		// Get maximum institutional quota by e-mail address
+		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
+				JOIN $databaseName.storage_institution_email USING (email)
+				JOIN $databaseName.storage_institutions USING (institutionID)
+				WHERE userID=?";
+		$institutionalEmailQuota = Zotero_DB::valueQuery($sql, $userID);
+		
+		$quota = max($personalQuota, $institutionalDomainQuota, $institutionalEmailQuota);
+		$quota = $quota ? $quota : self::$defaultQuota;
+		
+		Z_Core::$MC->set($cacheKey, $quota, 60);
+		
+		return $quota;
+	}
 	
 	public static function getUserUsage($userID) {
 		$usage = array();
