@@ -38,11 +38,15 @@ class Zotero_Groups {
 	public static function getAllAdvanced($userID=false, $params=array()) {
 		$results = array('groups' => array(), 'total' => 0);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS groupID FROM groups WHERE 1 ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS groupID FROM groups ";
 		$sqlParams = array();
+		
 		if ($userID) {
-			$sql .= "AND groupID IN (SELECT groupID FROM groupUsers WHERE userID=?) ";
+			$sql .= "JOIN groupUsers USING (groupID) WHERE userID=? ";
 			$sqlParams[] = $userID;
+		}
+		else {
+			$sql .= "WHERE 1 ";
 		}
 		
 		if (!empty($params['q'])) {
