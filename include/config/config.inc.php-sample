@@ -28,6 +28,7 @@ class Z_CONFIG {
 	);
 	
 	public static $LOG_TIMEZONE = 'US/Eastern';
+	public static $LOG_TARGET_DEFAULT = 'errors';
 	
 	public static $SYNC_PROCESSOR_BIND_ADDRESS = '192.168.1.255';
 	public static $SYNC_PROCESSOR_PORT_DOWNLOAD = 3455;
