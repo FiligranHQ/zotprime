@@ -128,7 +128,7 @@ class Zotero_Search {
 			return false;
 		}
 		
-		if (!isset($this->name)) {
+		if (!isset($this->name) || $this->name === '') {
 			throw new Exception("Name not provided for saved search");
 		}
 		
