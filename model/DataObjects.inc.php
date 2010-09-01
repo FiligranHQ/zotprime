@@ -224,18 +224,10 @@ class Zotero_DataObjects {
 			throw new Exception("Invalid key $key");
 		}
 		
-		// Access check
-		if ($type == 'item') {
-			// isEditable(), called by editCheck(), needs a real object for items
-			$obj = Zotero_Items::getByLibraryAndKey($libraryID, $key);
-			if (!$obj) {
-				return;
-			}
-		}
-		else {
-			// All we need here is the libraryID, so fake it
-			$obj = new stdClass;
-			$obj->libraryID = $libraryID;
+		// Get object (and trigger caching)
+		$obj = static::getByLibraryAndKey($libraryID, $key);
+		if (!$obj) {
+			return;
 		}
 		static::editCheck($obj);
 		
