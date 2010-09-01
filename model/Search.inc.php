@@ -118,7 +118,7 @@ class Zotero_Search {
 	 */
 	public function save($fixGaps=false) {
 		if (!$this->libraryID) {
-			trigger_error("Library ID must be set before saving", E_USER_ERROR);
+			throw new Exception("Library ID must be set before saving");
 		}
 		
 		Zotero_Searches::editCheck($this);
@@ -128,8 +128,8 @@ class Zotero_Search {
 			return false;
 		}
 		
-		if (!$this->name) {
-			trigger_error("Name not provided for saved search", E_USER_ERROR);
+		if (!isset($this->name)) {
+			throw new Exception("Name not provided for saved search");
 		}
 		
 		Zotero_DB::beginTransaction();
