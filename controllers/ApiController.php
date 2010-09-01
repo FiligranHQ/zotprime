@@ -774,6 +774,7 @@ class ApiController extends Controller {
 		// GET request
 		$xml = new SimpleXMLElement('<storage/>');
 		$quota = Zotero_S3::getEffectiveUserQuota($this->objectUserID);
+		$xml->quota = $quota;
 		$values = Zotero_S3::getUserValues($this->objectUserID);
 		if ($values && $values['quota'] > $quota) {
 			$xml->expiration = (int) $values['expiration'];
