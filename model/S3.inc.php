@@ -431,17 +431,7 @@ class Zotero_S3 {
 		}
 	}
 	
-	public static function getEffectiveUserQuota($userID) {
-		$cacheKey = "userStorageQuota_" . $userID;
-		
-		$quota = Z_Core::$MC->get($cacheKey);
-		if ($quota) {
-			return $quota;
-		}
-		
-		$personalQuota = self::getUserValues($userID);
-		$personalQuota = $personalQuota ? $personalQuota['quota'] : 0;
-		
+	public static function getInstitutionalUserQuota($userID) {
 		// TODO: config
 		$databaseName = "zotero_www";
 		if (Z_ENV_TESTING_SITE) {
@@ -461,7 +451,27 @@ class Zotero_S3 {
 				WHERE userID=?";
 		$institutionalEmailQuota = Zotero_DB::valueQuery($sql, $userID);
 		
-		$quota = max($personalQuota, $institutionalDomainQuota, $institutionalEmailQuota);
+		$quota = max($institutionalDomainQuota, $institutionalEmailQuota);
+		return $quota ? $quota : false;
+	}
+	
+	public static function getEffectiveUserQuota($userID) {
+		$cacheKey = "userStorageQuota_" . $userID;
+		
+		$quota = Z_Core::$MC->get($cacheKey);
+		if ($quota) {
+			return $quota;
+		}
+		
+		$personalQuota = self::getUserValues($userID);
+		$personalQuota = $personalQuota ? $personalQuota['quota'] : 0;
+		
+		$instQuota = self::getInstitutionalUserQuota($userID);
+		if (!$instQuota) {
+			$instQuota = 0;
+		}
+		
+		$quota = max($personalQuota, $instQuota);
 		$quota = $quota ? $quota : self::$defaultQuota;
 		
 		Z_Core::$MC->set($cacheKey, $quota, 60);
