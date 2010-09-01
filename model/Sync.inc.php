@@ -701,7 +701,7 @@ class Zotero_Sync {
 					
 					switch ($entry['action']) {
 						case 'update':
-							$sql = "UPDATE groupUsers SET lastModified=FROM_UNIXTIME(?) WHERE groupID=? AND userID=?";
+							$sql = "UPDATE groupUsers SET lastUpdated=FROM_UNIXTIME(?) WHERE groupID=? AND userID=?";
 							$affected = Zotero_DB::query($sql, array($timestamp, $groupID, $userID));
 							break;
 						
