@@ -121,7 +121,7 @@ abstract class Zotero_Processor_Daemon {
 			
 			if ($buffer == "NEXT" || $buffer == "GO") {
 				if ($buffer == "NEXT") {
-					$this->log("NEXT received");
+					//$this->log("NEXT received");
 					$this->totalProcesses++;
 				}
 				
@@ -147,7 +147,7 @@ abstract class Zotero_Processor_Daemon {
 				try {
 					// Under some conditions, do a DB query to determine number of queued processes
 					if ($buffer == "NEXT" && ($numProcessors <= 0 || (microtime(true) - $lastCheck) >= $this->minCheckInterval)) {
-						$this->log("Checking queued processes");
+						//$this->log("Checking queued processes");
 						$queuedProcesses = $this->countQueuedProcesses();
 						$this->totalProcesses = $numProcessors + $queuedProcesses;
 						$lastCheck = microtime(true);
