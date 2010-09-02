@@ -344,21 +344,30 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 	public function testQueue() {
 		Z_Core::$MC->delete("testFoo");
 		Z_Core::$MC->delete("testFoo2");
+		Z_Core::$MC->delete("testFoo3");
 		
 		Z_Core::$MC->begin();
 		Z_Core::$MC->set("testFoo", "bar");
-		Z_Core::$MC->add("testFoo2", "bar2");
+		Z_Core::$MC->set("testFoo", "bar2");
+		Z_Core::$MC->add("testFoo", "bar3"); // should be ignored
+		
+		Z_Core::$MC->add("testFoo2", "bar4");
+		
+		Z_Core::$MC->add("testFoo3", "bar5");
+		Z_Core::$MC->set("testFoo3", "bar6");
 		
 		// For now, this should return true, since local caching is used throughout code
 		//
 		// Eventually, gets within a transaction should return the queued value
 		$this->assertEquals(Z_Core::$MC->get("testFoo"), false);
 		$this->assertEquals(Z_Core::$MC->get("testFoo2"), false);
+		$this->assertEquals(Z_Core::$MC->get("testFoo3"), false);
 		
 		Z_Core::$MC->commit();
 		
-		$this->assertEquals(Z_Core::$MC->get("testFoo"), "bar");
-		$this->assertEquals(Z_Core::$MC->get("testFoo2"), "bar2");
+		$this->assertEquals(Z_Core::$MC->get("testFoo"), "bar2");
+		$this->assertEquals(Z_Core::$MC->get("testFoo2"), "bar4");
+		$this->assertEquals(Z_Core::$MC->get("testFoo3"), "bar6");
 	}
 	
 	public function testUnicode() {

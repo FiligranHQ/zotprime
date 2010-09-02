@@ -30,6 +30,8 @@ class Z_MemcachedClientLocal {
 	private $disabled;
 	private $queuing = false;
 	private $queue = array();
+	private $queueKeyPos = array();
+	private $queueValues = array();
 	private $errorLogged = false;
 	
 	
@@ -91,12 +93,24 @@ class Z_MemcachedClientLocal {
 		}
 		
 		if ($this->queuing) {
+			// If this is already set, clear the previous value to save memory
+			// and mark for skipping when committing
+			if (isset($this->queueKeyPos[$key])) {
+				$pos = $this->queueKeyPos[$key];
+				$this->queue[$pos]['skip'] = true;
+			}
+			
 			$this->queue[] = array(
 				'op' => 'set',
 				'key' => $key,
-				'value' => $val,
 				'exp' => $exptime
 			);
+			
+			$this->queueValues[$key] = $val;
+			
+			// Store the position in case we need to clear later
+			$this->queueKeyPos[$key] = sizeOf($this->queue) - 1;
+			
 			return true;
 		}
 		
@@ -115,12 +129,19 @@ class Z_MemcachedClientLocal {
 		}
 		
 		if ($this->queuing) {
+			// If this is already set, skip, because that's what add() does
+			if (isset($this->queueKeyPos[$key])) {
+				return false;
+			}
+			
 			$this->queue[] = array(
 				'op' => 'add',
 				'key' => $key,
-				'value' => $val,
 				'exp' => $exptime
 			);
+			
+			$this->queueValues[$key] = $val;
+			
 			return true;
 		}
 		
@@ -178,9 +199,13 @@ class Z_MemcachedClientLocal {
 		
 		$this->queuing = false;
 		foreach ($this->queue as $arr) {
+			if (!empty($arr['skip'])) {
+				continue;
+			}
+			
 			$op = $arr['op'];
 			$key = $arr['key'];
-			$val = $arr['value'];
+			$val = $this->queueValues[$key];
 			$exp = $arr['exp'];
 			
 			switch ($op) {
@@ -208,6 +233,8 @@ class Z_MemcachedClientLocal {
 		
 		$this->queuing = false;
 		$this->queue = array();
+		$this->queueKeyPos = array();
+		$this->queueValues = array();
 	}
 }
 
