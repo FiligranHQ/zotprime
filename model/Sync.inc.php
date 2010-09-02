@@ -616,7 +616,7 @@ class Zotero_Sync {
 			}
 		}
 		catch (Exception $e) {
-			Z_Core::logError($e);
+			//Z_Core::logError($e);
 			
 			Zotero_DB::beginTransaction();
 			
