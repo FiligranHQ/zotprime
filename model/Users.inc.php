@@ -204,6 +204,11 @@ class Zotero_Users {
 			Zotero_DB::query($sql, $libraryID);
 		}
 		
+		foreach (Zotero_DataObjects::$objectTypes as $type=>$arr) {
+			$cacheKey = $type . 'IDsByKey_' . $libraryID;
+			Z_Core::$MC->delete($cacheKey);
+		}
+		
 		// TODO: Better handling of locked out sessions elsewhere
 		//$sql = "UPDATE zotero_sessions.sessions SET exclusive=0 WHERE userID=?";
 		$sql = "UPDATE sessions SET timestamp='0000-00-00 00:00:00',
