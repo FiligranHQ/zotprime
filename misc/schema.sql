@@ -441,6 +441,7 @@ CREATE TABLE `itemNotes` (
   `sourceItemID` int(10) unsigned DEFAULT NULL,
   `note` mediumtext NOT NULL,
   `title` varchar(80) NOT NULL,
+  `hash` varchar(32) NOT NULL,
   PRIMARY KEY (`itemID`),
   KEY `sourceItemID` (`sourceItemID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
