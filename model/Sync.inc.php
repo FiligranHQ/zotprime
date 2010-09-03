@@ -840,11 +840,19 @@ class Zotero_Sync {
 	
 	
 	/**
-	 * Remove process id from process in database
+	 * Purge error process from database and reset errorCheck to 0
+	 *
+	 * This is called only after an error check is orphaned
 	 */
-	public static function removeErrorProcess($syncErrorProcessID) {
-		$sql = "UPDATE syncQueue SET syncProcessID=NULL, errorCheck=0 WHERE syncProcessID=?";
+	public static function purgeErrorProcess($syncErrorProcessID) {
+		Zotero_DB::beginTransaction();
+		
+		self::removeUploadProcess($syncErrorProcessID);
+		
+		$sql = "UPDATE syncQueue SET errorCheck=0 WHERE syncProcessID=?";
 		Zotero_DB::query($sql, $syncErrorProcessID);
+		
+		Zotero_DB::commit();
 	}
 	
 	

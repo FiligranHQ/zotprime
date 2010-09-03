@@ -392,12 +392,12 @@ class Zotero_Error_Processor_Daemon extends Zotero_Processor_Daemon {
 		return Zotero_Sync::countQueuedUploadProcesses(true);
 	}
 	
-			protected function getOldProcesses($host=null, $seconds=null) {
+	protected function getOldProcesses($host=null, $seconds=null) {
 		return Zotero_Sync::getOldErrorProcesses($host, $seconds);
 	}
 	
 	protected function removeProcess($id) {
-		Zotero_Sync::removeErrorProcess($id);
+		Zotero_Sync::purgeErrorProcess($id);
 	}
 }
 ?>
