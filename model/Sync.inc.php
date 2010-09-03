@@ -1003,18 +1003,27 @@ class Zotero_Sync {
 							if ($name == 'tag') {
 								$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj, true);
 							}
+							else if ($name == 'creator') {
+								$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj, $doc);
+								if ($xmlElement->getAttribute('libraryID') == $userLibraryID) {
+									$xmlElement->removeAttribute('libraryID');
+								}
+								$node->appendChild($xmlElement);
+							}
 							else {
 								$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
 							}
 						}
 						
-						if ($xmlElement['libraryID'] == $userLibraryID) {
-							unset($xmlElement['libraryID']);
+						if ($xmlElement instanceof SimpleXMLElement) {
+							if ($xmlElement['libraryID'] == $userLibraryID) {
+								unset($xmlElement['libraryID']);
+							}
+							
+							$newNode = dom_import_simplexml($xmlElement);
+							$newNode = $doc->importNode($newNode, true);
+							$node->appendChild($newNode);
 						}
-						
-						$newNode = dom_import_simplexml($xmlElement);
-						$newNode = $doc->importNode($newNode, true);
-						$node->appendChild($newNode);
 					}
 				}
 			}

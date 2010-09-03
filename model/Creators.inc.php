@@ -391,12 +391,43 @@ class Zotero_Creators extends Zotero_DataObjects {
 */	
 	
 	/**
+	 * Converts a Zotero_Creator object to a DOMElement
+	 *
+	 * @param	object				$item		Zotero_Creator object
+	 * @return	SimpleXMLElement				Creator data as DOMElement element
+	 */
+	public static function convertCreatorToXML(Zotero_Creator $creator, DOMDocument $doc) {
+		$xmlCreator = $doc->createElement('creator');
+		
+		$xmlCreator->setAttributeNode(new DOMAttr('libraryID', $creator->libraryID));
+		$xmlCreator->setAttributeNode(new DOMAttr('key', $creator->key));
+		$xmlCreator->setAttributeNode(new DOMAttr('dateAdded', $creator->dateAdded));
+		$xmlCreator->setAttributeNode(new DOMAttr('dateModified', $creator->dateModified));
+		
+		if ($creator->fieldMode == 1) {
+			$xmlCreator->appendChild(new DOMElement('name', $creator->lastName));
+			$xmlCreator->appendChild(new DOMElement('fieldMode', 1));
+		}
+		else {
+			$xmlCreator->appendChild(new DOMElement('firstName', $creator->firstName));
+			$xmlCreator->appendChild(new DOMElement('lastName', $creator->lastName));
+		}
+		
+		if ($creator->birthYear) {
+			$xmlCreator->appendChild(new DOMElement('birthYear', $creator->birthYear));
+		}
+		
+		return $xmlCreator;
+	}
+	
+	
+	/**
 	 * Converts a Zotero_Creator object to a SimpleXMLElement item
 	 *
 	 * @param	object				$item		Zotero_Creator object
 	 * @return	SimpleXMLElement				Creator data as SimpleXML element
 	 */
-	public static function convertCreatorToXML(Zotero_Creator $creator) {
+/*	public static function convertCreatorToXML(Zotero_Creator $creator) {
 		$xml = new SimpleXMLElement('<creator/>');
 		$xml['libraryID'] = $creator->libraryID;
 		$xml['key'] = $creator->key;
@@ -418,6 +449,7 @@ class Zotero_Creators extends Zotero_DataObjects {
 		
 		return $xml;
 	}
+*/
 	
 	
 	public static function updateLinkedItems($creatorID, $dateModified) {
