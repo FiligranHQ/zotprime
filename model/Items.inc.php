@@ -866,8 +866,8 @@ class Zotero_Items extends Zotero_DataObjects {
 				$c['index'] = $index;
 				if (empty($data['updatedCreators']) ||
 						!in_array($creator['ref']->id, $data['updatedCreators'])) {
-					$creatorXML = Zotero_Creators::convertCreatorToXML($creator['ref'], $cNode->ownerDocument);
 					$cNode = dom_import_simplexml($c);
+					$creatorXML = Zotero_Creators::convertCreatorToXML($creator['ref'], $cNode->ownerDocument);
 					$cNode->appendChild($creatorXML);
 				}
 			}
