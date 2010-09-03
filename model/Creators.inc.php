@@ -405,12 +405,12 @@ class Zotero_Creators extends Zotero_DataObjects {
 		$xmlCreator->setAttributeNode(new DOMAttr('dateModified', $creator->dateModified));
 		
 		if ($creator->fieldMode == 1) {
-			$xmlCreator->appendChild(new DOMElement('name', $creator->lastName));
+			$xmlCreator->appendChild(new DOMElement('name', htmlspecialchars($creator->lastName)));
 			$xmlCreator->appendChild(new DOMElement('fieldMode', 1));
 		}
 		else {
-			$xmlCreator->appendChild(new DOMElement('firstName', $creator->firstName));
-			$xmlCreator->appendChild(new DOMElement('lastName', $creator->lastName));
+			$xmlCreator->appendChild(new DOMElement('firstName', htmlspecialchars($creator->firstName)));
+			$xmlCreator->appendChild(new DOMElement('lastName', htmlspecialchars($creator->lastName)));
 		}
 		
 		if ($creator->birthYear) {
