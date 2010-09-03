@@ -65,7 +65,7 @@ class Z_Log {
 			);
 		}
 		
-		self::logToStdOut($messages);
+		//self::logToStdOut($messages);
 		self::logToScribe($messages);
 	}
 	
