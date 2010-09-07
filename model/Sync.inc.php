@@ -118,14 +118,13 @@ class Zotero_Sync {
 	/**
 	 * Get all the libraryIDs referenced in upload XML
 	 */
-	public static function parseAffectedLibraries(SimpleXMLElement $xml) {
-		set_time_limit(800);
-		$nodes = $xml->xpath('//*[@libraryID]');
-		$unique = array();
-		foreach ($nodes as $node) {
-			$unique[(int) $node['libraryID']] = true;
-		}
-		return array_keys($unique);
+	public static function parseAffectedLibraries($xmlstr) {
+		preg_match_all('/<[^>]+ libraryID="([0-9]+)"/', $xmlstr, $matches);
+		$unique = array_values(array_unique($matches[1]));
+		array_walk($unique, function (&$a) {
+			$a = (int) $a;
+		});
+		return $unique;
 	}
 	
 	
@@ -1143,7 +1142,7 @@ class Zotero_Sync {
 	
 	private static function processUploadInternal($userID, SimpleXMLElement $xml, $syncQueueID=null, $syncProcessID=null) {
 		$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-		$affectedLibraries = self::parseAffectedLibraries($xml);
+		$affectedLibraries = self::parseAffectedLibraries($xml->asXML());
 		// Relations-only uploads don't have affected libraries
 		if (!$affectedLibraries) {
 			$affectedLibraries = array(Zotero_Users::getLibraryIDFromUserID($userID));

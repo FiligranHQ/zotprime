@@ -383,7 +383,7 @@ class SyncController extends Controller {
 				$queue = false;
 			}
 			if ($queue) {
-				$affectedLibraries = Zotero_Sync::parseAffectedLibraries($xml);
+				$affectedLibraries = Zotero_Sync::parseAffectedLibraries($xmldata);
 				// Relations-only uploads don't have affected libraries
 				if (!$affectedLibraries) {
 					$affectedLibraries = array(Zotero_Users::getLibraryIDFromUserID($this->userID));
