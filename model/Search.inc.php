@@ -203,7 +203,16 @@ class Zotero_Search {
 					$condition['value'] ? $condition['value'] : '',
 					$condition['required'] ? 1 : 0
 				);
-				Zotero_DB::query($sql, $sqlParams);
+				try {
+					Zotero_DB::query($sql, $sqlParams);
+				}
+				catch (Exception $e) {
+					$msg = $e->getMessage();
+					if (strpos($msg, "Data too long for column 'value'") !== false) {
+						throw new Exception("=Value '" . mb_substr($condition['value'], 0, 75) . "…' too long in saved search '" . $this->name . "'");
+					}
+					throw ($e);
+				}
 			}
 			
 			Zotero_DB::commit();
