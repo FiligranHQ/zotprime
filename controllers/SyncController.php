@@ -588,6 +588,7 @@ class SyncController extends Controller {
 					case Z_ERROR_ITEM_NOT_FOUND:
 					case Z_ERROR_TAG_TOO_LONG:
 					case Z_ERROR_LIBRARY_ACCESS_DENIED:
+					case Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND:
 						break;
 					
 					default:
@@ -660,6 +661,11 @@ class SyncController extends Controller {
 			case Z_ERROR_ARRAY_SIZE_MISMATCH:
 				$this->error(400, 'DATABASE_TOO_LARGE',
 					"Databases of this size cannot yet be synced. Please check back soon. (Report ID: $id)");
+				break;
+			
+			case Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND:
+				$this->error(400, 'WRONG_LIBRARY_TAG_ITEM',
+					"Error processing uploaded data (Report ID: $id)");
 				break;
 		}
 		

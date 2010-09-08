@@ -308,7 +308,9 @@ class Zotero_Tags extends Zotero_DataObjects {
 			foreach ($itemKeys as $key) {
 				$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
 				if (!$item) {
-					throw new Exception("Linked item $key of tag $libraryID/$tag->key not found", Z_ERROR_ITEM_NOT_FOUND);
+					// Return a specific error for a wrong-library tag issue that I can't reproduce
+					throw new Exception("Linked item $key of tag $libraryID/$tag->key not found", Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND);
+					//throw new Exception("Linked item $key of tag $libraryID/$tag->key not found", Z_ERROR_ITEM_NOT_FOUND);
 				}
 				$itemIDs[] = $item->id;
 			}
