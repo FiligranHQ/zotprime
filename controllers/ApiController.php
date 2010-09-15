@@ -1747,6 +1747,7 @@ class ApiController extends Controller {
 	}
 	
 	public function noop() {
+		echo "Nothing to see here.";
 		exit;
 	}
 	
