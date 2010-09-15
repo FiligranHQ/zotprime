@@ -496,8 +496,7 @@ class Zotero_Group {
 	 * @return {Integer[]}	Array of itemIDs
 	 */
 	public function getItems($asIDs=false) {
-		$sql = "SELECT itemID FROM items WHERE libraryID=
-				(SELECT libraryID FROM groups WHERE groupID=?)";
+		$sql = "SELECT itemID FROM items JOIN groups USING (libraryID) WHERE groupID=?";
 		$ids = Zotero_DB::columnQuery($sql, $this->id);
 		if (!$ids) {
 			return array();
@@ -508,6 +507,15 @@ class Zotero_Group {
 		}
 		
 		return Zotero_Items::get($ids);
+	}
+	
+	
+	/**
+	 * Returns the number of items in the group
+	 */
+	public function numItems() {
+		$sql = "SELECT COUNT(*) FROM items JOIN groups USING (libraryID) WHERE groupID=?";
+		return Zotero_DB::valueQuery($sql, $this->id);
 	}
 	
 	
@@ -762,25 +770,6 @@ class Zotero_Group {
 			if ($members) {
 				$xml->members = implode(' ', $members);
 			}
-			
-			$items = $this->getItems();
-			if ($items) {
-				$keys = array();
-				foreach($items as $item) {
-					// Sync uses keys
-					if ($syncMode) {
-						$keys[] = $item->key;
-					}
-					// API uses ids
-					else {
-						$keys[] = $item->id;
-					}
-				}
-				
-				if ($keys) {
-					$xml->items = implode(' ', $keys);
-				}
-			}
 		}
 		
 		return $xml;
@@ -821,10 +810,9 @@ class Zotero_Group {
 		$link['type'] = 'text/html';
 		$link['href'] = Zotero_URI::getGroupURI($this);
 		
-		$items = $this->getItems();
 		$xml->addChild(
 			'zapi:numItems',
-			sizeOf($items),
+			$this->numItems(),
 			Zotero_Atom::$nsZoteroAPI
 		);
 		
