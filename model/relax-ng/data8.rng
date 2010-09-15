@@ -386,11 +386,6 @@
                   <data type="anyURI"/>
                 </element>
               </optional>
-              <optional>
-                <element name="items">
-                  <ref name="keys"/>
-                </element>
-              </optional>
             </element>
           </oneOrMore>
         </element>

@@ -165,10 +165,7 @@ start =
 			attribute editable { "0" | "1" },
 			attribute filesEditable { "0" | "1" },
 			element description { text }?,
-			element url { xsd:anyURI }?,
-			element items {
-				keys
-			}?
+			element url { xsd:anyURI }?
 		}+
 	}?
 	& element relations {
