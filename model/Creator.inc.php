@@ -28,7 +28,7 @@ class Zotero_Creator {
 	private $id;
 	private $libraryID;
 	private $key;
-	private $creatorDataID;
+	private $creatorDataHash;
 	private $firstName = '';
 	private $lastName = '';
 	private $shortName = '';
@@ -102,7 +102,7 @@ class Zotero_Creator {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM creators WHERE creatorID=?";
-		return !!Zotero_DB::valueQuery($sql, $this->id);
+		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getShardIDByLibraryID($this->libraryID));
 	}
 	
 	
@@ -140,7 +140,7 @@ class Zotero_Creator {
 			Z_Core::debug("Saving creator $this->id");
 			
 			$key = $this->key ? $this->key : $this->generateKey();
-			$creatorDataID = Zotero_Creators::getDataID($this, true);
+			$creatorDataHash = Zotero_Creators::getDataHash($this, true);
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$timestampMS = Zotero_DB::getTransactionTimestampMS();
@@ -148,10 +148,10 @@ class Zotero_Creator {
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = isset($this->changed['dateModified']) ? $this->dateModified : $timestamp;
 			
-			$fields = "creatorDataID=?, libraryID=?, `key`=?, dateAdded=?,
+			$fields = "creatorDataHash=?, libraryID=?, `key`=?, dateAdded=?,
 						dateModified=?, serverDateModified=?, serverDateModifiedMS=?";
 			$params = array(
-				$creatorDataID,
+				$creatorDataHash,
 				$this->libraryID,
 				$key,
 				$dateAdded,
@@ -163,7 +163,7 @@ class Zotero_Creator {
 			$params = array_merge(array($creatorID), $params, $params);
 			
 			$sql = "INSERT INTO creators SET creatorID=?, $fields ON DUPLICATE KEY UPDATE $fields";
-			$stmt = Zotero_DB::getStatement($sql, true);
+			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 			$insertID = Zotero_DB::queryFromStatement($stmt, $params);
 			if (!$this->id) {
 				if (!$insertID) {
@@ -173,8 +173,10 @@ class Zotero_Creator {
 				Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $insertID);
 			}
 			
-			// Update mod times of associated items -- from the client, but this
-			// doesn't seem particularly necessary here
+			// Update mod times of associated items -- from the client, but is
+			// this necessary here?
+			//
+			// What about for server-originated writes?
 			//if ($this->id) {
 			//	Zotero_Creators::updateLinkedItems($creatorID, $dateModified);
 			//}
@@ -189,7 +191,7 @@ class Zotero_Creator {
 					'key' => $key,
 					'dateAdded' => $dateAdded,
 					'dateModified' => $dateModified,
-					'creatorDataID' => $creatorDataID
+					'creatorDataHash' => $creatorDataHash
 				)
 			);
 		}
@@ -205,8 +207,8 @@ class Zotero_Creator {
 		if (!$this->key) {
 			$this->key = $key;
 		}
-		if (!$this->creatorDataID) {
-			$this->creatorDataID = $creatorDataID;
+		if (!$this->creatorDataHash) {
+			$this->creatorDataHash = $creatorDataHash;
 		}
 		
 		// TODO: reload
@@ -225,16 +227,20 @@ class Zotero_Creator {
 	
 	
 	private function load() {
-		Z_Core::debug("Loading data for creator $this->id");
+		if (!$this->libraryID) {
+			throw new Exception("Library ID not set");
+		}
 		
 		if (!$this->id && !$this->key) {
 			throw new Exception("ID or key not set");
 		}
 		
 		if ($this->id) {
-			$row = Zotero_Creators::getPrimaryDataByCreatorID($this->id);
+			//Z_Core::debug("Loading data for creator $this->libraryID/$this->id");
+			$row = Zotero_Creators::getPrimaryDataByCreatorID($this->libraryID, $this->id);
 		}
 		else {
+			//Z_Core::debug("Loading data for creator $this->libraryID/$this->key");
 			$row = Zotero_Creators::getPrimaryDataByLibraryAndKey($this->libraryID, $this->key);
 		}
 		
@@ -245,11 +251,15 @@ class Zotero_Creator {
 			return;
 		}
 		
+		if ($row['libraryID'] != $this->libraryID) {
+			throw new Exception("libraryID {$row['libraryID']} != $this->libraryID");
+		}
+		
 		foreach ($row as $key=>$val) {
 			$this->$key = $val;
 		}
 		
-		$data = Zotero_Creators::getData($row['creatorDataID']);
+		$data = Zotero_Creators::getData($row['creatorDataHash']);
 		foreach ($data as $key=>$val) {
 			$this->$key = $val;
 		}

@@ -25,9 +25,11 @@
 */
 
 class Z_Core {
-	public static $MC = null; // MemCache
+	public static $Mongo = null; // Mongo
+	public static $MC = null; // Memcache
 	
 	public static function debug($str, $level=false) {
+		//error_log($str);
 	}
 	
 	

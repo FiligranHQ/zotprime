@@ -7,22 +7,19 @@ if (!Z_ENV_DEV_SITE) {
 	die("Test setup script can be run only on dev sites\n");
 }
 
-// Recreate test data
-Zotero_DB::query("TRUNCATE TABLE libraries");
-Zotero_DB::query("TRUNCATE TABLE itemDataValues");
-Zotero_DB::query("TRUNCATE TABLE items");
-Zotero_DB::query("TRUNCATE TABLE groups");
-Zotero_DB::query("TRUNCATE TABLE zotero_www_test.users");
+Zotero_DB::query("DELETE FROM syncProcesses");
+Zotero_DB::query("DELETE FROM syncQueue");
+Zotero_DB::query("DELETE FROM libraries WHERE libraryID>3");
+Zotero_DB::query("DELETE FROM zotero_www_test.users WHERE userID>2");
 
-Zotero_DB::query("INSERT INTO libraries VALUES (1, 'user', '0000-00-00 00:00:00', 0)");
-Zotero_DB::query("INSERT INTO libraries VALUES (2, 'user', '0000-00-00 00:00:00', 0)");
-Zotero_DB::query("INSERT INTO libraries VALUES (3, 'group', '0000-00-00 00:00:00', 0)");
-Zotero_DB::query("INSERT INTO users VALUES (1, 1, 'testuser', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
-Zotero_DB::query("INSERT INTO users VALUES (2, 2, 'testuser2', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
-Zotero_DB::query("INSERT INTO groups VALUES (1, 3, 'Test Group', 'test_group', 'Private', 1, 'admins', 'all', 'members', '', '', 0, '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
-Zotero_DB::query("INSERT INTO groupUsers VALUES (1, 1, 'owner', '0000-00-00 00:00:00', '0000-00-00 00:00:00')");
-Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (1, 'testuser', 'b7a875fc1ea228b9061041b7cec4bd3c52ab3ce3', 'test@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser')");
-Zotero_DB::query("INSERT INTO zotero_www_test.users VALUES (2, 'testuser2', 'fc707fc0b8c62cfeeafffde7273978d29d6d2374', 'test2@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser2')");
+$shards = array(1,2);
+foreach ($shards as $shardID) {
+	Zotero_DB::query("DELETE FROM items", false, $shardID);
+}
+
+// TODO: clear MongoDB values
+Z_Core::$Mongo->removeAll("creatorData");
+Z_Core::$Mongo->removeAll("itemDataValues");
 
 // Sample data for user 1
 $itemObj = new Zotero_Item();

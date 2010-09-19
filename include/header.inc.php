@@ -63,7 +63,7 @@ function __autoload($className) {
 }
 
 // Read in configuration variables
-include('config/config.inc.php');
+require('config/config.inc.php');
 
 if (Z_Core::isCommandLine()) {
 	if (empty(Z_CONFIG::$CLI_DOCUMENT_ROOT)) {
@@ -105,7 +105,8 @@ if (Z_CONFIG::$TESTING_SITE) {
 	
 	// Display errors on testing site
 	ini_set("display_errors", "1");
-	error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE | E_STRICT);
+	//error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE | E_STRICT);
+	error_reporting(-1);
 	
 	define('Z_ENV_DEV_SITE', !empty(Z_CONFIG::$DEV_SITE));
 }
@@ -127,14 +128,16 @@ define('Z_ENV_SELF', $matches[0]);
 
 // Load in core functions
 
-include('DB.inc.php');
-include('config/dbconnect.inc.php');
+require('DB.inc.php');
+require('Shards.inc.php');
+require('config/dbconnect.inc.php');
 
-include('Memcached.inc.php');
+require('Mongo.inc.php');
+require('Memcached.inc.php');
 
 require('interfaces/IAuthenticationPlugin.inc.php');
 
-include('log.inc.php');
+require('log.inc.php');
 
 // Load in functions
 require('functions/string.inc.php');

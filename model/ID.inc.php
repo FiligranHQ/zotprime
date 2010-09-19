@@ -32,9 +32,6 @@ class Zotero_ID {
 		switch ($table) {
 			// Always use auto-increment
 			// TODO: purge these sometimes?
-			case 'creatorData':
-			case 'itemDataValues':
-			case 'mimeTypes':
 			case 'tags':
 			case 'creators':
 			case 'collections':
@@ -42,7 +39,6 @@ class Zotero_ID {
 			case 'relations':
 			case 'savedSearches':
 			case 'tags':
-			case 'tagData':
 				return null;
 			
 			// Non-autoincrement tables
@@ -64,6 +60,7 @@ class Zotero_ID {
 	* Get MAX(id) + 1 from table
 	*/                     
 	private function getNext($table) {
+		throw new Exception("Unavailable");
 		$column = self::getTableColumn($table);
 		$where = self::getWhere($table);
 		$sql = "SELECT NEXT_ID($column) FROM $table" . $where;
@@ -73,12 +70,6 @@ class Zotero_ID {
 	
 	private function getTableColumn($table) {
 		switch ($table) {
-			case 'creatorData':
-				return 'creatorDataID';
-			
-			case 'itemDataValues':
-				return 'itemDataValueID';
-				
 			case 'savedSearches':
 				return 'savedSearchID';
 				

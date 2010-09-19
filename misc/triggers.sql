@@ -348,7 +348,7 @@ CREATE TRIGGER fki_deletedItems_libraryID
   BEFORE INSERT ON deletedItems
   FOR EACH ROW BEGIN
     IF (
-        SELECT COUNT(*) FROM items WHERE itemID=NEW.itemID AND libraryID IN (SELECT libraryID FROM libraries WHERE libraryType='user')
+        SELECT COUNT(*) FROM items JOIN `master`.libraries USING (libraryID) WHERE itemID=NEW.itemID AND libraryType='user'
     )=0 THEN
     SELECT deleted_item_must_belong_to_user_library INTO @failure FROM deletedItems;
     END IF;
@@ -359,7 +359,7 @@ CREATE TRIGGER fku_deletedItems_libraryID
   BEFORE UPDATE ON deletedItems
   FOR EACH ROW BEGIN
     IF (
-        SELECT COUNT(*) FROM items WHERE itemID=NEW.itemID AND libraryID IN (SELECT libraryID FROM libraries WHERE libraryType='user')
+        SELECT COUNT(*) FROM items JOIN `master`.libraries USING (libraryID) WHERE itemID=NEW.itemID AND libraryType='user'
     )=0 THEN
     SELECT deleted_item_must_belong_to_user_library INTO @failure FROM deletedItems;
     END IF;

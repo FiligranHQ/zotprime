@@ -103,7 +103,7 @@ class Zotero_Search {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM savedSearches WHERE searchID=?";
-		return !!Zotero_DB::valueQuery($sql, $this->id);
+		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -132,6 +132,8 @@ class Zotero_Search {
 			throw new Exception("Name not provided for saved search");
 		}
 		
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
 		Zotero_DB::beginTransaction();
 		
 		$isNew = !$this->id || !$this->exists();
@@ -143,7 +145,7 @@ class Zotero_Search {
 			
 			if (!$isNew) {
 				$sql = "DELETE FROM savedSearchConditions WHERE searchID=?";
-				Zotero_DB::query($sql, $searchID);
+				Zotero_DB::query($sql, $searchID, $shardID);
 			}
 			
 			$key = $this->key ? $this->key : $this->generateKey();
@@ -166,7 +168,7 @@ class Zotero_Search {
 			
 			$sql = "INSERT INTO savedSearches SET searchID=?, $fields
 					ON DUPLICATE KEY UPDATE $fields";
-			$insertID = Zotero_DB::query($sql, $params);
+			$insertID = Zotero_DB::query($sql, $params, $shardID);
 			if (!$this->id) {
 				if (!$insertID) {
 					throw new Exception("Search id not available after INSERT");
@@ -204,7 +206,7 @@ class Zotero_Search {
 					$condition['required'] ? 1 : 0
 				);
 				try {
-					Zotero_DB::query($sql, $sqlParams);
+					Zotero_DB::query($sql, $sqlParams, $shardID);
 				}
 				catch (Exception $e) {
 					$msg = $e->getMessage();
@@ -342,12 +344,18 @@ class Zotero_Search {
 	}
 	
 	
-	private function load($allowFail=false) {
-		Z_Core::debug("Loading data for search $this->id");
+	private function load() {
+		//Z_Core::debug("Loading data for search $this->id");
+		
+		if (!$this->libraryID) {
+			throw new Exception("Library ID not set");
+		}
 		
 		if (!$this->id && !$this->key) {
 			throw new Exception("ID or key not set");
 		}
+		
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 		
 		$sql = "SELECT searchID AS id, searchName AS name, dateAdded, dateModified, libraryID, `key`,
 				MAX(searchConditionID) AS maxSearchConditionID FROM savedSearches
@@ -361,7 +369,7 @@ class Zotero_Search {
 			$params = array($this->libraryID, $this->key);
 		}
 		$sql .= " GROUP BY searchID";
-		$data = Zotero_DB::rowQuery($sql, $params);
+		$data = Zotero_DB::rowQuery($sql, $params, $shardID);
 		
 		$this->loaded = true;
 		
@@ -375,7 +383,7 @@ class Zotero_Search {
 		
 		$sql = "SELECT * FROM savedSearchConditions
 				WHERE searchID=? ORDER BY searchConditionID";
-		$conditions = Zotero_DB::query($sql, $this->id);
+		$conditions = Zotero_DB::query($sql, $this->id, $shardID);
 		
 		foreach ($conditions as $condition) {
 			/*

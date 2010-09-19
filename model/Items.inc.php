@@ -34,19 +34,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		'firstCreator', 'numNotes', 'numAttachments');
 	private static $maxDataValueLength = 65535;
 	
-	public static $dataValueIDCache = array();
+	public static $dataValuesByHash = array();
 	
-	public static $dataValueIDsByHash = array();
-	public static $dataValuesByID = array();
-	
-	public static function get($itemIDs) {
+	public static function get($libraryID, $itemIDs) {
 		$numArgs = func_num_args();
-		if ($numArgs>1) {
-			throw new Exception("Constructor takes only one parameter");
-		}
-		
-		if (!$itemIDs) {
-			throw new Exception("itemIDs is not provided");
+		if ($numArgs != 2) {
+			throw new Exception("Constructor takes two parameters");
 		}
 		
 		if (is_scalar($itemIDs)) {
@@ -60,23 +53,24 @@ class Zotero_Items extends Zotero_DataObjects {
 		$toLoad = array();
 		
 		foreach ($itemIDs as $itemID) {
-			if (!isset(self::$items[$itemID])) {
+			if (!isset(self::$items[$libraryID][$itemID])) {
 				array_push($toLoad, $itemID);
 			}
 		}
 		
 		if ($toLoad) {
-			self::loadItems($toLoad);
+			self::loadItems($libraryID, $toLoad);
 		}
 		
 		$loaded = array();
 		
+		// Make sure items exist
 		foreach ($itemIDs as $itemID) {
-			if (!isset(self::$items[$itemID])) {
+			if (!isset(self::$items[$libraryID][$itemID])) {
 				Z_Core::debug("Item $itemID doesn't exist");
 				continue;
 			}
-			$loaded[] = self::$items[$itemID];
+			$loaded[] = self::$items[$libraryID][$itemID];
 		}
 		
 		if ($single) {
@@ -84,14 +78,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		return $loaded;
-	}
-	
-	
-	public static function exist($itemIDs) {
-		$sql = "SELECT itemID FROM items WHERE itemID IN ("
-			. implode(', ', array_fill(0, sizeOf($itemIDs), '?')) . ")";
-		$exist = Zotero_DB::columnQuery($sql, $itemIDs);
-		return $exist ? $exist : array();
 	}
 	
 	
@@ -104,14 +90,14 @@ class Zotero_Items extends Zotero_DataObjects {
 	 */
 	public static function getDeleted($libraryID, $asIDs) {
 		$sql = "SELECT itemID FROM deletedItems JOIN items USING (itemID) WHERE libraryID=?";
-		$ids = Zotero_DB::columnQuery($sql, $libraryID);
+		$ids = Zotero_DB::columnQuery($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 		if (!$ids) {
 			return array();
 		}
 		if ($asIDs) {
 			return $ids;
 		}
-		return self::get($ids);
+		return self::get($libraryID, $ids);
 	}
 	
 	
@@ -171,231 +157,256 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
 			$sqlParams[] = $params['limit'];
 		}
-		$itemIDs = Zotero_DB::columnQuery($sql, $sqlParams);
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		$itemIDs = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
 		if ($itemIDs) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
-			$results['items'] = Zotero_Items::get($itemIDs);
+			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
+			$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
 		}
 		
 		return $results;
 	}
 	
 	/*
-	 * Generate SQL to retrieve firstCreator field
+	 * Generate SQL to retrieve creatorDataHashes for firstCreator field
+	 *
+	 * Format:
+	 *
+	 * 1:  'e48437e66f1e01311ba72d182b8a9a09'
+	 * 2:  'e48437e66f1e01311ba72d182b8a9a09,a4c42d664aa99b73885cc271fdcaa37f'
+	 * 3+: 'e48437e66f1e01311ba72d182b8a9a09,+'
 	 *
 	 * Why do we do this entirely in SQL? Because we're crazy. Crazy like foxes.
 	 */
-	public static function getFirstCreatorSQL() {
+	public static function getFirstCreatorHashesSQL() {
 		// TODO: memcache keyed with localizedAnd
+		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
 		
 		/* This whole block is to get the firstCreator */
-		$localizedAnd = 'and';
 		$sql = "COALESCE(" .
 			// First try for primary creator types
 			"CASE (" .
 				"SELECT COUNT(*) FROM itemCreators IC " .
-				"LEFT JOIN itemTypeCreatorTypes ITCT " .
+				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
 				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
 				"WHERE itemID=I.itemID AND primaryField=1 " .
 				"AND ITCT.itemTypeID=I.itemTypeID" .
 			") " .
 			"WHEN 0 THEN NULL " .
 			"WHEN 1 THEN (" .
-				"SELECT lastName FROM itemCreators IC NATURAL JOIN creators " .
-				"NATURAL JOIN creatorData " .
-				"LEFT JOIN itemTypeCreatorTypes ITCT " .
+				"SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
+				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
 				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
 				"WHERE itemID=I.itemID AND primaryField=1 " .
 				"AND ITCT.itemTypeID=I.itemTypeID" .
 			") " .
 			"WHEN 2 THEN (" .
 				"SELECT CONCAT(" .
-				"(SELECT lastName FROM itemCreators IC NATURAL JOIN creators " .
-				"NATURAL JOIN creatorData " .
-				"LEFT JOIN itemTypeCreatorTypes ITCT " .
+				"(SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
+				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
 				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
 				"WHERE itemID=I.itemID AND primaryField=1 AND ITCT.itemTypeID=I.itemTypeID " .
 				"ORDER BY orderIndex LIMIT 1)" .
-				" , ' " . $localizedAnd . " ' , " .
-				"(SELECT lastName FROM itemCreators IC NATURAL JOIN creators " .
-				"NATURAL JOIN creatorData " .
-				"LEFT JOIN itemTypeCreatorTypes ITCT " .
+				" , ',' , " .
+				"(SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
+				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
 				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
 				"WHERE itemID=I.itemID AND primaryField=1 AND ITCT.itemTypeID=I.itemTypeID " .
 				"ORDER BY orderIndex LIMIT 1,1))" .
 			") " .
 			"ELSE (" .
 				"SELECT CONCAT(" .
-				"(SELECT lastName FROM itemCreators IC NATURAL JOIN creators " .
-				"NATURAL JOIN creatorData " .
-				"LEFT JOIN itemTypeCreatorTypes ITCT " .
+				"(SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
+				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
 				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
 				"WHERE itemID=I.itemID AND primaryField=1 AND ITCT.itemTypeID=I.itemTypeID " .
 				"ORDER BY orderIndex LIMIT 1)" .
-				" , ' et al.' )" .
+				" , ',+' )" .
 			") " .
 			"END, " .
 			
 			// Then try editors
 			"CASE (" .
 				"SELECT COUNT(*) FROM itemCreators " .
-				"NATURAL JOIN creatorTypes WHERE itemID=I.itemID AND creatorTypeID IN (3)" .
+				"NATURAL JOIN $masterDB.creatorTypes WHERE itemID=I.itemID AND creatorTypeID IN (3)" .
 			") " .
 			"WHEN 0 THEN NULL " .
 			"WHEN 1 THEN (" .
-				"SELECT lastName FROM itemCreators NATURAL JOIN creators " .
-				"NATURAL JOIN creatorData " .
+				"SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators " .
 				"WHERE itemID=I.itemID AND creatorTypeID IN (3)" .
 			") " .
 			"WHEN 2 THEN (" .
 				"SELECT CONCAT(" .
-				"(SELECT lastName FROM itemCreators NATURAL JOIN creators NATURAL JOIN creatorData WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1)" .
-				" , ' " . $localizedAnd . " ' , " .
-				"(SELECT lastName FROM itemCreators NATURAL JOIN creators NATURAL JOIN creatorData WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1,1)) " .
+				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1)" .
+				" , ',' , " .
+				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1,1)) " .
 			") " .
 			"ELSE (" .
 				"SELECT CONCAT(" .
-				"(SELECT lastName FROM itemCreators NATURAL JOIN creators NATURAL JOIN creatorData WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1)" .
-				" , ' et al.' )" .
+				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1)" .
+				" , ',+' )" .
 			") " .
 			"END, " .
 			
 			// Then try contributors
 			"CASE (" .
 				"SELECT COUNT(*) FROM itemCreators " .
-				"NATURAL JOIN creatorTypes WHERE itemID=I.itemID AND creatorTypeID IN (2)" .
+				"NATURAL JOIN $masterDB.creatorTypes WHERE itemID=I.itemID AND creatorTypeID IN (2)" .
 			") " .
 			"WHEN 0 THEN NULL " .
 			"WHEN 1 THEN (" .
-				"SELECT lastName FROM itemCreators NATURAL JOIN creators " .
-				"NATURAL JOIN creatorData " .
+				"SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators " .
 				"WHERE itemID=I.itemID AND creatorTypeID IN (2)" .
 			") " .
 			"WHEN 2 THEN (" .
 				"SELECT CONCAT(" .
-				"(SELECT lastName FROM itemCreators NATURAL JOIN creators NATURAL JOIN creatorData WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1)" .
-				" , ' " . $localizedAnd . " ' , " .
-				"(SELECT lastName FROM itemCreators NATURAL JOIN creators NATURAL JOIN creatorData WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1,1)) " .
+				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1)" .
+				" , ',' , " .
+				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1,1)) " .
 			") " .
 			"ELSE (" .
 				"SELECT CONCAT(" .
-				"(SELECT lastName FROM itemCreators NATURAL JOIN creators NATURAL JOIN creatorData WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1)" .
-				" , ' et al.' )" .
+				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1)" .
+				" , ',+' )" .
 			") " .
 			"END" .
-		") AS firstCreator";
+		") AS firstCreatorHashes";
 		
 		return $sql;
 	}
 	
 	
-	public static function getDataValueID($value, $create=false) {
-		if ($value == '') {
-			throw new Exception("Data value cannot be empty");
+	/**
+	 * Convert hash string from getFirstCreatorHashesSQL() to firstCreator string
+	 */
+	public static function getFirstCreator($hashes) {
+		$localizedAnd = " and ";
+		$etAl = " et al.";
+		
+		if (!is_array($hashes)) {
+			throw new Exception('$hashes is not an array');
+		}
+		
+		switch (sizeOf($hashes)) {
+			case 1:
+				return Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName");
+			
+			case 2:
+				if ($hashes[1] == "+") {
+					return Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName") . $etAl;
+				}
+				
+				$names = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $hashes)), array("lastName"));
+				return $names[0]["_id"] == $hashes[0]
+					? $names[0]["lastName"] . $localizedAnd . $names[1]["lastName"]
+					: $names[1]["lastName"] . $localizedAnd . $names[0]["lastName"];
+			
+			default:
+				throw new Exception('$hashes must have 1 or 2 elements (' . sizeOf($hashes) . ')');
+		}
+	}
+	
+	
+	public static function getDataValueHash($value, $create=false) {
+		// For now, at least, simulate what MySQL used to throw
+		if (mb_strlen($value) > 65536) {
+			throw new Exception("Data too long for column 'value'");
 		}
 		
 		$hash = self::getHash($value);
-		$key = self::getDataValueIDCacheKey($value, $hash);
+		
+		if (!$create) {
+			return $hash;
+		}
 		
 		// Check local cache
-		if (isset(self::$dataValueIDsByHash[$hash])) {
-			return self::$dataValueIDsByHash[$hash];
+		if (isset(self::$dataValuesByHash[$hash])) {
+			return $hash;
 		}
 		
 		// Check memcache
-		$id = Z_Core::$MC->get($key);
-		
-		if ($id) {
-			self::$dataValueIDsByHash[$hash] = $id;
-			return $id;
+		$key = self::getDataValueCacheKey($hash);
+		if (Z_Core::$MC->get($key)) {
+			self::$dataValuesByHash[$hash] = $value;
+			return $hash;
 		}
 		
-		Zotero_DB::beginTransaction();
-		
-		$sql = "SELECT itemDataValueID FROM itemDataValues WHERE value=?";
-		$id = Zotero_DB::valueQuery($sql, $value);
-		
-		if (!$id && $create) {
-			$id = Zotero_ID::get('itemDataValues');
-			
-			$sql = "INSERT INTO itemDataValues VALUES (?,?)";
-			$stmt = Zotero_DB::getStatement($sql, "getDataValueID_insert");
-			$insertID = Zotero_DB::queryFromStatement($stmt, array($id, $value));
-			if (!$id) {
-				$id = $insertID;
-			}
+		if (!Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "_id")) {
+			$doc = array(
+				"_id" => $hash,
+				"value" => $value
+			);
+			Z_Core::$Mongo->insertSafe("itemDataValues", $doc);
 		}
-		
-		Zotero_DB::commit();
 		
 		// Store in local cache and memcache
-		if ($id) {
-			// Cache data value id
-			self::$dataValueIDsByHash[$hash] = $id;
-			Z_Core::$MC->set($key, $id);
-			
-			// Cache data value
-			self::$dataValuesByID[$id] = $value;
-			$key = self::getDataValueCacheKey($id);
-			Z_Core::$MC->add($key, $value);
+		self::$dataValuesByHash[$hash] = $value;
+		Z_Core::$MC->set($key, $value);
+		
+		return $hash;
+	}
+	
+	
+	public static function getDataValue($hash) {
+		// Check local cache
+		if (isset(self::$dataValuesByHash[$hash])) {
+			return self::$dataValuesByHash[$hash];
 		}
 		
-		return $id;
+		// Check memcache
+		$key = self::getDataValueCacheKey($hash);
+		$value = Z_Core::$MC->get($key);
+		if ($value !== false) {
+			return $value;
+		}
+		
+		$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value");
+		if ($value === false) {
+			return false;
+		}
+		
+		// Store in local cache and memcache
+		self::$dataValuesByHash[$hash] = $value;
+		Z_Core::$MC->set($key, $value);
+		
+		return $value;
 	}
 	
 	
 	public static function bulkInsertDataValues($values) {
-		$insertValues = array();
+		$docs = array();
 		
 		foreach ($values as $value) {
+			// Length check is done by Zotero_Items::getLongDataValueFromXML()
+			// in Zotero_Sync::processUploadInternal()
+			
 			$hash = self::getHash($value);
-			$key = self::getDataValueIDCacheKey($value, $hash);
-			$id = Z_Core::$MC->get($key);
-			if ($id) {
-				self::$dataValueIDsByHash[$hash] = $id;
-				self::$dataValuesByID[$id] = $value;
+			$key = self::getDataValueCacheKey($hash);
+			if (Z_Core::$MC->get($key)) {
+				self::$dataValuesByHash[$hash] = $value;
 			}
 			else {
-				$insertValues[] = $value;
+				$docs[] = array(
+					"_id" => $hash,
+					"value" => $value
+				);
 			}
 		}
 		
-		if (!$insertValues) {
+		if (!$docs) {
 			return;
 		}
 		
-		try {
-			Zotero_DB::beginTransaction();
-			Zotero_DB::query("CREATE TEMPORARY TABLE IF NOT EXISTS tmpItemDataValues (value TEXT CHARACTER SET utf8 COLLATE utf8_bin NOT NULL, KEY value (value(50)))");
-			Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpItemDataValues VALUES ", $insertValues, 50);
-			$joinSQL = "FROM tmpItemDataValues TIDV JOIN itemDataValues IDV USING (value)";
-			// Delete data rows that already exist
-			Zotero_DB::query("DELETE TIDV " . $joinSQL);
-			Zotero_DB::query("INSERT IGNORE INTO itemDataValues SELECT NULL, value FROM tmpItemDataValues");
-			$rows = Zotero_DB::query("SELECT IDV.* " . $joinSQL);
-			Zotero_DB::query("DROP TEMPORARY TABLE tmpItemDataValues");
-			Zotero_DB::commit();
-		}
-		catch (Exception $e) {
-			Zotero_DB::rollback();
-			throw ($e);
-		}
+		// Insert into MongoDB
+		Z_Core::$Mongo->batchInsertIgnoreSafe("itemDataValues", $docs);
 		
-		foreach ($rows as $row) {
-			$value = $row['value'];
-			$id = $row['itemDataValueID'];
-			$hash = self::getHash($value);
-			
-			// Cache data value id
-			self::$dataValueIDsByHash[$hash] = $id;
-			$key = self::getDataValueIDCacheKey($value, $hash);
-			Z_Core::$MC->set($key, $id);
-			
-			// Cache data value
-			self::$dataValuesByID[$id] = $value;
-			$key = self::getDataValueCacheKey($id);
-			Z_Core::$MC->add($key, $value);
+		// Cache data values locally and in memcache
+		foreach ($docs as $doc) {
+			self::$dataValuesByHash[$doc["_id"]] = $doc["value"];
+			$key = self::getDataValueCacheKey($doc["_id"]);
+			Z_Core::$MC->add($key, $doc["value"]);
 		}
 	}
 	
@@ -800,7 +811,10 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($item->isNote() || $item->isAttachment()) {
 			$sourceItemID = $item->getSource();
 			if ($sourceItemID) {
-				$sourceItem = Zotero_Items::get($sourceItemID);
+				$sourceItem = Zotero_Items::get($item->libraryID, $sourceItemID);
+				if (!$sourceItem) {
+					throw new Exception("Source item $sourceItemID not found");
+				}
 				$xml['sourceItem'] = $sourceItem->key;
 			}
 		}
@@ -882,7 +896,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		// Related items
 		$related = $item->relatedItems;
 		if ($related) {
-			$related = Zotero_Items::get($related);
+			$related = Zotero_Items::get($item->libraryID, $related);
 			$keys = array();
 			foreach ($related as $item) {
 				$keys[] = $item->key;
@@ -955,7 +969,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$parent = $item->getSource();
 		if ($parent) {
 			// TODO: handle group items?
-			$parentItem = Zotero_Items::get($parent);
+			$parentItem = Zotero_Items::get($item->libraryID, $parent);
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
@@ -1038,8 +1052,10 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	private static function loadItems($itemIDs=array()) {
-		$sql = 'SELECT I.*, ' . self::getFirstCreatorSQL() . ',
+	private static function loadItems($libraryID, $itemIDs=array()) {
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		$sql = 'SELECT I.*, ' . self::getFirstCreatorHashesSQL() . ',
 				(SELECT COUNT(*) FROM itemNotes INo
 					WHERE sourceItemID=I.itemID AND INo.itemID NOT IN
 					(SELECT itemID FROM deletedItems)) AS numNotes,
@@ -1048,6 +1064,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					(SELECT itemID FROM deletedItems)) AS numAttachments	
 			FROM items I WHERE 1';
 		$q = array();
+		// TODO: optimize
 		if ($itemIDs) {
 			foreach ($itemIDs as $itemID) {
 				if (!is_int($itemID)) {
@@ -1061,12 +1078,16 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= join(',', $q) . ')';
 		}
 		
-		$stmt = Zotero_DB::getStatement($sql, "loadItems_" . sizeOf($q));
+		$stmt = Zotero_DB::getStatement($sql, "loadItems_" . sizeOf($q), $shardID);
 		$itemRows = Zotero_DB::queryFromStatement($stmt, $itemIDs);
 		$loadedItemIDs = array();
 		
 		if ($itemRows) {
 			foreach ($itemRows as $row) {
+				if ($row['libraryID'] != $libraryID) {
+					throw new Exception("Item $itemID isn't in library $libraryID");
+				}
+				
 				$itemID = $row['itemID'];
 				$loadedItemIDs[] = $itemID;
 				
@@ -1074,7 +1095,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				if (!isset(self::$items[$itemID])) {
 					$item = new Zotero_Item;
 					$item->loadFromRow($row, true);
-					self::$items[$itemID] = $item;
+					self::$items[$libraryID][$itemID] = $item;
 				}
 				// Existing item -- reload in place
 				else {
@@ -1102,12 +1123,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getDataValueIDCacheKey($name, $hash=false) {
-		return 'itemDataValueID_' . ($hash ? $hash : self::getHash($name));
-	}
-	
-	public static function getDataValueCacheKey($id) {
-		return 'itemDataValue_' . $id;
+	public static function getDataValueCacheKey($hash) {
+		return 'itemDataValue_' . $hash;
 	}
 	
 	private static function getHash($value) {

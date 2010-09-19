@@ -19,6 +19,9 @@ class Z_CONFIG {
 	public static $S3_ACCESS_KEY = '';
 	public static $S3_SECRET_KEY = '';
 	
+	// Hard-coded in shard.sql and triggers.sql
+	public static $SHARD_MASTER_DB = 'master';
+	
 	public static $MEMCACHED_ENABLED = true;
 	public static $MEMCACHED_SERVERS = array(
 		'192.168.1.1:11211:2', '192.168.1.2:11211:1'
@@ -27,6 +30,13 @@ class Z_CONFIG {
 		'api.example.com' => 'sync.example.com'
 	);
 	
+	public static $MONGO_SERVERS = array(
+		'192.168.1.1:27017', '192.168.1.2:27017'
+	);
+	public static $MONGO_DB = "zotero";
+	public static $MONGO_SAFE_NUM = 2;
+	
+	public static $LOG_TO_SCRIBE = false;
 	public static $LOG_TIMEZONE = 'US/Eastern';
 	public static $LOG_TARGET_DEFAULT = 'errors';
 	

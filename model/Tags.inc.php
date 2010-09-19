@@ -27,32 +27,43 @@
 class Zotero_Tags extends Zotero_DataObjects {
 	protected static $ZDO_object = 'tag';
 	
-	private static $maxLength = 255;
+	public static $maxLength = 255;
 	
-	private static $tagsByID = array();
-	private static $dataIDsByHash = array();
-	private static $dataByID = array();
+	private static $tagsByID = array(); // grouped by libraryID
+	private static $namesByHash = array();
 	
 	/*
 	 * Returns a tag and type for a given tagID
 	 */
-	public static function get($tagID, $skipCheck=false) {
-		if (isset(self::$tagsByID[$tagID])) {
-			return self::$tagsByID[$tagID];
+	public static function get($libraryID, $tagID, $skipCheck=false) {
+		if (!$libraryID) {
+			throw new Exception("Library ID not provided");
+		}
+		
+		if (!$tagID) {
+			throw new Exception("Tag ID not provided");
+		}
+		
+		if (isset(self::$tagsByID[$libraryID][$tagID])) {
+			return self::$tagsByID[$libraryID][$tagID];
 		}
 		
 		if (!$skipCheck) {
 			$sql = 'SELECT COUNT(*) FROM tags WHERE tagID=?';
-			$result = Zotero_DB::valueQuery($sql, $tagID);
+			$result = Zotero_DB::valueQuery($sql, $tagID, Zotero_Shards::getByLibraryID($libraryID));
 			if (!$result) {
 				return false;
 			}
 		}
 		
 		$tag = new Zotero_Tag;
+		$tag->libraryID = $libraryID;
 		$tag->id = $tagID;
-		self::$tagsByID[$tagID] = $tag;
-		return self::$tagsByID[$tagID];
+		if (!self::$tagsByID[$libraryID]) {
+			self::$tagsByID[$libraryID] = array();
+		}
+		self::$tagsByID[$libraryID][$tagID] = $tag;
+		return self::$tagsByID[$libraryID][$tagID];
 	}
 	
 	
@@ -60,8 +71,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 	 * Returns array of all tagIDs for this tag (of all types)
 	 */
 	public static function getIDs($libraryID, $name) {
-		$sql = "SELECT tagID FROM tags NATURAL JOIN tagData WHERE libraryID=? AND name=?";
-		$tagIDs = Zotero_DB::columnQuery($sql, array($libraryID, $name));
+		$sql = "SELECT tagID FROM tags WHERE libraryID=? AND name=?";
+		$tagIDs = Zotero_DB::columnQuery($sql, array($libraryID, $name), Zotero_Shards::getByLibraryID($libraryID));
 		if (!$tagIDs) {
 			return array();
 		}
@@ -72,8 +83,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 	public static function getAllAdvanced($libraryID, $params) {
 		$results = array('objects' => array(), 'total' => 0);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags NATURAL JOIN tagData
-				WHERE libraryID=? ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
 		
 		if (!empty($params['q'])) {
@@ -130,14 +140,17 @@ class Zotero_Tags extends Zotero_DataObjects {
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
 			$sqlParams[] = $params['limit'];
 		}
-		$ids = Zotero_DB::columnQuery($sql, $sqlParams);
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		$ids = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
 		if ($ids) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 			
 			$tags = array();
 			foreach ($ids as $id) {
-				$tags[] = Zotero_Tags::get($id);
+				$tags[] = Zotero_Tags::get($libraryID, $id);
 			}
 			$results['objects'] = $tags;
 		}
@@ -146,125 +159,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 	}
 	
 	
-	/**
-	 * @param	string		$name		Name of tag
-	 * @param	bool		$create		Create tag data row if it doesn't exist
-	 * @return	int|FALSE				tagDataID
-	 */
-	public static function getTagDataID($name, $create=false) {
-		if ($name == '') {
-			trigger_error("Tag cannot be empty", E_USER_ERROR);
-		}
-		
-		$hash = self::getHash($name);
-		$key = self::getTagDataIDCacheKey($name, $hash);
-		
-		// Check local cache
-		if (isset(self::$dataIDsByHash[$hash])) {
-			return self::$dataIDsByHash[$hash];
-		}
-		
-		// Check memcache
-		$id = Z_Core::$MC->get($key);
-		
-		if ($id) {
-			self::$dataIDsByHash[$hash] = $id;
-			return $id;
-		}
-		
-		Zotero_DB::beginTransaction();
-		
-		$sql = "SELECT tagDataID FROM tagData WHERE name=?";
-		$id = Zotero_DB::valueQuery($sql, $name);
-		
-		if (!$id && $create) {
-			$id = Zotero_ID::get('tagData');
-			
-			$sql = "INSERT INTO tagData SET tagDataID=?, name=?";
-			try {
-				$insertID = Zotero_DB::query($sql, array($id, $name));
-			}
-			catch (Exception $e) {
-				$msg = $e->getMessage();
-				if (strpos($msg, "Data too long for column 'name'") !== false) {
-					throw new Exception("Tag '" . $name . "' too long", Z_ERROR_TAG_TOO_LONG);
-				}
-				throw ($e);
-			}
-			if (!$id) {
-				$id = $insertID;
-			}
-		}
-		
-		Zotero_DB::commit();
-		
-		// Store in local cache and memcache
-		if ($id) {
-			self::$dataIDsByHash[$hash] = $id;
-			Z_Core::$MC->set($key, $id);
-		}
-		
-		return $id;
-	}
-	
-	
-	public static function bulkInsertDataValues($values) {
-		$insertValues = array();
-		
-		foreach ($values as $value) {
-			if (mb_strlen($value) > self::$maxLength) {
-				throw new Exception("Tag '" . $value . "' too long", Z_ERROR_TAG_TOO_LONG);
-			}
-			
-			$hash = self::getHash($value);
-			$key = self::getTagDataIDCacheKey($value, $hash);
-			$id = Z_Core::$MC->get($key);
-			if ($id) {
-				self::$dataIDsByHash[$hash] = $id;
-				self::$dataByID[$id] = $value;
-			}
-			else {
-				$insertValues[] = $value;
-			}
-		}
-		
-		if (!$insertValues) {
-			return;
-		}
-		
-		try {
-			Zotero_DB::beginTransaction();
-			Zotero_DB::query("CREATE TEMPORARY TABLE tmpTagData (name VARCHAR(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL PRIMARY KEY)");
-			Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpTagData VALUES ", $values, 250);
-			Zotero_DB::query("INSERT IGNORE INTO tagData SELECT NULL, name FROM tmpTagData");
-			$rows = Zotero_DB::query("SELECT * FROM tagData JOIN tmpTagData USING (name)");
-			Zotero_DB::query("DROP TEMPORARY TABLE tmpTagData");
-			Zotero_DB::commit();
-		}
-		catch (Exception $e) {
-			Zotero_DB::rollback();
-			throw ($e);
-		}
-		
-		foreach ($rows as $row) {
-			$name = $row['name'];
-			$id = $row['tagDataID'];
-			$hash = self::getHash($name);
-			
-			// Cache tag data id
-			self::$dataIDsByHash[$hash] = $id;
-			$key = self::getTagDataIDCacheKey($name, $hash);
-			Z_Core::$MC->add($key, $id);
-			
-			// Cache tag data
-			self::$dataByID[$id] = $name;
-			$key = self::getTagDataCacheKey($id);
-			Z_Core::$MC->add($key, $name);
-		}
-	}
-	
-	
-	public static function getDataValuesFromXML(DOMDocument $doc) {
+	/*public static function getDataValuesFromXML(DOMDocument $doc) {
 		$xpath = new DOMXPath($doc);
 		$attr = $xpath->evaluate('//tags/tag/@name');
 		$vals = array();
@@ -273,7 +168,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 		}
 		$vals = array_unique($vals);
 		return $vals;
-	}
+	}*/
 	
 	
 	public static function getLongDataValueFromXML(DOMDocument $doc) {
@@ -369,19 +264,6 @@ class Zotero_Tags extends Zotero_DataObjects {
 	 */
 	public static function convertTagToXML(Zotero_Tag $tag, $syncMode=false) {
 		return $tag->toXML($syncMode);
-	}
-	
-	
-	public static function getTagDataIDCacheKey($name, $hash=false) {
-		return 'tagDataID_' . ($hash ? $hash : self::getHash($name));
-	}
-	
-	public static function getTagDataCacheKey($id) {
-		return 'tagData_' . $id;
-	}
-	
-	private static function getHash($name) {
-		return md5($name);
 	}
 }
 ?>

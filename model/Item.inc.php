@@ -41,6 +41,7 @@ class Zotero_Item {
 	private $itemDataLoaded = false;
 	private $relatedItemsLoaded = false;
 	
+	private $firstCreatorHashes = array();
 	private $itemData = array();
 	private $creators = array();
 	
@@ -196,6 +197,12 @@ class Zotero_Item {
 		
 		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
 			//Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
+			
+			// Generate firstCreator string if we only have hashes
+			if ($field == 'firstCreator' && !$this->firstCreator && $this->firstCreatorHashes) {
+				$this->firstCreator = Zotero_Items::getFirstCreator($this->firstCreatorHashes);
+			}
+			
 			return $this->$field;
 		}
 		if ($this->isNote()) {
@@ -367,15 +374,11 @@ class Zotero_Item {
 			return array();
 		}
 		
-		// TODO: Use bound parameter
-		if (!is_numeric($this->id)) {
-			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
-		}
-		$sql = "SELECT fieldID FROM itemData WHERE itemID=$this->id";
+		$sql = "SELECT fieldID FROM itemData WHERE itemID=?";
 		if ($asNames) {
-			$sql = "SELECT fieldName FROM fields WHERE fieldID IN ($sql)";
+			$sql = "SELECT fieldName FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".fields WHERE fieldID IN ($sql)";
 		}
-		$fields = Zotero_DB::columnQuery($sql);
+		$fields = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$fields) {
 			return array();
 		}
@@ -394,7 +397,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM items WHERE itemID=?";
-		return !!Zotero_DB::valueQuery($sql, $this->id);
+		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -408,9 +411,13 @@ class Zotero_Item {
 	private function loadPrimaryData($allowFail=false) {
 		//Z_Core::debug("Loading primary data for item $this->id");
 		
+		$libraryID = $this->libraryID;
 		$id = $this->id;
 		$key = $this->key;
-		$libraryID = $this->libraryID;
+		
+		if (!$libraryID) {
+			throw new Exception("Library ID not set");
+		}
 		
 		if (!$id && !$key) {
 			throw new Exception("ID or key not set");
@@ -432,7 +439,7 @@ class Zotero_Item {
 						break;
 					
 					case 'firstCreator':
-						$colSQL = Zotero_Items::getFirstCreatorSQL();
+						$colSQL = Zotero_Items::getFirstCreatorHashesSQL();
 						break;
 					
 					case 'numNotes':
@@ -470,7 +477,7 @@ class Zotero_Item {
 				trigger_error("Invalid itemID '$id'", E_USER_ERROR);
 			}
 			$sql .= "itemID=?";
-			$stmt = Zotero_DB::getStatement($sql, 'loadPrimaryData_id');
+			$stmt = Zotero_DB::getStatement($sql, 'loadPrimaryData_id', Zotero_Shards::getByLibraryID($libraryID));
 			$row = Zotero_DB::rowQueryFromStatement($stmt, array($id));
 		}
 		else {
@@ -481,7 +488,7 @@ class Zotero_Item {
 				trigger_error("Invalid key '$key'!", E_USER_ERROR);
 			}
 			$sql .= "libraryID=? AND `key`=?";
-			$stmt = Zotero_DB::getStatement($sql, 'loadPrimaryData_key');
+			$stmt = Zotero_DB::getStatement($sql, 'loadPrimaryData_key', Zotero_Shards::getByLibraryID($libraryID));
 			$row = Zotero_DB::rowQueryFromStatement($stmt, array($libraryID, $key));
 		}
 		
@@ -524,6 +531,11 @@ class Zotero_Item {
 						
 					case 'itemTypeID':
 						$this->setType($val, true);
+						break;
+					
+					case 'firstCreatorHashes':
+						$this->firstCreator = '';
+						$this->firstCreatorHashes = explode(',', $val);
 						break;
 					
 					default:
@@ -633,11 +645,13 @@ class Zotero_Item {
 	 * via base fields (e.g. label => publisher => studio)
 	 */
 	public function getFieldsNotInType($itemTypeID, $allowBaseConversion=false) {
-		$sql = "SELECT fieldID FROM itemTypeFields
+		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
+		
+		$sql = "SELECT fieldID FROM $masterDB.itemTypeFields
 				WHERE itemTypeID=? AND fieldID IN
 					(SELECT fieldID FROM itemData WHERE itemID=?) AND
 				fieldID NOT IN
-					(SELECT fieldID FROM itemTypeFields WHERE itemTypeID=?)";
+					(SELECT fieldID FROM $masterDB.itemTypeFields WHERE itemTypeID=?)";
 			
 		if ($allowBaseConversion) {
 			trigger_error("Unimplemented", E_USER_ERROR);
@@ -657,8 +671,11 @@ class Zotero_Item {
 			*/
 		}
 		
-		return Zotero_DB::columnQuery($sql,
-			array($this->itemTypeID, $this->id, $itemTypeID));
+		return Zotero_DB::columnQuery(
+			$sql,
+			array($this->itemTypeID, $this->id, $itemTypeID),
+			Zotero_Shards::getByLibraryID($this->libraryID)
+		);
 	}
 	
 	
@@ -857,7 +874,7 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		$sql = "SELECT COUNT(*) FROM deletedItems WHERE itemID=?";
-		$deleted = !!Zotero_DB::valueQuery($sql, $this->id);
+		$deleted = !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		$this->deleted = $deleted;
 		return $deleted;
 	}
@@ -880,13 +897,13 @@ class Zotero_Item {
 	
 	private function getCreatedByUserID() {
 		$sql = "SELECT createdByUserID FROM groupItems WHERE itemID=?";
-		return Zotero_DB::valueQuery($sql, $this->id);
+		return Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
 	private function getLastModifiedByUserID() {
 		$sql = "SELECT lastModifiedByUserID FROM groupItems WHERE itemID=?";
-		return Zotero_DB::valueQuery($sql, $this->id);
+		return Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -903,7 +920,7 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$item = Zotero_Items::get($itemID);
+		$item = Zotero_Items::get($this->libraryID, $itemID);
 		if (!$item) {
 			trigger_error("Can't relate item to invalid item $itemID
 				in Zotero.Item.addRelatedItem()", E_USER_ERROR);
@@ -961,6 +978,8 @@ class Zotero_Item {
 			$lastPos++;
 		}
 		
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
 		Zotero_DB::beginTransaction();
 		
 		try {
@@ -1006,7 +1025,7 @@ class Zotero_Item {
 				$sql = substr($sql, 0, -2) . ')';
 				
 				// Save basic data to items table
-				$insertID = Zotero_DB::query($sql, $sqlValues);
+				$insertID = Zotero_DB::query($sql, $sqlValues, $shardID);
 				if (!$this->id) {
 					if (!$insertID) {
 						throw new Exception("Item id not available after INSERT");
@@ -1018,7 +1037,7 @@ class Zotero_Item {
 				// Group item data
 				if (Zotero_Libraries::getType($this->libraryID) == 'group' && $userID) {
 					$sql = "INSERT INTO groupItems VALUES (?, ?, ?)";
-					Zotero_DB::query($sql, array($itemID, $userID, null));
+					Zotero_DB::query($sql, array($itemID, $userID, null), $shardID);
 				}
 				
 				//
@@ -1026,20 +1045,11 @@ class Zotero_Item {
 				//
 				if ($this->changedItemData) {
 					// Use manual bound parameters to speed things up
-					$sql = "SELECT itemDataValueID FROM itemDataValues WHERE value=?";
-					$valueStatement = Zotero_DB::getStatement($sql);
-					$valueStatement->bindParam(1, $value);
-					
-					$sql = "INSERT INTO itemDataValues VALUES (?,?)";
-					$insertValueStatement = Zotero_DB::getStatement($sql);
-					$insertValueStatement->bindParam(1, $valueID);
-					$insertValueStatement->bindParam(2, $value);
-					
 					$origInsertSQL = "INSERT INTO itemData VALUES ";
 					$insertSQL = $origInsertSQL;
 					$insertParams = array();
 					$insertCounter = 0;
-					$maxInsertGroups = 50;
+					$maxInsertGroups = 40;
 					
 					$fieldIDs = array_keys($this->changedItemData);
 					
@@ -1052,7 +1062,7 @@ class Zotero_Item {
 						}
 						
 						try {
-							$valueID = Zotero_Items::getDataValueID($value, true);
+							$hash = Zotero_Items::getDataValueHash($value, true);
 						}
 						catch (Exception $e) {
 							$msg = $e->getMessage();
@@ -1070,13 +1080,13 @@ class Zotero_Item {
 							$insertSQL .= "(?,?,?),";
 							$insertParams = array_merge(
 								$insertParams,
-								array($itemID, $fieldID, $valueID)
+								array($itemID, $fieldID, $hash)
 							);
 						}
 						
 						if ($insertCounter == $maxInsertGroups - 1) {
 							$insertSQL = substr($insertSQL, 0, -1);
-							$stmt = Zotero_DB::getStatement($insertSQL, true);
+							$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
 							Zotero_DB::queryFromStatement($stmt, $insertParams);
 							$insertSQL = $origInsertSQL;
 							$insertParams = array();
@@ -1088,7 +1098,7 @@ class Zotero_Item {
 					
 					if ($insertCounter > 0 && $insertCounter < $maxInsertGroups) {
 						$insertSQL = substr($insertSQL, 0, -1);
-						$stmt = Zotero_DB::getStatement($insertSQL, true);
+						$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
 						Zotero_DB::queryFromStatement($stmt, $insertParams);
 					}
 				}
@@ -1132,7 +1142,7 @@ class Zotero_Item {
 					
 					if ($sqlValues) {
 						$sql = $sql . implode(',', $placeholders);
-						Zotero_DB::query($sql, $sqlValues);
+						Zotero_DB::query($sql, $sqlValues, $shardID);
 					}
 				}
 				
@@ -1145,7 +1155,7 @@ class Zotero_Item {
 					else {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
-					Zotero_DB::query($sql, $itemID);
+					Zotero_DB::query($sql, $itemID, $shardID);
 				}
 				
 				
@@ -1167,27 +1177,29 @@ class Zotero_Item {
 						$hash
 					);
 					
-					Zotero_DB::query($sql, $bindParams);
-					Zotero_Notes::updateNoteCache($itemID, $noteText);
-					Zotero_Notes::updateHash($itemID, $hash);
+					Zotero_DB::query($sql, $bindParams, $shardID);
+					Zotero_Notes::updateNoteCache($this->libraryID, $itemID, $noteText);
+					Zotero_Notes::updateHash($this->libraryID, $itemID, $hash);
 				}
 				
 				
 				// Attachment
 				if ($this->isAttachment()) {
 					$sql = "INSERT INTO itemAttachments
-							(itemID, sourceItemID, linkMode, mimeTypeID, charsetID, path, storageModTime, storageHash)
+							(itemID, sourceItemID, linkMode, mimeType, charsetID, path, storageModTime, storageHash)
 							VALUES (?,?,?,?,?,?,?,?)";
 					$parent = $this->getSource();
 					if ($parent) {
-						$parentItem = Zotero_Items::get($parent);
+						$parentItem = Zotero_Items::get($this->libraryID, $parent);
+						if (!$parentItem) {
+							throw new Exception("Parent item $parent not found");
+						}
 						if ($parentItem->getSource()) {
 							trigger_error("Parent item cannot be a child attachment", E_USER_ERROR);
 						}
 					}
 					
 					$linkMode = $this->attachmentLinkMode;
-					$mimeTypeID = Zotero_MIMETypes::getID($this->attachmentMIMEType, true);
 					$charsetID = Zotero_CharacterSets::getID($this->attachmentCharset);
 					$path = $this->attachmentPath;
 					$storageModTime = $this->attachmentStorageModTime;
@@ -1197,13 +1209,13 @@ class Zotero_Item {
 						$itemID,
 						$parent ? $parent : null,
 						$linkMode + 1,
-						$mimeTypeID ? $mimeTypeID : null,
+						$this->attachmentMIMEType,
 						$charsetID ? $charsetID : null,
 						$path ? $path : '',
 						$storageModTime ? $storageModTime : null,
 						$storageHash ? $storageHash : null
 					);
-					Zotero_DB::query($sql, $bindParams);
+					Zotero_DB::query($sql, $bindParams, $shardID);
 				}
 				
 				
@@ -1217,7 +1229,7 @@ class Zotero_Item {
 					//$notifierData = array();
 					//$notifierData[$this->id] = { old: $this->serialize };
 					
-					$newItem = Zotero_Items::get($sourceItemID);
+					$newItem = Zotero_Items::get($this->libraryID, $sourceItemID);
 					// FK check
 					if ($newItem) {
 						if ($sourceItemID) {
@@ -1235,7 +1247,7 @@ class Zotero_Item {
 						Z_Core::debug("$Type source hasn't changed", 4);
 					}
 					else {
-						$oldItem = Zotero_Items::get($oldSourceItemID);
+						$oldItem = Zotero_Items::get($this->libraryID, $oldSourceItemID);
 						if ($oldSourceItemID && $oldItem) {
 							//$oldItemNotifierData = {};
 							//oldItemNotifierData[oldItem.id] = { old: oldItem.serialize };
@@ -1249,17 +1261,17 @@ class Zotero_Item {
 						// existed previously and add source instead if there is one
 						if (!$oldSourceItemID) {
 							$sql = "SELECT collectionID FROM collectionItems WHERE itemID=?";
-							$changedCollections = Zotero_DB::query($sql, $itemID);
+							$changedCollections = Zotero_DB::query($sql, $itemID, $shardID);
 							if ($changedCollections) {
 								trigger_error("Unimplemented", E_USER_ERROR);
 								if ($sourceItemID) {
 									$sql = "UPDATE OR REPLACE collectionItems "
 										. "SET itemID=? WHERE itemID=?";
-									Zotero_DB::query($sql, array($sourceItemID, $this->id));
+									Zotero_DB::query($sql, array($sourceItemID, $this->id), $shardID);
 								}
 								else {
 									$sql = "DELETE FROM collectionItems WHERE itemID=?";
-									Zotero_DB::query($sql, $this->id);
+									Zotero_DB::query($sql, $this->id, $shardID);
 								}
 							}
 						}
@@ -1270,7 +1282,7 @@ class Zotero_Item {
 							$sourceItemID ? $sourceItemID : null,
 							$itemID
 						);
-						Zotero_DB::query($sql, $bindParams);
+						Zotero_DB::query($sql, $bindParams, $shardID);
 						
 						//Zotero.Notifier.trigger('modify', 'item', $this->id, notifierData);
 						
@@ -1335,18 +1347,18 @@ class Zotero_Item {
 					if ($removed) {
 						$sql = "DELETE FROM itemRelated WHERE itemID=?
 								AND linkedItemID IN (";
-						$q = array_fill(0, sizeOf($removed), '?');
-						$sql .= implode(', ', $q) . ")";
-						Zotero_DB::query($sql,
-							array_merge(
-								array($this->id), $removed)
-							);
+						$sql .= implode(', ', array_fill(0, sizeOf($removed), '?')) . ")";
+						Zotero_DB::query(
+							$sql,
+							array_merge(array($this->id), $removed),
+							$shardID
+						);
 					}
 					
 					if ($newids) {
 						$sql = "INSERT INTO itemRelated (itemID, linkedItemID)
 								VALUES (?,?)";
-						$insertStatement = Zotero_DB::getStatement($sql);
+						$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
 						
 						foreach ($newids as $linkedItemID) {
 							$insertStatement->execute(array($itemID, $linkedItemID));
@@ -1385,14 +1397,14 @@ class Zotero_Item {
 					$this->id
 				);
 				
-				Zotero_DB::query($sql, $sqlValues);
+				Zotero_DB::query($sql, $sqlValues, $shardID);
 				
 				
 				// Group item data
 				if (Zotero_Libraries::getType($this->libraryID) == 'group' && $userID) {
 					$sql = "INSERT INTO groupItems VALUES (?, ?, ?)
 								ON DUPLICATE KEY UPDATE lastModifiedByUserID=?";
-					Zotero_DB::query($sql, array($this->id, null, $userID, $userID));
+					Zotero_DB::query($sql, array($this->id, null, $userID, $userID), $shardID);
 				}
 				
 				
@@ -1402,20 +1414,11 @@ class Zotero_Item {
 				if ($this->changedItemData) {
 					$del = array();
 					
-					$sql = "SELECT itemDataValueID FROM itemDataValues WHERE value=?";
-					$valueStatement = Zotero_DB::getStatement($sql);
-					$valueStatement->bindParam(1, $value);
-					
-					$sql = "INSERT INTO itemDataValues VALUES (?,?)";
-					$insertValueStatement = Zotero_DB::getStatement($sql);
-					$insertValueStatement->bindParam(1, $valueID);
-					$insertValueStatement->bindParam(2, $value);
-					
 					$origReplaceSQL = "REPLACE INTO itemData VALUES ";
 					$replaceSQL = $origReplaceSQL;
 					$replaceParams = array();
 					$replaceCounter = 0;
-					$maxReplaceGroups = 50;
+					$maxReplaceGroups = 40;
 					
 					$fieldIDs = array_keys($this->changedItemData);
 					
@@ -1434,7 +1437,7 @@ class Zotero_Item {
 						}
 						
 						try {
-							$valueID = Zotero_Items::getDataValueID($value, true);
+							$hash = Zotero_Items::getDataValueHash($value, true);
 						}
 						catch (Exception $e) {
 							$msg = $e->getMessage();
@@ -1451,13 +1454,13 @@ class Zotero_Item {
 						if ($replaceCounter < $maxReplaceGroups) {
 							$replaceSQL .= "(?,?,?),";
 							$replaceParams = array_merge($replaceParams,
-								array($this->id, $fieldID, $valueID)
+								array($this->id, $fieldID, $hash)
 							);
 						}
 						
 						if ($replaceCounter == $maxReplaceGroups - 1) {
 							$replaceSQL = substr($replaceSQL, 0, -1);
-							$stmt = Zotero_DB::getStatement($replaceSQL, true);
+							$stmt = Zotero_DB::getStatement($replaceSQL, true, $shardID);
 							Zotero_DB::queryFromStatement($stmt, $replaceParams);
 							$replaceSQL = $origReplaceSQL;
 							$replaceParams = array();
@@ -1468,7 +1471,7 @@ class Zotero_Item {
 					
 					if ($replaceCounter > 0 && $replaceCounter < $maxReplaceGroups) {
 						$replaceSQL = substr($replaceSQL, 0, -1);
-						$stmt = Zotero_DB::getStatement($replaceSQL, true);
+						$stmt = Zotero_DB::getStatement($replaceSQL, true, $shardID);
 						Zotero_DB::queryFromStatement($stmt, $replaceParams);
 					}
 					
@@ -1482,7 +1485,7 @@ class Zotero_Item {
 						}
 						$sql = substr($sql, 0, -2) . ')';
 						
-						Zotero_DB::query($sql, $sqlParams);
+						Zotero_DB::query($sql, $sqlParams, $shardID);
 					}
 				}
 				
@@ -1502,7 +1505,7 @@ class Zotero_Item {
 						$creator = $this->getCreator($orderIndex);
 						
 						$sql2 = 'DELETE FROM itemCreators WHERE itemID=? AND orderIndex=?';
-						Zotero_DB::query($sql2, array($this->id, $orderIndex));
+						Zotero_DB::query($sql2, array($this->id, $orderIndex), $shardID);
 						
 						if (!$creator) {
 							continue;
@@ -1526,7 +1529,7 @@ class Zotero_Item {
 					
 					if ($sqlValues) {
 						$sql = $sql . implode(',', $placeholders);
-						Zotero_DB::query($sql, $sqlValues);
+						Zotero_DB::query($sql, $sqlValues, $shardID);
 					}
 				}
 				
@@ -1538,7 +1541,7 @@ class Zotero_Item {
 					else {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
-					Zotero_DB::query($sql, $this->id);
+					Zotero_DB::query($sql, $this->id, $shardID);
 				}
 				
 				
@@ -1546,7 +1549,7 @@ class Zotero_Item {
 				// delete from any collections it may have been in
 				if ($this->changedSource && $this->getSource()) {
 					$sql = "DELETE FROM collectionItems WHERE itemID=?";
-					Zotero_DB::query($sql, $this->id);
+					Zotero_DB::query($sql, $this->id, $shardID);
 				}
 				
 				//
@@ -1570,9 +1573,9 @@ class Zotero_Item {
 						$sourceItemID, $noteText, $title, $hash,
 						$sourceItemID, $noteText, $title, $hash
 					);
-					Zotero_DB::query($sql, $bindParams);
-					Zotero_Notes::updateNoteCache($this->id, $noteText);
-					Zotero_Notes::updateHash($this->id, $hash);
+					Zotero_DB::query($sql, $bindParams, $shardID);
+					Zotero_Notes::updateNoteCache($this->libraryID, $this->id, $noteText);
+					Zotero_Notes::updateHash($this->libraryID, $this->id, $hash);
 					
 					// TODO: handle changed source?
 				}
@@ -1581,18 +1584,20 @@ class Zotero_Item {
 				// Attachment
 				if ($this->changedAttachmentData) {
 					$sql = "REPLACE INTO itemAttachments
-						(itemID, sourceItemID, linkMode, mimeTypeID, charsetID, path, storageModTime, storageHash)
+						(itemID, sourceItemID, linkMode, mimeType, charsetID, path, storageModTime, storageHash)
 						VALUES (?,?,?,?,?,?,?,?)";
 					$parent = $this->getSource();
 					if ($parent) {
-						$parentItem = Zotero_Items::get($parent);
+						$parentItem = Zotero_Items::get($this->libraryID, $parent);
+						if (!$parentItem) {
+							throw new Exception("Parent item $parent not found");
+						}
 						if ($parentItem->getSource()) {
 							trigger_error("Parent item cannot be a child attachment", E_USER_ERROR);
 						}
 					}
 					
 					$linkMode = $this->attachmentLinkMode;
-					$mimeTypeID = Zotero_MIMETypes::getID($this->attachmentMIMEType, true);
 					$charsetID = Zotero_CharacterSets::getID($this->attachmentCharset);
 					$path = $this->attachmentPath;
 					$storageModTime = $this->attachmentStorageModTime;
@@ -1602,13 +1607,13 @@ class Zotero_Item {
 						$this->id,
 						$parent ? $parent : null,
 						$linkMode + 1,
-						$mimeTypeID ? $mimeTypeID : null,
+						$this->attachmentMIMEType,
 						$charsetID ? $charsetID : null,
 						$path ? $path : '',
 						$storageModTime ? $storageModTime : null,
 						$storageHash ? $storageHash : null
 					);
-					Zotero_DB::query($sql, $bindParams);
+					Zotero_DB::query($sql, $bindParams, $shardID);
 				}
 				
 				//
@@ -1626,7 +1631,7 @@ class Zotero_Item {
 							$parent ? $parent : null,
 							$this->id
 						);
-						Zotero_DB::query($sql, $bindParams);
+						Zotero_DB::query($sql, $bindParams, $shardID);
 					}
 				}
 				
@@ -1636,7 +1641,7 @@ class Zotero_Item {
 					//$notifierData = array();
 					//$notifierData[$this->id] = { old: $this->serialize };
 					
-					$newItem = Zotero_Items::get($sourceItemID);
+					$newItem = Zotero_Items::get($this->libraryID, $sourceItemID);
 					// FK check
 					if ($newItem) {
 						if ($sourceItemID) {
@@ -1654,7 +1659,7 @@ class Zotero_Item {
 						Z_Core::debug("$Type source hasn't changed", 4);
 					}
 					else {
-						$oldItem = Zotero_Items::get($oldSourceItemID);
+						$oldItem = Zotero_Items::get($this->libraryID, $oldSourceItemID);
 						if ($oldSourceItemID && $oldItem) {
 							//$oldItemNotifierData = {};
 							//oldItemNotifierData[oldItem.id] = { old: oldItem.serialize };
@@ -1668,17 +1673,17 @@ class Zotero_Item {
 						// existed previously and add source instead if there is one
 						if (!$oldSourceItemID) {
 							$sql = "SELECT collectionID FROM collectionItems WHERE itemID=?";
-							$changedCollections = Zotero_DB::query($sql, $itemID);
+							$changedCollections = Zotero_DB::query($sql, $itemID, $shardID);
 							if ($changedCollections) {
 								trigger_error("Unimplemented", E_USER_ERROR);
 								if ($sourceItemID) {
 									$sql = "UPDATE OR REPLACE collectionItems "
 										. "SET itemID=? WHERE itemID=?";
-									Zotero_DB::query($sql, array($sourceItemID, $this->id));
+									Zotero_DB::query($sql, array($sourceItemID, $this->id), $shardID);
 								}
 								else {
 									$sql = "DELETE FROM collectionItems WHERE itemID=?";
-									Zotero_DB::query($sql, $this->id);
+									Zotero_DB::query($sql, $this->id, $shardID);
 								}
 							}
 						}
@@ -1689,7 +1694,7 @@ class Zotero_Item {
 							$sourceItemID ? $sourceItemID : null,
 							$itemID
 						);
-						Zotero_DB::query($sql, $bindParams);
+						Zotero_DB::query($sql, $bindParams, $shardID);
 						
 						//Zotero.Notifier.trigger('modify', 'item', $this->id, notifierData);
 						
@@ -1755,16 +1760,17 @@ class Zotero_Item {
 								AND linkedItemID IN (";
 						$q = array_fill(0, sizeOf($removed), '?');
 						$sql .= implode(', ', $q) . ")";
-						Zotero_DB::query($sql,
-							array_merge(
-								array($this->id), $removed)
-							);
+						Zotero_DB::query(
+							$sql,
+							array_merge(array($this->id), $removed),
+							$shardID
+						);
 					}
 					
 					if ($newids) {
 						$sql = "INSERT INTO itemRelated (itemID, linkedItemID)
 								VALUES (?,?)";
-						$insertStatement = Zotero_DB::getStatement($sql);
+						$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
 						
 						foreach ($newids as $linkedItemID) {
 							$insertStatement->execute(array($this->id, $linkedItemID));
@@ -1948,7 +1954,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT sourceItemID FROM item{$Type}s WHERE itemID=?";
-		$sourceItemID = Zotero_DB::valueQuery($sql, $this->id);
+		$sourceItemID = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		// Temporary sanity check
 		if ($sourceItemID && !is_int($sourceItemID)) {
 			trigger_error("sourceItemID is not an integer", E_USER_ERROR);
@@ -1968,7 +1974,7 @@ class Zotero_Item {
 	public function getSourceKey() {
 		if (isset($this->sourceItem)) {
 			if (is_int($this->sourceItem)) {
-				$sourceItem = Zotero_Items::get($this->sourceItem);
+				$sourceItem = Zotero_Items::get($this->libraryID, $this->sourceItem);
 				return $sourceItem->key;
 			}
 			return $this->sourceItem;
@@ -1989,7 +1995,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT `key` FROM item{$Type}s A JOIN items B ON (A.sourceItemID=B.itemID) WHERE A.itemID=?";
-		$key = Zotero_DB::valueQuery($sql, $this->id);
+		$key = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$key) {
 			$key = false;
 		}
@@ -2031,7 +2037,7 @@ class Zotero_Item {
 		
 		$oldSourceItemID = $this->getSource();
 		if ($oldSourceItemID) {
-			$sourceItem = Zotero_Items::get($oldSourceItemID);
+			$sourceItem = Zotero_Items::get($this->libraryID, $oldSourceItemID);
 			$oldSourceItemKey = $sourceItem->key;
 		}
 		else {
@@ -2066,9 +2072,9 @@ class Zotero_Item {
 		
 		$deleted = 0;
 		if ($includeTrashed) {
-			$sql = "SELECT COUNT(*) FROM itemAttachments WHERE sourceItemID=? AND
-					itemID IN (SELECT itemID FROM deletedItems)";
-			$deleted = (int) Zotero_DB::valueQuery($sql, $this->id);
+			$sql = "SELECT COUNT(*) FROM itemAttachments JOIN deletedItems USING (itemID)
+					WHERE sourceItemID=?";
+			$deleted = (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		}
 		
 		return $this->numAttachments + $deleted;
@@ -2101,7 +2107,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT title FROM itemNotes WHERE itemID=?";
-		$title = Zotero_DB::valueQuery($sql, $this->id);
+		$title = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->noteTitle = $title ? $title : '';
 		return $this->noteTitle;
@@ -2128,10 +2134,10 @@ class Zotero_Item {
 			return $this->noteText;
 		}
 		
-		$note = Zotero_Notes::getCachedNote($this->id);
+		$note = Zotero_Notes::getCachedNote($this->libraryID, $this->id);
 		if ($note === false) {
 			$sql = "SELECT note FROM itemNotes WHERE itemID=?";
-			$note = Zotero_DB::valueQuery($sql, $this->id);
+			$note = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		}
 		
 		$this->noteText = $note ? $note : '';
@@ -2197,7 +2203,7 @@ class Zotero_Item {
 		if ($includeTrashed) {
 			$sql = "SELECT COUNT(*) FROM itemNotes WHERE sourceItemID=? AND
 					itemID IN (SELECT itemID FROM deletedItems)";
-			$deleted = (int) Zotero_DB::valueQuery($sql, $this->id);
+			$deleted = (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		}
 		
 		return $this->numNotes + $deleted;
@@ -2242,7 +2248,7 @@ class Zotero_Item {
 					continue;
 				
 				case 'firstCreator':
-					$arr['virtual'][$field] = $this->$field;
+					$arr['virtual'][$field] = $this->getField('firstCreator');
 					continue;
 					
 				case 'numNotes':
@@ -2294,7 +2300,7 @@ class Zotero_Item {
 			$noteIDs = $this->getNotes();
 			if ($noteIDs) {
 				foreach ($noteIDs as $noteID) {
-					$note = Zotero_Items::get($noteID);
+					$note = Zotero_Items::get($this->libraryID, $noteID);
 					$arr['notes'][] = $note->serialize();
 				}
 			}
@@ -2304,7 +2310,7 @@ class Zotero_Item {
 			$attachmentIDs = $this->getAttachments();
 			if ($attachmentIDs) {
 				foreach ($attachmentIDs as $attachmentID) {
-					$attachment = Zotero_Items::get($attachmentID);
+					$attachment = Zotero_Items::get($this->libraryID, $attachmentID);
 					$arr['attachments'][] = $attachment->serialize();
 				}
 			}
@@ -2368,7 +2374,7 @@ class Zotero_Item {
 		}
 		*/
 		
-		$itemIDs = Zotero_DB::columnQuery($sql, $this->id);
+		$itemIDs = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$itemIDs) {
 			return array();
 		}
@@ -2404,7 +2410,7 @@ class Zotero_Item {
 		// Return ENUM as 0-index integer
 		$sql = "SELECT linkMode - 1 FROM itemAttachments WHERE itemID=?";
 		// DEBUG: why is this returned as a float without the cast?
-		$linkMode = (int) Zotero_DB::valueQuery($sql, $this->id);
+		$linkMode = (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		$this->attachmentData['linkMode'] = $linkMode;
 		return $linkMode;
 	}
@@ -2426,10 +2432,8 @@ class Zotero_Item {
 			return '';
 		}
 		
-		$sql = "SELECT mimeType FROM mimeTypes WHERE mimeTypeID IN (
-			SELECT mimeTypeID FROM itemAttachments WHERE itemID=?
-		)";
-		$mimeType = Zotero_DB::valueQuery($sql, $this->id);
+		$sql = "SELECT mimeType FROM itemAttachments WHERE itemID=?";
+		$mimeType = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$mimeType) {
 			$mimeType = '';
 		}
@@ -2456,10 +2460,10 @@ class Zotero_Item {
 			return '';
 		}
 		
-		$sql = "SELECT charset FROM charsets WHERE charsetID IN (
-			SELECT charsetID FROM itemAttachments WHERE itemID=?
-		)";
-		$charset = Zotero_DB::valueQuery($sql, $this->id);
+		$sql = "SELECT charset FROM itemAttachments
+				JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".charsets USING (charsetID)
+				WHERE itemID=?";
+		$charset = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$charset) {
 			$charset = '';
 		}
@@ -2482,7 +2486,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT path FROM itemAttachments WHERE itemID=?";
-		$path = Zotero_DB::valueQuery($sql, $this->id);
+		$path = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$path) {
 			$path = '';
 		}
@@ -2506,7 +2510,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT storageModTime FROM itemAttachments WHERE itemID=?";
-		$val = Zotero_DB::valueQuery($sql, $this->id);
+		$val = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		$this->attachmentData['storageModTime'] = $val;
 		return $val;
 	}
@@ -2527,7 +2531,7 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT storageHash FROM itemAttachments WHERE itemID=?";
-		$val = Zotero_DB::valueQuery($sql, $this->id);
+		$val = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		$this->attachmentData['storageHash'] = $val;
 		return $val;
 	}
@@ -2601,12 +2605,9 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$sql = "SELECT A.itemID FROM itemAttachments A
-				NATURAL JOIN items I LEFT JOIN itemData ID
-				ON (fieldID=110 AND A.itemID=ID.itemID)
-				LEFT JOIN itemDataValues IDV
-				ON (ID.itemDataValueID=IDV.itemDataValueID)
-				WHERE sourceItemID=? ORDER BY value";
+		$sql = "SELECT itemID FROM items NATURAL JOIN itemAttachments WHERE sourceItemID=?";
+		
+		// TODO: reimplement sorting by title using values from MongoDB?
 		
 		/*
 		if (Zotero.Prefs.get('sortAttachmentsChronologically')) {
@@ -2615,7 +2616,7 @@ class Zotero_Item {
 		}
 		*/
 		
-		$itemIDs = Zotero_DB::columnQuery($sql, $this->id);
+		$itemIDs = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$itemIDs) {
 			return array();
 		}
@@ -2633,7 +2634,7 @@ class Zotero_Item {
 			return 0;
 		}
 		$sql = "SELECT COUNT(*) FROM itemTags WHERE itemID=?";
-		return (int) Zotero_DB::valueQuery($sql, $this->id);
+		return (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	/**
@@ -2647,7 +2648,7 @@ class Zotero_Item {
 		}
 		$sql = "SELECT T.tagID FROM tags T NATURAL JOIN tagData JOIN itemTags IT ON (T.tagID=IT.tagID)
 				WHERE itemID=? ORDER BY name";
-		$tagIDs = Zotero_DB::columnQuery($sql, $this->id);
+		$tagIDs = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$tagIDs) {
 			return false;
 		}
@@ -2691,15 +2692,19 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$sql = "SELECT fieldID, value FROM itemData NATURAL JOIN itemDataValues WHERE itemID=?";
-		$stmt = Zotero_DB::getStatement($sql, true);
+		$sql = "SELECT fieldID, itemDataValueHash AS hash FROM itemData WHERE itemID=?";
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		$fields = Zotero_DB::queryFromStatement($stmt, $this->id);
 		
 		$itemTypeFields = Zotero_ItemFields::getItemTypeFields($this->itemTypeID);
 		
 		if ($fields) {
 			foreach($fields as $field) {
-				$this->setField($field['fieldID'], $field['value'], true, true);
+				$value = Zotero_Items::getDataValue($field['hash']);
+				if ($value === false) {
+					throw new Exception("Item data value for hash '{$field['hash']}' not found");
+				}
+				$this->setField($field['fieldID'], $value, true, true);
 			}
 		}
 		
@@ -2727,7 +2732,7 @@ class Zotero_Item {
 		
 		$sql = "SELECT creatorID, creatorTypeID, orderIndex FROM itemCreators
 				WHERE itemID=? ORDER BY orderIndex";
-		$stmt = Zotero_DB::getStatement($sql, true);
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		$creators = Zotero_DB::queryFromStatement($stmt, $this->id);
 		
 		$this->creators = array();
@@ -2739,6 +2744,7 @@ class Zotero_Item {
 		
 		foreach ($creators as $creator) {
 			$creatorObj = new Zotero_Creator;
+			$creatorObj->libraryID = $this->libraryID;
 			$creatorObj->id = $creator['creatorID'];
 			$this->creators[$creator['orderIndex']] = array(
 				'creatorTypeID' => $creator['creatorTypeID'],
@@ -2769,8 +2775,8 @@ class Zotero_Item {
 		if (!is_numeric($this->id)) {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
-		$sql = "SELECT linkedItemID FROM itemRelated WHERE itemID=$this->id";
-		$ids = Zotero_DB::columnQuery($sql);
+		$sql = "SELECT linkedItemID FROM itemRelated WHERE itemID=?";
+		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->relatedItems = $ids ? $ids : array();
 		$this->relatedItemsLoaded = true;

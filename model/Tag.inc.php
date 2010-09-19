@@ -28,7 +28,6 @@ class Zotero_Tag {
 	private $id;
 	private $libraryID;
 	private $key;
-	private $tagDataID;
 	private $name;
 	private $type;
 	private $dateAdded;
@@ -103,7 +102,7 @@ class Zotero_Tag {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM tags WHERE tagID=?";
-		return !!Zotero_DB::valueQuery($sql, $this->id);
+		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -119,6 +118,8 @@ class Zotero_Tag {
 			return false;
 		}
 		
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
 		Zotero_DB::beginTransaction();
 		
 		try {
@@ -127,14 +128,13 @@ class Zotero_Tag {
 			Z_Core::debug("Saving tag $tagID");
 			
 			$key = $this->key ? $this->key : $this->generateKey();
-			$tagDataID = Zotero_Tags::getTagDataID($this->name, true);
 			
-			$fields = "tagDataID=?, `type`=?, dateAdded=?, dateModified=?,
+			$fields = "name=?, `type`=?, dateAdded=?, dateModified=?,
 				libraryID=?, `key`=?, serverDateModified=?, serverDateModifiedMS=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			$params = array(
-				$tagDataID,
+				$this->name,
 				$this->type ? $this->type : 0,
 				$this->dateAdded ? $this->dateAdded : $timestamp,
 				$this->dateModified ? $this->dateModified : $timestamp,
@@ -147,7 +147,7 @@ class Zotero_Tag {
 			$params = array_merge(array($tagID), $params, $params);
 			
 			$sql = "INSERT INTO tags SET tagID=?, $fields ON DUPLICATE KEY UPDATE $fields";
-			$stmt = Zotero_DB::getStatement($sql, true);
+			$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 			$insertID = Zotero_DB::queryFromStatement($stmt, $params);
 			if (!$this->id) {
 				if (!$insertID) {
@@ -168,7 +168,7 @@ class Zotero_Tag {
 				
 				if ($full) {
 					$sql = "SELECT itemID FROM itemTags WHERE tagID=?";
-					$dbItemIDs = Zotero_DB::columnQuery($sql, $tagID);
+					$dbItemIDs = Zotero_DB::columnQuery($sql, $tagID, $shardID);
 					if ($dbItemIDs) {
 						$removed = array_diff($dbItemIDs, $currentIDs);
 						$newids = array_diff($currentIDs, $dbItemIDs);
@@ -195,17 +195,18 @@ class Zotero_Tag {
 					$sql = "DELETE FROM itemTags WHERE tagID=? AND itemID IN (";
 					$q = array_fill(0, sizeOf($removed), '?');
 					$sql .= implode(', ', $q) . ")";
-					Zotero_DB::query($sql,
-						array_merge(
-							array($this->id), $removed)
-						);
+					Zotero_DB::query(
+						$sql,
+						array_merge(array($this->id), $removed),
+						$shardID
+					);
 				}
 				
 				if ($newids) {
 					$newids = array_values($newids);
 					$sql = "INSERT INTO itemTags (tagID, itemID) VALUES ";
 					$maxInsertGroups = 50;
-					Zotero_DB::bulkInsert($sql, $newids, $maxInsertGroups, $tagID);
+					Zotero_DB::bulkInsert($sql, $newids, $maxInsertGroups, $tagID, $shardID);
 				}
 				
 				//Zotero.Notifier.trigger('add', 'collection-item', $this->id . '-' . $itemID);
@@ -293,7 +294,7 @@ class Zotero_Tag {
 		$newIDs = array_merge($oldIDs, $newIDs);
 		
 		if ($newIDs) {
-			$items = Zotero_Items::get($newIDs);
+			$items = Zotero_Items::get($this->libraryID, $newIDs);
 		}
 		
 		$this->linkedItems = !empty($items) ? $items : array();
@@ -437,23 +438,29 @@ class Zotero_Tag {
 	}
 	
 	
-	private function load($allowFail=false) {
-		Z_Core::debug("Loading data for tag $this->id");
+	private function load() {
+		//Z_Core::debug("Loading data for tag $this->id");
+		
+		if (!$this->libraryID) {
+			throw new Exception("Library ID not set");
+		}
 		
 		if (!$this->id && !$this->key) {
 			throw new Exception("ID or key not set");
 		}
 		
-		$sql = "SELECT tagID AS id, type, dateAdded, dateModified, libraryID, `key`, TD.*
-					FROM tags T NATURAL JOIN tagData TD WHERE ";
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
+		$sql = "SELECT tagID AS id, name, type, dateAdded, dateModified, libraryID, `key`
+					FROM tags WHERE ";
 		if ($this->id) {
 			$sql .= "tagID=?";
-			$stmt = Zotero_DB::getStatement($sql);
+			$stmt = Zotero_DB::getStatement($sql, false, $shardID);
 			$data = Zotero_DB::rowQueryFromStatement($stmt, $this->id);
 		}
 		else {
 			$sql .= "libraryID=? AND `key`=?";
-			$stmt = Zotero_DB::getStatement($sql);
+			$stmt = Zotero_DB::getStatement($sql, false, $shardID);
 			$data = Zotero_DB::rowQueryFromStatement($stmt, array($this->libraryID, $this->key));
 		}
 		
@@ -461,6 +468,10 @@ class Zotero_Tag {
 		
 		if (!$data) {
 			return;
+		}
+		
+		if ($data['libraryID'] != $this->libraryID) {
+			throw new Exception("libraryID {$data['libraryID']} != $this->libraryID");
 		}
 		
 		foreach ($data as $key=>$val) {
@@ -487,11 +498,11 @@ class Zotero_Tag {
 		}
 		
 		$sql = "SELECT itemID FROM itemTags WHERE tagID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id);
+		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->linkedItems = array();
 		if ($ids) {
-			$this->linkedItems = Zotero_Items::get($ids);
+			$this->linkedItems = Zotero_Items::get($this->libraryID, $ids);
 		}
 		
 		$this->linkedItemsLoaded = true;
@@ -522,6 +533,12 @@ class Zotero_Tag {
 			case 'dateModified':
 				if (!preg_match("/^[0-9]{4}\-[0-9]{2}\-[0-9]{2} ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])$/", $value)) {
 					$this->invalidValueError($field, $value);
+				}
+				break;
+			
+			case 'name':
+				if (mb_strlen($value) > Zotero_Tags::$maxLength) {
+					throw new Exception("Tag '" . $value . "' too long", Z_ERROR_TAG_TOO_LONG);
 				}
 				break;
 		}

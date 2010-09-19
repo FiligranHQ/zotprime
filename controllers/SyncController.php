@@ -144,7 +144,7 @@ class SyncController extends Controller {
 		
 		$sql = "INSERT INTO sessions (sessionID, userID, ipAddress)
 					VALUES (?,?,INET_ATON(?))";
-		Z_SessionsDB::query($sql, array($sessionID, $userID, $ip));
+		Zotero_DB::query($sql, array($sessionID, $userID, $ip));
 		
 		Z_Core::$MC->set(
 			"syncSession_$sessionID",
@@ -161,16 +161,16 @@ class SyncController extends Controller {
 	
 	
 	public function logout() {
-		Z_SessionsDB::beginTransaction();
+		Zotero_DB::beginTransaction();
 		
 		$this->sessionCheck();
 		
 		$sql = "DELETE FROM sessions WHERE sessionID=?";
-		Z_SessionsDB::query($sql, $this->sessionID);
+		Zotero_DB::query($sql, $this->sessionID);
 		
 		Z_Core::$MC->delete("syncSession_" . $this->sessionID);
 		
-		Z_SessionsDB::commit();
+		Zotero_DB::commit();
 		
 		$this->responseXML->addChild('loggedout');
 		$this->end();
@@ -490,7 +490,7 @@ class SyncController extends Controller {
 		if (!$userID) {
 			$sql = "SELECT userid, (UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(timestamp)) AS age
 					FROM sessions WHERE sessionID=?";
-			$session = Z_SessionsDB::rowQuery($sql, $sessionID);
+			$session = Zotero_DB::rowQuery($sql, $sessionID);
 			
 			if (!$session) {
 				$this->error(500, 'INVALID_SESSION_ID', "Invalid session ID");
@@ -514,7 +514,7 @@ class SyncController extends Controller {
 		
 		if (Z_Core::probability(4)) {
 			$sql = "UPDATE sessions SET timestamp=NOW() WHERE sessionID=?";
-			Z_SessionsDB::query($sql, $sessionID);
+			Zotero_DB::query($sql, $sessionID);
 		}
 		
 		$this->sessionID = $sessionID;
@@ -611,7 +611,7 @@ class SyncController extends Controller {
 			}
 		}
 		
-		Zotero_DB::rollback();
+		Zotero_DB::rollback(true);
 		
 		switch ($e->getCode()) {
 			case Z_ERROR_LIBRARY_ACCESS_DENIED:
@@ -743,7 +743,7 @@ class SyncController extends Controller {
 	private function sessionGC() {
 		$sql = "SELECT sessionID FROM sessions
 				WHERE (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(timestamp)) > ?";
-		$sessionIDs = Z_SessionsDB::columnQuery($sql, $this->sessionLifetime);
+		$sessionIDs = Zotero_DB::columnQuery($sql, $this->sessionLifetime);
 		if ($sessionIDs) {
 			$cacheKeys = array();
 			foreach ($sessionIDs as $sessionID) {
@@ -765,7 +765,7 @@ class SyncController extends Controller {
 			$sessionIDs = array_values($sessionIDs);
 			$sql = "DELETE FROM sessions WHERE sessionID IN ("
 				. implode(', ', array_fill(0, sizeOf($sessionIDs), '?')) . ")";
-			Z_SessionsDB::query($sql, $sessionIDs);
+			Zotero_DB::query($sql, $sessionIDs);
 		}
 	}
 }

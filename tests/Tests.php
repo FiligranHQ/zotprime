@@ -35,13 +35,16 @@ class Tests extends PHPUnit_Framework_TestSuite {
 		$suite->addTestSuite('CreatorsTests');
 		$suite->addTestSuite('DBTests');
 		$suite->addTestSuite('MemcacheTests');
+		$suite->addTestSuite('MongoTests');
 		$suite->addTestSuite('TagsTests');
 		$suite->addTestSuite('UsersTests');
 		return $suite;
 	}
 	
 	protected function setUp() {}
-	protected function tearDown() {}
+	protected function tearDown() {
+		Z_Core::$Mongo->resetTestTable();
+	}
 }
 
 
@@ -342,6 +345,7 @@ EOD;
 
 class MemcacheTests extends PHPUnit_Framework_TestCase {
 	public function testQueue() {
+		// Clean up
 		Z_Core::$MC->delete("testFoo");
 		Z_Core::$MC->delete("testFoo2");
 		Z_Core::$MC->delete("testFoo3");
@@ -368,26 +372,37 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(Z_Core::$MC->get("testFoo"), "bar2");
 		$this->assertEquals(Z_Core::$MC->get("testFoo2"), "bar4");
 		$this->assertEquals(Z_Core::$MC->get("testFoo3"), "bar6");
+		
+		// Clean up
+		Z_Core::$MC->delete("testFoo");
+		Z_Core::$MC->delete("testFoo2");
+		Z_Core::$MC->delete("testFoo3");
 	}
 	
 	public function testUnicode() {
+		// Clean up
+		Z_Core::$MC->delete("testUnicode1");
+		Z_Core::$MC->delete("testUnicode2");
+		
 		$str1 = "Øüévrê";
 		$str2 = "汉字漢字";
 		
-		Z_Core::$MC->delete("testUnicode1");
 		Z_Core::$MC->set("testUnicode1", $str1 . $str2);
 		$this->assertEquals(Z_Core::$MC->get("testUnicode1"), $str1 . $str2);
 		
-		Z_Core::$MC->delete("testUnicode2");
 		$arr = array('foo1' => $str1, 'foo2' => $str2);
 		Z_Core::$MC->set("testUnicode2", $arr);
 		$this->assertEquals(Z_Core::$MC->get("testUnicode2"), $arr);
+		
+		// Clean up
+		Z_Core::$MC->delete("testUnicode1");
+		Z_Core::$MC->delete("testUnicode2");
 	}
 }
 
 
 class TagsTests extends PHPUnit_Framework_TestCase {
-	public function testGetDataValuesFromXML() {
+	/*public function testGetDataValuesFromXML() {
 		$xml = <<<'EOD'
 			<data>
 				<creators><creator/></creators>
@@ -417,7 +432,7 @@ EOD;
 		$this->assertEquals("Minéral", $values[2]);
 		$this->assertEquals("Vegetable", $values[3]);
 		$this->assertEquals("mineral", $values[4]);
-	}
+	}*/
 	
 	
 	public function testGetLongDataValueFromXML() {
@@ -440,6 +455,140 @@ EOD;
 	}
 }
 
+
+
+class MongoTests extends PHPUnit_Framework_TestCase {
+	public function testInsertFindRemove() {
+		Z_Core::$Mongo->resetTestTable();
+		
+		$value = "Blah blah føo\nbar test tést";
+		$hash = md5($value);
+		
+		// Insert
+		$doc = array(
+			"_id" => $hash,
+			"value" => $value
+		);
+		Z_Core::$Mongo->insertSafe("test", $doc);
+		$this->assertEquals($hash, $doc['_id']);
+		// valueQuery
+		$retValue = Z_Core::$Mongo->valueQuery("test", array("_id"=>$hash), "value");
+		$this->assertEquals($value, $retValue);
+		// valueQuery also accepts id as direct parameter
+		$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
+		$this->assertEquals($value, $retValue);
+		// findOne
+		$retArray = Z_Core::$Mongo->findOne("test", array("_id"=>$hash), array("value"));
+		$this->assertEquals(2, sizeOf($retArray)); // _id is always returned
+		$this->assertEquals($value, $retArray["value"]);
+		// findOne with direct _id
+		$retArray = Z_Core::$Mongo->findOne("test", $hash, array("value"));
+		$this->assertEquals(2, sizeOf($retArray)); // _id is always returned
+		$this->assertEquals($value, $retArray["value"]);
+		
+		// Remove
+		Z_Core::$Mongo->remove("test", $hash);
+		$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
+		$this->assertFalse($retValue);
+	}
+	
+	
+	public function testBatchInsertSafe() {
+		Z_Core::$Mongo->resetTestTable();
+		
+		$values = array("Foo", "foo", "Foobar", "Øoooø", "foo bar\nfoo bar");
+		$docs = array();
+		foreach ($values as $value) {
+			$docs[] = array(
+				"_id" => md5($value),
+				"value" => $value
+			);
+		}
+		
+		Z_Core::$Mongo->batchInsertSafe("test", $docs);
+		
+		for ($i=0; $i<sizeOf($docs); $i++) {
+			$hash = md5($values[$i]);
+			$this->assertEquals($hash, $docs[$i]['_id']);
+			$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
+			$this->assertEquals($values[$i], $retValue);
+		}
+		
+		Z_Core::$Mongo->resetTestTable();
+		
+		// Test a duplicate key failure to make sure we're really "safe"
+		$values = array("føo", "føo", "bar");
+		$docs = array();
+		foreach ($values as $value) {
+			$docs[] = array(
+				"_id" => md5($value),
+				"value" => $value
+			);
+		}
+		
+		try {
+			Z_Core::$Mongo->batchInsertSafe("test", $docs);
+		}
+		catch (MongoCursorException $e) {
+			$this->assertNotEquals(false, strpos($e->getMessage(), 'E11000 duplicate key error index'));
+			$retValue = Z_Core::$Mongo->valueQuery("test", md5("føo"), "value");
+			$this->assertEquals("føo", $retValue);
+			$retValue = Z_Core::$Mongo->valueQuery("test", md5("bar"), "value");
+			$this->assertFalse($retValue);
+		}
+	}
+	
+	
+	public function testBatchInsertIgnore() {
+		Z_Core::$Mongo->resetTestTable();
+		
+		$values = array("føo", "føo", "bar");
+		
+		$docs = array();
+		foreach ($values as $value) {
+			$docs[] = array(
+				"_id" => md5($value),
+				"value" => $value
+			);
+		}
+		
+		Z_Core::$Mongo->batchInsertIgnoreSafe("test", $docs);
+		
+		for ($i=0; $i<sizeOf($docs); $i++) {
+			$hash = md5($values[$i]);
+			$this->assertEquals($hash, $docs[$i]['_id']);
+			$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
+			$this->assertEquals($values[$i], $retValue);
+		}
+	}
+	
+	
+	public function testRemoveAll() {
+		Z_Core::$Mongo->resetTestTable();
+		
+		// Insert some values and make sure they're there
+		$values = array("a", "b", "c", "d");
+		$docs = array();
+		foreach ($values as $value) {
+			$docs[] = array(
+				"_id" => md5($value),
+				"value" => $value
+			);
+		}
+		Z_Core::$Mongo->batchInsertIgnoreSafe("test", $docs);
+		
+		$cursor = Z_Core::$Mongo->find("test", array("value" => array('$in' => $values)), array("_id"));
+		$hashes = iterator_to_array($cursor);
+		$this->assertEquals(sizeOf($values), sizeOf($hashes));
+		
+		// Remove all
+		Z_Core::$Mongo->removeAll("test");
+		
+		$cursor = Z_Core::$Mongo->find("test", array("value" => array('$in' => $values)), array("_id"));
+		$hashes = iterator_to_array($cursor);
+		$this->assertEquals(0, sizeOf($hashes));
+	}
+}
 
 
 class UsersTests extends PHPUnit_Framework_TestCase {

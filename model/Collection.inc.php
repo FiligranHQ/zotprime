@@ -125,7 +125,7 @@ class Zotero_Collection {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM collections WHERE collectionID=?";
-		return !!Zotero_DB::valueQuery($sql, $this->id);
+		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -153,7 +153,7 @@ class Zotero_Collection {
 			// Verify parent
 			if ($this->_parent) {
 				if (is_int($this->_parent)) {
-					$newParentCollection = Zotero_Collections::get($this->_parent);
+					$newParentCollection = Zotero_Collections::get($this->libraryID, $this->_parent);
 				}
 				else {
 					// TODO: static binding
@@ -198,7 +198,7 @@ class Zotero_Collection {
 			
 			$sql = "INSERT INTO collections SET collectionID=?, $fields
 					ON DUPLICATE KEY UPDATE $fields";
-			$insertID = Zotero_DB::query($sql, $params);
+			$insertID = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($this->libraryID));
 			if (!$this->id) {
 				if (!$insertID) {
 					throw new Exception("Collection id not available after INSERT");
@@ -298,6 +298,8 @@ class Zotero_Collection {
 	
 	
 	public function setChildItems($itemIDs) {
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
 		Zotero_DB::beginTransaction();
 		
 		if (!$this->childItemsLoaded) {
@@ -317,7 +319,7 @@ class Zotero_Collection {
 				$params[] = $itemID;
 			}
 			$sql .= implode(',', $q) . ")";
-			Zotero_DB::query($sql, $params);
+			Zotero_DB::query($sql, $params, $shardID);
 		}
 		
 		if ($new) {
@@ -325,7 +327,7 @@ class Zotero_Collection {
 			if ($this->id == 1528) {
 				$sql = "INSERT INTO collectionItems (collectionID, itemID) VALUES (?, ?)";
 				foreach ($new as $itemID) {
-					Zotero_DB::query($sql, array($this->id, $itemID));
+					Zotero_DB::query($sql, array($this->id, $itemID), $shardID);
 				}
 			}
 			else {
@@ -339,7 +341,7 @@ class Zotero_Collection {
 					array($this->id, $itemID));
 			}
 			$sql .= implode(',', $q);
-			Zotero_DB::query($sql, $params);
+			Zotero_DB::query($sql, $params, $shardID);
 			
 			}
 		}
@@ -357,7 +359,7 @@ class Zotero_Collection {
 		
 		Zotero_DB::beginTransaction();
 		
-		if (!Zotero_Items::get($itemID)) {
+		if (!Zotero_Items::get($this->libraryID, $itemID)) {
 			Zotero_DB::rollback();
 			trigger_error("Item $itemID does not exist", E_USER_ERROR);
 		}
@@ -365,7 +367,7 @@ class Zotero_Collection {
 		// TODO: support order index
 		
 		$sql = "INSERT IGNORE INTO collectionItems (collectionID, itemID) VALUES (?, ?)";
-		Zotero_DB::query($sql, array($this->id, $itemID));
+		Zotero_DB::query($sql, array($this->id, $itemID), Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		Zotero_DB::commit();
 	}
@@ -411,7 +413,9 @@ class Zotero_Collection {
 				FROM collections WHERE parentCollectionID=?
 				UNION SELECT itemID AS id, 1 AS type, NULL AS collectionName, `key`
 				FROM collectionItems JOIN items USING (itemID) WHERE collectionID=?',
-				array($this->id, $this->id));
+				array($this->id, $this->id),
+				Zotero_Shards::getByLibraryID($this->libraryID)
+		);
 		
 		if ($type) {
 			switch ($type) {
@@ -442,7 +446,7 @@ class Zotero_Collection {
 					}
 					
 					if ($recursive) {
-						$col = Zotero_Collections::get($children[$i]['id']);
+						$col = Zotero_Collections::get($this->libraryID, $children[$i]['id']);
 						$descendents = $col->getChildren(true, $nested, $type, $level+1);
 						
 						if ($nested) {
@@ -495,7 +499,7 @@ class Zotero_Collection {
 		}
 		
 		$sql = "SELECT parentCollectionID FROM collections WHERE collectionID=?";
-		$parentCollectionID = Zotero_DB::valueQuery($sql, $this->id);
+		$parentCollectionID = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$parentCollectionID) {
 			$parentCollectionID = null;
 		}
@@ -512,7 +516,7 @@ class Zotero_Collection {
 			if (is_string($this->_parent)) {
 				return $this->_parent;
 			}
-			$parentCollection = Zotero_Collections::get($this->_parent);
+			$parentCollection = Zotero_Collections::get($this->libraryID, $this->_parent);
 			return $parentCollection->key;
 		}
 		
@@ -522,7 +526,7 @@ class Zotero_Collection {
 		
 		$sql = "SELECT B.`key` FROM collections A JOIN collections B
 				ON (A.parentCollectionID=B.collectionID) WHERE A.collectionID=?";
-		$key = Zotero_DB::valueQuery($sql, $this->id);
+		$key = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$key) {
 			$key = null;
 		}
@@ -569,7 +573,7 @@ class Zotero_Collection {
 		
 		$oldParentCollectionID = $this->getParent();
 		if ($oldParentCollectionID) {
-			$parentCollection = Zotero_Collections::get($oldParentCollectionID);
+			$parentCollection = Zotero_Collections::get($this->libraryID, $oldParentCollectionID);
 			$oldParentCollectionKey = $parentCollection->key;
 			if (!$oldParentCollectionKey) {
 				throw new Exception("No key for parent collection $oldParentCollectionID"); 
@@ -593,20 +597,21 @@ class Zotero_Collection {
 	}
 	
 	
-	private function load($allowFail=false) {
-		$id = $this->_id;
+	private function load() {
+		if (!$this->_libraryID) {
+			throw new Exception("Library ID not set");
+		}
+		
 		$libraryID = $this->_libraryID;
+		$id = $this->_id;
 		$key = $this->_key;
 		
-		Z_Core::debug("Loading data for collection $id");
+		//Z_Core::debug("Loading data for collection $id");
 		
 		$sql = "SELECT collectionID AS id, collectionName AS name, libraryID, `key`,
 				dateAdded, dateModified, parentCollectionID AS parent
 				FROM collections WHERE ";
 		if ($id) {
-			if (!$id) {
-				throw new Exception("Collection ID not set");
-			}
 			$sql .= "collectionID=?";
 			$params = $id;
 		}
@@ -614,7 +619,8 @@ class Zotero_Collection {
 			$sql .= "libraryID=? AND `key`=?";
 			$params = array($libraryID, $key);
 		}
-		$data = Zotero_DB::rowQuery($sql, $params);
+		
+		$data = Zotero_DB::rowQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		$this->loaded = true;
 		
@@ -641,7 +647,7 @@ class Zotero_Collection {
 		}
 		
 		$sql = "SELECT collectionID FROM collections WHERE parentCollectionID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id);
+		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->childCollections = $ids ? $ids : array();
 		$this->childCollectionsLoaded = true;
@@ -660,7 +666,7 @@ class Zotero_Collection {
 		}
 		
 		$sql = "SELECT itemID FROM collectionItems WHERE collectionID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id);
+		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->childItems = $ids ? $ids : array();
 		$this->childItemsLoaded = true;

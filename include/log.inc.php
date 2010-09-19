@@ -65,8 +65,19 @@ class Z_Log {
 			);
 		}
 		
-		//self::logToStdOut($messages);
-		self::logToScribe($messages);
+		if (Z_CONFIG::$LOG_TO_SCRIBE) {
+			self::logToScribe($messages);
+		}
+		else {
+			//self::logToStdOut($messages);
+			self::logToErrorLog($messages);
+		}
+	}
+	
+	private static function logToErrorLog($messages) {
+		foreach ($messages as $message) {
+			error_log($message['message']);
+		}
 	}
 	
 	private static function logToStdOut($messages) {

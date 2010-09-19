@@ -220,6 +220,7 @@ class Zotero_Sync {
 				foreach ($affectedLibraries as $libraryID) {
 					Zotero_DB::query("INSERT INTO tmpLibraryCheck VALUES (?)", $libraryID);
 				}
+				// TODO: remove subquery
 				$libraryID = Zotero_DB::valueQuery("SELECT * FROM tmpLibraryCheck WHERE libraryID NOT IN (SELECT libraryID FROM libraries) LIMIT 1");
 				if ($libraryID) {
 					throw new Exception("Library $libraryID does not exist", Z_ERROR_LIBRARY_ACCESS_DENIED);
@@ -683,7 +684,11 @@ class Zotero_Sync {
 							$sql = "UPDATE syncDeleteLogIDs SET timestamp=FROM_UNIXTIME(?), timestampMS=?
 									WHERE libraryID=? AND objectType='group' AND id=?";
 							$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-							$affected = Zotero_DB::query($sql, array($timestamp, $timestampMS, $userLibraryID, $groupID));
+							$affected = Zotero_DB::query(
+								$sql,
+								array($timestamp, $timestampMS, $userLibraryID, $groupID),
+								Zotero_Shards::getByLibraryID($userLibraryID)
+							);
 							break;
 						
 						default:
@@ -708,7 +713,11 @@ class Zotero_Sync {
 							$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 							$sql = "UPDATE syncDeleteLogIDs SET timestamp=FROM_UNIXTIME(?), timestampMS=?
 									WHERE libraryID=? AND objectType='group' AND id=?";
-							$affected = Zotero_DB::query($sql, array($timestamp, $timestampMS, $userLibraryID, $groupID));
+							$affected = Zotero_DB::query(
+								$sql,
+								array($timestamp, $timestampMS, $userLibraryID, $groupID),
+								Zotero_Shards::getByLibraryID($this->libraryID)
+							);
 							break;
 						
 						default:
@@ -833,8 +842,10 @@ class Zotero_Sync {
 	 * Remove upload process and locks from database
 	 */
 	public static function removeUploadProcess($syncProcessID) {
+		Zotero_DB::beginTransaction();
 		$sql = "DELETE FROM syncProcesses WHERE syncProcessID=?";
 		Zotero_DB::query($sql, $syncProcessID);
+		Zotero_DB::commit();
 	}
 	
 	
@@ -980,56 +991,61 @@ class Zotero_Sync {
 				
 				$className = 'Zotero_' . $Names;
 				
-				$updatedIDs = call_user_func(array($className, 'getUpdated'), $userLibraryID, $lastsync, true);
-				if ($updatedIDs) {
-					// Pre-cache item pull
-					if ($name == 'item') {
-						Zotero_Items::get($updatedIDs);
-						Zotero_Notes::cacheNotes($updatedIDs);
-					}
-					
-					if ($name == 'creator') {
-						$updatedCreators = $updatedIDs;
-					}
-					
+				$updatedIDsByLibraryID = call_user_func(array($className, 'getUpdated'), $userLibraryID, $lastsync, true);
+				if ($updatedIDsByLibraryID) {
 					$node = $doc->createElement($names);
 					$updatedNode->appendChild($node);
-					foreach ($updatedIDs as $id) {
-						if ($name == 'item') {
-							$obj = call_user_func(array($className, 'get'), $id);
-							$data = array('updatedCreators' => $updatedCreators);
-							$xmlElement = Zotero_Items::convertItemToXML($obj, $data, $apiVersion);
-						}
-						else {
-							$instanceClass = 'Zotero_' . $Name;
-							$obj = new $instanceClass;
-							if (method_exists($instanceClass, '__construct')) {
-								$obj->__construct();
-							}
-							$obj->id = $id;
-							if ($name == 'tag') {
-								$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj, true);
-							}
-							else if ($name == 'creator') {
-								$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj, $doc);
-								if ($xmlElement->getAttribute('libraryID') == $userLibraryID) {
-									$xmlElement->removeAttribute('libraryID');
-								}
-								$node->appendChild($xmlElement);
-							}
-							else {
-								$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
-							}
+					foreach ($updatedIDsByLibraryID as $libraryID=>$ids) {
+						if ($name == 'creator') {
+							$updatedCreators[$libraryID] = $ids;
 						}
 						
-						if ($xmlElement instanceof SimpleXMLElement) {
-							if ($xmlElement['libraryID'] == $userLibraryID) {
-								unset($xmlElement['libraryID']);
+						// Pre-cache item pull
+						if ($name == 'item') {
+							Zotero_Items::get($libraryID, $ids);
+							Zotero_Notes::cacheNotes($libraryID, $ids);
+						}
+						
+						foreach ($ids as $id) {
+							if ($name == 'item') {
+								$obj = call_user_func(array($className, 'get'), $libraryID, $id);
+								$data = array(
+									'updatedCreators' => isset($updatedCreators[$libraryID]) ? $updatedCreators[$libraryID] : array()
+								);
+								$xmlElement = Zotero_Items::convertItemToXML($obj, $data, $apiVersion);
+							}
+							else {
+								$instanceClass = 'Zotero_' . $Name;
+								$obj = new $instanceClass;
+								if (method_exists($instanceClass, '__construct')) {
+									$obj->__construct();
+								}
+								$obj->libraryID = $libraryID;
+								$obj->id = $id;
+								if ($name == 'tag') {
+									$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj, true);
+								}
+								else if ($name == 'creator') {
+									$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj, $doc);
+									if ($xmlElement->getAttribute('libraryID') == $userLibraryID) {
+										$xmlElement->removeAttribute('libraryID');
+									}
+									$node->appendChild($xmlElement);
+								}
+								else {
+									$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
+								}
 							}
 							
-							$newNode = dom_import_simplexml($xmlElement);
-							$newNode = $doc->importNode($newNode, true);
-							$node->appendChild($newNode);
+							if ($xmlElement instanceof SimpleXMLElement) {
+								if ($xmlElement['libraryID'] == $userLibraryID) {
+									unset($xmlElement['libraryID']);
+								}
+								
+								$newNode = dom_import_simplexml($xmlElement);
+								$newNode = $doc->importNode($newNode, true);
+								$node->appendChild($newNode);
+							}
 						}
 					}
 				}
@@ -1157,22 +1173,6 @@ class Zotero_Sync {
 			$profiler->setEnabled(true);
 		}
 		
-		// Add tag values
-		if ($xml->tags) {
-			$domSXE = dom_import_simplexml($xml->tags);
-			$doc = new DOMDocument();
-			$domSXE = $doc->importNode($domSXE, true);
-			$domSXE = $doc->appendChild($domSXE);
-			$values = Zotero_Tags::getDataValuesFromXML($doc);
-			try {
-				Zotero_Tags::bulkInsertDataValues($values);
-			}
-			catch (Exception $e) {
-				self::removeUploadProcess($processID);
-				throw $e;
-			}
-		}
-		
 		// Add creator values
 		if ($xml->creators) {
 			$domSXE = dom_import_simplexml($xml->creators);
@@ -1222,11 +1222,6 @@ class Zotero_Sync {
 			Z_Core::$MC->begin();
 			Zotero_DB::beginTransaction();
 			
-			// Serialize upload transactions
-			//if ($xml->creators) {
-				//Zotero_DB::query("UPDATE uploadLock SET semaphore=semaphore+1");
-			//}
-			
 			// Add/update creators
 			if ($xml->creators) {
 				// DOM
@@ -1235,7 +1230,7 @@ class Zotero_Sync {
 				$xmlElements = $xmlElements->getElementsByTagName('creator');
 				Zotero_DB::query("SET foreign_key_checks = 0");
 				$addedLibraryIDs = array();
-				$addedCreatorDataIDs = array();
+				$addedCreatorDataHashes = array();
 				foreach ($xmlElements as $xmlElement) {
 					$key = $xmlElement->getAttribute('key');
 					if (isset($keys[$key])) {
@@ -1246,7 +1241,7 @@ class Zotero_Sync {
 					$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
 					$creatorObj->save();
 					$addedLibraryIDs[] = $creatorObj->libraryID;
-					$addedCreatorDataIDs[] = $creatorObj->creatorDataID;
+					$addedCreatorDataHashes[] = $creatorObj->creatorDataHash;
 				}
 				Zotero_DB::query("SET foreign_key_checks = 1");
 				unset($keys);
@@ -1272,22 +1267,15 @@ class Zotero_Sync {
 				}
 				Zotero_DB::query("DROP TEMPORARY TABLE tmpCreatorFKCheck");
 				
-				// creatorDataID
-				$sql = "CREATE TEMPORARY TABLE tmpCreatorFKCheck (
-							creatorDataID INT UNSIGNED NOT NULL, UNIQUE KEY (creatorDataID)
-						)";
-				Zotero_DB::query($sql);
-				Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpCreatorFKCheck VALUES ", $addedCreatorDataIDs, 100);
-				$added = Zotero_DB::valueQuery("SELECT COUNT(*) FROM tmpCreatorFKCheck");
-				$count = Zotero_DB::valueQuery("SELECT COUNT(*) FROM tmpCreatorFKCheck JOIN creatorData USING (creatorDataID)");
+				// creatorDataHash
+				$cursor = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $addedCreatorDataHashes)), array("_id"));
+				$hashes = iterator_to_array($cursor);
+				$added = sizeOf($addedCreatorDataHashes);
+				$count = sizeOf($hashes);
 				if ($count != $added) {
-					$sql = "SELECT FK.creatorDataID FROM tmpCreatorFKCheck FK
-							LEFT JOIN creatorData CD USING (creatorDataID)
-							WHERE CD.creatorDataID IS NULL";
-					$missing = Zotero_DB::columnQuery($sql);
-					throw new Exception("creatorDataIDs inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ")  $added $count");
+					$missing = array_diff($addedCreatorDataHashes, $hashes);
+					throw new Exception("creatorDataHashes inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ") $added $count");
 				}
-				Zotero_DB::query("DROP TEMPORARY TABLE tmpCreatorFKCheck");
 				
 				// SimpleXML
 				/*$keys = array();
@@ -1918,7 +1906,7 @@ class Zotero_Sync {
 			$groupIDs = array();
 		}
 		if ($groupIDs) {
-			$sql .= " UNION SELECT $fields FROM syncDeleteLogKeys JOIN groups USING (libraryID)
+			$sql .= " UNION SELECT $fields FROM syncDeleteLogKeys JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID)
 						WHERE groupID IN (";
 			$params = array_merge($params, $groupIDs);
 			$q = array();
@@ -1932,7 +1920,7 @@ class Zotero_Sync {
 			}
 		}
 		$sql .= " ORDER BY CONCAT(timestamp, '.', IFNULL(timestampMS, 0))";
-		$rows = Zotero_DB::query($sql, $params);
+		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		if (!$rows) {
 			return false;
 		}
@@ -2029,7 +2017,7 @@ class Zotero_Sync {
 			$groupIDs = array();
 		}
 		if ($groupIDs) {
-			$sql .= " UNION SELECT $fields FROM syncDeleteLogIDs JOIN groups USING (libraryID)
+			$sql .= " UNION SELECT $fields FROM syncDeleteLogIDs JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID)
 						WHERE groupID IN (";
 			$params = array_merge($params, $groupIDs);
 			$q = array();
@@ -2053,7 +2041,7 @@ class Zotero_Sync {
 		}
 		$sql .= " ORDER BY timestamp";
 		
-		$rows = Zotero_DB::query($sql, $params);
+		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		if (!$rows) {
 			return false;
 		}

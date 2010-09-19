@@ -313,7 +313,7 @@ class ApiController extends Controller {
 				$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 			}
 			else {
-				$item = Zotero_Items::get($this->objectID);
+				$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
 			}
 			if (!$item) {
 				$this->e404("Item does not exist");
@@ -334,6 +334,7 @@ class ApiController extends Controller {
 			}
 			
 			// If key, redirect to id URL
+			// TODO: reverse
 			if ($this->objectKey) {
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
 				header("Location: " . Zotero_API::getItemURI($item) . $qs);
@@ -366,12 +367,9 @@ class ApiController extends Controller {
 			if ($this->scopeObject) {
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = new Zotero_Collection;
-						$collection->id = $this->scopeObjectID;
-						
-						// Make sure URL libraryID matches item libraryID
-						if ($this->objectLibraryID != $collection->libraryID) {
-							$this->e404();
+						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
+						if (!$collection) {
+							$this->e404("Collection does not exist");
 						}
 						
 						$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Items in Collection ‘" . $collection->name . "’";
@@ -406,7 +404,7 @@ class ApiController extends Controller {
 					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
 				}
 				else if ($this->subset == 'children') {
-					$item = Zotero_Items::get($this->objectID);
+					$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
 					$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Child Items of ‘" . $item->getDisplayTitle() . "’";
 					$notes = $item->getNotes();
 					$attachments = $item->getAttachments();
@@ -436,7 +434,7 @@ class ApiController extends Controller {
 			}
 			
 			if ($itemIDs) {
-				$items = Zotero_Items::get($itemIDs);
+				$items = Zotero_Items::get($this->objectLibraryID, $itemIDs);
 				
 				// Fake sorting and limiting
 				$totalResults = sizeOf($items);
@@ -512,7 +510,7 @@ class ApiController extends Controller {
 		$this->allowMethods(array('POST'));
 		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID)
 				JOIN users USING (libraryID) WHERE userID=?";
-		Zotero_DB::query($sql, $this->objectUserID);
+		Zotero_DB::query($sql, $this->objectUserID, Zotero_Shards::getByUserID($this->objectUserID));
 		header("HTTP/1.1 204 No Content");
 		exit;
 	}
@@ -841,14 +839,9 @@ class ApiController extends Controller {
 		
 		// Single collection
 		if ($this->objectID && $this->subset != 'collections') {
-			$collection = new Zotero_Collection;
-			$collection->id = $this->objectID;
+			$collection = Zotero_Collections::get($this->objectLibraryID, $this->objectID);
 			if (!$collection) {
 				$this->e404("Collection does not exist");
-			}
-			
-			if ($this->objectLibraryID != $collection->libraryID) {
-				$this->e404();
 			}
 			
 			// In single-collection mode, require public pref to be enabled
@@ -878,8 +871,7 @@ class ApiController extends Controller {
 			if ($this->scopeObject) {
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = new Zotero_Collection;
-						$collection->id = $this->scopeObjectID;
+						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
 						$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Child Collections of ‘$collection->name'’";
 						$collectionIDs = $collection->getChildCollections();
 						break;
@@ -897,9 +889,7 @@ class ApiController extends Controller {
 			
 			if (!empty($collectionIDs)) {
 				foreach ($collectionIDs as $collectionID) {
-					$col = new Zotero_Collection;
-					$col->id = $collectionID;
-					$collections[] = $col;
+					$collections[] = Zotero_Collections::get($this->objectLibraryID, $collectionID);
 				}
 				
 				// Fake sorting and limiting
@@ -967,7 +957,7 @@ class ApiController extends Controller {
 			if ($this->scopeObject) {
 				switch ($this->scopeObject) {
 					case 'items':
-						$item = Zotero_Items::get($this->scopeObjectID);
+						$item = Zotero_Items::get($this->objectLibraryID, $this->scopeObjectID);
 						if (!$item) {
 							$this->e404();
 						}

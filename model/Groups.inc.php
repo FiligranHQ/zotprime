@@ -224,6 +224,23 @@ class Zotero_Groups {
 	}
 	
 	
+	/**
+	 * Returns shardIDs of all shards storing groups this user belongs to
+	 */
+	public static function getUserGroupShards($userID) {
+		$groupIDs = self::getUserGroups($userID);
+		if (!$groupIDs) {
+			return array();
+		}
+		$shardIDs = array();
+		foreach ($groupIDs as $groupID) {
+			$shardID = Zotero_Shards::getByGroupID($groupID);
+			$shardIDs[$shardID] = true;
+		}
+		return array_keys($shardIDs);
+	}
+	
+	
 	public static function getUserGroupLibraries($userID) {
 		$sql = "SELECT libraryID FROM groupUsers JOIN groups USING (groupID) WHERE userID=?";
 		$libraryIDs = Zotero_DB::columnQuery($sql, $userID);

@@ -25,9 +25,13 @@
 */
 
 class Zotero_Libraries {
-	public static function add($type) {
-		$sql = "INSERT INTO libraries (libraryType) VALUES (?)";
-		return Zotero_DB::query($sql, $type);
+	public static function add($type, $shardID) {
+		if (!$shardID) {
+			throw new Exception('$shardID not provided');
+		}
+		
+		$sql = "INSERT INTO libraries (libraryType, shardID) VALUES (?,?)";
+		return Zotero_DB::query($sql, array($type, $shardID));
 	}
 	
 	

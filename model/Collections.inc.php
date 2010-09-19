@@ -29,8 +29,18 @@ class Zotero_Collections extends Zotero_DataObjects {
 	
 	private static $maxLength = 255;
 	
-	public static function get($id) {
+	
+	public static function get($libraryID, $id) {
+		if (!$libraryID) {
+			throw new Exception("Library ID not set");
+		}
+		
+		if (!$id) {
+			throw new Exception("ID not set");
+		}
+		
 		$collection = new Zotero_Collection;
+		$collection->libraryID;
 		$collection->id = $id;
 		return $collection;
 	}
@@ -39,6 +49,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	public static function getAllAdvanced($libraryID, $params) {
 		$results = array('collections' => array(), 'total' => 0);
 		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		$sql = "SELECT SQL_CALC_FOUND_ROWS collectionID FROM collections
 				WHERE libraryID=? ";
 		
@@ -59,17 +70,14 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
 			$sqlParams[] = $params['limit'];
 		}
-		$ids = Zotero_DB::columnQuery($sql, $sqlParams);
+		$ids = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
 		if ($ids) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 			
 			$collections = array();
 			foreach ($ids as $id) {
-				$collection = new Zotero_Collection;
-				// TODO: use Zotero_Collections::get()
-				$collection->id = $id;
-				$collections[] = $collection;
+				$collections[] = self::get($libraryID, $id);
 			}
 			$results['collections'] = $collections;
 		}
@@ -154,6 +162,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$xml['dateModified'] = $collection->dateModified;
 		if ($collection->parent) {
 			$parentCol = new Zotero_Collection;
+			$parentCol->libraryID = $collection->libraryID;
 			$parentCol->id = $collection->parent;
 			$xml['parent'] = $parentCol->key;
 		}
@@ -209,6 +218,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$parent = $collection->parent;
 		if ($parent) {
 			$parentCol = new Zotero_Collection;
+			$parentCol->libraryID = $collection->libraryID;
 			$parentCol->id = $parent;
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";

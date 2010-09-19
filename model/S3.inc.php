@@ -39,7 +39,7 @@ class Zotero_S3 {
 			return false;
 		}
 		$sql = "SELECT storageFileID FROM storageFileItems WHERE itemID=?";
-		$storageFileID = Zotero_DB::valueQuery($sql, $item->id);
+		$storageFileID = Zotero_DB::valueQuery($sql, $item->id, Zotero_Shards::getByLibraryID($item->libraryID));
 		if (!$storageFileID) {
 			return false;
 		}
@@ -190,14 +190,18 @@ class Zotero_S3 {
 	 * Get item-specific file info
 	 */
 	public static function getLocalFileItemInfo($item) {
-		$sql = "SELECT * FROM storageFiles JOIN storageFileItems USING (storageFileID) WHERE itemID=?";
-		return Zotero_DB::rowQuery($sql, $item->id);
+		$sql = "SELECT * FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".storageFiles
+				JOIN storageFileItems USING (storageFileID)
+				WHERE itemID=?";
+		return Zotero_DB::rowQuery($sql, $item->id, Zotero_Shards::getByLibraryID($item->libraryID));
 	}
 	
 	/**
 	 * Get items associated with a unique file on S3
 	 */
 	public static function getFileItems($hash, $filename, $zip) {
+		throw new Exception("Unimplemented"); // would need to work across shards
+		
 		$sql = "SELECT itemID FROM storageFiles JOIN storageFileItems USING (storageFileID)
 				WHERE hash=? AND filename=? AND zip=?";
 		$itemIDs = Zotero_DB::columnQuery($sql, array($hash, $filename, (int) $zip));
@@ -218,7 +222,11 @@ class Zotero_S3 {
 	public static function updateFileItemInfo($item, $storageFileID, $mtime) {
 		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime) VALUES (?,?,?)
 				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?";
-		Zotero_DB::query($sql, array($storageFileID, $item->id, $mtime, $storageFileID, $mtime));
+		Zotero_DB::query(
+			$sql,
+			array($storageFileID, $item->id, $mtime, $storageFileID, $mtime),
+			Zotero_Shards::getByLibraryID($item->libraryID)
+		);
 	}
 	
 	/*public static function getUploadAuthorization($item, $date, $contentMD5='') {
@@ -482,34 +490,39 @@ class Zotero_S3 {
 	public static function getUserUsage($userID) {
 		$usage = array();
 		
-		$sql = "SELECT SUM(size) AS bytes FROM storageFiles ST
+		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
+		
+		$sql = "SELECT SUM(size) AS bytes FROM $masterDB.storageFiles ST
 				JOIN storageFileItems STI USING (storageFileID)
 				JOIN items USING (itemID)
 				JOIN users USING (libraryID)
 				WHERE userID=?";
-		$libraryBytes = Zotero_DB::valueQuery($sql, $userID);
+		$libraryBytes = Zotero_DB::valueQuery($sql, $userID, Zotero_Shards::getByUserID($userID));
 		$usage['library'] = round($libraryBytes / 1024 / 1024, 1);
 		
-		$sql = "SELECT G.groupID, SUM(size) AS `bytes` FROM storageFiles ST
-				JOIN storageFileItems STI USING (storageFileID)
-				JOIN items I USING (itemID)
-				JOIN groups G USING (libraryID)
-				JOIN groupUsers GU ON (G.groupID=GU.groupID AND role='owner')
-				WHERE userID=? GROUP BY groupID WITH ROLLUP";
-		$groups = Zotero_DB::query($sql, $userID);
+		$shardIDs = Zotero_Groups::getUserGroupShards($userID);
+		
+		$groupBytes = 0;
 		$usage['groups'] = array();
-		if ($groups) {
-			foreach ($groups as $group) {
-				if ($group['groupID']) {
-					$usage['groups'][] = array('id' => $group['groupID'], 'usage' => round($group['bytes'] / 1024 / 1024, 1));
-				}
-				else {
-					$groupBytes = $group['bytes'];
+		foreach ($shardIDs as $shardID) {
+			$sql = "SELECT G.groupID, SUM(size) AS `bytes` FROM $masterDB.storageFiles ST
+					JOIN storageFileItems STI USING (storageFileID)
+					JOIN items I USING (itemID)
+					JOIN $masterDB.groups G USING (libraryID)
+					JOIN $masterDB.groupUsers GU ON (G.groupID=GU.groupID AND role='owner')
+					WHERE userID=? GROUP BY groupID WITH ROLLUP";
+			$groups = Zotero_DB::query($sql, $userID, $shardID);
+			if ($groups) {
+				foreach ($groups as $group) {
+					if ($group['groupID']) {
+						$usage['groups'][] = array('id' => $group['groupID'], 'usage' => round($group['bytes'] / 1024 / 1024, 1));
+					}
+					// ROLLUP row
+					else {
+						$groupBytes += $group['bytes'];
+					}
 				}
 			}
-		}
-		else {
-			$groupBytes = 0;
 		}
 		
 		$usage['total'] = round(($libraryBytes + $groupBytes) / 1024 / 1024, 1);

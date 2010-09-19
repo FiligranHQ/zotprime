@@ -304,7 +304,7 @@ class Zotero_Group {
 		if ($added) {
 			$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 			$sql = "DELETE FROM syncDeleteLogIDs WHERE libraryID=? AND objectType='group' AND id=?";
-			Zotero_DB::query($sql, array($libraryID, $this->id));
+			Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($this->libraryID));
 		}
 		
 		// If group is locked by a sync, flag for later timestamp update
@@ -396,7 +396,7 @@ class Zotero_Group {
 		// A group user removal is logged as a deletion of the group from the user's personal library
 		$sql = "REPLACE INTO syncDeleteLogIDs (libraryID, objectType, id) VALUES (?, 'group', ?)";
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-		Zotero_DB::query($sql, array($libraryID, $this->id));
+		Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		// If group is locked by a sync, flag for later timestamp update
 		// once the sync is done so that the uploading user gets the change
@@ -484,20 +484,14 @@ class Zotero_Group {
 	}
 	
 	
-	public function hasItem($itemID) {
-		$item = Zotero_Items::get($itemID);
-		return $item->libraryID == $this->libraryID;
-	}
-	
-	
 	/**
 	 * Returns group items
 	 *
 	 * @return {Integer[]}	Array of itemIDs
 	 */
 	public function getItems($asIDs=false) {
-		$sql = "SELECT itemID FROM items JOIN groups USING (libraryID) WHERE groupID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id);
+		$sql = "SELECT itemID FROM items JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID) WHERE groupID=?";
+		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$ids) {
 			return array();
 		}
@@ -506,7 +500,7 @@ class Zotero_Group {
 			return $ids;
 		}
 		
-		return Zotero_Items::get($ids);
+		return Zotero_Items::get($this->libraryID, $ids);
 	}
 	
 	
@@ -514,8 +508,8 @@ class Zotero_Group {
 	 * Returns the number of items in the group
 	 */
 	public function numItems() {
-		$sql = "SELECT COUNT(*) FROM items JOIN groups USING (libraryID) WHERE groupID=?";
-		return Zotero_DB::valueQuery($sql, $this->id);
+		$sql = "SELECT COUNT(*) FROM items JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID) WHERE groupID=?";
+		return Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -546,7 +540,8 @@ class Zotero_Group {
 		
 		$libraryID = $this->libraryID;
 		if (!$libraryID) {
-			$libraryID = Zotero_Libraries::add('group');
+			$shardID = Zotero_Shards::getNextShard();
+			$libraryID = Zotero_Libraries::add('group', $shardID);
 			if (!$libraryID) {
 				throw new Exception('libraryID not available after Zotero_Libraries::add()');
 			}
@@ -642,7 +637,7 @@ class Zotero_Group {
 			// Delete any record of this user losing access to the group
 			$libraryID = Zotero_Users::getLibraryIDFromUserID($this->ownerUserID);
 			$sql = "DELETE FROM syncDeleteLogIDs WHERE libraryID=? AND objectType='group' AND id=?";
-			Zotero_DB::query($sql, array($libraryID, $this->id));
+			Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($this->libraryID));
 		}
 		
 		// If any of the group's users have a queued upload, flag group for a timestamp
@@ -920,12 +915,9 @@ class Zotero_Group {
 		}
 		
 		//$groupUserData = $this->getUserData($itemID);
-		$item = Zotero_Items::get($itemID);
+		$item = Zotero_Items::get($this->libraryID, $itemID);
 		if (!$item) {
 			throw new Exception("Item $itemID doesn't exist");
-		}
-		if ($item->libraryID != $this->libraryID) {
-			throw new Exception("Item $itemID is not in group $this->id");
 		}
 		
 		$xml = new SimpleXMLElement(
@@ -985,10 +977,6 @@ class Zotero_Group {
 	private function load() {
 		$sql = "SELECT * FROM groups WHERE groupID=?";
 		$row = Zotero_DB::rowQuery($sql, $this->id);
-		if (!empty($_GET['foo'])) {
-			var_dump($row);
-			exit;
-		}
 		if (!$row) {
 			return false;
 		}
@@ -1018,18 +1006,28 @@ class Zotero_Group {
 	private function logGroupLibraryRemoval() {
 		$users = $this->getUsers();
 		
-		// Add to delete log for all group members
-		$sql = "REPLACE INTO syncDeleteLogIDs (libraryID, objectType, id)
-					VALUES ";
-		$params = array();
-		$sets = array();
+		$usersByShard = array();
 		foreach ($users as $userID) {
-			$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-			$sets[] = "(?,?,?)";
-			$params = array_merge($params, array($libraryID, 'group', $this->id));
+			$shardID = Zotero_Shards::getByUserID($userID);
+			if (!isset($usersByShard[$shardID])) {
+				$usersByShard[$shardID] = array();
+			}
+			$usersByShard[$shardID][] = $userID;
 		}
-		$sql .= implode(",", $sets);
-		Zotero_DB::query($sql, $params);
+		
+		foreach ($usersByShard as $shardID=>$userIDs) {
+			// Add to delete log for all group members
+			$sql = "REPLACE INTO syncDeleteLogIDs (libraryID, objectType, id) VALUES ";
+			$params = array();
+			$sets = array();
+			foreach ($userIDs as $userID) {
+				$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+				$sets[] = "(?,?,?)";
+				$params = array_merge($params, array($libraryID, 'group', $this->id));
+			}
+			$sql .= implode(",", $sets);
+			Zotero_DB::query($sql, $params, $shardID);
+		}
 	}
 }
 ?>

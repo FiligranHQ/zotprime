@@ -99,7 +99,7 @@ class Zotero_DataObjects {
 			}
 			else {
 				$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
-				$rows = Zotero_DB::query($sql, $libraryID);
+				$rows = Zotero_DB::query($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 				
 				if (!$rows) {
 					return false;
@@ -120,6 +120,7 @@ class Zotero_DataObjects {
 		
 		$className = "Zotero_" . ucwords($type);
 		$obj = new $className;
+		$obj->libraryID = $libraryID;
 		$obj->id = self::$idCache[$type][$libraryID][$key];
 		return $obj;
 	}
@@ -155,17 +156,24 @@ class Zotero_DataObjects {
 	
 	public static function countUpdated($userID, $timestamp) {
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-		$updatedItemCount = Zotero_Items::getUpdated($libraryID, $timestamp, true);
-		return $updatedItemCount ? sizeOf($updatedItemCount) : 0;
+		$idsByLibraryID = Zotero_Items::getUpdated($libraryID, $timestamp, true);
+		if (!$idsByLibraryID) {
+			return 0;
+		}
+		$count = 0;
+		foreach ($idsByLibraryID as $libraryID=>$ids) {
+			$count += sizeOf($ids);
+		}
+		return $count;
 	}
 	
 	
 	/**
-	 * Returns object ids of a user's items updated since |timestamp|
+	 * Returns user's object ids updated since |timestamp|, keyed by libraryID
 	 *
 	 * @param	int			$libraryID		Library ID
 	 * @param	string		$timestamp		Unix timestamp + decimal ms of last sync time
-	 * @return	mixed						An array of object ids, or FALSE if none
+	 * @return	array						An array of arrays of object ids, keyed by libraryID, or FALSE if none
 	 */
 	public static function getUpdated($libraryID, $timestamp, $includeAllUserObjects=false) {
 		$table = static::field('table');
@@ -180,37 +188,68 @@ class Zotero_DataObjects {
 		}
 		list($timestamp, $timestampMS) = explode(".", $timestamp);
 		
+		
+		$updatedByLibraryID = array();
+		
+		// Personal library
 		$sql = "SELECT $id FROM $table WHERE libraryID=? AND
 				CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?";
 		$params = array($libraryID, $timestamp . '.' . ($timestampMS ? $timestampMS : 0));
-		$groupIDs = false;
+		$ids = Zotero_DB::columnQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		if ($ids) {
+			$updatedByLibraryID[$libraryID] = $ids;
+		}
+		
+		// Group libraries
 		if ($includeAllUserObjects) {
 			$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
 			$groupIDs = Zotero_Groups::getUserGroups($userID);
-			$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
-		}
-		if ($groupIDs) {
-			$sql .= " UNION SELECT $id FROM $table JOIN groups USING (libraryID) WHERE (groupID IN (";
-			$params = array_merge($params, $groupIDs);
-			$q = array();
-			for ($i=0; $i<sizeOf($groupIDs); $i++) {
-				$q[] = '?';
-			}
-			$sql .= implode(',', $q) . ") AND
-					CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?)";
-			$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
 			
-			if ($joinedGroupIDs) {
-				$sql .= " OR groupID IN (";
-				$params = array_merge($params, $joinedGroupIDs);
-				$q = array();
-				for ($i=0; $i<sizeOf($joinedGroupIDs); $i++) {
-					$q[] = '?';
+			if ($groupIDs) {
+				$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
+				
+				$shardGroupIDs = array();
+				
+				// Separate groups into shards for querying
+				foreach ($groupIDs as $groupID) {
+					$shardID = Zotero_Shards::getByGroupID($groupID);
+					if (!isset($shardGroupIDs[$shardID])) {
+						$shardGroupIDs[$shardID] = array();
+					}
+					$shardGroupIDs[$shardID][] = $groupID;
 				}
-				$sql .= implode(',', $q) . ")";
+				
+				// Send query at each shard
+				foreach ($shardGroupIDs as $shardID=>$groupIDs) {
+					$sql = "SELECT groupID, $id AS id FROM $table "
+							. "JOIN " . Z_CONFIG::$SHARD_MASTER_DB. ".groups "
+							. "USING (libraryID) WHERE (groupID IN (";
+					$q = array_fill(0, sizeOf($groupIDs), '?');
+					$sql .= implode(', ', $q) . ")";
+					$params = $groupIDs;
+					$sql .= " AND CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?)";
+					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+					
+					if ($joinedGroupIDs) {
+						$sql .= " OR groupID IN (";
+						$params = array_merge($params, $joinedGroupIDs);
+						$q = array_fill(0, sizeOf($joinedGroupIDs), '?');
+						$sql .= implode(', ', $q) . ")";
+					}
+					
+					$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+					if ($rows) {
+						// Separate ids by libraryID
+						foreach ($rows as $row) {
+							$libraryID = Zotero_Groups::getLibraryIDFromGroupID($row['groupID']);
+							$updatedByLibraryID[$libraryID][] = $row['id'];
+						}
+					}
+				}
 			}
 		}
-		return Zotero_DB::columnQuery($sql, $params);
+		
+		return $updatedByLibraryID;
 	}
 	
 	
@@ -233,6 +272,8 @@ class Zotero_DataObjects {
 		
 		Z_Core::debug("Deleting $type $libraryID/$key", 4);
 		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
 		Zotero_DB::beginTransaction();
 		
 		// Delete child items
@@ -240,7 +281,7 @@ class Zotero_DataObjects {
 			if ($obj->isRegularItem()) {
 				$children = array_merge($obj->getNotes(), $obj->getAttachments());
 				if ($children) {
-					$children = Zotero_Items::get($children);
+					$children = Zotero_Items::get($libraryID, $children);
 					foreach ($children as $child) {
 						static::delete($child->libraryID, $child->key);
 					}
@@ -249,7 +290,7 @@ class Zotero_DataObjects {
 		}
 		
 		$sql = "DELETE FROM $table WHERE libraryID=? AND `key`=?";
-		$deleted = Zotero_DB::query($sql, array($libraryID, $key));
+		$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
 		
 		unset(self::$idCache[$type][$libraryID][$key]);
 		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
@@ -262,7 +303,7 @@ class Zotero_DataObjects {
 			$params = array(
 				$libraryID, $key, $timestamp, $timestampMS, $timestamp, $timestampMS
 			);
-			Zotero_DB::query($sql, $params);
+			Zotero_DB::query($sql, $params, $shardID);
 		}
 		
 		Zotero_DB::commit();

@@ -87,19 +87,21 @@ class Zotero_Relation {
 	 * @return	bool			TRUE if the relation exists, FALSE if not
 	 */
 	public function exists() {
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
 		if ($this->id) {
 			$sql = "SELECT COUNT(*) FROM relations WHERE relationID=?";
-			return !!Zotero_DB::valueQuery($sql, $this->id);
+			return !!Zotero_DB::valueQuery($sql, $this->id, $shardID);
 		}
 		
-		if ($this->libraryID && $this->subject && $this->predicate && $this->object) {
+		if ($this->subject && $this->predicate && $this->object) {
 			$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND
 						subject=? AND predicate=? AND object=?";
 			$params = array($this->libraryID, $this->subject, $this->predicate, $this->object);
-			return !!Zotero_DB::valueQuery($sql, $params);
+			return !!Zotero_DB::valueQuery($sql, $params, $shardID);
 		}
 		
-		throw new Exception("ID or libraryID/subject/predicate/object not set");
+		throw new Exception("ID or subject/predicate/object not set");
 	}
 	
 	
@@ -131,7 +133,7 @@ class Zotero_Relation {
 				$timestamp,
 				$timestampMS
 			);
-			$insertID = Zotero_DB::query($sql, $params);
+			$insertID = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($this->libraryID));
 			if (!$this->id) {
 				if (!$insertID) {
 					throw new Exception("Relation id not available after INSERT");
@@ -168,14 +170,18 @@ class Zotero_Relation {
 	
 	
 	private function load($allowFail=false) {
+		if (!$this->libraryID) {
+			throw new Exception("Library ID not set");
+		}
+		
 		if (!$this->id) {
 			throw new Exception("ID not set");
 		}
 		
-		Z_Core::debug("Loading data for relation $this->id");
+		//Z_Core::debug("Loading data for relation $this->id");
 		
 		$sql = "SELECT * FROM relations WHERE relationID=?";
-		$data = Zotero_DB::rowQuery($sql, $this->id);
+		$data = Zotero_DB::rowQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->loaded = true;
 		

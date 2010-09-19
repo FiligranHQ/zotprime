@@ -39,36 +39,72 @@ class Zotero_DB {
 	
 	protected static $instances;
 	
-	protected $db;
-	protected $link;
+	protected $links = array();
 	
 	private $transactionLevel = 0;
 	private $transactionTimestamp;
 	private $transactionTimestampMS;
+	private $transactionTimestampUnix;
+	private $transactionShards = array();
+	private $transactionRollback = false;
+	
 	private $preparedStatements = array();
 	
+	protected $db = 'master';
+	
 	protected function __construct() {
-		if ($auth = $this->dbConnect()) {
-			
-			$this->link = new Zend_Db_Adapter_Mysqli(array(
-				'host'     => $auth['host'],
-				'username' => $auth['user'],
-				'password' => $auth['pass'],
-				'dbname'   => $auth['db'],
-				'charset'  => 'utf8'
-			));
+		// Set up master link
+		$auth = Zotero_DBConnectAuth($this->db);
+		$this->links[0] = new Zend_Db_Adapter_Mysqli(array(
+			'host'     => $auth['host'],
+			'port'     => $auth['port'],
+			'username' => $auth['user'],
+			'password' => $auth['pass'],
+			'dbname'   => $auth['db'],
+			'charset'  => 'utf8'
+		));
+	}
+	
+	
+	protected function getShardLink($shardID, $forWriting=false) {
+		if (isset($this->links[$shardID])) {
+			return $this->links[$shardID];
 		}
-		else {
-			$output = ob_get_clean();
-			ob_start("ob_gzhandler");
-			die("Error connecting to DB");
+		
+		$shardInfo = Zotero_Shards::getShardInfo($shardID);
+		
+		if (!$shardInfo) {
+			throw new Exception("Invalid shard $shardID");
 		}
+		
+		if ($shardInfo['state'] == 'down') {
+			throw new Exception("Shard $shardID is down", Z_ERROR_SHARD_UNAVAILABLE);
+		}
+		else if ($shardInfo['state'] == 'readonly') {
+			if ($forWriting) {
+				throw new Exception("Cannot write to read-only shard $shardID", Z_ERROR_SHARD_READ_ONLY);
+			}
+		}
+		
+		$this->links[$shardID] = new Zend_Db_Adapter_Mysqli(array(
+			'host'     => $shardInfo['address'],
+			'port'     => $shardInfo['port'],
+			'username' => $shardInfo['username'],
+			'password' => $shardInfo['password'],
+			'dbname'   => $shardInfo['db'],
+			'charset'  => 'utf8'
+		));
+		
+		return $this->links[$shardID];
 	}
 	
 	
 	/**
-	* Get an instance of the appropriate class
-	**/
+	 * Get an instance of the appropriate class
+	 *
+	 * Note: We only use one instance now, and the class might need a little
+	 * reworking to go back to multiple.
+	 */
 	protected static function getInstance() {
 		$class = get_called_class();
 		
@@ -80,35 +116,23 @@ class Zotero_DB {
 	}
 	
 	
-	// Returns the name of the DB
-	public static function get_name() {
-		$instance = self::getInstance();
-		
-		return $instance->db;
-	}
-	
-	
-	protected function dbConnect() {
-		$this->db = 'main';
-		return Zotero_DBConnectAuth($this->db);
-	}
-	
-	
 	/**
-	* Start a MySQL transaction or increase the transaction nesting level
-	*
-	* If a transaction is already in progress, the nesting level will be incremented by one
-	*
-	* N.B. Only works with InnoDB tables
-	*
-	* @return	int				1 on txn start, -1 if txn already in progress, or false on error
-	**/
+	 * Start a virtual MySQL transaction or increase the transaction nesting level
+	 *
+	 * If a transaction is already in progress, the nesting level will be incremented by one
+	 *
+	 * Note that this doesn't actually start a transaction. Transactions are started
+	 * lazily on each shard that gets a query while a virtual transaction is open,
+	 * with commits on all affected shards at the end.
+	 *
+	 * This only works with InnoDB tables.
+	 */
 	public static function beginTransaction() {
 		$instance = self::getInstance();
 		
 		$instance->transactionLevel++;
-		if ($instance->transactionLevel>1) {
-			Z_Core::debug("Transaction in progress—nesting level increased to $instance->transactionLevel");
+		if ($instance->transactionLevel > 1) {
+			Z_Core::debug("Transaction in progress — nesting level increased to $instance->transactionLevel");
 			return -1;
 		}
 		Z_Core::debug("Starting transaction");
@@ -118,51 +142,86 @@ class Zotero_DB {
 		$instance->transactionTimestamp = gmdate('Y-m-d H:i:s', (int) $time);
 		$instance->transactionTimestampMS = (int) substr(strrchr($time, "."), 1);
 		$instance->transactionTimestampUnix = (int) $time;
-		
-		return $instance->link->beginTransaction();
 	}
 	
 	
 	/**
-	* Commit a MySQL transaction or decrease the transaction nesting level
-	*
-	* If a transaction is already in progress, the nesting level will be decremented by one
-	* rather than committing.
-	*
-	* N.B. Only works with InnoDB tables
-	*
-	* @return	int				1 on txn commit, -1 if txn already in progress, or false on error
-	**/
+	 * Commit a MySQL transaction or decrease the transaction nesting level
+	 *
+	 * If a transaction is already in progress, the nesting level will be decremented by one
+	 * rather than committing.
+	 *
+	 * This only works with InnoDB tables
+	 */
 	public static function commit() {
 		$instance = self::getInstance();
 		
+		if ($instance->transactionLevel == 0) {
+			throw new Exception("Transaction not open");
+		}
+		
 		$instance->transactionLevel--;
 		if ($instance->transactionLevel) {
-			Z_Core::debug("Transaction in progress—nesting level decreased to {$instance->transactionLevel}");
+			Z_Core::debug("Transaction in progress — nesting level decreased to $instance->transactionLevel");
 			return -1;
 		}
-		Z_Core::debug("Committing transaction");
-		$instance->link->commit();
+		
+		if ($instance->transactionRollback) {
+			Z_Core::debug("Rolling back previously flagged transaction");
+			self::rollback();
+			return;
+		}
+		
+		$shardIDs = array_keys($instance->transactionShards);
+		// Sort in reverse order to make sure we're not relying on race conditions
+		// to get data replicated to the shards
+		rsort($shardIDs);
+		foreach ($shardIDs as $shardID) {
+			$instance->commitReal($shardID);
+		}
 	}
 	
 	
 	/**
-	* Rollback a MySQL transaction
-	*
-	* N.B. Only works with InnoDB tables
-	**/
-	public static function rollback() {
+	 * Rollback MySQL transactions on all shards
+	 *
+	 * This only works with InnoDB tables
+	 */
+	public static function rollback($all=false) {
 		$instance = self::getInstance();
 		
-		Z_Core::debug("Rolling back transaction");
-		$instance->link->rollBack();
+		if ($all) {
+			$instance->transactionLevel = 1;
+			self::rollback();
+			return;
+		}
+		
+		if ($instance->transactionLevel == 0) {
+			throw new Exception("Transaction not open");
+		}
+		
+		if ($instance->transactionLevel > 1) {
+			Z_Core::debug("Flagging nested transaction for rollback");
+			$instance->transactionRollback = true;
+			$instance->transactionLevel--;
+			return;
+		}
+		
+		$shardIDs = array_keys($instance->transactionShards);
+		rsort($shardIDs);
+		foreach ($shardIDs as $shardID) {
+			$instance->rollBackReal($shardID);
+		}
+		
+		$instance->transactionLevel--;
+		$instance->transactionRollback = false;
 	}
 	
 	
 	public static function getTransactionTimestamp() {
 		$instance = self::getInstance();
 		if ($instance->transactionLevel == 0) {
-			throw new Exception("No transaction active");
+			throw new Exception("Transaction not open");
 		}
 		return $instance->transactionTimestamp;
 	}
@@ -171,7 +230,7 @@ class Zotero_DB {
 	public static function getTransactionTimestampMS() {
 		$instance = self::getInstance();
 		if ($instance->transactionLevel == 0) {
-			throw new Exception("No transaction active");
+			throw new Exception("Transaction not open");
 		}
 		return $instance->transactionTimestampMS;
 	}
@@ -180,7 +239,7 @@ class Zotero_DB {
 	public static function getTransactionTimestampUnix() {
 		$instance = self::getInstance();
 		if ($instance->transactionLevel == 0) {
-			throw new Exception("No transaction active");
+			throw new Exception("Transaction not open");
 		}
 		return $instance->transactionTimestampUnix;
 	}
@@ -189,37 +248,55 @@ class Zotero_DB {
 	/*
 	 * @return	Zotero_DBStatement
 	 */
-	public static function getStatement($sql, $cache=false) {
+	public static function getStatement($sql, $cache=false, $shardID=0) {
 		$instance = self::getInstance();
+		$link = $instance->getShardLink($shardID);
 		
 		if ($cache) {
 			if (is_bool($cache)) {
 				$key = md5($sql);
 			}
 			// Supplied key
-			else {
+			else if (is_string($cache)) {
 				$key = $cache;
+			}
+			else {
+				throw new Exception("Invalid cache type '$cache'");
 			}
 		}
 		
-		// See if statement is already cached
-		if ($cache && isset($instance->preparedStatements[$key])) {
-			return $instance->preparedStatements[$key];
+		// See if statement is already cached for this shard
+		if ($cache && isset($instance->preparedStatements[$shardID][$key])) {
+			return $instance->preparedStatements[$shardID][$key];
 		}
 		
-		$stmt = new Zotero_DB_Statement($instance->link, $sql);
+		$stmt = new Zotero_DB_Statement($link, $sql);
 		
 		// Cache for future use
 		if ($cache) {
-			$instance->preparedStatements[$key] = $stmt;
+			if (!isset($instance->preparedStatements[$shardID])) {
+				$instance->preparedStatements[$shardID] = array();
+			}
+			$instance->preparedStatements[$shardID][$key] = $stmt;
 		}
 		
 		return $stmt;
 	}
+	
+	
+	public static function query($sql, $params=false, $shardID=0) {
+		Z_Core::debug($sql . ($params ? " (" . (is_scalar($params) ? $params : implode(",", $params)) . ")" : ""));
 		
-		
-	public static function query($sql, $params=false) {
 		$instance = self::getInstance();
+		
+		// Determine the type of query using first word
+		preg_match('/^[^\s\(]*/', $sql, $matches);
+		$queryMethod = strtolower($matches[0]);
+		$forWriting = self::isWriteQuery($queryMethod);
+		
+		$link = $instance->getShardLink($shardID, $forWriting);
+		
+		$instance->checkShardTransaction($shardID);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
@@ -227,10 +304,6 @@ class Zotero_DB {
 		
 		try {
 			if (is_array($params)) {
-				// Determine the type of query using first word
-				preg_match('/^[^\s\(]*/', $sql, $matches);
-				$queryMethod = strtolower($matches[0]);
-				
 				// Replace null parameter placeholders with 'NULL'
 				for ($i=0, $len=sizeOf($params); $i<$len; $i++) {
 					if (is_null($params[$i])) {
@@ -259,16 +332,16 @@ class Zotero_DB {
 					}
 				}
 				
-				$stmt = new Zotero_DB_Statement($instance->link, $sql);
+				$stmt = new Zotero_DB_Statement($link, $sql);
 				$stmt->execute($params);
 			}
 			else {
-				$stmt = new Zotero_DB_Statement($instance->link, $sql);
+				$stmt = new Zotero_DB_Statement($link, $sql);
 				$stmt->execute();
 			}
 		}
 		catch (Exception $e) {
-			self::error($e, $sql, $params);
+			self::error($e, $sql, $params, $shardID);
 		}
 		
 		return self::queryFromStatement($stmt);
@@ -276,11 +349,17 @@ class Zotero_DB {
 	
 	
 	public static function queryFromStatement(Zotero_DB_Statement $stmt, $params=false) {
-		$instance = self::getInstance();
-		
 		try {
 			// Execute statement if not coming from self::query()
 			if ($params) {
+				// If this is a write query, make sure shard is writeable
+				if ($stmt->isWriteQuery && $stmt->shardID && !Zotero_Shards::shardIsWriteable($stmt->shardID)) {
+					throw new Exception("Cannot write to read-only shard $stmt->shardID", Z_ERROR_SHARD_READ_ONLY);
+				}
+				
+				$instance = self::getInstance();
+				$instance->checkShardTransaction($stmt->shardID);
+				
 				if (is_scalar($params)) {
 					$params = array($params);
 				}
@@ -301,7 +380,7 @@ class Zotero_DB {
 					return $stmt->rowCount();
 				}
 				else if ($queryMethod == "insert") {
-					$insertID = $instance->lastInsertID();
+					$insertID = (int) $stmt->link->lastInsertID();
 					if ($insertID) {
 						return $insertID;
 					}
@@ -327,15 +406,17 @@ class Zotero_DB {
 			}
 		}
 		catch (Exception $e) {
-			self::error($e, $stmt->sql, $params);
+			self::error($e, $stmt->sql, $params, $stmt->shardID);
 		}
 			
 		return $results;
 	}
 	
 	
-	public static function columnQuery($sql, $params=false) {
+	public static function columnQuery($sql, $params=false, $shardID=0) {
 		$instance = self::getInstance();
+		$link = $instance->getShardLink($shardID);
+		$instance->checkShardTransaction($shardID);
 		
 		// TODO: Use instance->link->fetchCol once it supports type casting
 		
@@ -344,7 +425,7 @@ class Zotero_DB {
 		}
 		
 		try {
-			$stmt = new Zotero_DB_Statement($instance->link, $sql);
+			$stmt = new Zotero_DB_Statement($link, $sql);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -371,22 +452,24 @@ class Zotero_DB {
 			}
 		}
 		catch (Exception $e) {
-			self::error($e, $sql, $params);
+			self::error($e, $sql, $params, $shardID);
 		}
 		
 		return $vals;
 	}
 	
 	
-	public static function rowQuery($sql, $params=false) {
+	public static function rowQuery($sql, $params=false, $shardID=0) {
 		$instance = self::getInstance();
+		$link = $instance->getShardLink($shardID);
+		$instance->checkShardTransaction($shardID);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
 		}
 		
 		try {
-			$stmt = new Zotero_DB_Statement($instance->link, $sql);
+			$stmt = new Zotero_DB_Statement($link, $sql);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -397,17 +480,18 @@ class Zotero_DB {
 			return self::rowQueryFromStatement($stmt);
 		}
 		catch (Exception $e) {
-			self::error($e, $sql, $params);
+			self::error($e, $sql, $params, $shardID);
 		}
 	}
 	
 	
 	public static function rowQueryFromStatement(Zotero_DB_Statement $stmt, $params=false) {
-		$instance = self::getInstance();
-		
 		try {
 			// Execute statement if not coming from self::query()
 			if ($params) {
+				$instance = self::getInstance();
+				$instance->checkShardTransaction($stmt->shardID);
+				
 				if (is_scalar($params)) {
 					$params = array($params);
 				}
@@ -431,19 +515,21 @@ class Zotero_DB {
 			return $row;
 		}
 		catch (Exception $e) {
-			self::error($e, $stmt->sql, $params);
+			self::error($e, $stmt->sql, $params, $stmt->shardID);
 		}
 	}
 	
 	
-	public static function valueQuery($sql, $params=false) {
+	public static function valueQuery($sql, $params=false, $shardID=0) {
 		$instance = self::getInstance();
+		$link = $instance->getShardLink($shardID);
+		$instance->checkShardTransaction($shardID);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
 		}
 		
-		$stmt = new Zotero_DB_Statement($instance->link, $sql);
+		$stmt = new Zotero_DB_Statement($link, $sql);
 		try {
 			if ($params) {
 				$stmt->execute($params);
@@ -462,12 +548,12 @@ class Zotero_DB {
 			return self::getIntegerColumns($mystmt) ? (is_null($row[0]) ? null : (int) $row[0]) : $row[0];
 		}
 		catch (Exception $e) {
-			self::error($e, $sql, $params);
+			self::error($e, $sql, $params, $shardID);
 		}
 	}
 	
 	
-	public static function bulkInsert($sql, $sets, $maxInsertGroups, $firstVal=false) {
+	public static function bulkInsert($sql, $sets, $maxInsertGroups, $firstVal=false, $shardID=0) {
 		$origInsertSQL = $sql;
 		$insertSQL = $origInsertSQL;
 		$insertParams = array();
@@ -498,7 +584,7 @@ class Zotero_DB {
 			
 			if ($insertCounter == $maxInsertGroups - 1) {
 				$insertSQL = substr($insertSQL, 0, -1);
-				$stmt = Zotero_DB::getStatement($insertSQL, true);
+				$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
 				Zotero_DB::queryFromStatement($stmt, $insertParams);
 				$insertSQL = $origInsertSQL;
 				$insertParams = array();
@@ -510,15 +596,9 @@ class Zotero_DB {
 		
 		if ($insertCounter > 0 && $insertCounter < $maxInsertGroups) {
 			$insertSQL = substr($insertSQL, 0, -1);
-			$stmt = Zotero_DB::getStatement($insertSQL, true);
+			$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
 			Zotero_DB::queryFromStatement($stmt, $insertParams);
 		}
-	}
-	
-	
-	public static function lastInsertID() {
-		$instance = self::getInstance();
-		return (int) $instance->link->lastInsertId();
 	}
 	
 	
@@ -591,6 +671,36 @@ class Zotero_DB {
 	}
 */	
 	
+	protected function checkShardTransaction($shardID) {
+		if ($this->transactionLevel && empty($this->transactionShards[$shardID])) {
+			$this->beginTransactionReal($shardID);
+		}
+	}
+	
+	
+	private function beginTransactionReal($shardID=0) {
+		$link = $this->getShardLink($shardID);
+		Z_Core::debug("Beginning transaction on shard $shardID");
+		$link->beginTransaction();
+		$this->transactionShards[$shardID] = true;
+	}
+	
+	
+	private function commitReal($shardID=0) {
+		$link = $this->getShardLink($shardID);
+		Z_Core::debug("Committing transaction on shard $shardID");
+		$link->commit();
+		unset($this->transactionShards[$shardID]);
+	}
+	
+	private function rollbackReal($shardID=0) {
+		$link = $this->getShardLink($shardID);
+		Z_Core::debug("Rolling back transaction on shard $shardID");
+		$link->rollBack();
+		unset($this->transactionShards[$shardID]);
+	}
+	
+	
 	protected static function getIntegerColumns(mysqli_stmt $stmt) {
 		if (!$stmt->field_count) {
 			return false;
@@ -614,19 +724,41 @@ class Zotero_DB {
 	}
 	
 	
-	public static function getProfiler() {
-		$instance = self::getInstance();
-		return $instance->link->getProfiler();
+	/**
+	 * Return the SQL command used in the query
+	 */
+	protected static function getQueryCommand($sql) {
+		preg_match('/^[^\s\(]*/', $sql, $matches);
+		return $matches[0];
 	}
 	
 	
-	public static function error(Exception $e, $sql, $params=array()) {
+	public static function isWriteQuery($command) {
+		$command = strtoupper($command);
+		switch ($command) {
+			case 'SELECT':
+			case 'SHOW':
+				return false;
+		}
+		return true;
+	}
+	
+	
+	public static function getProfiler($shardID=0) {
+		$instance = self::getInstance();
+		$link = $instance->getShardLink($shardID);
+		return $link->getProfiler();
+	}
+	
+	
+	public static function error(Exception $e, $sql, $params=array(), $shardID=0) {
 		$paramsArray = Z_Array::array2string($params);
 		
 		$error = $e->getMessage();
 		$errno = $e->getCode();
 		
 		$str = "$error\n\n"
+				. "Shard: $shardID\n\n"
 				. "Query:\n$sql\n\n"
 				. "Params:\n$paramsArray\n\n";
 		
@@ -641,9 +773,11 @@ class Zotero_DB {
 	public static function close() {
 		$instance = self::getInstance();
 		
-		if (isset($instance->link) && is_resource($instance->link)) {
-			$instance->link->closeConnection();
-			unset($instance->link);
+		foreach ($instance->links as &$link) {
+			if (is_resource($link)) {
+				$link->closeConnection();
+				unset($link);
+			}
 		}
 		
 		unset($instance);
@@ -654,37 +788,33 @@ class Zotero_DB {
 	}
 }
 
-
 class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
+	private $link;
 	private $sql;
+	private $shardID;
+	private $isWriteQuery;
 	
-	public function __construct($db, $sql) {
+	public function __construct($db, $sql, $shardID=0) {
 		parent::__construct($db, $sql);
+		$this->link = $db;
 		$this->sql = $sql;
+		$this->shardID = $shardID;
+		
+		// Determine the type of query using first word
+		preg_match('/^[^\s\(]*/', $sql, $matches);
+		$this->isWriteQuery = Zotero_DB::isWriteQuery($matches[0]);
 	}
 	
 	public function __get($name) {
 		switch ($name) {
+			case 'link':
 			case 'sql':
+			case 'shardID':
+			case 'isWriteQuery':
 				return $this->$name;
 		}
 		trigger_error("Undefined property '$name' in __get()", E_USER_NOTICE);
 		return null;
-	}
-}
-
-
-class Z_SessionsDB extends Zotero_DB {
-	protected function dbConnect() {
-		$this->db = 'sessions';
-		return Zotero_DBConnectAuth('sessions');
-	}
-	
-	public function __destruct() {
-		// Fix for new teardown order >PHP 5.0.5
-		// See http://bugs.php.net/bug.php?id=33772 
-		session_write_close();
-		parent::__destruct();
 	}
 }
 ?>

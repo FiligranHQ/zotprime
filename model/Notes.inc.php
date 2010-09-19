@@ -29,113 +29,101 @@ class Zotero_Notes {
 	
 	private static $noteCache = array();
 	private static $hashCache = array();
-	private static $hashCacheCachedUsers = array();
 	
 	
-	public static function getCachedNote($itemID) {
-		return isset(self::$noteCache[$itemID]) ? self::$noteCache[$itemID] : false;
+	public static function getCachedNote($libraryID, $itemID) {
+		if (!$libraryID) {
+			throw new Exception("Library ID not provided");
+		}
+		if (!$itemID) {
+			throw new Exception("Item ID not provided");
+		}
+		return isset(self::$noteCache[$libraryID][$itemID]) ? self::$noteCache[$libraryID][$itemID] : false;
 	}
 	
-	public static function cacheNotes($itemIDs) {
-		$sql = "SELECT itemID, note FROM itemNotes WHERE itemID IN (";
-		foreach ($itemIDs as $itemID) {
-			self::$noteCache[$itemID] = '';
-			if (!is_int($itemID)) {
-				throw new Exception("Invalid itemID $itemID");
+	public static function cacheNotes($libraryID, $itemIDs) {
+		if (!$libraryID) {
+			throw new Exception("Library ID not provided");
+		}
+		if (!$itemIDs) {
+			throw new Exception("Item IDs not provided");
+		}
+		
+		if (isset(self::$noteCache[$libraryID])) {
+			// Clear all notes before getting new ones
+			foreach ($itemIDs as $itemID) {
+				self::$noteCache[$libraryID][$row['itemID']] = '';
 			}
 		}
-		$sql .= join(',', $itemIDs) . ')';
-		$notes = Zotero_DB::query($sql);
+		else {
+			self::$noteCache[$libraryID] = array();
+		}
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		Zotero_DB::beginTransaction();
+		
+		$sql = "CREATE TEMPORARY TABLE tmpNoteCacheIDs (itemID int(10) unsigned NOT NULL, PRIMARY KEY (itemID))";
+		Zotero_DB::query($sql, false, $shardID);
+		
+		Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpNoteCacheIDs VALUES ", $itemIDs, 100, false, $shardID);
+		
+		$sql = "SELECT itemID, note FROM itemNotes JOIN tmpNoteCacheIDs USING (itemID)";
+		$notes = Zotero_DB::query($sql, false, $shardID);
 		if ($notes) {
 			foreach ($notes as $row) {
-				self::$noteCache[$row['itemID']] = $row['note'];
+				self::$noteCache[$libraryID][$row['itemID']] = $row['note'];
 			}
 		}
+		
+		Zotero_DB::query("DROP TEMPORARY TABLE tmpNoteCacheIDs", false, $shardID);
+		
+		Zotero_DB::commit();
 	}
 	
 	
-	public static function updateNoteCache($itemID, $note) {
-		self::$noteCache[$itemID] = $note;
+	public static function updateNoteCache($libraryID, $itemID, $note) {
+		if (!$libraryID) {
+			throw new Exception("Library ID not provided");
+		}
+		if (!$itemID) {
+			throw new Exception("Item ID not provided");
+		}
+		if (!isset(self::$noteCache[$libraryID])) {
+			self::$noteCache[$libraryID] = array();
+		}
+		self::$noteCache[$libraryID][$itemID] = $note;
 	}
 	
 	
 	public static function getHash($libraryID, $itemID) {
-		if (!self::$hashCacheCachedUsers) {
+		if (!isset(self::$hashCache[$libraryID])) {
 			self::loadHashes($libraryID);
 		}
-		if (!empty(self::$hashCache[$itemID])) {
-			return self::$hashCache[$itemID];
+		if (!empty(self::$hashCache[$libraryID][$itemID])) {
+			return self::$hashCache[$libraryID][$itemID];
 		}
 		return false;
 	}
 	
 	
-	public static function updateHash($itemID, $value) {
+	public static function updateHash($libraryID, $itemID, $value) {
+		if (!isset(self::$hashCache[$libraryID])) {
+			self::$hashCache[$libraryID] = array();
+		}
+		
 		if ($value) {
-			self::$hashCache[$itemID] = $value;
+			self::$hashCache[$libraryID][$itemID] = $value;
 		}
 		else {
-			unset(self::$hashCache[$itemID]);
+			unset(self::$hashCache[$libraryID][$itemID]);
 		}
 	}
 	
 	
 	/**
-	* Create a new item of type 'note' and add the note text to the itemNotes table
-	*
-	* Returns the itemID of the new note item
-	**/
-	/*
-	public static function add($userID, $text, $sourceItemID) {
-		Zotero_DB::beginTransaction();
-		
-		if ($sourceItemID) {
-			$sourceItem = Zotero_Items::get($userID, $sourceItemID);
-			if (!$sourceItem) {
-				Zotero_DB::commit();
-				trigger_error("Cannot set note source to invalid item $userID/$sourceItemID", E_USER_ERROR);
-			}
-			if (!$sourceItem->isRegularItem()) {
-				Zotero_DB::commit();
-				trigger_error("Cannot set note source to a note or attachment ($userID/$sourceItemID)", E_USER_ERROR);
-			}
-		}
-		
-		$note = new Zotero_Item($userID, false, 'note');
-		$note->save();
-		
-		$title = $this->noteToTitle($text);
-		
-		$sql = "INSERT INTO itemNotes (userID, itemID, sourceItemID, note, title) VALUES (?,?,?,?,?)";
-		$bindParams = array(
-			$userID,
-			$note->id,
-			$sourceItemID ? $sourceItemID : null,
-			$text ? $text : '',
-			$title
-		);
-		Zotero_DB::query($sql, $bindParams);
-		Zotero_DB::commit();
-		
-		// Switch to Zotero.Items version
-		$note = Zotero_Items::get($userID, $note->id);
-		//$note->updateNoteCache($text, title);
-		
-		// if (sourceItemID) {
-		// 	var notifierData = {};
-		// 	notifierData[sourceItem.id] = { old: sourceItem.toArray() };
-		// 	sourceItem.incrementNoteCount();
-		// 	Zotero.Notifier.trigger('modify', 'item', sourceItemID, notifierData);
-		// }
-		
-		return $note->id;
-	}
-	*/
-	
-	
-	/**
-	* Return first line (or first MAX_LENGTH characters) of note content
-	**/
+	 * Return first line (or first MAX_LENGTH characters) of note content
+	 */
 	public static function noteToTitle($text) {
 		if (!$text) {
 			return '';
@@ -153,16 +141,20 @@ class Zotero_Notes {
 	
 	public static function loadHashes($libraryID) {
 		$sql = "SELECT itemID, hash FROM itemNotes JOIN items USING (itemID) WHERE libraryID=?";
-		$hashes = Zotero_DB::query($sql, $libraryID);
+		$hashes = Zotero_DB::query($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 		if (!$hashes) {
 			return;
 		}
+		
+		if (!isset(self::$hashCache[$libraryID])) {
+			self::$hashCache[$libraryID] = array();
+		}
+		
 		foreach ($hashes as $hash) {
 			if ($hash['hash']) {
-				self::$hashCache[$hash['itemID']] = $hash['hash'];
+				self::$hashCache[$libraryID][$hash['itemID']] = $hash['hash'];
 			}
 		}
-		self::$hashCacheCachedUsers[$libraryID] = true;
 	}
 }
 ?>
