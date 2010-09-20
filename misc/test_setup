@@ -8,7 +8,8 @@ if (!Z_ENV_DEV_SITE) {
 }
 
 Zotero_DB::query("DELETE FROM syncProcesses");
-Zotero_DB::query("DELETE FROM syncQueue");
+Zotero_DB::query("DELETE FROM syncDownloadQueue");
+Zotero_DB::query("DELETE FROM syncUploadQueue");
 Zotero_DB::query("DELETE FROM libraries WHERE libraryID>3");
 Zotero_DB::query("DELETE FROM zotero_www_test.users WHERE userID>2");
 

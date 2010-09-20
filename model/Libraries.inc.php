@@ -90,7 +90,7 @@ class Zotero_Libraries {
 	
 	// Unused
 	public static function isLocked($libraryID) {
-		$sql = "SELECT COUNT(*) FROM syncQueueLocks WHERE libraryID=?";
+		$sql = "SELECT COUNT(*) FROM syncUploadQueueLocks WHERE libraryID=?";
 		$locked = Zotero_DB::query($sql, $libraryID);
 		if ($locked) {
 			return true;

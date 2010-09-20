@@ -158,8 +158,7 @@ CREATE TABLE `keyPermissions` (
   `libraryID` int(10) unsigned NOT NULL,
   `permission` enum('library','notes') NOT NULL,
   `granted` tinyint(1) unsigned NOT NULL,
-  PRIMARY KEY (`keyID`,`libraryID`,`permission`),
-  KEY `libraryID` (`libraryID`)
+  PRIMARY KEY (`keyID`,`libraryID`,`permission`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -341,8 +340,8 @@ CREATE TABLE `syncProcessLocks` (
 
 
 
-CREATE TABLE `syncQueue` (
-  `syncQueueID` int(10) unsigned NOT NULL,
+CREATE TABLE `syncUploadQueue` (
+  `syncUploadQueueID` int(10) unsigned NOT NULL,
   `syncQueueHostID` tinyint(3) unsigned NOT NULL,
   `xmldata` mediumtext NOT NULL,
   `dataLength` int(10) unsigned NOT NULL DEFAULT '0',
@@ -359,7 +358,7 @@ CREATE TABLE `syncQueue` (
   `finishedMS` smallint(5) unsigned NOT NULL DEFAULT '0',
   `errorCode` int(10) unsigned DEFAULT NULL,
   `errorMessage` mediumtext,
-  PRIMARY KEY (`syncQueueID`),
+  PRIMARY KEY (`syncUploadQueueID`),
   UNIQUE KEY `sessionID` (`sessionID`),
   UNIQUE KEY `syncProcessID` (`syncProcessID`),
   KEY `userID` (`userID`),
@@ -376,10 +375,10 @@ CREATE TABLE `syncQueueHosts` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-CREATE TABLE `syncQueueLocks` (
-  `syncQueueID` int(10) unsigned NOT NULL,
+CREATE TABLE `syncUploadQueueLocks` (
+  `syncUploadQueueID` int(10) unsigned NOT NULL,
   `libraryID` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`syncQueueID`,`libraryID`),
+  PRIMARY KEY (`syncUploadQueueID`,`libraryID`),
   KEY `libraryID` (`libraryID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -475,21 +474,21 @@ ALTER TABLE `syncProcessLocks`
   ADD CONSTRAINT `syncProcessLocks_ibfk_1` FOREIGN KEY (`syncProcessID`) REFERENCES `syncProcesses` (`syncProcessID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `syncProcessLocks_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE `syncQueue`
-  ADD CONSTRAINT `syncQueue_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `syncQueue_ibfk_2` FOREIGN KEY (`syncProcessID`) REFERENCES `syncProcesses` (`syncProcessID`) ON DELETE SET NULL,
-  ADD CONSTRAINT `syncQueue_ibfk_3` FOREIGN KEY (`sessionID`) REFERENCES `sessions` (`sessionID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `syncQueue_ibfk_4` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`);
+ALTER TABLE `syncUploadQueue`
+  ADD CONSTRAINT `syncUploadQueue_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `syncUploadQueue_ibfk_2` FOREIGN KEY (`syncProcessID`) REFERENCES `syncProcesses` (`syncProcessID`) ON DELETE SET NULL,
+  ADD CONSTRAINT `syncUploadQueue_ibfk_3` FOREIGN KEY (`sessionID`) REFERENCES `sessions` (`sessionID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `syncUploadQueue_ibfk_4` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`);
 
-ALTER TABLE `syncQueueLocks`
-  ADD CONSTRAINT `syncQueueLocks_ibfk_1` FOREIGN KEY (`syncQueueID`) REFERENCES `syncQueue` (`syncQueueID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `syncQueueLocks_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `syncUploadQueueLocks`
+  ADD CONSTRAINT `syncUploadQueueLocks_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncUploadQueue` (`syncUploadQueueID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `syncUploadQueueLocks_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `syncUploadProcessLog`
   ADD CONSTRAINT `syncUploadProcessLog_ibfk_1` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE `syncUploadQueuePostWriteLog`
-  ADD CONSTRAINT `syncUploadQueuePostWriteLog_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncQueue` (`syncQueueID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `syncUploadQueuePostWriteLog_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncUploadQueue` (`syncUploadQueueID`) ON DELETE CASCADE;
 
 ALTER TABLE `users`
   ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE;

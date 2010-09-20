@@ -81,7 +81,7 @@ class Zotero_Sync {
 		Zotero_DB::beginTransaction();
 		
 		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
-		$sql = "SELECT COUNT(*) FROM syncQueueLocks WHERE libraryID IN (";
+		$sql = "SELECT COUNT(*) FROM syncUploadQueueLocks WHERE libraryID IN (";
 		$sql .= implode(', ', array_fill(0, sizeOf($libraryIDs), '?'));
 		$sql .= ")";
 		
@@ -176,7 +176,7 @@ class Zotero_Sync {
 		
 		// If there's a completed process from this session, delete it, since it
 		// seems the results aren't going to be picked up
-		$sql = "DELETE FROM syncQueue WHERE sessionID=? AND finished IS NOT NULL";
+		$sql = "DELETE FROM syncUploadQueue WHERE sessionID=? AND finished IS NOT NULL";
 		Zotero_DB::query($sql, $sessionID);
 		
 		$hostname = gethostname();
@@ -187,8 +187,8 @@ class Zotero_Sync {
 		
 		Zotero_DB::beginTransaction();
 		
-		$sql = "INSERT INTO syncQueue
-				(syncQueueID, syncQueueHostID, userID, sessionID, xmldata, dataLength, hasCreator)
+		$sql = "INSERT INTO syncUploadQueue
+				(syncUploadQueueID, syncQueueHostID, userID, sessionID, xmldata, dataLength, hasCreator)
 				VALUES (?, ?, ?, ?, ?, ?, ?)";
 		Zotero_DB::query(
 			$sql,
@@ -203,7 +203,7 @@ class Zotero_Sync {
 			)
 		);
 		
-		$sql = "INSERT INTO syncQueueLocks VALUES ";
+		$sql = "INSERT INTO syncUploadQueueLocks VALUES ";
 		$sql .= implode(', ', array_fill(0, sizeOf($affectedLibraries), '(?,?)'));
 		$params = array();
 		foreach ($affectedLibraries as $libraryID) {
@@ -358,13 +358,13 @@ class Zotero_Sync {
 		}
 		
 		if (Z_Core::probability(30)) {
-			$sql = "UPDATE syncQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck!=1 AND
+			$sql = "UPDATE syncUploadQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck!=1 AND
 						started < (NOW() - INTERVAL 12 MINUTE) AND finished IS NULL AND dataLength<250000";
 			$row = Zotero_DB::rowQuery($sql);
 		}
 		
 		if (Z_Core::probability(30)) {
-			$sql = "UPDATE syncQueue SET tries=0 WHERE started IS NULL AND
+			$sql = "UPDATE syncUploadQueue SET tries=0 WHERE started IS NULL AND
 					tries>=5 AND finished IS NULL";
 			$row = Zotero_DB::rowQuery($sql);
 		}
@@ -373,7 +373,7 @@ class Zotero_Sync {
 		$smallestFirst = Z_CONFIG::$SYNC_UPLOAD_SMALLEST_FIRST;
 		$sortByQuota = !empty(Z_CONFIG::$SYNC_UPLOAD_SORT_BY_QUOTA);
 		
-		$sql = "SELECT syncQueue.* FROM syncQueue ";
+		$sql = "SELECT syncUploadQueue.* FROM syncUploadQueue ";
 		if ($sortByQuota) {
 			$sql .= "LEFT JOIN storageAccounts USING (userID) ";
 		}
@@ -413,8 +413,8 @@ class Zotero_Sync {
 			$startedTimestamp .= '.';
 		}
 		list($started, $startedMS) = explode('.', $startedTimestamp);
-		$sql = "UPDATE syncQueue SET started=FROM_UNIXTIME(?), startedMS=?, syncQueueHostID=? WHERE syncQueueID=?";
-		Zotero_DB::query($sql, array($started, $startedMS, $hostID, $row['syncQueueID']));
+		$sql = "UPDATE syncUploadQueue SET started=FROM_UNIXTIME(?), startedMS=?, syncQueueHostID=? WHERE syncUploadQueueID=?";
+		Zotero_DB::query($sql, array($started, $startedMS, $hostID, $row['syncUploadQueueID']));
 		
 		Zotero_DB::commit();
 		
@@ -422,7 +422,7 @@ class Zotero_Sync {
 		$lockError = false;
 		try {
 			$xml = new SimpleXMLElement($row['xmldata']);
-			$timestamp = self::processUploadInternal($row['userID'], $xml, $row['syncQueueID'], $syncProcessID);
+			$timestamp = self::processUploadInternal($row['userID'], $xml, $row['syncUploadQueueID'], $syncProcessID);
 			list($timestamp, $timestampMS) = explode('.', $timestamp);
 		}
 		
@@ -435,13 +435,13 @@ class Zotero_Sync {
 		
 		// Mark upload as finished — NULL indicates success
 		if (!$error) {
-			$sql = "UPDATE syncQueue SET finished=FROM_UNIXTIME(?), finishedMS=? WHERE syncQueueID=?";
+			$sql = "UPDATE syncUploadQueue SET finished=FROM_UNIXTIME(?), finishedMS=? WHERE syncUploadQueueID=?";
 			Zotero_DB::query(
 				$sql,
 				array(
 					$timestamp,
 					$timestampMS,
-					$row['syncQueueID']
+					$row['syncUploadQueueID']
 				)
 			);
 			
@@ -466,7 +466,7 @@ class Zotero_Sync {
 			}
 			
 			try {
-				self::processPostWriteLog($row['syncQueueID'], $row['userID'], $timestamp, $timestampMS);
+				self::processPostWriteLog($row['syncUploadQueueID'], $row['userID'], $timestamp, $timestampMS);
 			}
 			catch (Exception $e) {
 				Z_Core::logError($e);
@@ -476,8 +476,8 @@ class Zotero_Sync {
 		else if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false) {
 			Z_Core::logError($e);
-			$sql = "UPDATE syncQueue SET started=NULL, tries=tries+1 WHERE syncQueueID=?";
-			Zotero_DB::query($sql, $row['syncQueueID']);
+			$sql = "UPDATE syncUploadQueue SET started=NULL, tries=tries+1 WHERE syncUploadQueueID=?";
+			Zotero_DB::query($sql, $row['syncUploadQueueID']);
 			$lockError = true;
 		}
 		// Save error
@@ -493,7 +493,7 @@ class Zotero_Sync {
 			}
 			
 			Z_Core::logError($e);
-			$sql = "UPDATE syncQueue SET finished=?, finishedMS=?, errorCode=?, errorMessage=? WHERE syncQueueID=?";
+			$sql = "UPDATE syncUploadQueue SET finished=?, finishedMS=?, errorCode=?, errorMessage=? WHERE syncUploadQueueID=?";
 			Zotero_DB::query(
 				$sql,
 				array(
@@ -501,7 +501,7 @@ class Zotero_Sync {
 					Zotero_DB::getTransactionTimestampMS(),
 					$e->getCode(),
 					$serialized,
-					$row['syncQueueID']
+					$row['syncUploadQueueID']
 				)
 			);
 			
@@ -527,8 +527,8 @@ class Zotero_Sync {
 		}
 		
 		// Clear read locks
-		$sql = "DELETE FROM syncQueueLocks WHERE syncQueueID=?";
-		Zotero_DB::query($sql, $row['syncQueueID']);
+		$sql = "DELETE FROM syncUploadQueueLocks WHERE syncUploadQueueID=?";
+		Zotero_DB::query($sql, $row['syncUploadQueueID']);
 		
 		Zotero_DB::commit();
 		
@@ -547,13 +547,13 @@ class Zotero_Sync {
 		Zotero_DB::beginTransaction();
 		
 		if (Z_Core::probability(30)) {
-			$sql = "UPDATE syncQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck=1 AND
+			$sql = "UPDATE syncUploadQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck=1 AND
 						started < (NOW() - INTERVAL 12 MINUTE) AND finished IS NULL AND dataLength<250000";
 			$row = Zotero_DB::rowQuery($sql);
 		}
 		
 		// Get a queued process that hasn't been error-checked and is large enough to warrant it
-		$sql = "SELECT * FROM syncQueue WHERE started IS NULL AND errorCheck=0
+		$sql = "SELECT * FROM syncUploadQueue WHERE started IS NULL AND errorCheck=0
 				AND dataLength>=" . self::$minErrorCheckSize . " ORDER BY added LIMIT 1 FOR UPDATE";
 		$row = Zotero_DB::rowQuery($sql);
 		
@@ -563,12 +563,12 @@ class Zotero_Sync {
 			return 0;
 		}
 		
-		$sql = "UPDATE syncQueue SET started=NOW(), errorCheck=1 WHERE syncQueueID=?";
-		Zotero_DB::query($sql, array($row['syncQueueID']));
+		$sql = "UPDATE syncUploadQueue SET started=NOW(), errorCheck=1 WHERE syncUploadQueueID=?";
+		Zotero_DB::query($sql, array($row['syncUploadQueueID']));
 		
 		// We track error processes as upload processes that just get reset back to
 		// started=NULL on completion (but with errorCheck=2)
-		self::addUploadProcess($row['userID'], null, $row['syncQueueID'], $syncProcessID);
+		self::addUploadProcess($row['userID'], null, $row['syncUploadQueueID'], $syncProcessID);
 		
 		Zotero_DB::commit();
 		
@@ -620,8 +620,8 @@ class Zotero_Sync {
 			
 			Zotero_DB::beginTransaction();
 			
-			$sql = "UPDATE syncQueue SET syncProcessID=NULL, finished=?, finishedMS=?,
-						errorCode=?, errorMessage=? WHERE syncQueueID=?";
+			$sql = "UPDATE syncUploadQueue SET syncProcessID=NULL, finished=?, finishedMS=?,
+						errorCode=?, errorMessage=? WHERE syncUploadQueueID=?";
 			Zotero_DB::query(
 				$sql,
 				array(
@@ -629,7 +629,7 @@ class Zotero_Sync {
 					Zotero_DB::getTransactionTimestampMS(),
 					$e->getCode(),
 					serialize($e),
-					$row['syncQueueID']
+					$row['syncUploadQueueID']
 				)
 			);
 			
@@ -642,8 +642,8 @@ class Zotero_Sync {
 		
 		Zotero_DB::beginTransaction();
 		
-		$sql = "UPDATE syncQueue SET syncProcessID=NULL, started=NULL, errorCheck=2 WHERE syncQueueID=?";
-		Zotero_DB::query($sql, $row['syncQueueID']);
+		$sql = "UPDATE syncUploadQueue SET syncProcessID=NULL, started=NULL, errorCheck=2 WHERE syncUploadQueueID=?";
+		Zotero_DB::query($sql, $row['syncUploadQueueID']);
 		
 		self::removeUploadProcess($syncProcessID);
 		
@@ -654,7 +654,7 @@ class Zotero_Sync {
 	
 	
 	public static function getUploadQueueIDByUserID($userID) {
-		$sql = "SELECT syncQueueID FROM syncQueue WHERE userID=?";
+		$sql = "SELECT syncUploadQueueID FROM syncUploadQueue WHERE userID=?";
 		return Zotero_DB::valueQuery($sql, $userID);
 	}
 	
@@ -780,7 +780,7 @@ class Zotero_Sync {
 	
 	
 	public static function countQueuedUploadProcesses($errorCheck=false) {
-		$sql = "SELECT COUNT(*) FROM syncQueue WHERE started IS NULL";
+		$sql = "SELECT COUNT(*) FROM syncUploadQueue WHERE started IS NULL";
 		// errorCheck=0 indicates that the upload has not been checked for errors
 		if ($errorCheck) {
 			$sql .= " AND errorCheck=0 AND dataLength>5000";
@@ -803,7 +803,7 @@ class Zotero_Sync {
 	
 	
 	public static function getOldUploadProcesses($host, $seconds=60) {
-		$sql = "SELECT syncProcessID FROM syncQueue
+		$sql = "SELECT syncProcessID FROM syncUploadQueue
 				LEFT JOIN syncQueueHosts USING (syncQueueHostID)
 				WHERE started < NOW() - INTERVAL ? SECOND AND errorCheck!=1";
 		$params = array($seconds);
@@ -816,7 +816,7 @@ class Zotero_Sync {
 	
 	
 	public static function getOldErrorProcesses($host, $seconds=60) {
-		$sql = "SELECT syncProcessID FROM syncQueue
+		$sql = "SELECT syncProcessID FROM syncUploadQueue
 				LEFT JOIN syncQueueHosts USING (syncQueueHostID)
 				WHERE started < NOW() - INTERVAL ? SECOND AND errorCheck=1";
 		$params = array($seconds);
@@ -859,7 +859,7 @@ class Zotero_Sync {
 		
 		self::removeUploadProcess($syncErrorProcessID);
 		
-		$sql = "UPDATE syncQueue SET errorCheck=0 WHERE syncProcessID=?";
+		$sql = "UPDATE syncUploadQueue SET errorCheck=0 WHERE syncProcessID=?";
 		Zotero_DB::query($sql, $syncErrorProcessID);
 		
 		Zotero_DB::commit();
@@ -919,7 +919,7 @@ class Zotero_Sync {
 	public static function getSessionUploadResult($sessionID) {
 		Zotero_DB::beginTransaction();
 		$sql = "SELECT CONCAT(UNIX_TIMESTAMP(finished), '.', finishedMS) AS finished,
-				xmldata, errorCode, errorMessage FROM syncQueue WHERE sessionID=?";
+				xmldata, errorCode, errorMessage FROM syncUploadQueue WHERE sessionID=?";
 		$row = Zotero_DB::rowQuery($sql, $sessionID);
 		if (!$row) {
 			Zotero_DB::commit();
@@ -931,7 +931,7 @@ class Zotero_Sync {
 			return false;
 		}
 		
-		$sql = "DELETE FROM syncQueue WHERE sessionID=?";
+		$sql = "DELETE FROM syncUploadQueue WHERE sessionID=?";
 		Zotero_DB::query($sql, $sessionID);
 		Zotero_DB::commit();
 		
@@ -1808,7 +1808,7 @@ class Zotero_Sync {
 		
 		// Record the process id in the queue entry, if given
 		if ($syncQueueID) {
-			$sql = "UPDATE syncQueue SET syncProcessID=? WHERE syncQueueID=?";
+			$sql = "UPDATE syncUploadQueue SET syncProcessID=? WHERE syncUploadQueueID=?";
 			Zotero_DB::query($sql, array($syncProcessID, $syncQueueID));
 		}
 		
