@@ -287,7 +287,7 @@ ALTER TABLE `groupItems`
 ALTER TABLE `itemAttachments`
   ADD CONSTRAINT `itemAttachments_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
   ADD CONSTRAINT `itemAttachments_ibfk_2` FOREIGN KEY (`sourceItemID`) REFERENCES `items` (`itemID`) ON DELETE SET NULL,
-  ADD CONSTRAINT `itemAttachments_ibfk_4` FOREIGN KEY (`charsetID`) REFERENCES `master`.`charsets` (`charsetID`);
+  ADD CONSTRAINT `itemAttachments_ibfk_3` FOREIGN KEY (`charsetID`) REFERENCES `master`.`charsets` (`charsetID`);
 
 ALTER TABLE `itemCreators`
   ADD CONSTRAINT `itemCreators_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
@@ -296,7 +296,7 @@ ALTER TABLE `itemCreators`
 
 ALTER TABLE `itemData`
   ADD CONSTRAINT `itemData_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `itemData_ibfk_3` FOREIGN KEY (`fieldID`) REFERENCES `master`.`fields` (`fieldID`);
+  ADD CONSTRAINT `itemData_ibfk_2` FOREIGN KEY (`fieldID`) REFERENCES `master`.`fields` (`fieldID`);
 
 ALTER TABLE `itemNotes`
   ADD CONSTRAINT `itemNotes_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
@@ -334,4 +334,4 @@ ALTER TABLE `syncDeleteLogKeys`
   ADD CONSTRAINT `syncDeleteLogKeys_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `tags`
-  ADD CONSTRAINT `tags_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `tags_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
