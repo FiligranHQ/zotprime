@@ -218,6 +218,7 @@ class Z_Mongo {
 		foreach ($collections as $collection) {
 			$this->collections[$collection->getName()] = true;
 		}
+		$this->connected = true;
 	}
 }
 
