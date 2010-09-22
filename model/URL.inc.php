@@ -18,8 +18,9 @@ class Zotero_URL {
 		foreach ($pairs as $i) {
 			list($name, $value) = explode('=', $i, 2);
 			
+			// Empty value
 			if (!$value && $value !== '0') {
-				Z_Core::logError($str);
+				continue;
 			}
 			
 			// Added by Dan S.
