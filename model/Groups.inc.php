@@ -54,7 +54,7 @@ class Zotero_Groups {
 				$params['q'] = array($params['q']);
 			}
 			foreach ($params['q'] as $q) {
-				$field = split(":", $q);
+				$field = explode(":", $q);
 				if (sizeOf($field) == 2) {
 					switch ($field[0]) {
 						case 'slug':

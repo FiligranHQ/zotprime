@@ -40,7 +40,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		}
 		
 		$collection = new Zotero_Collection;
-		$collection->libraryID;
+		$collection->libraryID = $libraryID;
 		$collection->id = $id;
 		return $collection;
 	}

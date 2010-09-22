@@ -270,7 +270,7 @@ class Zotero_DB {
 			return $instance->preparedStatements[$shardID][$key];
 		}
 		
-		$stmt = new Zotero_DB_Statement($link, $sql);
+		$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
 		
 		// Cache for future use
 		if ($cache) {
@@ -332,11 +332,11 @@ class Zotero_DB {
 					}
 				}
 				
-				$stmt = new Zotero_DB_Statement($link, $sql);
+				$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
 				$stmt->execute($params);
 			}
 			else {
-				$stmt = new Zotero_DB_Statement($link, $sql);
+				$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
 				$stmt->execute();
 			}
 		}
@@ -425,7 +425,7 @@ class Zotero_DB {
 		}
 		
 		try {
-			$stmt = new Zotero_DB_Statement($link, $sql);
+			$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -469,7 +469,7 @@ class Zotero_DB {
 		}
 		
 		try {
-			$stmt = new Zotero_DB_Statement($link, $sql);
+			$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -529,7 +529,7 @@ class Zotero_DB {
 			$params = array($params);
 		}
 		
-		$stmt = new Zotero_DB_Statement($link, $sql);
+		$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
 		try {
 			if ($params) {
 				$stmt->execute($params);
@@ -795,7 +795,12 @@ class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
 	private $isWriteQuery;
 	
 	public function __construct($db, $sql, $shardID=0) {
-		parent::__construct($db, $sql);
+		try {
+			parent::__construct($db, $sql);
+		}
+		catch (Exception $e) {
+			Zotero_DB::error($e, $sql, array(), $shardID);
+		}
 		$this->link = $db;
 		$this->sql = $sql;
 		$this->shardID = $shardID;

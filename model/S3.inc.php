@@ -495,7 +495,7 @@ class Zotero_S3 {
 		$sql = "SELECT SUM(size) AS bytes FROM $masterDB.storageFiles ST
 				JOIN storageFileItems STI USING (storageFileID)
 				JOIN items USING (itemID)
-				JOIN users USING (libraryID)
+				JOIN $masterDB.users USING (libraryID)
 				WHERE userID=?";
 		$libraryBytes = Zotero_DB::valueQuery($sql, $userID, Zotero_Shards::getByUserID($userID));
 		$usage['library'] = round($libraryBytes / 1024 / 1024, 1);

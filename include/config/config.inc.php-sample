@@ -33,7 +33,7 @@ class Z_CONFIG {
 	public static $MONGO_SERVERS = array(
 		'192.168.1.1:27017', '192.168.1.2:27017'
 	);
-	public static $MONGO_DB = "zotero";
+	public static $MONGO_DB = "";
 	public static $MONGO_SAFE_NUM = 2;
 	
 	public static $LOG_TO_SCRIBE = false;
