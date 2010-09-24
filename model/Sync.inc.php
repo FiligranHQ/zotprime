@@ -1268,8 +1268,13 @@ class Zotero_Sync {
 				Zotero_DB::query("DROP TEMPORARY TABLE tmpCreatorFKCheck");
 				
 				// creatorDataHash
+				$addedCreatorDataHashes = array_unique($addedCreatorDataHashes);
 				$cursor = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $addedCreatorDataHashes)), array("_id"));
-				$hashes = iterator_to_array($cursor);
+				$hashes = array();
+				while ($cursor->hasNext()) {
+					$arr = $cursor->getNext();
+					$hashes[] = $arr['_id'];
+				}
 				$added = sizeOf($addedCreatorDataHashes);
 				$count = sizeOf($hashes);
 				if ($count != $added) {

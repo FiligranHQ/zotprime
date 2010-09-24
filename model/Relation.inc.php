@@ -50,6 +50,7 @@ class Zotero_Relation {
 	
 	public function __set($field, $value) {
 		switch ($field) {
+			case 'libraryID':
 			case 'id':
 				if ($value == $this->$field) {
 					return;

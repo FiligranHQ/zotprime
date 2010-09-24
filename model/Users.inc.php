@@ -233,7 +233,7 @@ class Zotero_Users {
 	public static function getLastStorageSync($userID) {
 		$lastModified = false;
 		
-		$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".users "
+		$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".users "
 				. "JOIN items USING (libraryID) WHERE userID=?";
 		$time = Zotero_DB::valueQuery($sql, $userID, Zotero_Shards::getByUserID($userID));
 		if ($time) {
@@ -243,12 +243,12 @@ class Zotero_Users {
 		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
 		$shardIDs = Zotero_Groups::getUserGroupShards($userID);
 		foreach ($shardIDs as $shardID) {
-			$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) FROM $masterDB.groupUsers
+			$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM $masterDB.groupUsers
 					JOIN $masterDB.groups USING (groupID)
 					JOIN items USING (libraryID) JOIN storageFileItems USING (itemID)
 					WHERE userID=?
 					ORDER BY time DESC LIMIT 1";
-			$time = Zotero_DB::valueQuery($sql, array($userID, $userID), $shardID);
+			$time = Zotero_DB::valueQuery($sql, $userID, $shardID);
 			if ($time > $lastModified) {
 				$lastModified = $time;
 			}
