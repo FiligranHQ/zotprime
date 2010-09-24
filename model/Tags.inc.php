@@ -219,44 +219,6 @@ class Zotero_Tags extends Zotero_DataObjects {
 	
 	
 	/**
-	 * Converts a SimpleXMLElement item to a Zotero_Tag object
-	 *
-	 * @param	SimpleXMLElement	$xml		Tag data as SimpleXML element
-	 * @param	int					$libraryID	Library ID
-	 * @return	Zotero_Tag						Zotero tag object
-	 */
-/*	public static function convertXMLToTag(SimpleXMLElement $xml) {
-		$tag = new Zotero_Tag;
-		$libraryID = (int) $xml['libraryID'];
-		$tag->libraryID = $libraryID;
-		$tag->key = (string) $xml['key'];
-		$tag->name = (string) $xml['name'];
-		$type = (int) $xml['type'];
-		$tag->type = $type ? $type : 0;
-		$tag->dateAdded = (string) $xml['dateAdded'];
-		$tag->dateModified = (string) $xml['dateModified'];
-		
-		$itemKeys = (string) $xml->items;
-		if ($itemKeys) {
-			$itemKeys = explode(' ', $itemKeys);
-			$itemIDs = array();
-			foreach ($itemKeys as $key) {
-				$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
-				if (!$item) {
-					throw new Exception("Linked item $key of tag $libraryID/$tag->key not found", Z_ERROR_ITEM_NOT_FOUND);
-				}
-				$itemIDs[] = $item->id;
-			}
-			$tag->setLinkedItems($itemIDs);
-		}
-		else {
-			$tag->setLinkedItems(array());
-		}
-		return $tag;
-	}
-*/
-	
-	/**
 	 * Converts a Zotero_Tag object to a SimpleXMLElement item
 	 *
 	 * @param	object				$item		Zotero_Tag object

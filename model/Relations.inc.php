@@ -52,23 +52,6 @@ class Zotero_Relations extends Zotero_DataObjects {
 	
 	
 	/**
-	 * Converts a SimpleXMLElement item to a Zotero_Relation object
-	 *
-	 * @param	SimpleXMLElement	$xml		Relation data as SimpleXML element
-	 * @param	Integer				$libraryID
-	 * @return	Zotero_Relation					Zotero relation object
-	 */
-/*	public static function convertXMLToRelation(SimpleXMLElement $xml, $libraryID) {
-		$relation = new Zotero_Relation;
-		$relation->libraryID = $libraryID;
-		$relation->subject = (string) $xml->subject;
-		$relation->predicate = (string) $xml->predicate;
-		$relation->object = (string) $xml->object;
-		return $relation;
-	}
-*/	
-	
-	/**
 	 * Converts a Zotero_Relation object to a SimpleXMLElement item
 	 *
 	 * @param	object				$item		Zotero_Relation object

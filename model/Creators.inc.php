@@ -334,34 +334,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 		return $creatorObj;
 	}
 	
-	/**
-	 * Converts a SimpleXMLElement item to a Zotero_Item object
-	 *
-	 * @param	SimpleXMLElement	$xml		Item data as SimpleXML element
-	 * @return	Zotero_Creator					Zotero creator object
-	 */
-/*	public static function convertXMLToCreator(SimpleXMLElement $xml) {
-		$creatorObj = new Zotero_Creator;
-		$creatorObj->libraryID = (int) $xml['libraryID'];
-		$creatorObj->key = (string) $xml['key'];
-		$creatorObj->dateAdded = (string) $xml['dateAdded'];
-		$creatorObj->dateModified = (string) $xml['dateModified'];
-		$creatorObj->fieldMode = (int) $xml->fieldMode;
-		
-		if ($xml->fieldMode == 1) {
-			$creatorObj->firstName = '';
-			$creatorObj->lastName = (string) $xml->name;
-		}
-		else {
-			$creatorObj->firstName = (string) $xml->firstName;
-			$creatorObj->lastName = (string) $xml->lastName;
-		}
-		
-		$creatorObj->birthYear = (string) $xml->birthYear;
-		
-		return $creatorObj;
-	}
-*/	
 	
 	/**
 	 * Converts a Zotero_Creator object to a DOMElement
@@ -392,37 +364,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 		
 		return $xmlCreator;
 	}
-	
-	
-	/**
-	 * Converts a Zotero_Creator object to a SimpleXMLElement item
-	 *
-	 * @param	object				$item		Zotero_Creator object
-	 * @return	SimpleXMLElement				Creator data as SimpleXML element
-	 */
-/*	public static function convertCreatorToXML(Zotero_Creator $creator) {
-		$xml = new SimpleXMLElement('<creator/>');
-		$xml['libraryID'] = $creator->libraryID;
-		$xml['key'] = $creator->key;
-		$xml['dateAdded'] = $creator->dateAdded;
-		$xml['dateModified'] = $creator->dateModified;
-		
-		if ($creator->fieldMode == 1) {
-			$n = $xml->addChild('name', htmlspecialchars($creator->lastName));
-			$fm = $xml->addChild('fieldMode', 1);
-		}
-		else {
-			$fn = $xml->addChild('firstName', htmlspecialchars($creator->firstName));
-			$ln = $xml->addChild('lastName', htmlspecialchars($creator->lastName));
-		}
-		
-		if ($creator->birthYear) {
-			$xml->addChild('birthYear', $creator->birthYear);
-		}
-		
-		return $xml;
-	}
-*/
 	
 	
 /*

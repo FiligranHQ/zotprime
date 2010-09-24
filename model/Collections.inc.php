@@ -121,33 +121,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 	
 	
 	/**
-	 * Converts a SimpleXMLElement item to a Zotero_Collection object
-	 *
-	 * @param	SimpleXMLElement	$xml		Collection data as SimpleXML element
-	 * @return	Zotero_Collection			Zotero collection object
-	 */
-/*	public static function convertXMLToCollection(SimpleXMLElement $xml) {
-		$col = new Zotero_Collection;
-		$col->libraryID = (int) $xml['libraryID'];
-		$col->key = (string) $xml['key'];
-		$col->name = (string) $xml['name'];
-		$parentKey = (string) $xml['parent'];
-		if ($parentKey) {
-			$col->parentKey = $parentKey;
-		}
-		else {
-			$col->parent = false;
-		}
-		$col->dateAdded = (string) $xml['dateAdded'];
-		$col->dateModified = (string) $xml['dateModified'];
-		
-		// TODO: move from SyncController?
-		
-		return $col;
-	}
-*/	
-	
-	/**
 	 * Converts a Zotero_Collection object to a SimpleXMLElement item
 	 *
 	 * @param	object				$item		Zotero_Collection object
