@@ -16,9 +16,14 @@ class Zotero_URL {
 		$pairs = explode('&', $str);
 		
 		foreach ($pairs as $i) {
+			// Skip if no equals sign
+			if (strpos($i, '=') === false) {
+				continue;
+			}
+			
 			list($name, $value) = explode('=', $i, 2);
 			
-			// Empty value
+			// Skip if empty value
 			if (!$value && $value !== '0') {
 				continue;
 			}
