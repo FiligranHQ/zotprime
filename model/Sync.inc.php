@@ -1281,21 +1281,6 @@ class Zotero_Sync {
 					$missing = array_diff($addedCreatorDataHashes, $hashes);
 					throw new Exception("creatorDataHashes inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ") $added $count");
 				}
-				
-				// SimpleXML
-				/*$keys = array();
-				foreach ($xml->creators->creator as $xmlElement) {
-					$key = (string) $xmlElement['key'];
-					if (isset($keys[$key])) {
-						throw new Exception("Search $key already processed");
-					}
-					$keys[$key] = true;
-					
-					$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
-					$creatorObj->save();
-				}
-				unset($keys);
-				unset($xml->creators);*/
 			}
 			
 			// Add/update items
@@ -1338,53 +1323,6 @@ class Zotero_Sync {
 				}
 				unset($keys);
 				unset($xml->items);
-				
-				// SimpleXML
-				/*// Work around loop pointer reset bug in PHP 5.3RC2
-				$elements = array();
-				foreach ($xml->items->item as $xmlElement) {
-					$elements[] = $xmlElement;
-				}
-				
-				$size1 = sizeOf($xml->items->item);
-				$size2 = sizeOf($elements);
-				if ($size1 != $size2) {
-					throw new Exception("Item array sizes differ ($size1 != $size2)", Z_ERROR_ARRAY_SIZE_MISMATCH);
-				}
-				
-				$keys = array();
-				while ($xmlElement = array_shift($elements)) {
-					$key = (string) $xmlElement['key'];
-					if (isset($keys[$key])) {
-						throw new Exception("Item $key already processed");
-					}
-					$keys[$key] = true;
-					
-					$missing = Zotero_Items::removeMissingRelatedItems($xmlElement);
-					$itemObj = Zotero_Items::convertXMLToItem($xmlElement);
-					unset($xmlElement);
-					
-					if ($missing) {
-						$relatedItemsStore[$itemObj->libraryID . '_' . $itemObj->key] = $missing;
-					}
-					
-					if (!$itemObj->getSourceKey()) {
-						try {
-							$itemObj->save($userID);
-						}
-						catch (Exception $e) {
-							if (strpos($e->getMessage(), 'libraryIDs_do_not_match') !== false) {
-								throw new Exception($e->getMessage() . " (" . $itemObj->key . ")");
-							}
-							throw ($e);
-						}
-					}
-					else {
-						$childItems[] = $itemObj;
-					}
-				}
-				unset($keys);
-				unset($xml->items);*/
 				
 				while ($childItem = array_shift($childItems)) {
 					$childItem->save($userID);
@@ -1441,44 +1379,6 @@ class Zotero_Sync {
 				}
 				unset($keys);
 				unset($xml->collections);
-				
-				// SimpleXML
-				/*$elements = array();
-				foreach ($xml->collections->collection as $xmlElement) {
-					$elements[] = $xmlElement;
-				}
-				
-				$size1 = sizeOf($xml->collections->collection);
-				$size2 = sizeOf($elements);
-				if ($size1 != $size2) {
-					throw new Exception("Collection array sizes differ ($size1 != $size2)", Z_ERROR_ARRAY_SIZE_MISMATCH);
-				}
-				
-				// Build an array of unsaved collection objects and the keys of child items
-				$keys = array();
-				while ($xmlElement = array_shift($elements)) {
-					$key = (string) $xmlElement['key'];
-					if (isset($keys[$key])) {
-						throw new Exception("Collection $key already processed");
-					}
-					$keys[$key] = true;
-					
-					$collectionObj = Zotero_Collections::convertXMLToCollection($xmlElement);
-					
-					$arr = array(
-						'obj' => $collectionObj,
-						//'collections' => $xmlElement->collections ?
-						//	explode(' ', $xmlElement->collections) : array(),
-						'items' => $xmlElement->items ?
-							explode(' ', $xmlElement->items) : array()
-					);
-					unset($xmlElement);
-					$collections[] = $collectionObj;
-					$collectionSets[] = $arr;
-				}
-				unset($keys);
-				unset($xml->collections);
-				*/
 				
 				self::saveCollections($collections);
 				unset($collections);
@@ -1538,34 +1438,6 @@ class Zotero_Sync {
 				}
 				unset($keys);
 				unset($xml->tags);
-				
-				// SimpleXML
-				/*// Work around loop pointer reset bug in PHP 5.3RC2
-				$elements = array();
-				foreach ($xml->tags->tag as $xmlElement) {
-					$elements[] = $xmlElement;
-				}
-				
-				$size1 = sizeOf($xml->tags->tag);
-				$size2 = sizeOf($elements);
-				if ($size1 != $size2) {
-					throw new Exception("Tag array sizes differ ($size1 != $size2)", Z_ERROR_ARRAY_SIZE_MISMATCH);
-				}
-				
-				$keys = array();
-				while ($xmlElement = array_shift($elements)) {
-					$key = (string) $xmlElement['key'];
-					if (isset($keys[$key])) {
-						throw new Exception("Tag $key already processed");
-					}
-					$keys[$key] = true;
-					
-					$tagObj = Zotero_Tags::convertXMLToTag($xmlElement);
-					unset($xmlElement);
-					$tagObj->save(true);
-				}
-				unset ($keys);
-				unset($xml->tags);*/
 			}
 			
 			// Add/update relations
@@ -1582,24 +1454,6 @@ class Zotero_Sync {
 				}
 				unset($keys);
 				unset($xml->relations);
-				
-				// SimpleXML
-				/*$keys = array();
-				
-				foreach ($xml->relations->relation as $xmlElement) {
-					$key = (string) $xmlElement['key'];
-					if (isset($keys[$key])) {
-						throw new Exception("Relation $key already processed");
-					}
-					$keys[$key] = true;
-					
-					$relationObj = Zotero_Relations::convertXMLToRelation($xmlElement, $userLibraryID);
-					if ($relationObj->exists()) {
-						continue;
-					}
-					$relationObj->save();
-				}
-				unset($xml->relations);*/
 			}
 			
 			// TODO: loop
