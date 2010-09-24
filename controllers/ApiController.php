@@ -614,7 +614,7 @@ class ApiController extends Controller {
 				else {
 					$storageFileID = Zotero_S3::addFile($hash, $filename, $info['size'], $zip);
 				}
-				Zotero_S3::updateFileItemInfo($item, $storageFileID, $_POST['mtime']);
+				Zotero_S3::updateFileItemInfo($item, $storageFileID, $_POST['mtime'], $info['size']);
 				
 				$ipAddress = IPAddress::getIP();
 				Zotero_S3::logUpload($item, $uploadKey, $ipAddress);
@@ -685,7 +685,11 @@ class ApiController extends Controller {
 			
 			// If we have a file, add/update storageFileItems row and stop
 			if (!empty($storageFileID)) {
-				Zotero_S3::updateFileItemInfo($item, $storageFileID, $_POST['mtime']);
+				// If we didn't get it above, get the size to set on shard
+				if (!$info) {
+					$info = Zotero_S3::getFileInfoByID($storageFileID);
+				}
+				Zotero_S3::updateFileItemInfo($item, $storageFileID, $_POST['mtime'], $info['size']);
 				Zotero_DB::commit();
 				
 				header('application/xml');

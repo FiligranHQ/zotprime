@@ -58,7 +58,7 @@ echo "INSERT INTO zotero_www_test.users VALUES (2, 'testuser2', 'fc707fc0b8c62cf
 echo "RESET MASTER;" | $MASTER
 echo "CHANGE MASTER TO MASTER_HOST='127.0.0.1', MASTER_PORT=3306, MASTER_USER='zoterotestrepl', MASTER_PASSWORD='passrepl';" | $SLAVE
 # Table list should match replicate-do-table list below
-$MYSQLDUMP --master-data=1 zoterotest_master baseFieldMappings charsets creatorTypes fields groups groupUsers itemTypeCreatorTypes itemTypeFields itemTypes libraries storageFiles users | $SLAVE zoterotest_master
+$MYSQLDUMP --master-data=1 zoterotest_master baseFieldMappings charsets creatorTypes fields groups groupUsers itemTypeCreatorTypes itemTypeFields itemTypes libraries shardHosts shards users | $SLAVE zoterotest_master
 
 cat shard.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest1
 cat shard.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest2
@@ -87,7 +87,8 @@ cat triggers.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest2
 # replicate-do-table = zoterotest_master.itemTypeFields
 # replicate-do-table = zoterotest_master.itemTypes
 # replicate-do-table = zoterotest_master.libraries
-# replicate-do-table = zoterotest_master.storageFiles
+# replicate-do-table = zoterotest_master.shardHosts
+# replicate-do-table = zoterotest_master.shards
 # replicate-do-table = zoterotest_master.users
 
 echo "START SLAVE;" | $SLAVE
