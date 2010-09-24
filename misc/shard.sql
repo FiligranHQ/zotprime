@@ -218,6 +218,7 @@ CREATE TABLE `storageFileItems` (
   `storageFileID` int(10) unsigned NOT NULL,
   `itemID` int(10) unsigned NOT NULL,
   `mtime` bigint(13) unsigned NOT NULL,
+  `size` int(10) unsigned NOT NULL,
   PRIMARY KEY (`storageFileID`,`itemID`),
   UNIQUE KEY `itemID` (`itemID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -324,7 +325,6 @@ ALTER TABLE `savedSearches`
   ADD CONSTRAINT `savedSearches_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `storageFileItems`
-  ADD CONSTRAINT `storageFileItems_ibfk_1` FOREIGN KEY (`storageFileID`) REFERENCES `master`.`storageFiles` (`storageFileID`),
   ADD CONSTRAINT `storageFileItems_ibfk_2` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `syncDeleteLogIDs`

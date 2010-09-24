@@ -190,10 +190,16 @@ class Zotero_S3 {
 	 * Get item-specific file info
 	 */
 	public static function getLocalFileItemInfo($item) {
-		$sql = "SELECT * FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".storageFiles
-				JOIN storageFileItems USING (storageFileID)
-				WHERE itemID=?";
-		return Zotero_DB::rowQuery($sql, $item->id, Zotero_Shards::getByLibraryID($item->libraryID));
+		$sql = "SELECT * FROM storageFileItems WHERE itemID=?";
+		$info = Zotero_DB::rowQuery($sql, $item->id, Zotero_Shards::getByLibraryID($item->libraryID));
+		if (!$info) {
+			return false;
+		}
+		$moreInfo = self::getFileInfoByID($info['storageFileID']);
+		if (!$moreInfo) {
+			throw new Exception("storageFileID {$info['storageFileID']} not found in storageFiles");
+		}
+		return array_merge($moreInfo, $info);
 	}
 	
 	/**
@@ -219,12 +225,14 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function updateFileItemInfo($item, $storageFileID, $mtime) {
-		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime) VALUES (?,?,?)
-				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?";
+	public static function updateFileItemInfo($item, $storageFileID, $mtime, $size) {
+		// Note: We set the size on the shard so that usage queries are instantaneous
+		// and aren't dependent on replication
+		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?)
+				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?, size=?";
 		Zotero_DB::query(
 			$sql,
-			array($storageFileID, $item->id, $mtime, $storageFileID, $mtime),
+			array($storageFileID, $item->id, $mtime, $size, $storageFileID, $mtime, $size),
 			Zotero_Shards::getByLibraryID($item->libraryID)
 		);
 	}
@@ -354,6 +362,8 @@ class Zotero_S3 {
 	
 	
 	public static function purgeUnusedFiles() {
+		throw new Exception("Now sharded");
+		
 		self::requireLibrary();
 		
 		// Get all used files and files that were last deleted more than a month ago
@@ -399,6 +409,8 @@ class Zotero_S3 {
 			
 			$sql = "DELETE FROM storageFiles WHERE hash=? AND filename=? AND zip=?";
 			Zotero_DB::query($sql, array($info['hash'], $info['filename'], $info['zip']));
+			
+			// TODO: maybe check to make sure associated files haven't just been created?
 		}
 		
 		Zotero_DB::commit();
@@ -492,8 +504,7 @@ class Zotero_S3 {
 		
 		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
 		
-		$sql = "SELECT SUM(size) AS bytes FROM $masterDB.storageFiles ST
-				JOIN storageFileItems STI USING (storageFileID)
+		$sql = "SELECT SUM(size) AS bytes FROM storageFileItems
 				JOIN items USING (itemID)
 				JOIN $masterDB.users USING (libraryID)
 				WHERE userID=?";
@@ -505,8 +516,7 @@ class Zotero_S3 {
 		$groupBytes = 0;
 		$usage['groups'] = array();
 		foreach ($shardIDs as $shardID) {
-			$sql = "SELECT G.groupID, SUM(size) AS `bytes` FROM $masterDB.storageFiles ST
-					JOIN storageFileItems STI USING (storageFileID)
+			$sql = "SELECT G.groupID, SUM(size) AS `bytes` FROM storageFileItems
 					JOIN items I USING (itemID)
 					JOIN $masterDB.groups G USING (libraryID)
 					JOIN $masterDB.groupUsers GU ON (G.groupID=GU.groupID AND role='owner')
