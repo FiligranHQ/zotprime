@@ -69,6 +69,7 @@ class Zotero_Group {
 			case 'hasImage':
 			case 'dateAdded':
 			case 'dateModified':
+			case 'erased':
 				break;
 			
 			case 'slug':

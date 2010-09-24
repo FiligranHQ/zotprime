@@ -110,6 +110,10 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "LEFT JOIN itemNotes B USING (itemID)
 						LEFT JOIN itemAttachments C ON (C.itemID=A.itemID) ";
 		}
+		if (!$includeTrashed) {
+			$sql .= " LEFT JOIN deletedItems D ON (D.itemID=A.itemID) ";
+		}
+		
 		$sql .= "WHERE A.libraryID=? ";
 		$sqlParams = array($libraryID);
 		
@@ -117,7 +121,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "AND B.sourceItemID IS NULL AND C.sourceItemID IS NULL ";
 		}
 		if (!$includeTrashed) {
-			$sql .= " AND A.itemID NOT IN (SELECT itemID FROM deletedItems) ";
+			$sql .= " AND D.itemID IS NULL ";
 		}
 		
 		if (!empty($params['fq'])) {

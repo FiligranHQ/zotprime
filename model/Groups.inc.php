@@ -25,14 +25,33 @@
 */
 
 class Zotero_Groups {
+	private $groups = array();
+	
 	public static function get($groupID) {
+		if (!$groupID) {
+			throw new Exception('$groupID not set');
+		}
+		
+		if (isset($groups[$groupID])) {
+			$group = $groups[$groupID];
+			if ($group->erased) {
+				unset($groups[$groupID]);
+				return false;
+			}
+			return $group;
+		}
+		
 		$group = new Zotero_Group;
 		$group->id = $groupID;
 		if (!$group->exists()) {
 			return false;
 		}
-		return $group;
+		
+		$groups[$groupID] = $group;
+		
+		return $groups[$groupID];
 	}
+	
 	
 	
 	public static function getAllAdvanced($userID=false, $params=array()) {
