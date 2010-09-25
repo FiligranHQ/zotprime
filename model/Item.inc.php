@@ -189,14 +189,14 @@ class Zotero_Item {
 	
 	
 	public function getField($field, $unformatted=false, $includeBaseMapped=false, $skipValidation=false) {
-		//Z_Core::debug("Requesting field '$field' for item $this->id", 4);
+		Z_Core::debug("Requesting field '$field' for item $this->id", 4);
 		
 		if (($this->id || $this->key) && !$this->primaryDataLoaded) {
 			$this->loadPrimaryData(true);
 		}
 		
 		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
-			//Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
+			Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
 			
 			// Generate firstCreator string if we only have hashes
 			if ($field == 'firstCreator' && !$this->firstCreator && $this->firstCreatorHashes) {
@@ -233,7 +233,7 @@ class Zotero_Item {
 			if (!$skipValidation) {
 				trigger_error($msg, E_USER_ERROR);
 			}
-			//Z_Core::debug($msg . "—returning ''", 4);
+			Z_Core::debug($msg . "—returning ''", 4);
 			return '';
 		}
 		
@@ -250,7 +250,7 @@ class Zotero_Item {
 			}
 		}
 		
-		//Z_Core::debug("Returning '$value' for field $field", 4);
+		Z_Core::debug("Returning '$value' for field $field", 4);
 		return $value;
 	}
 	
@@ -409,7 +409,7 @@ class Zotero_Item {
 	
 	
 	private function loadPrimaryData($allowFail=false) {
-		//Z_Core::debug("Loading primary data for item $this->id");
+		Z_Core::debug("Loading primary data for item $this->id");
 		
 		$libraryID = $this->libraryID;
 		$id = $this->id;
@@ -2646,7 +2646,7 @@ class Zotero_Item {
 		if (!$this->id) {
 			return false;
 		}
-		$sql = "SELECT T.tagID FROM tags T NATURAL JOIN tagData JOIN itemTags IT ON (T.tagID=IT.tagID)
+		$sql = "SELECT T.tagID FROM tags T JOIN itemTags IT ON (T.tagID=IT.tagID)
 				WHERE itemID=? ORDER BY name";
 		$tagIDs = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$tagIDs) {
@@ -2677,7 +2677,7 @@ class Zotero_Item {
 	//
 	//
 	private function loadItemData() {
-		//Z_Core::debug("Loading item data for item $this->id");
+		Z_Core::debug("Loading item data for item $this->id");
 		
 		// TODO: remove?
 		if ($this->itemDataLoaded) {
