@@ -30,20 +30,13 @@ class Zotero_ID {
 	*/             
 	public static function get($table) {
 		switch ($table) {
-			// Always use auto-increment
-			// TODO: purge these sometimes?
-			case 'tags':
-			case 'creators':
 			case 'collections':
+			case 'creators':
 			case 'items':
 			case 'relations':
 			case 'savedSearches':
 			case 'tags':
-				return null;
-			
-			// Non-autoincrement tables
-			//case :
-				//return self::getNext($table);
+				return self::getNext($table);
 				
 			default:
 				trigger_error("Unsupported table '$table'", E_USER_ERROR);
@@ -57,41 +50,36 @@ class Zotero_ID {
 	
 	
 	/*              
-	* Get MAX(id) + 1 from table
+	* Get MAX(id) + 1 from ids databases
 	*/                     
-	private function getNext($table) {
-		throw new Exception("Unavailable");
-		$column = self::getTableColumn($table);
-		$where = self::getWhere($table);
-		$sql = "SELECT NEXT_ID($column) FROM $table" . $where;
-		return Zotero_DB::valueQuery($sql);
-	}
-	
-	
-	private function getTableColumn($table) {
-		switch ($table) {
-			case 'savedSearches':
-				return 'savedSearchID';
-				
-			default:
-				return substr($table, 0, -1) . 'ID';
-       }
-	}
-	
-	
-	private function getWhere($table) {
-		$where = ' WHERE ';
-		
-		switch ($table) {
-			case 'items':
-			case 'creators':
-				break;
-				
-			default:
-				trigger_error("Invalid table '$table'", E_USER_ERROR);
+	private static function getNext($table) {
+		$sql = "REPLACE INTO $table (stub) VALUES ('a')";
+		if (Z_Core::probability(2)) {
+			try {
+				Zotero_ID_DB_1::query($sql);
+				$id = Zotero_ID_DB_1::valueQuery("SELECT LAST_INSERT_ID()");
+			}
+			catch (Exception $e) {
+				Zotero_ID_DB_2::query($sql);
+				$id = Zotero_ID_DB_2::valueQuery("SELECT LAST_INSERT_ID()");
+			}
+		}
+		else {
+			try {
+				Zotero_ID_DB_2::query($sql);
+				$id = Zotero_ID_DB_2::valueQuery("SELECT LAST_INSERT_ID()");
+			}
+			catch (Exception $e) {
+				Zotero_ID_DB_1::query($sql);
+				$id = Zotero_ID_DB_1::valueQuery("SELECT LAST_INSERT_ID()");
+			}
 		}
 		
-		return $where;
+		if (!$id || !is_int($id)) {
+			throw new Exception("Invalid id $id");
+		}
+		
+		return $id;
 	}
 }
 ?>

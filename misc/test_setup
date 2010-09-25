@@ -12,6 +12,8 @@ Zotero_DB::query("DELETE FROM syncDownloadQueue");
 Zotero_DB::query("DELETE FROM syncUploadQueue");
 Zotero_DB::query("DELETE FROM libraries WHERE libraryID>3");
 Zotero_DB::query("DELETE FROM zotero_www_test.users WHERE userID>2");
+Zotero_ID_DB_1::query("DELETE FROM ids");
+Zotero_ID_DB_2::query("DELETE FROM ids");
 
 $shards = array(1,2);
 foreach ($shards as $shardID) {

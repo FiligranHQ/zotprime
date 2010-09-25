@@ -101,9 +101,6 @@ class Zotero_DB {
 	
 	/**
 	 * Get an instance of the appropriate class
-	 *
-	 * Note: We only use one instance now, and the class might need a little
-	 * reworking to go back to multiple.
 	 */
 	protected static function getInstance() {
 		$class = get_called_class();
@@ -584,8 +581,8 @@ class Zotero_DB {
 			
 			if ($insertCounter == $maxInsertGroups - 1) {
 				$insertSQL = substr($insertSQL, 0, -1);
-				$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
-				Zotero_DB::queryFromStatement($stmt, $insertParams);
+				$stmt = self::getStatement($insertSQL, true, $shardID);
+				self::queryFromStatement($stmt, $insertParams);
 				$insertSQL = $origInsertSQL;
 				$insertParams = array();
 				$insertCounter = -1;
@@ -596,8 +593,8 @@ class Zotero_DB {
 		
 		if ($insertCounter > 0 && $insertCounter < $maxInsertGroups) {
 			$insertSQL = substr($insertSQL, 0, -1);
-			$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
-			Zotero_DB::queryFromStatement($stmt, $insertParams);
+			$stmt = self::getStatement($insertSQL, true, $shardID);
+			self::queryFromStatement($stmt, $insertParams);
 		}
 	}
 	
@@ -787,6 +784,26 @@ class Zotero_DB {
 		$this->close();
 	}
 }
+
+
+class Zotero_ID_DB_1 extends Zotero_DB {
+	protected $db = 'id1';
+	
+	protected function __construct() {
+		parent::__construct();
+	}
+}
+
+
+class Zotero_ID_DB_2 extends Zotero_DB {
+	protected $db = 'id2';
+	
+	protected function __construct() {
+		parent::__construct();
+	}
+}
+
+
 
 class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
 	private $link;

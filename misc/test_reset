@@ -1,6 +1,8 @@
 #!/bin/sh
 MASTER="mysql -h 127.0.0.1 -P 3306 -u root"
 SLAVE="mysql -h 127.0.0.1 -P 3307 -u root"
+ID1="mysql -h 127.0.0.1 -P 3308 -u root"
+ID2="mysql -h 127.0.0.1 -P 3309 -u root"
 MYSQLDUMP="mysqldump -h 127.0.0.1 -P 3306 -u root"
 
 echo "STOP SLAVE;" | $SLAVE
@@ -10,22 +12,31 @@ echo "DROP DATABASE IF EXISTS zoterotest1" | $SLAVE
 echo "DROP DATABASE IF EXISTS zoterotest2" | $SLAVE
 echo "DROP DATABASE IF EXISTS zoterotest_master" | $SLAVE
 echo "DROP DATABASE IF EXISTS zoterotest_master" | $MASTER
+echo "DROP DATABASE IF EXISTS zoterotest_ids" | $ID1
+echo "DROP DATABASE IF EXISTS zoterotest_ids" | $ID2
 
 echo "CREATE DATABASE zoterotest_master" | $MASTER
 echo "CREATE DATABASE zoterotest_master" | $SLAVE
 echo "CREATE DATABASE zoterotest1" | $SLAVE
 echo "CREATE DATABASE zoterotest2" | $SLAVE
+echo "CREATE DATABASE zoterotest_ids" | $ID1
+echo "CREATE DATABASE zoterotest_ids" | $ID2
 
 echo "DROP USER zoterotest0@localhost;" | $MASTER
 echo "DROP USER zoterotestrepl@localhost;" | $MASTER
 echo "DROP USER zoterotest1@localhost;" | $SLAVE
 echo "DROP USER zoterotest2@localhost;" | $SLAVE
+echo "DROP USER zoterotest_id@localhost;" | $ID1
+echo "DROP USER zoterotest_id@localhost;" | $ID2
 
 echo "CREATE USER zoterotest0@localhost IDENTIFIED BY 'pass0';" | $MASTER
 echo "CREATE USER zoterotestrepl@localhost IDENTIFIED BY 'passrepl';" | $MASTER
 
 echo "CREATE USER zoterotest1@localhost IDENTIFIED BY 'pass1';" | $SLAVE
 echo "CREATE USER zoterotest2@localhost IDENTIFIED BY 'pass2';" | $SLAVE
+
+echo "CREATE USER zoterotest_id@localhost IDENTIFIED BY 'pass1';" | $ID1
+echo "CREATE USER zoterotest_id@localhost IDENTIFIED BY 'pass2';" | $ID2
 
 echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest_master.* TO zoterotest0@localhost;" | $MASTER
 echo "GRANT SELECT, INSERT, DELETE ON zotero_www_test.* TO zoterotest0@localhost;" | $MASTER
@@ -35,6 +46,9 @@ echo "GRANT SELECT ON zoterotest_master.* TO zoterotest1@localhost;" | $SLAVE
 echo "GRANT SELECT ON zoterotest_master.* TO zoterotest2@localhost;" | $SLAVE
 echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest1.* TO zoterotest1@localhost;" | $SLAVE
 echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest2.* TO zoterotest2@localhost;" | $SLAVE
+
+echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_id@localhost;" | $ID1
+echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_id@localhost;" | $ID2
 
 $MASTER zoterotest_master < master.sql
 $MASTER zoterotest_master < coredata.sql
@@ -64,6 +78,9 @@ cat shard.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest1
 cat shard.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest2
 cat triggers.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest1
 cat triggers.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest2
+
+$ID1 zoterotest_ids < ids.sql
+$ID2 zoterotest_ids < ids.sql
 
 # Master my.cnf:
 #

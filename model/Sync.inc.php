@@ -96,7 +96,7 @@ class Zotero_Sync {
 	/**
 	 * Check if any of a user's libraries are being written to
 	 *
-	 * Clients can't read (/updated) but can write (/upload) if this is true
+	 * Clients can't read (/updated) or write (/upload) if this is true
 	 */
 	public static function userIsWriteLocked($userID) {
 		Zotero_DB::beginTransaction();
@@ -1229,19 +1229,25 @@ class Zotero_Sync {
 				$xmlElements = dom_import_simplexml($xml->creators);
 				$xmlElements = $xmlElements->getElementsByTagName('creator');
 				Zotero_DB::query("SET foreign_key_checks = 0");
-				$addedLibraryIDs = array();
-				$addedCreatorDataHashes = array();
-				foreach ($xmlElements as $xmlElement) {
-					$key = $xmlElement->getAttribute('key');
-					if (isset($keys[$key])) {
-						throw new Exception("Creator $key already processed");
+				try {
+					$addedLibraryIDs = array();
+					$addedCreatorDataHashes = array();
+					foreach ($xmlElements as $xmlElement) {
+						$key = $xmlElement->getAttribute('key');
+						if (isset($keys[$key])) {
+							throw new Exception("Creator $key already processed");
+						}
+						$keys[$key] = true;
+						
+						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
+						$creatorObj->save();
+						$addedLibraryIDs[] = $creatorObj->libraryID;
+						$addedCreatorDataHashes[] = $creatorObj->creatorDataHash;
 					}
-					$keys[$key] = true;
-					
-					$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
-					$creatorObj->save();
-					$addedLibraryIDs[] = $creatorObj->libraryID;
-					$addedCreatorDataHashes[] = $creatorObj->creatorDataHash;
+				}
+				catch (Exception $e) {
+					Zotero_DB::query("SET foreign_key_checks = 1");
+					throw ($e);
 				}
 				Zotero_DB::query("SET foreign_key_checks = 1");
 				unset($keys);

@@ -263,6 +263,14 @@ class DBTests extends PHPUnit_Framework_TestCase {
 		
 		Zotero_DB::query("DROP TEMPORARY TABLE foo");
 	}
+	
+	public function testIDDB() {
+		$id = Zotero_ID_DB_1::valueQuery("SELECT id FROM items");
+		$this->assertNotEquals(false, $id);
+		
+		$id = Zotero_ID_DB_2::valueQuery("SELECT id FROM items");
+		$this->assertNotEquals(false, $id);
+	}
 }
 
 
