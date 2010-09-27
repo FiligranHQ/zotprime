@@ -282,7 +282,7 @@ class Zotero_DB {
 	
 	
 	public static function query($sql, $params=false, $shardID=0) {
-		Z_Core::debug($sql . ($params ? " (" . (is_scalar($params) ? $params : implode(",", $params)) . ")" : ""));
+		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		
@@ -349,6 +349,8 @@ class Zotero_DB {
 		try {
 			// Execute statement if not coming from self::query()
 			if ($params) {
+				self::logQuery($stmt->sql, $params, $stmt->shardID);
+				
 				// If this is a write query, make sure shard is writeable
 				if ($stmt->isWriteQuery && $stmt->shardID && !Zotero_Shards::shardIsWriteable($stmt->shardID)) {
 					throw new Exception("Cannot write to read-only shard $stmt->shardID", Z_ERROR_SHARD_READ_ONLY);
@@ -411,6 +413,8 @@ class Zotero_DB {
 	
 	
 	public static function columnQuery($sql, $params=false, $shardID=0) {
+		self::logQuery($sql, $params, $shardID);
+		
 		$instance = self::getInstance();
 		$link = $instance->getShardLink($shardID);
 		$instance->checkShardTransaction($shardID);
@@ -457,6 +461,8 @@ class Zotero_DB {
 	
 	
 	public static function rowQuery($sql, $params=false, $shardID=0) {
+		self::logQuery($sql, $params, $shardID);
+		
 		$instance = self::getInstance();
 		$link = $instance->getShardLink($shardID);
 		$instance->checkShardTransaction($shardID);
@@ -486,6 +492,8 @@ class Zotero_DB {
 		try {
 			// Execute statement if not coming from self::query()
 			if ($params) {
+				self::logQuery($stmt->sql, $params, $stmt->shardID);
+				
 				$instance = self::getInstance();
 				$instance->checkShardTransaction($stmt->shardID);
 				
@@ -518,6 +526,8 @@ class Zotero_DB {
 	
 	
 	public static function valueQuery($sql, $params=false, $shardID=0) {
+		self::logQuery($sql, $params, $shardID);
+		
 		$instance = self::getInstance();
 		$link = $instance->getShardLink($shardID);
 		$instance->checkShardTransaction($shardID);
@@ -698,6 +708,17 @@ class Zotero_DB {
 	}
 	
 	
+	public static function isWriteQuery($command) {
+		$command = strtoupper($command);
+		switch ($command) {
+			case 'SELECT':
+			case 'SHOW':
+				return false;
+		}
+		return true;
+	}
+	
+	
 	protected static function getIntegerColumns(mysqli_stmt $stmt) {
 		if (!$stmt->field_count) {
 			return false;
@@ -730,14 +751,8 @@ class Zotero_DB {
 	}
 	
 	
-	public static function isWriteQuery($command) {
-		$command = strtoupper($command);
-		switch ($command) {
-			case 'SELECT':
-			case 'SHOW':
-				return false;
-		}
-		return true;
+	protected static function logQuery($sql, $params, $shardID) {
+		Z_Core::debug($sql . ($params ? " (" . (is_scalar($params) ? $params : implode(",", $params)) . ") ($shardID)" : ""));
 	}
 	
 	

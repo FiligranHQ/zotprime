@@ -1,0 +1,11 @@
+#!/usr/bin/php
+<?
+set_include_path("../include");
+require("header.inc.php");
+
+if (empty($argv[1]) || empty($argv[2])) {
+	die("Usage: $argv[0] " . '$libraryID $newShardID' . "\n");
+}
+
+Zotero_Shards::moveLibrary($argv[1], $argv[2]);
+?>

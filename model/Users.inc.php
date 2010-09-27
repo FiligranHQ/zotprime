@@ -266,7 +266,7 @@ class Zotero_Users {
 		Zotero_DB::beginTransaction();
 		
 		$tables = array(
-			'collections', 'creators', 'items', 'tags', 'savedSearches',
+			'collections', 'creators', 'items', 'relations', 'savedSearches', 'tags',
 			'syncDeleteLogIDs', 'syncDeleteLogKeys'
 		);
 		

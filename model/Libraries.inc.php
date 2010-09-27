@@ -88,15 +88,14 @@ class Zotero_Libraries {
 	}
 	
 	
-	// Unused
 	public static function isLocked($libraryID) {
 		$sql = "SELECT COUNT(*) FROM syncUploadQueueLocks WHERE libraryID=?";
-		$locked = Zotero_DB::query($sql, $libraryID);
+		$locked = Zotero_DB::valueQuery($sql, $libraryID);
 		if ($locked) {
 			return true;
 		}
 		$sql = "SELECT COUNT(*) FROM syncProcessLocks WHERE libraryID=?";
-		return !!Zotero_DB::query($sql, $libraryID);
+		return !!Zotero_DB::valueQuery($sql, $libraryID);
 	}
 }
 ?>

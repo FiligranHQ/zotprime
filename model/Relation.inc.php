@@ -122,11 +122,12 @@ class Zotero_Relation {
 			Z_Core::debug("Saving relation $relationID");
 			
 			$sql = "INSERT INTO relations
-					(libraryID, subject, predicate, object, serverDateModified, serverDateModifiedMS)
-					VALUES (?, ?, ?, ?, ?, ?)";
+					(relationID, libraryID, subject, predicate, object, serverDateModified, serverDateModifiedMS)
+					VALUES (?, ?, ?, ?, ?, ?, ?)";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			$params = array(
+				$relationID,
 				$this->libraryID,
 				$this->subject,
 				$this->predicate,
