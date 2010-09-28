@@ -224,7 +224,9 @@ class ApiController extends Controller {
 		}
 		$this->objectName = !empty($extra['name']) ? urldecode($extra['name']) : null;
 		$this->subset = !empty($extra['subset']) ? $extra['subset'] : null;
-		$this->fileMode = !empty($extra['file']);
+		$this->fileMode = !empty($extra['file'])
+							? (!empty($_GET['info']) ? 'info' : 'download')
+							: false;
 		
 		// Import query parameters
 		
@@ -528,7 +530,9 @@ class ApiController extends Controller {
 		
 		$this->allowMethods(array('HEAD', 'GET', 'POST'));
 		
-		if ($this->method == 'HEAD') {
+		// Use of HEAD method is deprecated after 2.0.8/2.1b1 due to
+		// compatibility problems with proxies and security software
+		if ($this->method == 'HEAD' || $this->fileMode == 'info') {
 			$info = Zotero_S3::getLocalFileItemInfo($item);
 			if (!$info) {
 				$this->e404();
