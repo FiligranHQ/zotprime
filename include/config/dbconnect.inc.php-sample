@@ -1,6 +1,6 @@
 <?
 function Zotero_dbConnectAuth($db) {
-	if ($db == 'master') {
+	if ($db == 'master1') {
 		$host = '';
 		$port = 3306;
 		$db = '';
@@ -18,6 +18,13 @@ function Zotero_dbConnectAuth($db) {
 		$host = '';
 		$port = 3306;
 		$db = 'ids';
+		$user = '';
+		$pass = '';
+	}
+	else if ($db == 'www') {
+		$host = '';
+		$port = 3306;
+		$db = 'www';
 		$user = '';
 		$pass = '';
 	}

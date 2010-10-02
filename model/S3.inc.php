@@ -462,14 +462,14 @@ class Zotero_S3 {
 		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
 				JOIN $databaseName.storage_institutions ON (SUBSTRING_INDEX(email, '@', -1)=domain)
 				WHERE userID=?";
-		$institutionalDomainQuota = Zotero_DB::valueQuery($sql, $userID);
+		$institutionalDomainQuota = Zotero_WWW_DB::valueQuery($sql, $userID);
 		
 		// Get maximum institutional quota by e-mail address
 		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
 				JOIN $databaseName.storage_institution_email USING (email)
 				JOIN $databaseName.storage_institutions USING (institutionID)
 				WHERE userID=?";
-		$institutionalEmailQuota = Zotero_DB::valueQuery($sql, $userID);
+		$institutionalEmailQuota = Zotero_WWW_DB::valueQuery($sql, $userID);
 		
 		$quota = max($institutionalDomainQuota, $institutionalEmailQuota);
 		return $quota ? $quota : false;

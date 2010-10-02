@@ -819,6 +819,15 @@ class Zotero_ID_DB_2 extends Zotero_DB {
 }
 
 
+class Zotero_WWW_DB extends Zotero_DB {
+	protected $db = 'www';
+	
+	protected function __construct() {
+		parent::__construct();
+	}
+}
+
+
 
 class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
 	private $link;

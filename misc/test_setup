@@ -12,7 +12,7 @@ Zotero_DB::query("DELETE FROM syncProcesses");
 Zotero_DB::query("DELETE FROM syncDownloadQueue");
 Zotero_DB::query("DELETE FROM syncUploadQueue");
 Zotero_DB::query("DELETE FROM libraries WHERE libraryID>3");
-Zotero_DB::query("DELETE FROM zotero_www_test.users WHERE userID>2");
+Zotero_WWW_DB::query("DELETE FROM zotero_www_test.users WHERE userID>2");
 
 $shards = array(1,2);
 foreach ($shards as $shardID) {

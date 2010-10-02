@@ -49,7 +49,7 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 			// Try username
 			$sql = "SELECT userID, username FROM $databaseName.users
 					   WHERE username = ? AND password = ? LIMIT 1";
-			$row = Zotero_DB::rowQuery($sql, array($username, $passwordMd5));
+			$row = Zotero_WWW_DB::rowQuery($sql, array($username, $passwordMd5));
 		}
 		else {
 			// Try both username and e-mail address
@@ -59,7 +59,7 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   SELECT userID, username FROM $databaseName.users
 					   WHERE email = ? AND password = ?
 					   LIMIT 1";
-			$row = Zotero_DB::rowQuery($sql, array($username, $passwordMd5, $username, $passwordMd5));
+			$row = Zotero_WWW_DB::rowQuery($sql, array($username, $passwordMd5, $username, $passwordMd5));
 		}
 		
 		if ($row) {
@@ -75,7 +75,7 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 			$sql = "SELECT userID, username FROM $databaseName.users
 					   WHERE username = ? AND password = ?
 					   LIMIT 1";
-			$row = Zotero_DB::rowQuery($sql, array($username, $passwordSha1));
+			$row = Zotero_WWW_DB::rowQuery($sql, array($username, $passwordSha1));
 		}
 		else {
 			// Try both username and e-mail address
@@ -85,7 +85,7 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   SELECT userID, username FROM $databaseName.users
 					   WHERE email = ? AND password = ?
 					   LIMIT 1";
-			$row = Zotero_DB::rowQuery($sql, array($username, $passwordMd5, $username, $passwordSha1));
+			$row = Zotero_WWW_DB::rowQuery($sql, array($username, $passwordMd5, $username, $passwordSha1));
 		}
 		if ($row) {
 			self::updateUser($row['userID'], $row['username']);
