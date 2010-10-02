@@ -100,9 +100,13 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 * @return	Zotero_Collection			Zotero collection object
 	 */
 	public static function convertXMLToCollection(DOMElement $xml) {
-		$col = new Zotero_Collection;
-		$col->libraryID = (int) $xml->getAttribute('libraryID');
-		$col->key = $xml->getAttribute('key');
+		$libraryID = (int) $xml->getAttribute('libraryID');
+		$col = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
+		if (!$col) {
+			$col = new Zotero_Collection;
+			$col->libraryID = $libraryID;
+			$col->key = $xml->getAttribute('key');
+		}
 		$col->name = $xml->getAttribute('name');
 		$parentKey = $xml->getAttribute('parent');
 		if ($parentKey) {
@@ -134,9 +138,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$xml['dateAdded'] = $collection->dateAdded;
 		$xml['dateModified'] = $collection->dateModified;
 		if ($collection->parent) {
-			$parentCol = new Zotero_Collection;
-			$parentCol->libraryID = $collection->libraryID;
-			$parentCol->id = $collection->parent;
+			$parentCol = self::get($collection->libraryID, $collection->parent);
 			$xml['parent'] = $parentCol->key;
 		}
 		
@@ -190,9 +192,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		$parent = $collection->parent;
 		if ($parent) {
-			$parentCol = new Zotero_Collection;
-			$parentCol->libraryID = $collection->libraryID;
-			$parentCol->id = $parent;
+			$parentCol = self::get($collection->libraryID, $parent);
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";

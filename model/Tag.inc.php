@@ -124,6 +124,7 @@ class Zotero_Tag {
 		
 		try {
 			$tagID = $this->id ? $this->id : Zotero_ID::get('tags');
+			$isNew = !$this->id;
 			
 			Z_Core::debug("Saving tag $tagID");
 			
@@ -225,6 +226,10 @@ class Zotero_Tag {
 		}
 		if (!$this->key) {
 			$this->key = $key;
+		}
+		
+		if ($isNew) {
+			Zotero_Tags::cache($this);
 		}
 		
 		return $this->id;
@@ -368,7 +373,7 @@ class Zotero_Tag {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Tag data as SimpleXML element
 	 */
-	public function toAtom($content='none', $apiVersion=null) {
+	public function toAtom($content='none', $apiVersion=null, $fixedValues=null) {
 		$xml = new SimpleXMLElement(
 			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '
@@ -397,10 +402,16 @@ class Zotero_Tag {
 		$link['href'] = Zotero_URI::getTagURI($this);
 		
 		// Count user's linked items
-		$itemIDs = $this->getLinkedItems();
+		if (isset($fixedValues['numItems'])) {
+			$numItems = $fixedValues['numItems'];
+		}
+		else {
+			$itemIDs = $this->getLinkedItems();
+			$numItems = sizeOf($itemIDs);
+		}
 		$xml->addChild(
 			'zapi:numItems',
-			sizeOf($itemIDs),
+			$numItems,
 			Zotero_Atom::$nsZoteroAPI
 		);
 		
@@ -439,29 +450,41 @@ class Zotero_Tag {
 	
 	
 	private function load() {
-		//Z_Core::debug("Loading data for tag $this->id");
+		Z_Core::debug("Loading data for tag $this->id");
 		
-		if (!$this->libraryID) {
+		$libraryID = $this->libraryID;
+		$id = $this->id;
+		$key = $this->key;
+		
+		if (!$libraryID) {
 			throw new Exception("Library ID not set");
 		}
 		
-		if (!$this->id && !$this->key) {
+		if (!$id && !$key) {
 			throw new Exception("ID or key not set");
 		}
 		
-		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		// Use cached check for existence if possible
+		if ($libraryID && $key) {
+			if (!Zotero_Tags::existsByLibraryAndKey($libraryID, $key)) {
+				$this->loaded = true;
+				return;
+			}
+		}
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$sql = "SELECT tagID AS id, name, type, dateAdded, dateModified, libraryID, `key`
 					FROM tags WHERE ";
-		if ($this->id) {
+		if ($id) {
 			$sql .= "tagID=?";
 			$stmt = Zotero_DB::getStatement($sql, false, $shardID);
-			$data = Zotero_DB::rowQueryFromStatement($stmt, $this->id);
+			$data = Zotero_DB::rowQueryFromStatement($stmt, $id);
 		}
 		else {
 			$sql .= "libraryID=? AND `key`=?";
 			$stmt = Zotero_DB::getStatement($sql, false, $shardID);
-			$data = Zotero_DB::rowQueryFromStatement($stmt, array($this->libraryID, $this->key));
+			$data = Zotero_DB::rowQueryFromStatement($stmt, array($libraryID, $key));
 		}
 		
 		$this->loaded = true;
@@ -470,12 +493,12 @@ class Zotero_Tag {
 			return;
 		}
 		
-		if ($data['libraryID'] != $this->libraryID) {
-			throw new Exception("libraryID {$data['libraryID']} != $this->libraryID");
+		if ($data['libraryID'] != $libraryID) {
+			throw new Exception("libraryID {$data['libraryID']} != $libraryID");
 		}
 		
-		foreach ($data as $key=>$val) {
-			$this->$key = $val;
+		foreach ($data as $k=>$v) {
+			$this->$k = $v;
 		}
 	}
 	

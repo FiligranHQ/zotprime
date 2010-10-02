@@ -78,7 +78,7 @@ class Zotero_Atom {
 		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
 	
-	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $apiVersion=null) {
+	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $apiVersion=null, $fixedValues=array()) {
 		if ($queryParams) {
 			$nonDefaultParams = Zotero_API::getNonDefaultQueryParams($queryParams);
 		}
@@ -227,7 +227,11 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Tag) {
-				$xmlEntries[] = $entry->toAtom($queryParams['content'], $apiVersion);
+				$xmlEntries[] = $entry->toAtom(
+					$queryParams['content'],
+					$apiVersion,
+					isset($fixedValues[$entry->id]) ? $fixedValues[$entry->id] : null
+				);
 			}
 			else if ($entry instanceof Zotero_Group) {
 				$entry = $entry->toAtom($queryParams['content'], $apiVersion);

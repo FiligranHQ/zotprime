@@ -411,6 +411,10 @@ class Zotero_Item {
 	private function loadPrimaryData($allowFail=false) {
 		Z_Core::debug("Loading primary data for item $this->id");
 		
+		if ($this->primaryDataLoaded) {
+			throw new Exception("Primary data already loaded for item $this->id");
+		}
+		
 		$libraryID = $this->libraryID;
 		$id = $this->id;
 		$key = $this->key;
@@ -421,6 +425,19 @@ class Zotero_Item {
 		
 		if (!$id && !$key) {
 			throw new Exception("ID or key not set");
+		}
+		
+		// Use cached check for existence if possible
+		if ($libraryID && $key) {
+			if (!Zotero_Items::existsByLibraryAndKey($libraryID, $key)) {
+				$this->primaryDataLoaded = true;
+				
+				if ($allowFail) {
+					return false;
+				}
+				
+				throw new Exception("Item " . ($id ? $id : "$libraryID/$key") . " not found");
+			}
 		}
 		
 		$columns = array();
@@ -1798,13 +1815,14 @@ class Zotero_Item {
 		//Zotero_Items::reload($$this->getID());
 		
 		if ($isNew) {
+			Zotero_Items::cache($this);
+			
 			//Zotero.Notifier.trigger('add', 'item', $this->getID());
 			return $this->id;
 		}
-		else {
-			//Zotero.Notifier.trigger('modify', 'item', $this->getID(), { old: $this->_preChangeArray });
-			return true;
-		}
+		
+		//Zotero.Notifier.trigger('modify', 'item', $this->getID(), { old: $this->_preChangeArray });
+		return true;
 	}
 	
 	
@@ -2743,9 +2761,7 @@ class Zotero_Item {
 		}
 		
 		foreach ($creators as $creator) {
-			$creatorObj = new Zotero_Creator;
-			$creatorObj->libraryID = $this->libraryID;
-			$creatorObj->id = $creator['creatorID'];
+			$creatorObj = Zotero_Creators::get($this->libraryID, $creator['creatorID']);
 			$this->creators[$creator['orderIndex']] = array(
 				'creatorTypeID' => $creator['creatorTypeID'],
 				'ref' => $creatorObj

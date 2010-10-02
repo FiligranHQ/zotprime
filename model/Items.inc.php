@@ -27,19 +27,18 @@
 class Zotero_Items extends Zotero_DataObjects {
 	protected static $ZDO_object = 'item';
 	
-	private static $items = array();
-	
 	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
 		'dateAdded', 'dateModified', 'serverDateModified',
 		'firstCreator', 'numNotes', 'numAttachments');
 	private static $maxDataValueLength = 65535;
 	
-	public static $dataValuesByHash = array();
+	private static $itemsByID = array();
+	private static $dataValuesByHash = array();
 	
 	public static function get($libraryID, $itemIDs) {
 		$numArgs = func_num_args();
 		if ($numArgs != 2) {
-			throw new Exception("Constructor takes two parameters");
+			throw new Exception('Zotero_Items::get() takes two parameters');
 		}
 		
 		if (is_scalar($itemIDs)) {
@@ -53,7 +52,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$toLoad = array();
 		
 		foreach ($itemIDs as $itemID) {
-			if (!isset(self::$items[$libraryID][$itemID])) {
+			if (!isset(self::$itemsByID[$itemID])) {
 				array_push($toLoad, $itemID);
 			}
 		}
@@ -66,11 +65,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		// Make sure items exist
 		foreach ($itemIDs as $itemID) {
-			if (!isset(self::$items[$libraryID][$itemID])) {
+			if (!isset(self::$itemsByID[$itemID])) {
 				Z_Core::debug("Item $itemID doesn't exist");
 				continue;
 			}
-			$loaded[] = self::$items[$libraryID][$itemID];
+			$loaded[] = self::$itemsByID[$itemID];
 		}
 		
 		if ($single) {
@@ -313,6 +312,15 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
+	public static function cache(Zotero_Item $item) {
+		if (isset($itemsByID[$item->id])) {
+			error_log("Item $item->id is already cached");
+		}
+		
+		$itemsByID[$item->id] = $item;
+	}
+	
+	
 	public static function getDataValueHash($value, $create=false) {
 		// For now, at least, simulate what MySQL used to throw
 		if (mb_strlen($value) > 65536) {
@@ -449,10 +457,13 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Primary fields
-		$itemObj = new Zotero_Item;
 		$libraryID = (int) $xml->getAttribute('libraryID');
-		$itemObj->setField('libraryID', $libraryID);
-		$itemObj->setField('key', $xml->getAttribute('key'), false, true);
+		$itemObj = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
+		if (!$itemObj) {
+			$itemObj = new Zotero_Item;
+			$itemObj->libraryID = $libraryID;
+			$itemObj->key = $xml->getAttribute('key');
+		}
 		$itemObj->setField('itemTypeID', $itemTypeID, false, true);
 		$itemObj->setField('dateAdded', $xml->getAttribute('dateAdded'), false, true);
 		$itemObj->setField('dateModified', $xml->getAttribute('dateModified'), false, true);
@@ -945,10 +956,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				$loadedItemIDs[] = $itemID;
 				
 				// Item isn't loaded -- create new object and stuff in array
-				if (!isset(self::$items[$itemID])) {
+				if (!isset(self::$itemsByID[$itemID])) {
 					$item = new Zotero_Item;
 					$item->loadFromRow($row, true);
-					self::$items[$libraryID][$itemID] = $item;
+					self::$itemsByID[$itemID] = $item;
 				}
 				// Existing item -- reload in place
 				else {
@@ -959,7 +970,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if (!$itemIDs) {
 			// If loading all items, remove old items that no longer exist
-			$ids = array_keys(self::$items);
+			$ids = array_keys(self::$itemsByID);
 			foreach ($ids as $id) {
 				if (!in_array($id, $loadedItemIDs)) {
 					throw new Exception("Unimplemented");

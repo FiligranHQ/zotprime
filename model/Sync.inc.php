@@ -1169,7 +1169,7 @@ class Zotero_Sync {
 		
 		$profile = false;
 		if ($profile) {
-			$profiler = Zotero_DB::getProfiler();
+			$profiler = Zotero_DB::getProfiler(Zotero_Shards::getByUserID($userID));
 			$profiler->setEnabled(true);
 		}
 		

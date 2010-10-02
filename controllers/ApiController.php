@@ -374,7 +374,7 @@ class ApiController extends Controller {
 							$this->e404("Collection does not exist");
 						}
 						
-						$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Items in Collection ‘" . $collection->name . "’";
+						$title = "Items in Collection ‘" . $collection->name . "’";
 						$itemIDs = $collection->getChildItems();
 						break;
 					
@@ -384,7 +384,9 @@ class ApiController extends Controller {
 						$itemIDs = array();
 						foreach ($tagIDs as $tagID) {
 							$tag = new Zotero_Tag;
+							$tag->libraryID = $this->objectLibraryID;
 							$tag->id = $tagID;
+							$title = "Items of Tag ‘" . $tag->name . "’";
 							$itemIDs = array_merge($itemIDs, $tag->getLinkedItems(true));
 						}
 						$itemIDs = array_unique($itemIDs);
@@ -392,29 +394,29 @@ class ApiController extends Controller {
 						break;
 					
 					default:
-						throw new Exception("Invalid scope object $this->scopeObject");
+						throw new Exception("Invalid items scope object '$this->scopeObject'");
 				}
 			}
 			else {
 				// Top-level items
 				if ($this->subset == 'top') {
-					$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Top-Level Items";
+					$title = "Top-Level Items";
 					$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
 				}
 				else if ($this->subset == 'trash') {
-					$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Deleted Items";
+					$title = "Deleted Items";
 					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
 				}
 				else if ($this->subset == 'children') {
 					$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
-					$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Child Items of ‘" . $item->getDisplayTitle() . "’";
+					$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
 					$notes = $item->getNotes();
 					$attachments = $item->getAttachments();
 					$itemIDs = array_merge($notes, $attachments);
 				}
 				// All items
 				else {
-					$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Items";
+					$title = "Items";
 					$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
 				}
 				
@@ -470,7 +472,7 @@ class ApiController extends Controller {
 			}
 			
 			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$title,
+				$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 				$this->uri,
 				$items,
 				$totalResults,
@@ -880,16 +882,16 @@ class ApiController extends Controller {
 				switch ($this->scopeObject) {
 					case 'collections':
 						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
-						$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Child Collections of ‘$collection->name'’";
+						$title = "Child Collections of ‘$collection->name'’";
 						$collectionIDs = $collection->getChildCollections();
 						break;
 					
 					default:
-						throw new Exception("Invalid scope object $this->scopeObject");
+						throw new Exception("Invalid collections scope object '$this->scopeObject'");
 				}
 			}
 			else {
-				$title = $this->getFeedNamePrefix($this->objectLibraryID) . "Collections";
+				$title = "Collections";
 				$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, $this->queryParams);
 				$collections = $results['collections'];
 				$totalResults = $results['total'];
@@ -921,7 +923,7 @@ class ApiController extends Controller {
 			}
 			
 			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$title,
+				$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 				$this->uri,
 				$collections,
 				$totalResults,
@@ -950,6 +952,7 @@ class ApiController extends Controller {
 		
 		$tags = array();
 		$name = $this->objectName;
+		$fixedValues = array();
 		
 		// Set of tags matching name
 		if ($name && $this->subset != 'tags') {
@@ -958,12 +961,30 @@ class ApiController extends Controller {
 				$this->e404();
 			}
 			
-			$title = "Tags matching '$name'";
+			$title = "Tags matching ‘$name’";
 		}
 		// All tags
 		else {
 			if ($this->scopeObject) {
 				switch ($this->scopeObject) {
+					case 'collections':
+						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
+						if (!$collection) {
+							$this->e404();
+						}
+						$title =  "Tags in Collection ‘" . $collection->name . "’";
+						$counts = $collection->getTagItemCounts();
+						$tagIDs = array();
+						if ($counts) {
+							foreach ($counts as $tagID=>$count) {
+								$tagIDs[] = $tagID;
+								$fixedValues[$tagID] = array(
+									'numItems' => $count
+								);
+							}
+						}
+						break;
+						
 					case 'items':
 						$item = Zotero_Items::get($this->objectLibraryID, $this->scopeObjectID);
 						if (!$item) {
@@ -974,7 +995,7 @@ class ApiController extends Controller {
 						break;
 					
 					default:
-						throw new Exception("Invalid scope object $this->scopeObject");
+						throw new Exception("Invalid tags scope object '$this->scopeObject'");
 				}
 			}
 			else {
@@ -987,7 +1008,7 @@ class ApiController extends Controller {
 		
 		if (!empty($tagIDs)) {
 			foreach ($tagIDs as $tagID) {
-				$tags[] = Zotero_Tags::get($tagID);
+				$tags[] = Zotero_Tags::get($this->objectLibraryID, $tagID);
 			}
 			
 			// Fake sorting and limiting
@@ -1011,12 +1032,13 @@ class ApiController extends Controller {
 		}
 		
 		$this->responseXML = Zotero_Atom::createAtomFeed(
-			$title,
+			$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 			$this->uri,
 			$tags,
 			$totalResults,
 			$this->queryParams,
-			$this->apiVersion
+			$this->apiVersion,
+			$fixedValues
 		);
 		
 		$this->end();

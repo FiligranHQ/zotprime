@@ -29,7 +29,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 	
 	public static $maxLength = 255;
 	
-	private static $tagsByID = array(); // grouped by libraryID
+	private static $tagsByID = array();
 	private static $namesByHash = array();
 	
 	/*
@@ -44,8 +44,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 			throw new Exception("Tag ID not provided");
 		}
 		
-		if (isset(self::$tagsByID[$libraryID][$tagID])) {
-			return self::$tagsByID[$libraryID][$tagID];
+		if (isset(self::$tagsByID[$tagID])) {
+			return self::$tagsByID[$tagID];
 		}
 		
 		if (!$skipCheck) {
@@ -59,11 +59,9 @@ class Zotero_Tags extends Zotero_DataObjects {
 		$tag = new Zotero_Tag;
 		$tag->libraryID = $libraryID;
 		$tag->id = $tagID;
-		if (!self::$tagsByID[$libraryID]) {
-			self::$tagsByID[$libraryID] = array();
-		}
-		self::$tagsByID[$libraryID][$tagID] = $tag;
-		return self::$tagsByID[$libraryID][$tagID];
+		
+		self::$tagsByID[$tagID] = $tag;
+		return self::$tagsByID[$tagID];
 	}
 	
 	
@@ -159,6 +157,15 @@ class Zotero_Tags extends Zotero_DataObjects {
 	}
 	
 	
+	public static function cache(Zotero_Tag $tag) {
+		if (isset($tagsByID[$tag->id])) {
+			error_log("Tag $tag->id is already cached");
+		}
+		
+		$tagsByID[$tag->id] = $tag;
+	}
+	
+	
 	/*public static function getDataValuesFromXML(DOMDocument $doc) {
 		$xpath = new DOMXPath($doc);
 		$attr = $xpath->evaluate('//tags/tag/@name');
@@ -186,10 +193,13 @@ class Zotero_Tags extends Zotero_DataObjects {
 	 * @return	Zotero_Tag						Zotero tag object
 	 */
 	public static function convertXMLToTag(DOMElement $xml) {
-		$tag = new Zotero_Tag;
 		$libraryID = (int) $xml->getAttribute('libraryID');
-		$tag->libraryID = $libraryID;
-		$tag->key = $xml->getAttribute('key');
+		$tag = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
+		if (!$tag) {
+			$tag = new Zotero_Tag;
+			$tag->libraryID = $libraryID;
+			$tag->key = $xml->getAttribute('key');
+		}
 		$tag->name = $xml->getAttribute('name');
 		$type = (int) $xml->getAttribute('type');
 		$tag->type = $type ? $type : 0;

@@ -34,7 +34,6 @@ class Zotero_DataObjects {
 		'relation' => array('singular'=>'Relation', 'plural'=>'Relations')
 	);
 	
-	protected static $objectCache = array();
 	protected static $ZDO_object = '';
 	protected static $ZDO_objects = '';
 	protected static $ZDO_Object = '';
@@ -73,6 +72,37 @@ class Zotero_DataObjects {
 	
 	
 	public static function getByLibraryAndKey($libraryID, $key) {
+		$type = static::field('object');
+		$types = static::field('objects');
+		
+		$exists = self::existsByLibraryAndKey($libraryID, $key);
+		if (!$exists) {
+			return false;
+		}
+		
+		switch ($type) {
+			case 'collection':
+			case 'item':
+			case 'relation':
+				$className = "Zotero_" . ucwords($types);
+				return call_user_func(array($className, 'get'), $libraryID, self::$idCache[$type][$libraryID][$key]);
+			
+			case 'creator':
+			case 'tag':
+				$className = "Zotero_" . ucwords($types);
+				return call_user_func(array($className, 'get'), $libraryID, self::$idCache[$type][$libraryID][$key], true);
+			
+			default:
+				$className = "Zotero_" . ucwords($type);
+				$obj = new $className;
+				$obj->libraryID = $libraryID;
+				$obj->id = self::$idCache[$type][$libraryID][$key];
+				return $obj;
+		}
+	}
+	
+	
+	public static function existsByLibraryAndKey($libraryID, $key) {
 		if (!$libraryID || !is_numeric($libraryID)) {
 			throw new Exception("libraryID '$libraryID' must be a positive integer");
 		}
@@ -83,7 +113,6 @@ class Zotero_DataObjects {
 		$table = static::field('table');
 		$id = static::field('id');
 		$type = static::field('object');
-		$types = static::field('objects');
 		
 		if (!isset(self::$idCache[$type])) {
 			self::$idCache[$type] = array();
@@ -114,15 +143,7 @@ class Zotero_DataObjects {
 			}
 		}
 		
-		if (!isset(self::$idCache[$type][$libraryID][$key])) {
-			return false;
-		}
-		
-		$className = "Zotero_" . ucwords($type);
-		$obj = new $className;
-		$obj->libraryID = $libraryID;
-		$obj->id = self::$idCache[$type][$libraryID][$key];
-		return $obj;
+		return isset(self::$idCache[$type][$libraryID][$key]);
 	}
 	
 	

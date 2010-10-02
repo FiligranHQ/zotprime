@@ -33,42 +33,39 @@ class Zotero_Creators extends Zotero_DataObjects {
 	private static $maxFirstNameLength = 255;
 	private static $maxLastNameLength = 255;
 	
+	private static $creatorsByID = array();
 	private static $dataByHash = array();
 	private static $primaryDataByCreatorID = array();
 	private static $primaryDataByLibraryAndKey = array();
 	
 	
-	public static function get($libraryID, $creatorID) {
+	public static function get($libraryID, $creatorID, $skipCheck=false) {
 		if (!$libraryID) {
 			throw new Exception("Library ID not set");
 		}
 		
-		if (!$id) {
-			throw new Exception("ID not set");
+		if (!$creatorID) {
+			throw new Exception("Creator ID not set");
 		}
 		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		if (!empty(self::$objectCache[$shardID][$creatorID])) {
-			return self::$objectCache[$shardID][$creatorID];
+		if (!empty(self::$creatorsByID[$creatorID])) {
+			return self::$creatorsByID[$creatorID];
 		}
 		
-		$sql = 'SELECT COUNT(*) FROM creators WHERE creatorID=?';
-		$result = Zotero_DB::valueQuery($sql, $creatorID, $shardID);
-		
-		if (!$result) {
-			return false;
+		if (!$skipCheck) {
+			$sql = 'SELECT COUNT(*) FROM creators WHERE creatorID=?';
+			$result = Zotero_DB::valueQuery($sql, $creatorID, Zotero_Shards::getByLibraryID($libraryID));
+			if (!$result) {
+				return false;
+			}
 		}
 		
 		$creator = new Zotero_Creator;
 		$creator->libraryID = $libraryID;
 		$creator->id = $creatorID;
 		
-		if (!isset(self::$objectCache[$shardID])) {
-			self::$objectCache[$shardID] = array();
-		}
-		self::$objectCache[$shardID][$creatorID] = $creator;
-		return self::$objectCache[$creatorID];
+		self::$creatorsByID[$creatorID] = $creator;
+		return self::$creatorsByID[$creatorID];
 	}
 
 	
@@ -320,9 +317,14 @@ class Zotero_Creators extends Zotero_DataObjects {
 	 * @return	Zotero_Creator					Zotero creator object
 	 */
 	public static function convertXMLToCreator(DOMElement $xml) {
-		$creatorObj = new Zotero_Creator;
-		$creatorObj->libraryID = (int) $xml->getAttribute('libraryID');
-		$creatorObj->key = $xml->getAttribute('key');
+		$libraryID = (int) $xml->getAttribute('libraryID');
+		$creatorObj = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
+		// Not an existing item, so create
+		if (!$creatorObj) {
+			$creatorObj = new Zotero_Creator;
+			$creatorObj->libraryID = $libraryID;
+			$creatorObj->key = $xml->getAttribute('key');
+		}
 		$creatorObj->dateAdded = $xml->getAttribute('dateAdded');
 		$creatorObj->dateModified = $xml->getAttribute('dateModified');
 		
@@ -389,6 +391,15 @@ class Zotero_Creators extends Zotero_DataObjects {
 		Zotero_DB::commit();
 	}
 */	
+	
+	public static function cache(Zotero_Creator $creator) {
+		if (isset($creatorsByID[$creator->id])) {
+			error_log("Creator $creator->id is already cached");
+		}
+		
+		$creatorsByID[$creator->id] = $creator;
+	}
+	
 	
 	public static function purge() {
 		trigger_error("Unimplemented", E_USER_ERROR);

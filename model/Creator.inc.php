@@ -136,6 +136,7 @@ class Zotero_Creator {
 		
 		try {
 			$creatorID = $this->id ? $this->id : Zotero_ID::get('creators');
+			$isNew = !$this->id;
 			
 			Z_Core::debug("Saving creator $this->id");
 			
@@ -209,6 +210,10 @@ class Zotero_Creator {
 		}
 		if (!$this->creatorDataHash) {
 			$this->creatorDataHash = $creatorDataHash;
+		}
+		
+		if ($isNew) {
+			Zotero_Creators::cache($this);
 		}
 		
 		// TODO: reload

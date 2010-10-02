@@ -156,8 +156,7 @@ class Zotero_Collection {
 					$newParentCollection = Zotero_Collections::get($this->libraryID, $this->_parent);
 				}
 				else {
-					// TODO: static binding
-					$newParentCollection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $this->_parent, 'collections');
+					$newParentCollection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $this->_parent);
 				}
 				
 				if (!$newParentCollection) {
@@ -446,7 +445,7 @@ class Zotero_Collection {
 					}
 					
 					if ($recursive) {
-						$col = Zotero_Collections::get($this->libraryID, $children[$i]['id']);
+						$col = Zotero_Collections::getByLibraryAndKey($this->libraryID, $children[$i]['key']);
 						$descendents = $col->getChildren(true, $nested, $type, $level+1);
 						
 						if ($nested) {
@@ -597,16 +596,72 @@ class Zotero_Collection {
 	}
 	
 	
+	/**
+	 * Returns all tags assigned to items in this collection
+	 */
+	public function getTags($asIDs=false) {
+		$sql = "SELECT tagID FROM tags JOIN itemTags USING (tagID)
+				JOIN collectionItems USING (itemID) WHERE collectionID=? ORDER BY name";
+		$tagIDs = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		if (!$tagIDs) {
+			return false;
+		}
+		
+		if ($asIDs) {
+			return $tagIDs;
+		}
+		
+		$tagObjs = array();
+		foreach ($tagIDs as $tagID) {
+			$tag = Zotero_Tags::get($tagID, true);
+			$tagObjs[] = $tag;
+		}
+		return $tagObjs;
+	}
+	
+	
+	/*
+	 * Returns an array keyed by tagID with the number of linked items for each tag
+	 * in this collection
+	 */
+	public function getTagItemCounts() {
+		$sql = "SELECT tagID, COUNT(*) AS numItems FROM tags JOIN itemTags USING (tagID)
+				JOIN collectionItems USING (itemID) WHERE collectionID=? GROUP BY tagID";
+		$rows = Zotero_DB::query($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		if (!$rows) {
+			return false;
+		}
+		
+		$counts = array();
+		foreach ($rows as $row) {
+			$counts[$row['tagID']] = $row['numItems'];
+		}
+		return $counts;
+	}
+	
+	
 	private function load() {
+		Z_Core::debug("Loading data for collection $this->_id");
+		
 		if (!$this->_libraryID) {
 			throw new Exception("Library ID not set");
+		}
+		
+		if (!$this->_id && !$this->_key) {
+			throw new Exception("ID or key not set");
 		}
 		
 		$libraryID = $this->_libraryID;
 		$id = $this->_id;
 		$key = $this->_key;
 		
-		//Z_Core::debug("Loading data for collection $id");
+		// Use cached check for existence if possible
+		if ($libraryID && $key) {
+			if (!Zotero_Collections::existsByLibraryAndKey($libraryID, $key)) {
+				$this->loaded = true;
+				return;
+			}
+		}
 		
 		$sql = "SELECT collectionID AS id, collectionName AS name, libraryID, `key`,
 				dateAdded, dateModified, parentCollectionID AS parent
