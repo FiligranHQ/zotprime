@@ -50,7 +50,7 @@ echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotes
 echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_ids@localhost;" | $ID1
 echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_ids@localhost;" | $ID2
 
-echo "GRANT SELECT, INSERT, DELETE ON zotero_www_test.* TO zoterotest_www@localhost;" | $WWW
+echo "GRANT SELECT ON zotero_www_test.* TO zoterotest_www@localhost;" | $WWW
 
 # Load in master schema
 $MASTER zoterotest_master < master.sql
