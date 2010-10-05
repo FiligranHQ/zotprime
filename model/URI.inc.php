@@ -52,6 +52,9 @@ class Zotero_URI {
 	}
 	
 	public static function getItemURI(Zotero_Item $item, $skipNames=false) {
+		if (!$item->libraryID) {
+			throw new Exception("Can't get URI for unsaved item");
+		}
 		return self::getLibraryURI($item->libraryID, $skipNames) . "/items/$item->id";
 	}
 	
