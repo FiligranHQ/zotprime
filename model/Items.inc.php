@@ -754,12 +754,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		// Related items
 		$related = $item->relatedItems;
 		if ($related) {
-			$xml->addChild('related', implode(' ', $related));
-		}
-		
-		// Related items
-		$related = $item->relatedItems;
-		if ($related) {
 			$related = Zotero_Items::get($item->libraryID, $related);
 			$keys = array();
 			foreach ($related as $item) {
