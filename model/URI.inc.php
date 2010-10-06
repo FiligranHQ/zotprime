@@ -55,7 +55,7 @@ class Zotero_URI {
 		if (!$item->libraryID) {
 			throw new Exception("Can't get URI for unsaved item");
 		}
-		return self::getLibraryURI($item->libraryID, $skipNames) . "/items/$item->id";
+		return self::getLibraryURI($item->libraryID, $skipNames) . "/items/$item->key";
 	}
 	
 	public static function getGroupURI(Zotero_Group $group, $skipNames=false) {
@@ -76,15 +76,15 @@ class Zotero_URI {
 	}
 	
 	public static function getGroupItemURI(Zotero_Group $group, Zotero_Item $item) {
-		return self::getGroupURI($group) . "/items/$item->id";
+		return self::getGroupURI($group) . "/items/$item->key";
 	}
 	
 	public static function getCollectionURI(Zotero_Collection $collection) {
-		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->id";
+		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
 	}
 	
 	public static function getCreatorURI(Zotero_Creator $creator) {
-		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->id";
+		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
 	}
 	
 	public static function getTagURI(Zotero_Tag $tag) {

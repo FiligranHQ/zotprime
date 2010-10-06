@@ -41,6 +41,10 @@ class Zotero_Items extends Zotero_DataObjects {
 			throw new Exception('Zotero_Items::get() takes two parameters');
 		}
 		
+		if (!$itemIDs) {
+			throw new Exception('$itemIDs cannot be null');
+		}
+		
 		if (is_scalar($itemIDs)) {
 			$single = true;
 			$itemIDs = array($itemIDs);
@@ -128,14 +132,14 @@ class Zotero_Items extends Zotero_DataObjects {
 				$params['fq'] = array($params['fq']);
 			}
 			foreach ($params['fq'] as $fq) {
-				$facet = split(":", $fq);
+				$facet = explode(":", $fq);
 				if (sizeOf($facet) == 2 && preg_match('/-?Tag/', $facet[0])) {
 					$tagIDs = Zotero_Tags::getIDs($libraryID, $facet[1]);
 					if (!$tagIDs) {
 						throw new Exception("Tag '{$facet[1]}' not found", Z_ERROR_TAG_NOT_FOUND);
 					}
 					
-					$sql .= "AND itemID ";
+					$sql .= "AND A.itemID ";
 					// If first character is '-', negate
 					$sql .= ($facet[0][0] == '-' ? 'NOT ' : '');
 					$sql .= "IN (SELECT itemID FROM itemTags WHERE tagID IN (";
@@ -806,10 +810,10 @@ class Zotero_Items extends Zotero_DataObjects {
 			$author->uri = Zotero_URI::getLibraryURI($item->libraryID);
 		}
 		
-		$id = Zotero_URI::getItemURI($item, true);
-		if ($content != 'html') {
+		$id = Zotero_URI::getItemURI($item);
+		/*if ($content != 'html') {
 			$id .= "?content=$content";
-		}
+		}*/
 		$xml->id = $id;
 		
 		$xml->published = Zotero_Date::sqlToISO8601($item->getField('dateAdded'));
@@ -857,7 +861,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$link['length'] = $details['size'];
 		}
 		
-		$xml->addChild('zapi:itemID', $item->id, Zotero_Atom::$nsZoteroAPI);
+		$xml->addChild('zapi:key', $item->key, Zotero_Atom::$nsZoteroAPI);
 		$xml->addChild(
 			'zapi:itemType',
 			Zotero_ItemTypes::getName($item->itemTypeID),

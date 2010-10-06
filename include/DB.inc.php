@@ -778,6 +778,10 @@ class Zotero_DB {
 			$str .= Z_Array::array2string(xdebug_get_function_stack());
 		}
 		
+		if (strpos($error, "Can't connect to MySQL server") !== false) {
+			throw new Exception($str, Z_ERROR_SHARD_UNAVAILABLE);
+		}
+		
 		throw new Exception($str, $errno);
 	}
 	

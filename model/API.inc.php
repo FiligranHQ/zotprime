@@ -62,8 +62,18 @@ class Zotero_API {
 	}
 	
 	
+	public static function getCollectionURI(Zotero_Collection $collection) {
+		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
+	}
+	
+	
 	public static function getItemURI(Zotero_Item $item) {
-		return self::getLibraryURI($item->libraryID) . "/items/$item->id";
+		return self::getLibraryURI($item->libraryID) . "/items/$item->key";
+	}
+	
+	
+	public static function getTagURI(Zotero_Tag $tag) {
+		return self::getLibraryURI($tag->libraryID) . "/tags/$tag->key";
 	}
 	
 	

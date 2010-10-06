@@ -24,21 +24,21 @@ if ($_SERVER['HTTP_HOST'] == preg_replace('/https?:\/\/(.+)\//', '$1', Z_CONFIG:
 	$router->connect('/users/:userID/storageadmin', array('controller' => 'Api', 'action' => 'storageadmin'));
 	$router->connect('/storagepurge', array('controller' => 'Api', 'action' => 'storagepurge'));
 	$router->connect('/users/:userID/removestoragefiles', array('controller' => 'Api', 'action' => 'removestoragefiles', 'extra' => array('allowHTTP' => true)));
-	$router->connect('/users/:userID/items/:id/file', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true)));
-	$router->connect('/groups/:groupID/items/:id/file', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true)));
+	$router->connect('/users/:userID/items/:key/file', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true)));
+	$router->connect('/groups/:groupID/items/:key/file', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true)));
 	
 	// May be necessary for tag scope
-	//$router->connect('/users/:userID/:scopeObject/:scopeObjectID/items/top', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'top')));
+	//$router->connect('/users/:userID/:scopeObject/:scopeObjectKey/items/top', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'top')));
 	
 	// All deleted items
 	$router->connect('/users/:userID/items/trash', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'trash')));
 	
 	// Subcollections, single and multiple
-	$router->connect('/users/:userID/collections/:scopeObjectID/collections/:id', array('controller' => 'Api', 'action' => 'collections', 'extra' => array('scopeObject' => 'collections')));
-	$router->connect('/groups/:groupID/collections/:scopeObjectID/collections/:id', array('controller' => 'Api', 'action' => 'collections', 'extra' => array('scopeObject' => 'collections')));
+	$router->connect('/users/:userID/collections/:scopeObjectKey/collections/:key', array('controller' => 'Api', 'action' => 'collections', 'extra' => array('scopeObject' => 'collections')));
+	$router->connect('/groups/:groupID/collections/:scopeObjectKey/collections/:key', array('controller' => 'Api', 'action' => 'collections', 'extra' => array('scopeObject' => 'collections')));
 	
 	// Deleted items in a collection
-	$router->connect('/users/:userID/:scopeObject/:scopeObjectID/items/trash', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'trash')));
+	$router->connect('/users/:userID/:scopeObject/:scopeObjectKey/items/trash', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'trash')));
 	
 	// Tags, which have names instead of ids
 	$router->connect('/users/:userID/tags/:scopeObjectName/items/:name/:subset', array('controller' => 'Api', 'action' => 'items', 'extra' => array('scopeObject' => 'tags')));
@@ -47,18 +47,18 @@ if ($_SERVER['HTTP_HOST'] == preg_replace('/https?:\/\/(.+)\//', '$1', Z_CONFIG:
 	$router->connect('/groups/:groupID/tags/:name/:subset', array('controller' => 'Api', 'action' => 'tags'));
 	
 	// Tags within something else
-	$router->connect('/users/:userID/:scopeObject/:scopeObjectID/tags/:id/:subset', array('controller' => 'Api', 'action' => 'tags'));
-	$router->connect('/groups/:groupID/:scopeObject/:scopeObjectID/tags/:id/:subset', array('controller' => 'Api', 'action' => 'tags'));
+	$router->connect('/users/:userID/:scopeObject/:scopeObjectKey/tags/:key/:subset', array('controller' => 'Api', 'action' => 'tags'));
+	$router->connect('/groups/:groupID/:scopeObject/:scopeObjectKey/tags/:key/:subset', array('controller' => 'Api', 'action' => 'tags'));
 	
 	// Items within something else
-	$router->connect('/users/:userID/:scopeObject/:scopeObjectID/items/:id/:subset', array('controller' => 'Api', 'action' => 'items'));
-	$router->connect('/groups/:groupID/:scopeObject/:scopeObjectID/items/:id/:subset', array('controller' => 'Api', 'action' => 'items'));
+	$router->connect('/users/:userID/:scopeObject/:scopeObjectKey/items/:key/:subset', array('controller' => 'Api', 'action' => 'items'));
+	$router->connect('/groups/:groupID/:scopeObject/:scopeObjectKey/items/:key/:subset', array('controller' => 'Api', 'action' => 'items'));
 	
 	$router->connect('/users/:userID/keys/:name', array('controller' => 'Api', 'action' => 'keys'));
 	
-	// Other top-level URLs, with an optional id and subset
-	$router->connect('/users/:userID/:action/:id/:subset', array('controller' => 'Api'));
-	$router->connect('/groups/:groupID/:action/:id/:subset', array('controller' => 'Api'));
+	// Other top-level URLs, with an optional key and subset
+	$router->connect('/users/:userID/:action/:key/:subset', array('controller' => 'Api'));
+	$router->connect('/groups/:groupID/:action/:key/:subset', array('controller' => 'Api'));
 	
 	$router->connect('/test/setup', array('controller' => 'Api', 'action' => 'testSetup'));
 }

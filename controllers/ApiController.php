@@ -43,6 +43,7 @@ class ApiController extends Controller {
 	private $objectLibraryID; // libraryID of object owner
 	private $scopeObject;
 	private $scopeObjectID;
+	private $scopeObjectKey;
 	private $scopeObjectName;
 	private $objectID;
 	private $objectKey;
@@ -206,22 +207,36 @@ class ApiController extends Controller {
 		
 		$this->scopeObject = !empty($extra['scopeObject']) ? $extra['scopeObject'] : null;
 		$this->scopeObjectID = !empty($extra['scopeObjectID']) ? (int) $extra['scopeObjectID'] : null;
-		$this->scopeObjectName = !empty($extra['scopeObjectName']) ? urldecode($extra['scopeObjectName']) : null;
-		// Can be either id or key
-		if (!empty($extra['id'])) {
-			if (!empty($_GET['key']) && strlen($_GET['key']) == 8) {
-				$this->objectKey = $extra['id'];
+		
+		if (!empty($extra['scopeObjectKey'])) {
+			// Handle incoming requests using ids instead of keys
+			//  - Keys might be all numeric, so only do this if length != 8
+			if (is_numeric($extra['scopeObjectKey']) && strlen($extra['scopeObjectKey']) != 8) {
+				$this->scopeObjectID = (int) $extra['scopeObjectKey'];
 			}
-			else if (!empty($_GET['iskey'])) {
-				$this->objectKey = $extra['id'];
-			}
-			else if (is_numeric($extra['id'])) {
-				$this->objectID = (int) $extra['id'];
-			}
-			else if (preg_match('/[A-Z0-9]{8}/', $extra['id'])) {
-				$this->objectKey = $extra['id'];
+			else if (preg_match('/[A-Z0-9]{8}/', $extra['scopeObjectKey'])) {
+				$this->scopeObjectKey = $extra['scopeObjectKey'];
 			}
 		}
+		
+		$this->scopeObjectName = !empty($extra['scopeObjectName']) ? urldecode($extra['scopeObjectName']) : null;
+		
+		// Can be either id or key
+		if (!empty($extra['key'])) {
+			if (!empty($_GET['key']) && strlen($_GET['key']) == 8) {
+				$this->objectKey = $extra['key'];
+			}
+			else if (!empty($_GET['iskey'])) {
+				$this->objectKey = $extra['key'];
+			}
+			else if (is_numeric($extra['key'])) {
+				$this->objectID = (int) $extra['key'];
+			}
+			else if (preg_match('/[A-Z0-9]{8}/', $extra['key'])) {
+				$this->objectKey = $extra['key'];
+			}
+		}
+		
 		$this->objectName = !empty($extra['name']) ? urldecode($extra['name']) : null;
 		$this->subset = !empty($extra['subset']) ? $extra['subset'] : null;
 		$this->fileMode = !empty($extra['file'])
@@ -335,9 +350,8 @@ class ApiController extends Controller {
 				$this->_handleFileRequest($item);
 			}
 			
-			// If key, redirect to id URL
-			// TODO: reverse
-			if ($this->objectKey) {
+			// If id, redirect to key URL
+			if ($this->objectID) {
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
 				header("Location: " . Zotero_API::getItemURI($item) . $qs);
 				exit;
@@ -367,13 +381,28 @@ class ApiController extends Controller {
 			}
 			
 			if ($this->scopeObject) {
+				// If id, redirect to key URL
+				if ($this->scopeObjectID) {
+					if (!in_array($this->scopeObject, array("collections", "tags"))) {
+						$this->e400();
+					}
+					$className = 'Zotero_' . ucwords($this->scopeObject);
+					$obj = call_user_func(array($className, 'get'), $this->objectLibraryID, $this->scopeObjectID);
+					if (!$obj) {
+						$this->e404("Scope " . substr($this->scopeObject, 0, -1) . " not found");
+					}
+					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
+					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+					header("Location: " . $base . "/items" . $qs);
+					exit;
+				}
+				
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
+						$collection = Zotero_Collections::getByAndLibrary($this->objectLibraryID, $this->scopeObjectKey);
 						if (!$collection) {
-							$this->e404("Collection does not exist");
+							$this->e404("Collection not found");
 						}
-						
 						$title = "Items in Collection ‘" . $collection->name . "’";
 						$itemIDs = $collection->getChildItems();
 						break;
@@ -848,10 +877,21 @@ class ApiController extends Controller {
 		$collections = array();
 		
 		// Single collection
-		if ($this->objectID && $this->subset != 'collections') {
-			$collection = Zotero_Collections::get($this->objectLibraryID, $this->objectID);
+		if (($this->objectID || $this->objectKey) && $this->subset != 'collections') {
+			// If id, redirect to key URL
+			if ($this->objectID) {
+				$collection = Zotero_Collections::get($this->objectLibraryID, $this->objectID);
+				if (!$collection) {
+					$this->e404("Collection not found");
+				}
+				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+				header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
+				exit;
+			}
+			
+			$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 			if (!$collection) {
-				$this->e404("Collection does not exist");
+				$this->e404("Collection not found");
 			}
 			
 			// In single-collection mode, require public pref to be enabled
@@ -881,7 +921,18 @@ class ApiController extends Controller {
 			if ($this->scopeObject) {
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
+						// If id, redirect to key URL
+						if ($this->scopeObjectID) {
+							$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
+							if (!$collection) {
+								$this->e404("Scope collection not found");
+							}
+							$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+							header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
+							exit;
+						}
+						
+						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
 						$title = "Child Collections of ‘$collection->name'’";
 						$collectionIDs = $collection->getChildCollections();
 						break;
@@ -966,9 +1017,25 @@ class ApiController extends Controller {
 		// All tags
 		else {
 			if ($this->scopeObject) {
+				// If id, redirect to key URL
+				if ($this->scopeObjectID) {
+					if (!in_array($this->scopeObject, array("collections", "items"))) {
+						$this->e400();
+					}
+					$className = 'Zotero_' . ucwords($this->scopeObject);
+					$obj = call_user_func(array($className, 'get'), $this->objectLibraryID, $this->scopeObjectID);
+					if (!$obj) {
+						$this->e404("Scope " . substr($this->scopeObject, 0, -1) . " not found");
+					}
+					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
+					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+					header("Location: " . $base . "/tags" . $qs);
+					exit;
+				}
+				
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
+						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
 						if (!$collection) {
 							$this->e404();
 						}
@@ -986,7 +1053,7 @@ class ApiController extends Controller {
 						break;
 						
 					case 'items':
-						$item = Zotero_Items::get($this->objectLibraryID, $this->scopeObjectID);
+						$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
 						if (!$item) {
 							$this->e404();
 						}
@@ -1006,7 +1073,10 @@ class ApiController extends Controller {
 			}
 		}
 		
-		if (!empty($tagIDs)) {
+		if (empty($tagIDs)) {
+			$totalResults = 0;
+		}
+		else {
 			foreach ($tagIDs as $tagID) {
 				$tags[] = Zotero_Tags::get($this->objectLibraryID, $tagID);
 			}
@@ -1876,11 +1946,6 @@ class ApiController extends Controller {
 	
 	
 	public function handleException(Exception $e) {
-		if (Z_ENV_TESTING_SITE) {
-			error_log($e);
-			$this->e500($e);
-		}
-		
 		switch ($e->getCode()) {
 			case Z_ERROR_TAG_NOT_FOUND:
 				$this->e400($e->getMessage());
@@ -1893,9 +1958,22 @@ class ApiController extends Controller {
 			$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 		}
 		$str .= $e;
-		file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
+		
+		if (!Z_ENV_TESTING_SITE) {
+			file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
+		}
 		
 		error_log($str);
+		
+		switch ($e->getCode()) {
+			case Z_ERROR_SHARD_UNAVAILABLE:
+				$this->e503();
+				break;
+		}
+		
+		if (Z_ENV_TESTING_SITE) {
+			$this->e500($str);
+		}
 		
 		$this->e500();
 	}

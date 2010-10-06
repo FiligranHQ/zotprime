@@ -30,13 +30,21 @@ class Zotero_Collections extends Zotero_DataObjects {
 	private static $maxLength = 255;
 	
 	
-	public static function get($libraryID, $id) {
+	public static function get($libraryID, $id, $skipCheck=false) {
 		if (!$libraryID) {
 			throw new Exception("Library ID not set");
 		}
 		
 		if (!$id) {
 			throw new Exception("ID not set");
+		}
+		
+		if (!$skipCheck) {
+			$sql = 'SELECT COUNT(*) FROM collections WHERE collectionID=?';
+			$result = Zotero_DB::valueQuery($sql, $id, Zotero_Shards::getByLibraryID($libraryID));
+			if (!$result) {
+				return false;
+			}
 		}
 		
 		$collection = new Zotero_Collection;
@@ -203,6 +211,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$link['rel'] = 'alternate';
 		$link['type'] = 'text/html';
 		$link['href'] = Zotero_URI::getCollectionURI($collection);
+		
+		$xml->addChild('zapi:key', $collection->key, Zotero_Atom::$nsZoteroAPI);
 		
 		$collections = $collection->getChildCollections();
 		$xml->addChild(

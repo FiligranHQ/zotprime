@@ -81,12 +81,13 @@ class Zotero_DataObjects {
 		}
 		
 		switch ($type) {
-			case 'collection':
 			case 'item':
 			case 'relation':
 				$className = "Zotero_" . ucwords($types);
 				return call_user_func(array($className, 'get'), $libraryID, self::$idCache[$type][$libraryID][$key]);
 			
+			// Pass skipCheck, since we've already checked for existence
+			case 'collection':
 			case 'creator':
 			case 'tag':
 				$className = "Zotero_" . ucwords($types);
