@@ -705,7 +705,15 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		// Note
 		if ($item->isNote()) {
-			$xml->addChild('note', htmlspecialchars($item->getNote()));
+			$note = $item->getNote();
+			
+			// TEMP: Clean HTML before returning
+			$c = HTMLPurifier_Config::createDefault();
+			$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
+			$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
+			$HTMLPurifier = new HTMLPurifier($c);
+			$note = $HTMLPurifier->purify($note);
+			$xml->addChild('note', htmlspecialchars($note));
 		}
 		
 		if ($item->isAttachment()) {
@@ -732,6 +740,12 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			$note = $item->getNote();
 			if ($note) {
+				// TEMP: Clean HTML before returning
+				$c = HTMLPurifier_Config::createDefault();
+				$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
+				$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
+				$HTMLPurifier = new HTMLPurifier($c);
+				$note = $HTMLPurifier->purify($note);
 				$xml->addChild('note', htmlspecialchars($note));
 			}
 		}
