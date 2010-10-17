@@ -36,6 +36,8 @@ class Z_CONFIG {
 	public static $MONGO_DB = "";
 	public static $MONGO_SAFE_NUM = 2;
 	
+	public static $SOLR_SERVER = "192.168.1.1:8983";
+	
 	public static $LOG_TO_SCRIBE = false;
 	public static $LOG_TIMEZONE = 'US/Eastern';
 	public static $LOG_TARGET_DEFAULT = 'errors';

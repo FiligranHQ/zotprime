@@ -76,7 +76,12 @@ class Zotero_Date {
 	
 	
 	public static function sqlToISO8601($sqlDate) {
-		return substr($sqlDate, 0, 10) . "T" . substr($sqlDate, 11) . "Z";
+		$date = substr($sqlDate, 0, 10);
+		$time = substr($sqlDate, 11);
+		if (!$time) {
+			$time = "00:00:00";
+		}
+		return $date . "T" . $time . "Z";
 	}
 }
 ?>

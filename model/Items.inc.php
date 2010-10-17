@@ -104,7 +104,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getAllAdvanced($libraryID, $onlyTopLevel=false, $params, $includeTrashed=false) {
+	public static function getAllAdvanced($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
 		$results = array('items' => array(), 'total' => 0);
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS A.itemID FROM items A ";
@@ -154,10 +154,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		if (!empty($params['order'])) {
 			$sql .= $params['order'];
 			if (!empty($params['sort'])) {
-				$sql .= " " . $params['sort'] . ", ";
+				$sql .= " " . $params['sort'];
 			}
+			$sql .= ", ";
 		}
-		$sql .= "itemID " . $params['sort'] . " ";
+		$sql .= "itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
 		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
@@ -174,6 +175,84 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		return $results;
+	}
+	
+	
+	public static function getAllAdvancedSolr($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
+		$results = array('items' => array(), 'total' => 0);
+		
+		$query = new SolrQuery();
+		$query->addField("libraryID")->addField("key");
+		
+		$query->addFilterQuery("libraryID:$libraryID");
+		
+		$qParts = array();
+		
+		if ($onlyTopLevel) {
+			$qParts[] = "-sourceItem:[* TO *]";
+		}
+		if (!$includeTrashed) {
+			$qParts[] = "-deleted:1";
+		}
+		
+		$query->setQuery(implode(' AND ', $qParts));
+		
+		$query->setStart(!empty($params['start']) ? $params['start'] : 0);
+		if (!empty($params['limit'])) {
+			$query->setRows($params['limit']);
+		}
+		
+		if (!empty($params['order'])) {
+			switch ($params['order']) {
+				case 'title':
+					$order = $params['order'] . "Sort";
+					break;
+					
+				default:
+					$order = $params['order'];
+			}
+			$query->addSortField(
+				$order,
+				!empty($params['sort']) && $params['sort'] == 'desc'
+					? SolrQuery::ORDER_DESC : SolrQuery::ORDER_ASC
+			);
+		}
+		
+		// Run query
+		$response = Z_Core::$Solr->client->query($query);
+		$response = $response->getResponse();
+		
+		$results['total'] = $response['response']['numFound'];
+		foreach ($response['response']['docs'] as $doc) {
+			$results['items'][] = Zotero_Items::getByLibraryAndKey($doc['libraryID'], $doc['key']);
+		}
+		
+		return $results;
+		
+		if (!empty($params['fq'])) {
+			if (!is_array($params['fq'])) {
+				$params['fq'] = array($params['fq']);
+			}
+			foreach ($params['fq'] as $fq) {
+				$facet = explode(":", $fq);
+				if (sizeOf($facet) == 2 && preg_match('/-?Tag/', $facet[0])) {
+					$tagIDs = Zotero_Tags::getIDs($libraryID, $facet[1]);
+					if (!$tagIDs) {
+						throw new Exception("Tag '{$facet[1]}' not found", Z_ERROR_TAG_NOT_FOUND);
+					}
+					
+					
+					
+					$sql .= "AND A.itemID ";
+					// If first character is '-', negate
+					$sql .= ($facet[0][0] == '-' ? 'NOT ' : '');
+					$sql .= "IN (SELECT itemID FROM itemTags WHERE tagID IN (";
+					$func = create_function('', "return '?';");
+					$sql .= implode(',', array_map($func, $tagIDs)) . ")) ";
+					$sqlParams = array_merge($sqlParams, $tagIDs);
+				}
+			}
+		}
 	}
 	
 	/*
@@ -296,29 +375,57 @@ class Zotero_Items extends Zotero_DataObjects {
 			throw new Exception('$hashes is not an array');
 		}
 		
+		$cacheKey = "firstCreator_" . md5(implode('_', $hashes));
+		$firstCreator = Z_Core::$MC->get($cacheKey);
+		if ($firstCreator) {
+			return $firstCreator;
+		}
+		
 		switch (sizeOf($hashes)) {
 			case 1:
-				return Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName");
+				$firstCreator = Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName");
+/*				if (!$firstCreator) {
+					throw new Exception("Returned firstCreator is empty");
+				}
+*/				break;
 			
 			case 2:
-				if ($hashes[1] == "+") {
-					return Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName") . $etAl;
+				if (isset($hashes[1]) && $hashes[1] == "+") {
+					$firstCreator = Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName");
+/*					if (!$firstCreator) {
+						throw new Exception("Returned firstCreator is empty");
+					}
+*/					$firstCreator .= $etAl;
 				}
-				
-				$names = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $hashes)), array("lastName"));
-				return $names[0]["_id"] == $hashes[0]
-					? $names[0]["lastName"] . $localizedAnd . $names[1]["lastName"]
-					: $names[1]["lastName"] . $localizedAnd . $names[0]["lastName"];
+				else {
+					$names = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $hashes)), array("lastName"));
+					
+					$first = $names->getNext();
+					$second = $names->getNext();
+					
+					$firstCreator = $first["_id"] == $hashes[0]
+						? $first["lastName"] . $localizedAnd . $second["lastName"]
+						: $second["lastName"] . $localizedAnd . $first["lastName"];
+					
+/*					if ($firstCreator == $localizedAnd) {
+						throw new Exception("Returned firstCreator is empty");
+					}
+*/				}
+				break;
 			
 			default:
 				throw new Exception('$hashes must have 1 or 2 elements (' . sizeOf($hashes) . ')');
 		}
+		
+		Z_Core::$MC->set($cacheKey, $firstCreator);
+		
+		return $firstCreator;
 	}
 	
 	
 	public static function cache(Zotero_Item $item) {
 		if (isset($itemsByID[$item->id])) {
-			error_log("Item $item->id is already cached");
+			Z_Core::debug("Item $item->id is already cached");
 		}
 		
 		$itemsByID[$item->id] = $item;

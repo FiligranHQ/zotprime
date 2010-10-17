@@ -113,13 +113,13 @@ $ID2 zoterotest_ids < ids.sql
 # datadir = /usr/local/var/mysql/shard
 # socket = /usr/local/var/mysql/shard/mysql.sock
 # port = 3308
-# relay-log = relay_log
 # innodb_flush_log_at_trx_commit = 1
 # sync_binlog = 1
 # innodb_file_per_table
 # default-character-set = utf8
 # sql_mode = STRICT_ALL_TABLES
 # default-time-zone = '+0:00'
+# relay-log = relay_log
 # replicate-do-table = zoterotest_master.baseFieldMappings
 # replicate-do-table = zoterotest_master.charsets
 # replicate-do-table = zoterotest_master.creatorTypes

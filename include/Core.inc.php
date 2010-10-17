@@ -26,7 +26,8 @@
 
 class Z_Core {
 	public static $Mongo = null; // Mongo
-	public static $MC = null; // Memcache
+	public static $MC = null; // Memcached
+	public static $Solr = null; // Solr
 	
 	public static function debug($str, $level=false) {
 		//error_log($str);
@@ -38,7 +39,6 @@ class Z_Core {
 	}
 	
 	public static function logError($summary, $message=false) {
-		error_log($summary . (!empty($message) ? ': ' . $message : ''));
 		Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $summary);
 	}
 	

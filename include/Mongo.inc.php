@@ -144,7 +144,9 @@ class Z_Mongo {
 			case 'batchInsertIgnoreSafe':
 				$results = array();
 				$docs = $arguments[0];
-				foreach ($docs as $doc) {
+				
+				// Slow
+				/*foreach ($docs as $doc) {
 					try {
 						$result = $col->insert($doc, $arguments[1]);
 						$results[] = $result;
@@ -162,8 +164,41 @@ class Z_Mongo {
 						}
 						throw ($e);
 					}
+				}*/
+				
+				while (true) {
+					try {
+						$col->batchInsert($docs, $arguments[1]);
+					}
+					catch (MongoCursorException $e) {
+						// Code doesn't currently work
+						//if ($e->getCode() == 11000) {
+						if (strpos($e->getMessage(), 'E11000 duplicate key error index') !== false) {
+							// Let's hope that the error message format doesn't change
+							preg_match('/dup key: { : "([^"]+)" }/', $e->getMessage(), $matches);
+							
+							// Documents inserted already stay put,
+							// so just continue with remaining documents
+							if ($matches) {
+								$dupeKey = $matches[1];
+								for ($i=0,$len=sizeOf($docs); $i<$len; $i++) {
+									if ($docs[$i]["_id"] == $dupeKey) {
+										$docs = array_slice($docs, $i+1);
+										continue 2;
+									}
+								}
+								
+								throw new Exception("Dupe key $dupeKey not found in insert documents");
+							}
+							
+							throw new Exception("Dupe key not found in error message");
+						}
+						throw ($e);
+					}
+					break;
 				}
-				return $results;
+				
+				return true;
 		}
 		
 		$result = call_user_func_array(array($col, $method), $arguments);
@@ -221,13 +256,4 @@ class Z_Mongo {
 		$this->connected = true;
 	}
 }
-
-Z_Core::$Mongo = new Z_Mongo(
-	"mongodb://" . implode(',', Z_CONFIG::$MONGO_SERVERS),
-	array(
-		"connect" => false,
-		"persist" => ""
-	),
-	Z_CONFIG::$MONGO_DB
-);
 ?>

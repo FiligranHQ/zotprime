@@ -250,6 +250,11 @@ class ApiController extends Controller {
 		$getParams = Zotero_URL::proper_parse_str($_SERVER['QUERY_STRING']);
 		
 		foreach (Zotero_API::getDefaultQueryParams() as $key=>$val) {
+			// Don't overwrite sort if already derived from 'order'
+			if ($key == 'sort' && !empty($this->queryParams['sort'])) {
+				continue;
+			}
+			
 			$this->queryParams[$key] = $val;
 			
 			if (empty($getParams[$key])) {
@@ -281,20 +286,16 @@ class ApiController extends Controller {
 					
 				case 'order':
 					switch ($getParams[$key]) {
+						// Valid fields to sort by
 						case 'dateAdded':
 						case 'dateModified':
 						case 'title':
-							break;
-						
-						default:
-							continue 3;
-					}
-					break;
-					
-				case 'sort':
-					switch ($getParams[$key]) {
-						case 'asc':
-						case 'desc':
+							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
+								$this->queryParams['sort'] = Zotero_API::getDefaultSort($getParams[$key]);
+							}
+							else {
+								$this->queryParams['sort'] = $getParams['sort'];
+							}
 							break;
 						
 						default:
@@ -399,7 +400,7 @@ class ApiController extends Controller {
 				
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = Zotero_Collections::getByAndLibrary($this->objectLibraryID, $this->scopeObjectKey);
+						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
 						if (!$collection) {
 							$this->e404("Collection not found");
 						}
@@ -437,7 +438,18 @@ class ApiController extends Controller {
 					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
 				}
 				else if ($this->subset == 'children') {
-					$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
+					// If id, redirect to key URL
+					if ($this->objectID) {
+						$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
+						if (!$item) {
+							$this->e404("Item not found");
+						}
+						$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+						header("Location: " . Zotero_API::getItemURI($item) . '/children' . $qs);
+						exit;
+					}
+					
+					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 					$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
 					$notes = $item->getNotes();
 					$attachments = $item->getAttachments();
@@ -447,6 +459,7 @@ class ApiController extends Controller {
 				else {
 					$title = "Items";
 					$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
+					//$results = Zotero_Items::getAllAdvancedSolr($this->objectLibraryID, false, $this->queryParams);
 				}
 				
 				if (!empty($results)) {
@@ -1002,6 +1015,7 @@ class ApiController extends Controller {
 		}
 		
 		$tags = array();
+		$totalResults = 0;
 		$name = $this->objectName;
 		$fixedValues = array();
 		
@@ -1073,10 +1087,7 @@ class ApiController extends Controller {
 			}
 		}
 		
-		if (empty($tagIDs)) {
-			$totalResults = 0;
-		}
-		else {
+		if (!empty($tagIDs)) {
 			foreach ($tagIDs as $tagID) {
 				$tags[] = Zotero_Tags::get($this->objectLibraryID, $tagID);
 			}

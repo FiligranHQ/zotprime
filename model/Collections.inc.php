@@ -66,9 +66,9 @@ class Zotero_Collections extends Zotero_DataObjects {
 			if ($order == 'title') {
 				$order = 'collectionName';
 			}
-			$sql .= "ORDER BY $order";
+			$sql .= "ORDER BY $order ";
 			if (!empty($params['sort'])) {
-				$sql .= " " . $params['sort'] . " ";
+				$sql .= $params['sort'] . " ";
 			}
 		}
 		$sqlParams = array($libraryID);

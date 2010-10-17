@@ -237,19 +237,4 @@ class Z_MemcachedClientLocal {
 		$this->queueValues = array();
 	}
 }
-
-if (isset(Z_CONFIG::$MEMCACHED_SERVER_NAME_PREFIX_MAP[$_SERVER['SERVER_NAME']])) {
-	$prefix = Z_CONFIG::$MEMCACHED_SERVER_NAME_PREFIX_MAP[$_SERVER['SERVER_NAME']];
-}
-else {
-	$prefix = $_SERVER['SERVER_NAME'];
-}
-
-Z_Core::$MC = new Z_MemcachedClientLocal(
-	$prefix,
-	array(
-		'disabled' => !Z_CONFIG::$MEMCACHED_ENABLED,
-		'servers' => Z_CONFIG::$MEMCACHED_SERVERS
-	)
-);
 ?>

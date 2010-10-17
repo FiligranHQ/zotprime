@@ -132,8 +132,44 @@ require('DB.inc.php');
 require('Shards.inc.php');
 require('config/dbconnect.inc.php');
 
+// Mongo
 require('Mongo.inc.php');
+Z_Core::$Mongo = new Z_Mongo(
+	"mongodb://" . implode(',', Z_CONFIG::$MONGO_SERVERS),
+	array(
+		"connect" => false,
+		"persist" => ""
+	),
+	Z_CONFIG::$MONGO_DB
+);
+
+// Memcached
 require('Memcached.inc.php');
+if (isset(Z_CONFIG::$MEMCACHED_SERVER_NAME_PREFIX_MAP[$_SERVER['SERVER_NAME']])) {
+	$prefix = Z_CONFIG::$MEMCACHED_SERVER_NAME_PREFIX_MAP[$_SERVER['SERVER_NAME']];
+}
+else {
+	$prefix = $_SERVER['SERVER_NAME'];
+}
+Z_Core::$MC = new Z_MemcachedClientLocal(
+	$prefix,
+	array(
+		'disabled' => !Z_CONFIG::$MEMCACHED_ENABLED,
+		'servers' => Z_CONFIG::$MEMCACHED_SERVERS
+	)
+);
+
+// Solr
+require('Solr.inc.php');
+$parts = explode(":", Z_CONFIG::$SOLR_SERVER);
+Z_Core::$Solr = new Z_Solr(
+	array(
+		'hostname' => $parts[0],
+		'login'    => "",
+		'password' => "",
+		'port'     => !empty($parts[1]) ? $parts[1] : 8983,
+	)
+);
 
 require('interfaces/IAuthenticationPlugin.inc.php');
 

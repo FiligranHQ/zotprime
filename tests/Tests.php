@@ -550,7 +550,7 @@ class MongoTests extends PHPUnit_Framework_TestCase {
 	public function testBatchInsertIgnore() {
 		Z_Core::$Mongo->resetTestTable();
 		
-		$values = array("føo", "føo", "bar");
+		$values = array("føo", "føo", "foobar", "bar", "føo", "foobar", "barfoo", "barboo");
 		
 		$docs = array();
 		foreach ($values as $value) {

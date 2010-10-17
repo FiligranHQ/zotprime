@@ -196,12 +196,12 @@ class Zotero_Item {
 		}
 		
 		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
-			Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
-			
 			// Generate firstCreator string if we only have hashes
 			if ($field == 'firstCreator' && !$this->firstCreator && $this->firstCreatorHashes) {
 				$this->firstCreator = Zotero_Items::getFirstCreator($this->firstCreatorHashes);
 			}
+			
+			Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
 			
 			return $this->$field;
 		}
@@ -539,7 +539,9 @@ class Zotero_Item {
 		
 		foreach ($row as $field=>$val) {
 			// Only accept primary field data through loadFromRow()
-			if (in_array($field, Zotero_Items::$primaryFields)) {
+			//
+			// firstCreatorHashes is generated via SQL and turns into the firstCreator primary field
+			if (in_array($field, Zotero_Items::$primaryFields) || $field == 'firstCreatorHashes') {
 				//Zotero.debug("Setting field '" + col + "' to '" + row[col] + "' for item " + this.id);
 				switch ($field) {
 					case 'itemID':
@@ -552,7 +554,7 @@ class Zotero_Item {
 					
 					case 'firstCreatorHashes':
 						$this->firstCreator = '';
-						$this->firstCreatorHashes = explode(',', $val);
+						$this->firstCreatorHashes = $val ? explode(',', $val) : array();
 						break;
 					
 					default:
@@ -2677,7 +2679,7 @@ class Zotero_Item {
 		
 		$tagObjs = array();
 		foreach ($tagIDs as $tagID) {
-			$tag = Zotero_Tags::get($tagID, true);
+			$tag = Zotero_Tags::get($this->libraryID, $tagID, true);
 			$tagObjs[] = $tag;
 		}
 		return $tagObjs;
@@ -2686,6 +2688,180 @@ class Zotero_Item {
 	
 	public function toAtom($content='none', $apiVersion=null) {
 		return Zotero_Items::convertItemToAtom($this, $content, $apiVersion);
+	}
+	
+	
+	public function toSolrDocument() {
+		$doc = new SolrInputDocument();
+		
+		$uri = Zotero_Atom::getItemURI($this);
+		$doc->addField("uri", str_replace(Zotero_Atom::getBaseURI(), '', $uri));
+		
+		// Primary fields
+		foreach (Zotero_Items::$primaryFields as $field) {
+			switch ($field) {
+				case 'itemID':
+				case 'firstCreator':
+				case 'numAttachments':
+				case 'numNotes':
+					continue (2);
+				
+				case 'itemTypeID':
+					$xmlField = 'itemType';
+					$xmlValue = Zotero_ItemTypes::getName($this->$field);
+					break;
+				
+				case 'dateAdded':
+				case 'dateModified':
+				case 'serverDateModified':
+					$xmlField = $field;
+					$xmlValue = Zotero_Date::sqlToISO8601($this->$field);
+					break;
+				
+				default:
+					$xmlField = $field;
+					$xmlValue = $this->$field;
+			}
+			
+			$doc->addField($xmlField, $xmlValue);
+		}
+		
+		// Item data
+		$fieldIDs = $this->getUsedFields();
+		foreach ($fieldIDs as $fieldID) {
+			$val = $this->getField($fieldID);
+			if ($val == '') {
+				continue;
+			}
+			
+			$fieldName = Zotero_ItemFields::getName($fieldID);
+			
+			switch ($fieldName) {
+				// As is
+				case 'title':
+					break;
+				
+				// Date fields
+				case 'date':
+					// Add user part as text
+					$doc->addField($fieldName . "_t", Zotero_Date::multipartToStr($val));
+					
+					// Add as proper date, if there is one
+					$sqlDate = Zotero_Date::multipartToSQL($val);
+					if (!$sqlDate || $sqlDate == '0000-00-00') {
+						continue 2;
+					}
+					$fieldName .= "_tdt";
+					$val = Zotero_Date::sqlToISO8601($sqlDate);
+					break;
+				
+				case 'accessDate':
+					$fieldName .= "_tdt";
+					$val = Zotero_Date::sqlToISO8601($val);
+					break;
+				
+				default:
+					$fieldName .= "_t";
+			}
+			
+			//var_dump('===========');
+			//var_dump($fieldName);
+			//var_dump($val);
+			$doc->addField($fieldName, $val);
+		}
+		
+		// Deleted item flag
+		if ($this->deleted) {
+			$doc->addField('deleted', true);
+		}
+		
+		if ($this->isNote() || $this->isAttachment()) {
+			$sourceItemID = $this->getSource();
+			if ($sourceItemID) {
+				$sourceItem = Zotero_Items::get($this->libraryID, $sourceItemID);
+				if (!$sourceItem) {
+					throw new Exception("Source item $sourceItemID not found");
+				}
+				$doc->addField('sourceItem', $sourceItem->key);
+			}
+		}
+		
+		// Group modification info
+		$createdByUserID = null;
+		$lastModifiedByUserID = null;
+		switch (Zotero_Libraries::getType($this->libraryID)) {
+			case 'group':
+				$createdByUserID = $this->createdByUserID;
+				$lastModifiedByUserID = $this->lastModifiedByUserID;
+				break;
+		}
+		if ($createdByUserID) {
+			$doc->addField('createdByUserID', $createdByUserID);
+		}
+		if ($lastModifiedByUserID) {
+			$doc->addField('lastModifiedByUserID', $lastModifiedByUserID);
+		}
+		
+		// Note
+		if ($this->isNote()) {
+			$doc->addField('note', $this->getNote());
+		}
+		
+		if ($this->isAttachment()) {
+			$doc->addField('linkMode', $this->attachmentLinkMode);
+			$doc->addField('mimeType', $this->attachmentMIMEType);
+			if ($this->attachmentCharset) {
+				$doc->addField('charset', $this->attachmentCharset);
+			}
+			
+			// TODO: get from a constant
+			if ($this->attachmentLinkMode != 3) {
+				$doc->addField('path', $this->attachmentPath);
+			}
+			
+			$note = $this->getNote();
+			if ($note) {
+				$doc->addField('note', $note);
+			}
+		}
+		
+		// Creators
+		$creators = $this->getCreators();
+		if ($creators) {
+			foreach ($creators as $index => $creator) {
+				$c = $creator['ref'];
+				
+				$doc->addField('creatorKey', $c->key);
+				if ($c->fieldMode == 0) {
+					$doc->addField('creatorFirstName', $c->firstName);
+				}
+				$doc->addField('creatorLastName', $c->lastName);
+				$doc->addField('creatorType', Zotero_CreatorTypes::getName($creator['creatorTypeID']));
+				$doc->addField('creatorIndex', $index);
+			}
+		}
+		
+		// Tags
+		$tags = $this->getTags();
+		if ($tags) {
+			foreach ($tags as $tag) {
+				$doc->addField('tagKey', $tag->key);
+				$doc->addField('tag', $tag->name);
+				$doc->addField('tagType', $tag->type);
+			}
+		}
+		
+		// Related items
+		$related = $this->relatedItems;
+		if ($related) {
+			$related = Zotero_Items::get($this->libraryID, $related);
+			$keys = array();
+			foreach ($related as $item) {
+				$doc->addField('relatedItem', $item->key);
+			}
+		}
+		
+		return $doc;
 	}
 	
 	

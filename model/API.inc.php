@@ -97,6 +97,21 @@ class Zotero_API {
 		return $nonDefault;
 	}
 	
+	
+	public static function getDefaultSort($field) {
+		// Use descending for date fields
+		// TODO: use predefined field formats
+		if (strpos($field, 'date') === 0) {
+			return 'desc';
+		}
+		
+		switch ($field) {
+			default:
+				return 'asc';
+		}
+	}
+	
+	
 	private static function getBaseURI() {
 		return Z_CONFIG::$API_BASE_URI;
 	}
