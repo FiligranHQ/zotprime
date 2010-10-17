@@ -166,7 +166,8 @@ class Z_Mongo {
 					}
 				}*/
 				
-				while (true) {
+				$moreDocs = true;
+				while ($moreDocs) {
 					try {
 						$col->batchInsert($docs, $arguments[1]);
 					}
@@ -182,6 +183,11 @@ class Z_Mongo {
 							if ($matches) {
 								$dupeKey = $matches[1];
 								for ($i=0,$len=sizeOf($docs); $i<$len; $i++) {
+									if ($i == $len-1) {
+										// No more documents
+										$moreDocs = false;
+										continue 2;
+									}
 									if ($docs[$i]["_id"] == $dupeKey) {
 										$docs = array_slice($docs, $i+1);
 										continue 2;
