@@ -145,8 +145,7 @@ class Z_Mongo {
 				$results = array();
 				$docs = $arguments[0];
 				
-				// Slow
-				/*foreach ($docs as $doc) {
+				foreach ($docs as $doc) {
 					try {
 						$result = $col->insert($doc, $arguments[1]);
 						$results[] = $result;
@@ -164,8 +163,9 @@ class Z_Mongo {
 						}
 						throw ($e);
 					}
-				}*/
+				}
 				
+				/*
 				$moreDocs = true;
 				while ($moreDocs) {
 					try {
@@ -203,6 +203,7 @@ class Z_Mongo {
 					}
 					break;
 				}
+				*/
 				
 				return true;
 		}
