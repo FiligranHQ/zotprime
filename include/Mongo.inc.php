@@ -147,18 +147,12 @@ class Z_Mongo {
 				
 				foreach ($docs as $doc) {
 					try {
-						$result = $col->insert($doc, $arguments[1]);
-						$results[] = $result;
+						$col->insert($doc, $arguments[1]);
 					}
 					catch (MongoCursorException $e) {
 						// Code doesn't currently work
 						//if ($e->getCode() == 11000) {
 						if (strpos($e->getMessage(), 'E11000 duplicate key error index') !== false) {
-							// Fake the result
-							$results[] = array(
-								"err" => $e->getMessage(),
-								"ok" => (float) 0
-							);
 							continue;
 						}
 						throw ($e);
