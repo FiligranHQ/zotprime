@@ -61,8 +61,7 @@ CREATE TABLE `creators` (
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
   PRIMARY KEY (`creatorID`),
-  UNIQUE KEY `key` (`libraryID`,`key`),
-  KEY `creatorDataHash` (`creatorDataHash`)
+  UNIQUE KEY `key` (`libraryID`,`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -119,8 +118,7 @@ CREATE TABLE `itemData` (
   `fieldID` smallint(5) unsigned NOT NULL,
   `itemDataValueHash` char(32) CHARACTER SET ascii NOT NULL,
   PRIMARY KEY (`itemID`,`fieldID`),
-  KEY `fieldID` (`fieldID`),
-  KEY `itemDataValueHash` (`itemDataValueHash`)
+  KEY `fieldID` (`fieldID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
