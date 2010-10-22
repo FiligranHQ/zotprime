@@ -310,7 +310,7 @@ CREATE TABLE `syncDownloadQueue` (
   `finishedMS` smallint(5) unsigned NOT NULL DEFAULT '0',
   `xmldata` longtext,
   `errorCode` int(10) unsigned DEFAULT NULL,
-  `errorMessage` text,
+  `errorMessage` mediumtext,
   PRIMARY KEY (`syncDownloadQueueID`),
   KEY `userID` (`userID`),
   KEY `sessionID` (`sessionID`),
