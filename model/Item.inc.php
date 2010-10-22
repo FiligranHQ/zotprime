@@ -231,7 +231,7 @@ class Zotero_Item {
 				&& !array_key_exists($fieldID, $this->itemData)) {
 			$msg = "Field '$field' doesn't exist for item type {$this->itemTypeID}";
 			if (!$skipValidation) {
-				trigger_error($msg, E_USER_ERROR);
+				throw new Exception($msg);
 			}
 			Z_Core::debug($msg . "—returning ''", 4);
 			return '';
