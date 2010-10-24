@@ -113,7 +113,7 @@ class Zotero_Shards {
 	
 	public static function getNextShard() {
 		// TODO: figure out best shard
-		return 1;
+		return 2;
 	}
 	
 	
