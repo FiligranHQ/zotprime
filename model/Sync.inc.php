@@ -885,6 +885,8 @@ class Zotero_Sync {
 		}
 		
 		if (is_null($row['finished'])) {
+			$sql = "UPDATE syncDownloadQueue SET lastCheck=NOW() WHERE sessionID=?";
+			Zotero_DB::query($sql, $sessionID);
 			Zotero_DB::commit();
 			return false;
 		}
