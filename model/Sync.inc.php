@@ -1133,7 +1133,10 @@ class Zotero_Sync {
 			Zotero_DB::commit();
 		}
 		catch (Exception $e) {
-			Zotero_DB::rollback();
+			Zotero_DB::rollback(true);
+			if ($syncDownloadQueueID) {
+				self::removeDownloadProcess($syncDownloadProcessID);
+			}
 			throw ($e);
 		}
 		
@@ -1570,7 +1573,7 @@ class Zotero_Sync {
 			return $timestampUnix . '.' . $timestampMS;
 		}
 		catch (Exception $e) {
-			Zotero_DB::rollback();
+			Zotero_DB::rollback(true);
 			Z_Core::$MC->rollback();
 			self::removeUploadProcess($processID);
 			throw $e;
@@ -1660,7 +1663,14 @@ class Zotero_Sync {
 		
 		$syncProcessID = $syncProcessID ? $syncProcessID : Zotero_ID::getBigInt();
 		$sql = "INSERT INTO syncProcesses (syncProcessID, userID) VALUES (?, ?)";
-		Zotero_DB::query($sql, array($syncProcessID, $userID));
+		try {
+			Zotero_DB::query($sql, array($syncProcessID, $userID));
+		}
+		catch (Exception $e) {
+			$sql = "SELECT CONCAT(syncProcessID,' ',userID,' ',started) FROM syncProcesses WHERE userID=?";
+			$val = Zotero_DB::valueQuery($sql, $userID);
+			Z_Core::logError($val);
+		}
 		
 		if ($libraryIDs) {
 			$sql = "INSERT INTO syncProcessLocks VALUES ";
