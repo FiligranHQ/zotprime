@@ -183,7 +183,7 @@ class Zotero_Permissions {
 			$url .= "users/$userID";
 		}
 		
-		$xml = @file_get_contents($url);
+		$xml = file_get_contents($url);
 		if (!$xml) {
 			error_log($url);
 			trigger_error("User $userID doesn't exist", E_USER_ERROR);
