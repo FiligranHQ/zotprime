@@ -82,7 +82,8 @@ class Zotero_AuthenticationPlugin_Http implements Zotero_AuthenticationPlugin {
 	function do_post_request($url, $data, $optional_headers=null) {
 		$params = array('http' => array(
 			'method' => 'POST',
-			'content' => $data
+			'content' => $data,
+			'timeout' => 15
 		));
 		if ($optional_headers !== null) {
 			$params['http']['header'] = $optional_headers;
