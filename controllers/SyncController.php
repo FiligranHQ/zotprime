@@ -206,6 +206,24 @@ class SyncController extends Controller {
 		
 		$this->sessionCheck();
 		
+		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+			require_once('../model/ToolkitVersionComparator.inc.php');
+			
+			if (ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "2.0.4") < 0) {
+				$futureUsers = Z_Core::$MC->get('futureUsers');
+				if (!$futureUsers) {
+					$futureUsers = Zotero_DB::columnQuery("SELECT userID FROM futureUsers");
+					Z_Core::$MC->set('futureUsers', $futureUsers, 1800);
+				}
+				
+				if (in_array($this->userID, $futureUsers)) {
+					Z_Core::logError("Blocking sync for future user " . $this->userID . " with version " . $_SERVER['HTTP_X_ZOTERO_VERSION']);
+					$upgradeMessage = "Due to improvements made to sync functionality, you must upgrade to Zotero 2.0.6 or later (via Firefox's Tools menu -> Add-ons -> Extensions -> Find Updates or from zotero.org) to continue syncing your Zotero library.";
+					$this->error(400, 'UPGRADE_REQUIRED', $upgradeMessage);
+				}
+			}
+		}
+		
 		$doc = new DOMDocument();
 		$domResponse = dom_import_simplexml($this->responseXML);
 		$domResponse = $doc->importNode($domResponse, true);
@@ -512,7 +530,7 @@ class SyncController extends Controller {
 			$this->sessionLifetime
 		);
 		
-		if (Z_Core::probability(4)) {
+		if (Z_Core::probability(3)) {
 			$sql = "UPDATE sessions SET timestamp=NOW() WHERE sessionID=?";
 			Zotero_DB::query($sql, $sessionID);
 		}
@@ -578,7 +596,13 @@ class SyncController extends Controller {
 			$explicit = false;
 		}
 		
-		Z_Core::logError($msg);
+		switch ($e->getCode()) {
+			case Z_ERROR_TAG_TOO_LONG:
+				break;
+			
+			default:
+				Z_Core::logError($msg);
+		}
 		
 		if (true || !$explicit) {
 			if (Z_ENV_TESTING_SITE) {
