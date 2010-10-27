@@ -805,6 +805,9 @@ class Zotero_DB {
 }
 
 
+//
+// TODO: Handle failover here instead of in calling code
+//
 class Zotero_ID_DB_1 extends Zotero_DB {
 	protected $db = 'id1';
 	
@@ -823,14 +826,22 @@ class Zotero_ID_DB_2 extends Zotero_DB {
 }
 
 
-class Zotero_WWW_DB extends Zotero_DB {
-	protected $db = 'www';
+class Zotero_WWW_DB_1 extends Zotero_DB {
+	protected $db = 'www1';
 	
 	protected function __construct() {
 		parent::__construct();
 	}
 }
 
+
+class Zotero_WWW_DB_2 extends Zotero_DB {
+	protected $db = 'www2';
+	
+	protected function __construct() {
+		parent::__construct();
+	}
+}
 
 
 class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {

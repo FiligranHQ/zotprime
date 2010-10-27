@@ -462,14 +462,44 @@ class Zotero_S3 {
 		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
 				JOIN $databaseName.storage_institutions ON (SUBSTRING_INDEX(email, '@', -1)=domain)
 				WHERE userID=?";
-		$institutionalDomainQuota = Zotero_WWW_DB::valueQuery($sql, $userID);
+		if (Z_Core::probability(2)) {
+			try {
+				$institutionalDomainQuota = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+			}
+			catch (Exception $e) {
+				$institutionalDomainQuota = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+			}
+		}
+		else {
+			try {
+				$institutionalDomainQuota = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+			}
+			catch (Exception $e) {
+				$institutionalDomainQuota = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+			}
+		}
 		
 		// Get maximum institutional quota by e-mail address
 		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
 				JOIN $databaseName.storage_institution_email USING (email)
 				JOIN $databaseName.storage_institutions USING (institutionID)
 				WHERE userID=?";
-		$institutionalEmailQuota = Zotero_WWW_DB::valueQuery($sql, $userID);
+		if (Z_Core::probability(2)) {
+			try {
+				$institutionalEmailQuota = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+			}
+			catch (Exception $e) {
+				$institutionalEmailQuota = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+			}
+		}
+		else {
+			try {
+				$institutionalEmailQuota = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+			}
+			catch (Exception $e) {
+				$institutionalEmailQuota = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+			}
+		}
 		
 		$quota = max($institutionalDomainQuota, $institutionalEmailQuota);
 		return $quota ? $quota : false;
