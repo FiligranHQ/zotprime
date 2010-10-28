@@ -205,6 +205,7 @@ class ApiController extends Controller {
 			$this->objectLibraryID = Zotero_Groups::getLibraryIDFromGroupID($objectGroupID);
 		}
 		
+		
 		$this->scopeObject = !empty($extra['scopeObject']) ? $extra['scopeObject'] : null;
 		$this->scopeObjectID = !empty($extra['scopeObjectID']) ? (int) $extra['scopeObjectID'] : null;
 		
@@ -237,6 +238,7 @@ class ApiController extends Controller {
 			}
 		}
 		
+		$this->objectID = !empty($extra['id']) ? (int) $extra['id'] : null;
 		$this->objectName = !empty($extra['name']) ? urldecode($extra['name']) : null;
 		$this->subset = !empty($extra['subset']) ? $extra['subset'] : null;
 		$this->fileMode = !empty($extra['file'])
