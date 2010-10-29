@@ -345,6 +345,7 @@ class Zotero_Group {
 		if ($oldRole == $role) {
 			Z_Core::debug("Role hasn't changed for user $userID in group $this->id");
 			Zotero_DB::commit();
+			return;
 		}
 		if ($oldRole == 'owner') {
 			throw new Exception("Cannot change group owner to $role for group $this->id", Z_ERROR_CANNOT_DELETE_GROUP_OWNER);
