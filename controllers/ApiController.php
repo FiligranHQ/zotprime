@@ -238,7 +238,9 @@ class ApiController extends Controller {
 			}
 		}
 		
-		$this->objectID = !empty($extra['id']) ? (int) $extra['id'] : null;
+		if (!empty($extra['id'])) {
+			$this->objectID = (int) $extra['id'];
+		}
 		$this->objectName = !empty($extra['name']) ? urldecode($extra['name']) : null;
 		$this->subset = !empty($extra['subset']) ? $extra['subset'] : null;
 		$this->fileMode = !empty($extra['file'])
@@ -336,7 +338,21 @@ class ApiController extends Controller {
 				$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
 			}
 			if (!$item) {
-				$this->e404("Item does not exist");
+				// Possibly temporary workaround to block unnecessary full syncs
+				if ($this->fileMode && $this->method == 'POST') {
+					$this->e500("A file sync error occurred. Please sync again.");
+				}
+				// If we have an id, make sure this isn't really an all-numeric key
+				if ($this->objectID && strlen($this->objectID) == 8) {
+					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectID);
+					if ($item) {
+						$this->objectKey = $this->objectID;
+						unset($this->objectID);
+					}
+				}
+				if (!$item) {
+					$this->e404("Item does not exist");
+				}
 			}
 			
 			if ($item->isNote() && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
@@ -557,7 +573,7 @@ class ApiController extends Controller {
 	public function removestoragefiles() {
 		$this->allowMethods(array('POST'));
 		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID)
-				JOIN users USING (libraryID) WHERE userID=?";
+				JOIN zotero_master.users USING (libraryID) WHERE userID=?";
 		Zotero_DB::query($sql, $this->objectUserID, Zotero_Shards::getByUserID($this->objectUserID));
 		header("HTTP/1.1 204 No Content");
 		exit;
@@ -1970,6 +1986,7 @@ class ApiController extends Controller {
 		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 			$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 		}
+		$str .= $_SERVER['REQUEST_URI'] . "\n";
 		$str .= $e;
 		
 		if (!Z_ENV_TESTING_SITE) {
