@@ -149,7 +149,34 @@ class Zotero_Tag {
 			
 			$sql = "INSERT INTO tags SET tagID=?, $fields ON DUPLICATE KEY UPDATE $fields";
 			$stmt = Zotero_DB::getStatement($sql, true, $shardID);
-			$insertID = Zotero_DB::queryFromStatement($stmt, $params);
+			try {
+				$insertID = Zotero_DB::queryFromStatement($stmt, $params);
+			}
+			catch (Exception $e) {
+				// If an incoming tag is the same as an existing tag, but with a different key,
+				// then delete the old tag and add its linked items to the new tag
+				if (preg_match("/Duplicate entry .+ for key 'uniqueTags'/", $e->getMessage())) {
+					// GET existing tag
+					$existing = Zotero_Tags::getIDs($this->libraryID, $this->name);
+					if (!$existing) {
+						throw new Exception("Existing tag not found");
+					}
+					foreach ($existing as $id) {
+						$tag = Zotero_Tags::get($this->libraryID, $id, true);
+						if ($tag->type == $this->type) {
+							$linked = $tag->getLinkedItems(true);
+							Zotero_Tags::delete($this->libraryID, $tag->key);
+							break;
+						}
+					}
+					
+					$new = array_unique(array_merge($linked, $this->getLinkedItems(true)));
+					$this->setLinkedItems($new);
+				}
+				else {
+					throw $e;
+				}
+			}
 			if (!$this->id) {
 				if (!$insertID) {
 					throw new Exception("Tag id not available after INSERT");
