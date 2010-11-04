@@ -676,6 +676,8 @@ class Zotero_Group {
 		
 		$this->logGroupLibraryRemoval();
 		
+		Zotero_Libraries::deleteCachedData($this->libraryID);
+		
 		$sql = "DELETE FROM libraries WHERE libraryID=?";
 		$deleted = Zotero_DB::query($sql, $this->libraryID);
 		if (!$deleted) {

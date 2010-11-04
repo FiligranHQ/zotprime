@@ -97,5 +97,36 @@ class Zotero_Libraries {
 		$sql = "SELECT COUNT(*) FROM syncProcessLocks WHERE libraryID=?";
 		return !!Zotero_DB::valueQuery($sql, $libraryID);
 	}
+	
+	
+	/**
+	 * Delete data from memcached
+	 */
+	public static function deleteCachedData($libraryID) {
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		// Clear itemID-specific memcache values
+		$sql = "SELECT itemID FROM items WHERE libraryID=?";
+		$itemIDs = Zotero_DB::columnQuery($sql, $libraryID, $shardID);
+		if ($itemIDs) {
+			$cacheKeys = array(
+				"itemCreators",
+				"itemIsDeleted",
+				"itemRelated",
+				"itemUsedFieldIDs",
+				"itemUsedFieldNames"
+			);
+			foreach ($itemIDs as $itemID) {
+				foreach ($cacheKeys as $key) {
+					Z_Core::$MC->delete($key . '_' . $itemID);
+				}
+			}
+		}
+		
+		foreach (Zotero_DataObjects::$objectTypes as $type=>$arr) {
+			$cacheKey = $type . 'IDsByKey_' . $libraryID;
+			Z_Core::$MC->delete($cacheKey);
+		}
+	}
 }
 ?>
