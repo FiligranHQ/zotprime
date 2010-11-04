@@ -129,7 +129,7 @@ class Zotero_DB {
 		
 		$instance->transactionLevel++;
 		if ($instance->transactionLevel > 1) {
-			Z_Core::debug("Transaction in progress — nesting level increased to $instance->transactionLevel");
+			Z_Core::debug("Transaction in progress -- nesting level increased to $instance->transactionLevel");
 			return -1;
 		}
 		Z_Core::debug("Starting transaction");
@@ -159,7 +159,7 @@ class Zotero_DB {
 		
 		$instance->transactionLevel--;
 		if ($instance->transactionLevel) {
-			Z_Core::debug("Transaction in progress — nesting level decreased to $instance->transactionLevel");
+			Z_Core::debug("Transaction in progress -- nesting level decreased to $instance->transactionLevel");
 			return -1;
 		}
 		
@@ -756,10 +756,70 @@ class Zotero_DB {
 	}
 	
 	
-	public static function getProfiler($shardID=0) {
+	public static function profileStart($shardID=0) {
 		$instance = self::getInstance();
 		$link = $instance->getShardLink($shardID);
-		return $link->getProfiler();
+		$profiler = $link->getProfiler();
+		
+		$profiler->setEnabled(true);
+	}
+	
+	public static function profileEnd($shardID=0) {
+		$instance = self::getInstance();
+		$link = $instance->getShardLink($shardID);
+		$profiler = $link->getProfiler();
+		
+		$totalTime    = $profiler->getTotalElapsedSecs();
+		$queryCount   = $profiler->getTotalNumQueries();
+		$longestTime  = 0;
+		$longestQuery = null;
+		
+		ob_start();
+		
+		$queries = array();
+		
+		foreach ($profiler->getQueryProfiles() as $query) {
+			$sql = str_replace("\t", "", str_replace("\n", "", $query->getQuery()));
+			$hash = md5($sql);
+			if (isset($queries[$hash])) {
+				$queries[$hash]['count']++;
+				$queries[$hash]['time'] += $query->getElapsedSecs();
+			}
+			else {
+				$queries[$hash]['sql'] = $sql;
+				$queries[$hash]['count'] = 1;
+				$queries[$hash]['time'] = $query->getElapsedSecs();
+			}
+			if ($query->getElapsedSecs() > $longestTime) {
+				$longestTime  = $query->getElapsedSecs();
+				$longestQuery = $query->getQuery();
+			}
+		}
+		
+		foreach($queries as &$query) {
+			//$query['avg'] = $query['time'] / $query['count'];
+		}
+		
+		function cmp($a, $b) {
+			if ($a['time'] == $b['time']) {
+				return 0;
+			}
+			return ($a['time'] < $b['time']) ? -1 : 1;
+		}
+		usort($queries, "cmp");
+		
+		var_dump($queries);
+		
+		echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
+		echo 'Average query length: ' . $totalTime / $queryCount . ' seconds' . "\n";
+		echo 'Queries per second: ' . $queryCount / $totalTime . "\n";
+		echo 'Longest query length: ' . $longestTime . "\n";
+		echo "Longest query: \n" . $longestQuery . "\n";
+		
+		$temp = ob_get_clean();
+		file_put_contents("/tmp/profile_" . $shardID, $temp);
+		
+		$profiler->setEnabled(false);
 	}
 	
 	

@@ -963,6 +963,12 @@ class Zotero_Sync {
 	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null, $skipValidation=false) {
 		set_time_limit(900);
 		
+		$profile = false;
+		if ($profile) {
+			$shardID = Zotero_Shards::getByUserID($userID);
+			Zotero_DB::profileStart($shardID);
+		}
+		
 		if ($syncDownloadQueueID) {
 			self::addDownloadProcess($syncDownloadQueueID, $syncDownloadProcessID);
 		}
@@ -1158,6 +1164,11 @@ class Zotero_Sync {
 		if ($syncDownloadQueueID) {
 			self::removeDownloadProcess($syncDownloadProcessID);
 		}
+		
+		if ($profile) {
+			$shardID = Zotero_Shards::getByUserID($userID);
+			Zotero_DB::profileEnd($shardID);
+		}
 	}
 	
 	
@@ -1174,8 +1185,8 @@ class Zotero_Sync {
 		
 		$profile = false;
 		if ($profile) {
-			$profiler = Zotero_DB::getProfiler(Zotero_Shards::getByUserID($userID));
-			$profiler->setEnabled(true);
+			$shardID = Zotero_Shards::getByUserID($userID);
+			Zotero_DB::profileStart($shardID);
 		}
 		
 		// Add creator values
@@ -1515,66 +1526,16 @@ class Zotero_Sync {
 			//Z_Core::$MC->rollback();
 			//throw new Exception("Abort in $timestampUnix");
 			
-			// Profiling code
 			if ($profile) {
-				$totalTime    = $profiler->getTotalElapsedSecs();
-				$queryCount   = $profiler->getTotalNumQueries();
-				$longestTime  = 0;
-				$longestQuery = null;
-				
-				ob_start();
-				
-				$queries = array();
-				
-				foreach ($profiler->getQueryProfiles() as $query) {
-					$sql = str_replace("\t", "", str_replace("\n", "", $query->getQuery()));
-					$hash = md5($sql);
-					if (isset($queries[$hash])) {
-						$queries[$hash]['count']++;
-						$queries[$hash]['time'] += $query->getElapsedSecs();
-					}
-					else {
-						$queries[$hash]['sql'] = $sql;
-						$queries[$hash]['count'] = 1;
-						$queries[$hash]['time'] = $query->getElapsedSecs();
-					}
-					if ($query->getElapsedSecs() > $longestTime) {
-						$longestTime  = $query->getElapsedSecs();
-						$longestQuery = $query->getQuery();
-					}
-				}
-				
-				foreach($queries as &$query) {
-					//$query['avg'] = $query['time'] / $query['count'];
-				}
-				
-				function cmp($a, $b) {
-					if ($a['time'] == $b['time']) {
-						return 0;
-					}
-					return ($a['time'] < $b['time']) ? -1 : 1;
-				}
-				usort($queries, "cmp");
-				
-				var_dump($queries);
-				
-				echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
-				echo 'Average query length: ' . $totalTime / $queryCount . ' seconds' . "\n";
-				echo 'Queries per second: ' . $queryCount / $totalTime . "\n";
-				echo 'Longest query length: ' . $longestTime . "\n";
-				echo "Longest query: \n" . $longestQuery . "\n";
-				
-				$temp = ob_get_clean();
-				file_put_contents("/tmp/profile_" . $syncProcessID, $temp);
-				
-				$profiler->setEnabled(false);
+				$shardID = Zotero_Shards::getByUserID($userID);
+				Zotero_DB::profileEnd($shardID);
 			}
 			
 			return $timestampUnix . '.' . $timestampMS;
 		}
 		catch (Exception $e) {
-			Zotero_DB::rollback(true);
 			Z_Core::$MC->rollback();
+			Zotero_DB::rollback(true);
 			self::removeUploadProcess($processID);
 			throw $e;
 		}
