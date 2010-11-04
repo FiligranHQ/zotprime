@@ -259,7 +259,7 @@ class Zotero_DataObjects {
 						$sql .= implode(', ', $q) . ")";
 					}
 					
-					$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+					$rows = Zotero_DB::query($sql, $params, $shardID);
 					if ($rows) {
 						// Separate ids by libraryID
 						foreach ($rows as $row) {
