@@ -1148,7 +1148,7 @@ class Zotero_Item {
 					Z_Core::$MC->set("usedFieldIDs_" . $itemID, $fieldIDs);
 					$names = array();
 					foreach ($fieldIDs as $fieldID) {
-						$names[] = $Zotero_ItemFields::getName($fieldID);
+						$names[] = Zotero_ItemFields::getName($fieldID);
 					}
 					Z_Core::$MC->set("itemUsedFieldNames_" . $itemID, $names);
 				}
