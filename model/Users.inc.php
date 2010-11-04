@@ -273,6 +273,24 @@ class Zotero_Users {
 		$libraryID = self::getLibraryIDFromUserID($userID);
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
+		// Clear itemID-specific memcache values
+		$sql = "SELECT itemID FROM items WHERE libraryID=?";
+		$itemIDs = Zotero_DB::columnQuery($sql, $libraryID, $shardID);
+		if ($itemIDs) {
+			$cacheKeys = array(
+				"itemCreators",
+				"itemIsDeleted",
+				"itemRelated",
+				"itemUsedFieldIDs",
+				"itemUsedFieldNames"
+			);
+			foreach ($itemIDs as $itemID) {
+				foreach ($cacheKeys as $key) {
+					Z_Core::$MC->delete($key . '_' . $itemID);
+				}
+			}
+		}
+		
 		foreach ($tables as $table) {
 			// Delete notes and attachments first (since they may be child items)
 			if ($table == 'items') {
