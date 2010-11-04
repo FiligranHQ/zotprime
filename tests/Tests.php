@@ -406,6 +406,21 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		Z_Core::$MC->delete("testUnicode1");
 		Z_Core::$MC->delete("testUnicode2");
 	}
+	
+	public function testNonExistent() {
+		// Clean up
+		Z_Core::$MC->delete("testMissing");
+		Z_Core::$MC->delete("testZero");
+		
+		Z_Core::$MC->set("testZero", 0);
+		
+		$this->assertFalse(Z_Core::$MC->get("testMissing"));
+		$this->assertEquals(Z_Core::$MC->get("testZero"), 0);
+		$this->assertNotEquals(Z_Core::$MC->get("testZero"), false);
+		
+		// Clean up
+		Z_Core::$MC->delete("testZero");
+	}
 }
 
 
@@ -550,7 +565,7 @@ class MongoTests extends PHPUnit_Framework_TestCase {
 	public function testBatchInsertIgnore() {
 		Z_Core::$Mongo->resetTestTable();
 		
-		$values = array("føo", "føo", "foobar", "bar", "føo", "foobar", "barfoo", "barboo");
+		$values = array("føo", "føo", "foobar", "bar", "føo", "foobar", "barfoo", "barboo", "bar");
 		
 		$docs = array();
 		foreach ($values as $value) {
