@@ -1603,12 +1603,6 @@ class Zotero_Item {
 							$creator['creatorTypeID'],
 							$orderIndex
 						);
-						
-						$cacheRows[] = array(
-							'creatorID' => $creator['ref']->id,
-							'creatorTypeID' => $creator['creatorTypeID'],
-							'orderIndex' => $orderIndex
-						);
 					}
 					
 					if ($sqlValues) {
@@ -1616,10 +1610,16 @@ class Zotero_Item {
 						Zotero_DB::query($sql, $sqlValues, $shardID);
 					}
 					
-					// Just in case creators aren't in order
-					usort($cacheRows, function ($a, $b) {
-						return ($a['orderIndex'] < $b['orderIndex']) ? -1 : 1; 
-					});
+					// Update memcache
+					$cacheRows = array();
+					$cs = $this->getCreators();
+					foreach ($cs as $orderIndex=>$c) {
+						$cacheRows[] = array(
+							'creatorID' => $c['ref']->id,
+							'creatorTypeID' => $c['creatorTypeID'],
+							'orderIndex' => $orderIndex
+						);
+					}
 					Z_Core::$MC->set("itemCreators_" . $this->id, $cacheRows);
 				}
 				
