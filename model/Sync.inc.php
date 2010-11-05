@@ -456,7 +456,7 @@ class Zotero_Sync {
 						$row['dataLength'],
 						$hostID,
 						round((float) microtime(true) - $startedTimestamp, 2),
-						min(time() - strtotime($row['added']), 65535),
+						max(0, min(time() - strtotime($row['added']), 65535)),
 						0
 					)
 				);
@@ -516,7 +516,7 @@ class Zotero_Sync {
 						$row['dataLength'],
 						$row['syncQueueHostID'],
 						round((float) microtime(true) - $startedTimestamp, 2),
-						min(time() - strtotime($row['added']), 65535),
+						max(0, min(time() - strtotime($row['added']), 65535)),
 						1
 					)
 				);
