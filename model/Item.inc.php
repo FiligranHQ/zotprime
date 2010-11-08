@@ -1015,7 +1015,7 @@ class Zotero_Item {
 		$lastPos = -1;
 		foreach ($creators as $pos=>$creator) {
 			if ($pos != $lastPos + 1) {
-				trigger_error("Creator index $pos out of sequence", E_USER_ERROR);
+				trigger_error("Creator index $pos out of sequence for item $this->id", E_USER_ERROR);
 			}
 			$lastPos++;
 		}
