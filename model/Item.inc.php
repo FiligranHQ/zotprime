@@ -229,7 +229,7 @@ class Zotero_Item {
 		if (!Zotero_ItemTypes::isCustomType($this->itemTypeID)
 				&& !Zotero_ItemFields::isCustomField($fieldID)
 				&& !array_key_exists($fieldID, $this->itemData)) {
-			$msg = "Field '$field' doesn't exist for item type {$this->itemTypeID}";
+			$msg = "Field '$field' doesn't exist for item $this->id of type {$this->itemTypeID}";
 			if (!$skipValidation) {
 				throw new Exception($msg);
 			}
@@ -1543,7 +1543,12 @@ class Zotero_Item {
 					}
 					
 					// Update memcached with used fields
-					$fids = array_diff($fieldIDs, $del);
+					$fids = array();
+					foreach ($this->itemData as $fieldID=>$value) {
+						if ($value !== false && $value !== null) {
+							$fids[] = $fieldID;
+						}
+					}
 					Z_Core::$MC->set("itemUsedFieldIDs_" . $this->id, $fids);
 					$names = array();
 					foreach ($fids as $fieldID) {
