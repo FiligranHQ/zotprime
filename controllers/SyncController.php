@@ -389,6 +389,7 @@ class SyncController extends Controller {
 			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 			}
+			$str .= "Error: RELAX NG validation failed\n\n";
 			$str .= $xmldata;
 			file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
 			$this->error(500, 'INVALID_UPLOAD_DATA', "Uploaded data not well-formed (Report ID: $id)");
@@ -630,8 +631,7 @@ class SyncController extends Controller {
 				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 					$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 				}
-				$str .= $e;
-				$str .= "\n\n";
+				$str .= $e . "\n\n";
 				$str .= $xmldata;
 				file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
 			}
