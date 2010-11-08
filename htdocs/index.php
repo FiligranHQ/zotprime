@@ -26,6 +26,12 @@
 
 $routes = require('config/routes.inc.php');
 
+if (!$routes) {
+	header("HTTP/1.0 404 Not Found");
+	include('errors/404.php');
+	return;
+}
+
 // Parse variables from router
 $controllerName = Z_String::under2camel($routes['controller']);
 $action = !empty($routes['action']) ? $routes['action'] : 'index';
