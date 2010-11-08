@@ -1145,7 +1145,7 @@ class Zotero_Item {
 					}
 					
 					// Update memcached with used fields
-					Z_Core::$MC->set("usedFieldIDs_" . $itemID, $fieldIDs);
+					Z_Core::$MC->set("itemUsedFieldIDs_" . $itemID, $fieldIDs);
 					$names = array();
 					foreach ($fieldIDs as $fieldID) {
 						$names[] = Zotero_ItemFields::getName($fieldID);
@@ -1544,7 +1544,7 @@ class Zotero_Item {
 					
 					// Update memcached with used fields
 					$fids = array_diff($fieldIDs, $del);
-					Z_Core::$MC->set("usedFieldIDs_" . $this->id, $fids);
+					Z_Core::$MC->set("itemUsedFieldIDs_" . $this->id, $fids);
 					$names = array();
 					foreach ($fids as $fieldID) {
 						$names[] = Zotero_ItemFields::getName($fieldID);
