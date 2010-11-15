@@ -1892,6 +1892,8 @@ class Zotero_Item {
 			$this->key = $key;
 		}
 		
+		$this->previousData = array();
+		
 		// TODO: invalidate memcache
 		//Zotero_Items::reload($$this->getID());
 		
