@@ -234,7 +234,7 @@ class Zotero_Users {
 		$lastModified = false;
 		
 		$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".users "
-				. "JOIN items USING (libraryID) WHERE userID=?";
+				. "JOIN items USING (libraryID) WHERE userID=? ORDER BY time DESC LIMIT 1";
 		$time = Zotero_DB::valueQuery($sql, $userID, Zotero_Shards::getByUserID($userID));
 		if ($time) {
 			$lastModified = $time;
