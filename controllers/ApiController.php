@@ -340,10 +340,24 @@ class ApiController extends Controller {
 			if (!$item) {
 				// Possibly temporary workaround to block unnecessary full syncs
 				if ($this->fileMode && $this->method == 'POST') {
+					// If > 2 requests for missing file, trigger a full sync via 404
+					$cacheKey = "apiMissingFile_" . $this->objectLibraryID . "_"
+						. ($this->objectKey ? $this->objectKey : $this->objectID);
+					$set = Z_Core::$MC->get($cacheKey);
+					if (!$set) {
+						Z_Core::$MC->set($cacheKey, 1, 86400);
+					}
+					else if ($set < 2) {
+						Z_Core::$MC->increment($cacheKey);
+					}
+					else {
+						Z_Core::$MC->delete($cacheKey);
+						$this->e404("A file sync error occurred. Please sync again.");
+					}
 					$this->e500("A file sync error occurred. Please sync again.");
 				}
 				// If we have an id, make sure this isn't really an all-numeric key
-				if ($this->objectID && strlen($this->objectID) == 8) {
+				if ($this->objectID && strlen($this->objectID) == 8 && is_numeric($this->objectID)) {
 					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectID);
 					if ($item) {
 						$this->objectKey = $this->objectID;
@@ -456,6 +470,15 @@ class ApiController extends Controller {
 					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
 				}
 				else if ($this->subset == 'children') {
+					// If we have an id, make sure this isn't really an all-numeric key
+					if ($this->objectID && strlen($this->objectID) == 8 && is_numeric($this->objectID)) {
+						$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectID);
+						if ($item) {
+							$this->objectKey = $this->objectID;
+							unset($this->objectID);
+						}
+					}
+					
 					// If id, redirect to key URL
 					if ($this->objectID) {
 						$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
