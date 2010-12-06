@@ -8,6 +8,9 @@ class Zotero_Solr {
 	
 	
 	public static function addItems($items, $commitWithin=false) {
+		// TEMP
+		return;
+		
 		$docs = array();
 		foreach ($items as $item) {
 			$docs[] = $item->toSolrDocument();
@@ -21,12 +24,18 @@ class Zotero_Solr {
 	
 	
 	public static function removeItem($libraryID, $key) {
+		// TEMP
+		return;
+		
 		$uri = self::getItemURI($libraryID, $key);
 		Z_Core::$Solr->deleteById($uri);
 	}
 	
 	
 	public static function removeItems($pairs) {
+		// TEMP
+		return;
+		
 		$uris = array();
 		foreach ($pairs as $pair) {
 			$uris[] = self::getItemURI($pair['libraryID'], $pair['key']);
@@ -36,6 +45,9 @@ class Zotero_Solr {
 	
 	
 	public static function removeLibrary($libraryID) {
+		// TEMP
+		return;
+		
 		Z_Core::$Solr->deleteByQuery("libraryID:" . (int) $libraryID);
 	}
 	
@@ -59,12 +71,18 @@ class Zotero_Solr {
 	
 	
 	public static function queueItems($pairs) {
+		// TEMP
+		return;
+		
 		$sql = "INSERT IGNORE INTO solrQueue (libraryID, `key`) VALUES ";
 		Zotero_DB::bulkInsert($sql, $pairs, 100);
 	}
 	
 	
 	public static function queueLibrary($libraryID) {
+		// TEMP
+		return;
+		
 		$sql = "INSERT IGNORE INTO solrQueue (libraryID, `key`) VALUES ";
 		Zotero_DB::query($sql, array($libraryID, ''));
 	}
@@ -196,6 +214,9 @@ class Zotero_Solr {
 	
 	
 	public static function notifyProcessor($signal="NEXT") {
+		// TEMP
+		return;
+		
 		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
 		$port = Z_CONFIG::$PROCESSOR_PORT_INDEX;
 		
