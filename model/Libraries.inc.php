@@ -35,6 +35,12 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function exists($libraryID) {
+		$sql = "SELECT COUNT(*) FROM libraries WHERE libraryID=?";
+		return !!Zotero_DB::valueQuery($sql, $libraryID);
+	}
+	
+	
 	public static function getName($libraryID) {
 		$type = self::getType($libraryID);
 		switch ($type) {
@@ -51,6 +57,10 @@ class Zotero_Libraries {
 	
 	
 	public static function getType($libraryID) {
+		if (!$libraryID) {
+			throw new Exception("Library not provided");
+		}
+		
 		$cacheKey = 'libraryType_' . $libraryID;
 		$libraryType = Z_Core::$MC->get($cacheKey);
 		if ($libraryType) {
@@ -59,7 +69,7 @@ class Zotero_Libraries {
 		$sql = "SELECT libraryType FROM libraries WHERE libraryID=?";
 		$libraryType = Zotero_DB::valueQuery($sql, $libraryID);
 		if (!$libraryType) {
-			trigger_error("Owner $libraryID does not exist", E_USER_ERROR);
+			trigger_error("Library $libraryID does not exist", E_USER_ERROR);
 		}
 		Z_Core::$MC->set($cacheKey, $libraryType);
 		return $libraryType;

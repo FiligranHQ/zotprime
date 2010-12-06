@@ -178,12 +178,38 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getAllAdvancedSolr($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
+	/**
+	 * Convert an array of itemIDs for a given library into an array of keys
+	 */
+	public static function idsToKeys($libraryID, $itemIDs) {
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		$sql = "CREATE TEMPORARY TABLE tmpIDs (itemID INTEGER UNSIGNED NOT NULL PRIMARY KEY)";
+		Zotero_DB::query($sql, false, $shardID);
+		$sql = "INSERT INTO tmpIDs VALUES ";
+		Zotero_DB::bulkInsert($sql, $itemIDs, 100, false, $shardID);
+		
+		$sql = "SELECT `key` FROM tmpIDs TI JOIN items I USING (itemID)";
+		$keys = Zotero_DB::columnQuery($sql, false, $shardID);
+		if (!$keys) {
+			$keys = array();
+		}
+		
+		Zotero_DB::query("DROP TEMPORARY TABLE tmpIDs", false, $shardID);
+		
+		return $keys;
+	}
+	
+	
+	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
 		$results = array('items' => array(), 'total' => 0);
 		
 		$query = new SolrQuery();
+		
+		// Fields to return
 		$query->addField("libraryID")->addField("key");
 		
+		// Filter by libraryID
 		$query->addFilterQuery("libraryID:$libraryID");
 		
 		$qParts = array();
@@ -193,6 +219,112 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		if (!$includeTrashed) {
 			$qParts[] = "-deleted:1";
+		}
+		
+		$keys = array();
+		
+		// Pass a list of keys, for when the initial search is done via SQL
+		if (!empty($params['keys'])) {
+			$keys = $params['keys'];
+		}
+		
+		// Tags
+		//
+		// ?tag=foo
+		// ?tag=foo bar // phrase
+		// ?tag=-foo // negation
+		// ?tag=\-foo // literal hyphen (only for first character)
+		// ?tag=foo&tag=bar // AND
+		// ?tag=foo&tagType=0
+		// ?tag=foo bar OR bar&tagType=0
+		$tagSets = Zotero_API::getSearchParamValues($params, 'tag');
+		$tagTypeSets = Zotero_API::getSearchParamValues($params, 'tagType');
+		
+		if ($tagSets || $tagTypeSets) {
+			$sql = "SELECT items.key FROM items WHERE 1 ";
+			$sqlParams = array();
+			
+			if ($tagSets) {
+				$positives = array();
+				$negatives = array();
+				
+				foreach ($tagSets as $set) {
+					$tagIDs = array();
+					
+					foreach ($set['values'] as $tag) {
+						$ids = Zotero_Tags::getIDs($libraryID, $tag);
+						if (!$ids) {
+							$ids = array(0);
+						}
+						$tagIDs = array_merge($tagIDs, $ids);
+					}
+					
+					$tagIDs = array_unique($tagIDs);
+					
+					if ($set['negation']) {
+						$negatives = array_merge($negatives, $tagIDs);
+					}
+					else {
+						$positives = array_merge($positives, $tagIDs);
+					}
+				}
+				
+				if ($positives) {
+					$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
+							WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
+					$sqlParams = array_merge($sqlParams, $positives);
+				}
+				
+				if ($negatives) {
+					$sql .= "AND itemID NOT IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
+							WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
+					$sqlParams = array_merge($sqlParams, $negatives);
+				}
+			}
+			
+			if ($tagTypeSets) {
+				$positives = array();
+				$negatives = array();
+				
+				foreach ($tagTypeSets as $set) {
+					if ($set['negation']) {
+						$negatives = array_merge($negatives, $set['values']);
+					}
+					else {
+						$positives = array_merge($positives, $set['values']);
+					}
+				}
+				
+				if ($positives) {
+					$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
+							WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
+					$sqlParams = array_merge($sqlParams, $positives);
+				}
+				
+				if ($negatives) {
+					$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
+							WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
+					$sqlParams = array_merge($sqlParams, $negatives);
+				}
+			}
+			
+			$tagKeys = Zotero_DB::columnQuery($sql, $sqlParams, Zotero_Shards::getByLibraryID($libraryID));
+			
+			// No matches
+			if (!$tagKeys) {
+				return array(
+					'total' => 0,
+					'items' => array(),
+				);
+			}
+			
+			// Combine with passed keys
+			$keys = array_merge($keys, $tagKeys);
+		}
+		
+		if ($keys) {
+			// Add keys to query
+			$qParts[] = "key:(" . implode(" OR ", $keys) . ")";
 		}
 		
 		$query->setQuery(implode(' AND ', $qParts));
@@ -219,40 +351,23 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Run query
-		$response = Z_Core::$Solr->client->query($query);
+		$response = Z_Core::$Solr->query($query);
 		$response = $response->getResponse();
 		
 		$results['total'] = $response['response']['numFound'];
-		foreach ($response['response']['docs'] as $doc) {
-			$results['items'][] = Zotero_Items::getByLibraryAndKey($doc['libraryID'], $doc['key']);
+		if ($results['total']) {
+			foreach ($response['response']['docs'] as $doc) {
+				$item = Zotero_Items::getByLibraryAndKey($doc['libraryID'], $doc['key']);
+				if (!$item) {
+					error_log("Item {$doc['libraryID']}/{$doc['key']} from Solr not found");
+					$results['total']--;
+					continue;
+				}
+				$results['items'][] = $item;
+			}
 		}
 		
 		return $results;
-		
-		if (!empty($params['fq'])) {
-			if (!is_array($params['fq'])) {
-				$params['fq'] = array($params['fq']);
-			}
-			foreach ($params['fq'] as $fq) {
-				$facet = explode(":", $fq);
-				if (sizeOf($facet) == 2 && preg_match('/-?Tag/', $facet[0])) {
-					$tagIDs = Zotero_Tags::getIDs($libraryID, $facet[1]);
-					if (!$tagIDs) {
-						throw new Exception("Tag '{$facet[1]}' not found", Z_ERROR_TAG_NOT_FOUND);
-					}
-					
-					
-					
-					$sql .= "AND A.itemID ";
-					// If first character is '-', negate
-					$sql .= ($facet[0][0] == '-' ? 'NOT ' : '');
-					$sql .= "IN (SELECT itemID FROM itemTags WHERE tagID IN (";
-					$func = create_function('', "return '?';");
-					$sql .= implode(',', array_map($func, $tagIDs)) . ")) ";
-					$sqlParams = array_merge($sqlParams, $tagIDs);
-				}
-			}
-		}
 	}
 	
 	/*
@@ -423,6 +538,9 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
+	/**
+	 * Store item in internal id-based cache
+	 */
 	public static function cache(Zotero_Item $item) {
 		if (isset($itemsByID[$item->id])) {
 			Z_Core::debug("Item $item->id is already cached");
@@ -900,7 +1018,10 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToAtom(Zotero_Item $item, $content='none', $apiVersion=null) {
+	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null) {
+		$content = $queryParams['content'];
+		$style = $queryParams['style'];
+		
 		$entry = '<entry xmlns="' . Zotero_Atom::$nsAtom . '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>';
 		$xml = new SimpleXMLElement($entry);
 		
@@ -1014,6 +1135,16 @@ class Zotero_Items extends Zotero_DataObjects {
 			$xml->content->div = '';
 			$xml->content->div['xmlns'] = Zotero_Atom::$nsXHTML;
 			$fNode = dom_import_simplexml($xml->content->div);
+			$subNode = dom_import_simplexml($html);
+			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
+			$fNode->appendChild($importedNode);
+		}
+		else if ($content == 'bib') {
+			$xml->content['type'] = 'xhtml';
+			$html = Zotero_Cite::getBibliographyFromCiteServer(array($item), $style);
+			$html = new SimpleXMLElement($html);
+			$html['xmlns'] = Zotero_Atom::$nsXHTML;
+			$fNode = dom_import_simplexml($xml->content);
 			$subNode = dom_import_simplexml($html);
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);

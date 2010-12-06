@@ -430,6 +430,8 @@ class SyncController extends Controller {
 				$this->responseXML['timestamp'] = $timestamp;
 				$this->responseXML->addChild('uploaded');
 				
+				Zotero_Solr::notifyProcessor();
+				
 				$this->end();
 			}
 		}

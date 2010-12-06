@@ -32,6 +32,7 @@ class Zotero_Item {
 	private $dateAdded;
 	private $dateModified;
 	private $serverDateModified;
+	private $serverDateModifiedMS;
 	private $firstCreator;
 	private $numNotes;
 	private $numAttachments;
@@ -905,6 +906,7 @@ class Zotero_Item {
 		
 		$cacheKey = "itemIsDeleted_" . $this->id;
 		$deleted = Z_Core::$MC->get($cacheKey);
+		$deleted = false;
 		if ($deleted !== false) {
 			$deleted = !!$deleted;
 			$this->deleted = $deleted;
@@ -1074,6 +1076,9 @@ class Zotero_Item {
 					}
 					$itemID = $insertID;
 					Zotero_Items::cacheLibraryKeyID($this->libraryID, $key, $insertID);
+					
+					$this->serverDateModified = $timestamp;
+					$this->serverDateModifiedMS = $timestampMS;
 				}
 				
 				// Group item data
@@ -1213,14 +1218,15 @@ class Zotero_Item {
 				
 				// Deleted item
 				if ($this->changedDeleted) {
-					if ($this->deleted) {
+					$deleted = $this->getDeleted();
+					if ($deleted) {
 						$sql = "REPLACE INTO deletedItems (itemID) VALUES (?)";
 					}
 					else {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
 					Zotero_DB::query($sql, $itemID, $shardID);
-					$deleted = Z_Core::$MC->set("itemIsDeleted_" . $itemID, $this->deleted ? 1 : 0);
+					$deleted = Z_Core::$MC->set("itemIsDeleted_" . $itemID, $deleted ? 1 : 0);
 				}
 				
 				
@@ -1455,17 +1461,23 @@ class Zotero_Item {
 						$sqlValues[] = $this->$updateField;
 					}
 				}
+				
+				$timestamp = Zotero_DB::getTransactionTimestamp();
+				$timestampMS = Zotero_DB::getTransactionTimestampMS();
+				
 				// TODO: update dateModified if change is on server?
 				$sql .= "serverDateModified=?, serverDateModifiedMS=? WHERE itemID=?";
 				array_push(
 					$sqlValues,
-					Zotero_DB::getTransactionTimestamp(),
-					Zotero_DB::getTransactionTimestampMS(),
+					$timestamp,
+					$timestampMS,
 					$this->id
 				);
 				
 				Zotero_DB::query($sql, $sqlValues, $shardID);
 				
+				$this->serverDateModified = $timestamp;
+				$this->serverDateModifiedMS = $timestampMS;
 				
 				// Group item data
 				if (Zotero_Libraries::getType($this->libraryID) == 'group' && $userID) {
@@ -1630,14 +1642,15 @@ class Zotero_Item {
 				
 				// Deleted item
 				if ($this->changedDeleted) {
-					if ($this->deleted) {
+					$deleted = $this->getDeleted();
+					if ($deleted) {
 						$sql = "REPLACE INTO deletedItems (itemID) VALUES (?)";
 					}
 					else {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
 					Zotero_DB::query($sql, $this->id, $shardID);
-					$deleted = Z_Core::$MC->set("itemIsDeleted_" . $this->id, $this->deleted ? 1 : 0);
+					Z_Core::$MC->set("itemIsDeleted_" . $this->id, $deleted ? 1 : 0);
 				}
 				
 				
@@ -1899,7 +1912,12 @@ class Zotero_Item {
 		
 		if ($isNew) {
 			Zotero_Items::cache($this);
-			
+		}
+		
+		// Queue item for addition to search index
+		Zotero_Solr::queueItem($this->libraryID, $this->key);
+		
+		if ($isNew) {
 			//Zotero.Notifier.trigger('add', 'item', $this->getID());
 			return $this->id;
 		}
@@ -2775,8 +2793,8 @@ class Zotero_Item {
 	public function toSolrDocument() {
 		$doc = new SolrInputDocument();
 		
-		$uri = Zotero_Atom::getItemURI($this);
-		$doc->addField("uri", str_replace(Zotero_Atom::getBaseURI(), '', $uri));
+		$uri = Zotero_Solr::getItemURI($this->libraryID, $this->key);
+		$doc->addField("uri", $uri);
 		
 		// Primary fields
 		foreach (Zotero_Items::$primaryFields as $field) {
@@ -2807,6 +2825,22 @@ class Zotero_Item {
 			$doc->addField($xmlField, $xmlValue);
 		}
 		
+		// Title for sorting
+		$title = $this->getDisplayTitle(true);
+		$title = $title ? $title : '';
+		// Strip HTML from note titles
+		if ($this->isNote()) {
+			// Clean and strip HTML, giving us an HTML-encoded plaintext string
+			$title = strip_tags($GLOBALS['HTMLPurifier']->purify($title));
+			// Unencode plaintext string
+			$title = html_entity_decode($title);
+		}
+		// Strip some characters
+		$sortTitle = preg_replace("/^[\[\'\"]*(.*)[\]\'\"]*$/", "$1", $title);
+		if ($sortTitle) {
+			$doc->addField('titleSort', $sortTitle);
+		}
+		
 		// Item data
 		$fieldIDs = $this->getUsedFields();
 		foreach ($fieldIDs as $fieldID) {
@@ -2820,6 +2854,7 @@ class Zotero_Item {
 			switch ($fieldName) {
 				// As is
 				case 'title':
+					$val = $title;
 					break;
 				
 				// Date fields
@@ -2845,14 +2880,11 @@ class Zotero_Item {
 					$fieldName .= "_t";
 			}
 			
-			//var_dump('===========');
-			//var_dump($fieldName);
-			//var_dump($val);
 			$doc->addField($fieldName, $val);
 		}
 		
 		// Deleted item flag
-		if ($this->deleted) {
+		if ($this->getDeleted()) {
 			$doc->addField('deleted', true);
 		}
 		
@@ -2943,6 +2975,11 @@ class Zotero_Item {
 		}
 		
 		return $doc;
+	}
+	
+	
+	public function toCSLItem() {
+		return Zotero_Cite::retrieveItem($this);
 	}
 	
 	

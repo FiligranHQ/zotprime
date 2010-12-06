@@ -25,9 +25,9 @@
 */
 
 class Zotero_Date {
-        // Regexes for multipart and SQL dates
-        // Allow zeroes in multipart dates
-        // TODO: Allow negative multipart in DB and here with \-?
+	// Regexes for multipart and SQL dates
+	// Allow zeroes in multipart dates
+	// TODO: Allow negative multipart in DB and here with \-?
 	private static $multipartRE = "/^[0-9]{4}\-(0[0-9]|10|11|12)\-(0[0-9]|[1-2][0-9]|30|31) /";
 	private static $_sqldateRE = "/^\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31)$/";
 	private static $sqldatetimeRE = "/^\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31) ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])$/";

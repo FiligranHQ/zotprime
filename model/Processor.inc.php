@@ -33,7 +33,14 @@ abstract class Zotero_Processor {
 		$this->log("Starting sync processor");
 		
 		$startTime = microtime(true);
-		$processed = $this->processFromQueue();
+		try {
+			$processed = $this->processFromQueue();
+		}
+		catch (Exception $e) {
+			$this->log($e);
+			throw ($e);
+		}
+		
 		$duration = microtime(true) - $startTime;
 		
 		$error = false;
@@ -115,6 +122,20 @@ class Zotero_Error_Processor extends Zotero_Processor {
 		// Tell the upload processor a process is available
 		Zotero_Sync::notifyUploadProcessor('NEXT');
 		Zotero_Sync::notifyErrorProcessor($signal);
+	}
+}
+
+class Zotero_Index_Processor extends Zotero_Processor {
+	protected function log($msg) {
+		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_INDEX, "[" . $this->id . "] $msg");
+	}
+	
+	protected function processFromQueue() {
+		return Zotero_Solr::processFromQueue($this->id);
+	}
+	
+	protected function notifyProcessor($signal) {
+		Zotero_Solr::notifyProcessor($signal);
 	}
 }
 ?>

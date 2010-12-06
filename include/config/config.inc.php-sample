@@ -37,6 +37,9 @@ class Z_CONFIG {
 	public static $MONGO_SAFE_NUM = 2;
 	
 	public static $SOLR_SERVER = "192.168.1.1:8983";
+	public static $CITE_SERVERS = array(
+		"192.168.1.1:8080", "192.168.1.2:8080"
+	);
 	
 	public static $LOG_TO_SCRIBE = false;
 	public static $LOG_TIMEZONE = 'US/Eastern';
@@ -46,12 +49,14 @@ class Z_CONFIG {
 	public static $SYNC_PROCESSOR_PORT_DOWNLOAD = 3455;
 	public static $SYNC_PROCESSOR_PORT_UPLOAD = 3456;
 	public static $SYNC_PROCESSOR_PORT_ERROR = 3457;
+	public static $PROCESSOR_PORT_INDEX = 3458;
 	
 	public static $SYNC_PROCESSOR_LOG_ADDRESS = '';
 	public static $SYNC_PROCESSOR_LOG_PORT = 1463;
 	public static $SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD = 'sync-processor-download';
 	public static $SYNC_PROCESSOR_LOG_TARGET_UPLOAD = 'sync-processor-upload';
 	public static $SYNC_PROCESSOR_LOG_TARGET_ERROR = 'sync-processor-error';
+	public static $PROCESSOR_LOG_TARGET_INDEX = 'processor-index';
 	
 	public static $SYNC_DOWNLOAD_SMALLEST_FIRST = false;
 	public static $SYNC_UPLOAD_SMALLEST_FIRST = false;

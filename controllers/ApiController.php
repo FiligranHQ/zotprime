@@ -51,7 +51,6 @@ class ApiController extends Controller {
 	private $subset;
 	private $fileMode;
 	
-	
 	public function __construct($action, $settings, $extra) {
 		if (!Z_CONFIG::$API_ENABLED) {
 			$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
@@ -247,9 +246,9 @@ class ApiController extends Controller {
 							? (!empty($_GET['info']) ? 'info' : 'download')
 							: false;
 		
-		// Import query parameters
+		// Validate and import query parameters
 		
-		// Handle multiple fq parameters in the CGI-standard way instead of
+		// Handle multiple identical parameters in the CGI-standard way instead of
 		// PHP's foo[]=bar way
 		$getParams = Zotero_URL::proper_parse_str($_SERVER['QUERY_STRING']);
 		
@@ -259,13 +258,44 @@ class ApiController extends Controller {
 				continue;
 			}
 			
+			// Fill defaults
 			$this->queryParams[$key] = $val;
 			
-			if (empty($getParams[$key])) {
+			// Set an arbitrary limit in bib mode, above which we'll return an
+			// error below, since sorting and limiting doesn't make sense for
+			// bibliographies sorted by citeproc-js
+			if (isset($getParams['format']) && $getParams['format'] == 'bib') {
+				switch ($key) {
+					case 'limit':
+						// Use +1 here, since test elsewhere uses just $maxBibliographyItems
+						$this->queryParams['limit'] = Zotero_API::$maxBibliographyItems + 1;
+						break;
+					
+					// Use defaults
+					case 'order':
+					case 'sort':
+					case 'start':
+					case 'content':
+						continue 2;
+				}
+			}
+			
+			if (!isset($getParams[$key])) {
 				continue;
 			}
 			
 			switch ($key) {
+				case 'format':
+					switch ($getParams[$key]) {
+						case 'atom':
+						case 'bib':
+							break;
+						
+						default:
+							continue 3;
+					}
+					break;
+				
 				case 'start':
 				case 'limit':
 					// Enforce max on 'limit'
@@ -280,6 +310,7 @@ class ApiController extends Controller {
 					switch ($getParams[$key]) {
 						case 'none':
 						case 'html':
+						case 'bib':
 						case 'full':
 							break;
 						
@@ -318,6 +349,9 @@ class ApiController extends Controller {
 	
 	
 	public function items() {
+		// TEMP
+		$solr = !empty($_GET['solr']);
+		
 		$itemIDs = array();
 		$items = array();
 		$totalResults = null;
@@ -393,7 +427,7 @@ class ApiController extends Controller {
 			$this->allowMethods(array('GET'));
 			
 			$this->responseXML = Zotero_Items::convertItemToAtom(
-				$item, $this->queryParams['content'], $this->apiVersion
+				$item, $this->queryParams, $this->apiVersion
 			);
 		}
 		// Multiple items
@@ -463,7 +497,12 @@ class ApiController extends Controller {
 				// Top-level items
 				if ($this->subset == 'top') {
 					$title = "Top-Level Items";
-					$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
+					if ($solr) {
+						$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
+					}
+					else {
+						$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
+					}
 				}
 				else if ($this->subset == 'trash') {
 					$title = "Deleted Items";
@@ -499,16 +538,23 @@ class ApiController extends Controller {
 				// All items
 				else {
 					$title = "Items";
-					$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
-					//$results = Zotero_Items::getAllAdvancedSolr($this->objectLibraryID, false, $this->queryParams);
+					// TEMP
+					if ($solr) {
+						$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
+					}
+					else {
+						$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
+					}
 				}
 				
-				if (!empty($results)) {
-					$items = $results['items'];
-					$totalResults = $results['total'];
+				// TEMP
+				if (!$solr) {
+					if (!empty($results)) {
+						$items = $results['items'];
+						$totalResults = $results['total'];
+					}
 				}
 			}
-			
 			
 			// Remove deleted items if not /trash
 			if ($itemIDs) {
@@ -520,48 +566,77 @@ class ApiController extends Controller {
 				}
 			}
 			
-			if ($itemIDs) {
-				$items = Zotero_Items::get($this->objectLibraryID, $itemIDs);
-				
-				// Fake sorting and limiting
-				$totalResults = sizeOf($items);
-				$key = $this->queryParams['order'];
-				$dir = $this->queryParams['sort'];
-				$cmp = create_function(
-					'$a, $b',
-					'$dir = "'.$dir.'" == "asc" ? 1 : -1;
-					if ($a->'.$key.' == $b->'.$key.') {
-						return 0;
-					}
-					else {
-						return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
-				usort($items, $cmp);
-				$items = array_slice(
-					$items,
-					$this->queryParams['start'],
-					$this->queryParams['limit']
-				);
-			}
 			
-			// Remove notes if not user and not public
-			if ($totalResults>0 && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
-				for ($i=0; $i<sizeOf($items); $i++) {
-					if ($items[$i]->isNote()) {
-						array_splice($items, $i, 1);
-						$totalResults--;
-						$i--;
-					}
+			if ($this->queryParams['format'] == 'bib') {
+				if (($itemIDs ? sizeOf($itemIDs) : $results['total']) > Zotero_API::$maxBibliographyItems) {
+					$this->e413("Cannot generate bibliography with more than " . Zotero_API::$maxBibliographyItems . " items");
 				}
 			}
 			
-			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-				$this->uri,
-				$items,
-				$totalResults,
-				$this->queryParams,
-				$this->apiVersion
-			);
+			if ($itemIDs) {
+				// TEMP
+				if ($solr) {
+					$this->queryParams['keys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
+					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
+				}
+				else {
+					$items = Zotero_Items::get($this->objectLibraryID, $itemIDs);
+					
+					// Fake sorting and limiting
+					$totalResults = sizeOf($items);
+					$key = $this->queryParams['order'];
+					$dir = $this->queryParams['sort'];
+					$cmp = create_function(
+						'$a, $b',
+						'$dir = "'.$dir.'" == "asc" ? 1 : -1;
+						if ($a->'.$key.' == $b->'.$key.') {
+							return 0;
+						}
+						else {
+							return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
+					usort($items, $cmp);
+					$items = array_slice(
+						$items,
+						$this->queryParams['start'],
+						$this->queryParams['limit']
+					);
+				}
+			}
+			
+			// TEMP
+			if ($solr) {
+				$items = $results['items'];
+				$totalResults = $results['total'];
+			}
+			
+			// Remove notes if not user and not public
+			for ($i=0; $i<sizeOf($items); $i++) {
+				if ($items[$i]->isNote() && !$this->permissions->canAccess($items[$i]->libraryID, 'notes')) {
+					array_splice($items, $i, 1);
+					$totalResults--;
+					$i--;
+				}
+			}
+			
+			switch ($this->queryParams['format']) {
+				case 'atom':
+					$this->responseXML = Zotero_Atom::createAtomFeed(
+						$this->getFeedNamePrefix($this->objectLibraryID) . $title,
+						$this->uri,
+						$items,
+						$totalResults,
+						$this->queryParams,
+						$this->apiVersion
+					);
+					break;
+				
+				case 'bib':
+					echo Zotero_Cite::getBibliographyFromCiteServer($items, $this->queryParams['style'], $this->queryParams['css']);
+					exit;
+				
+				default:
+					throw new Exception("Invalid format");
+			}
 		}
 		
 		$this->end();
@@ -1136,6 +1211,10 @@ class ApiController extends Controller {
 			// Fake sorting and limiting
 			$totalResults = sizeOf($tags);
 			$key = $this->queryParams['order'];
+			// 'title' order means 'name' for tags
+			if ($key == 'title') {
+				$key = 'name';
+			}
 			$dir = $this->queryParams['sort'];
 			$cmp = create_function(
 				'$a, $b',
@@ -2000,6 +2079,7 @@ class ApiController extends Controller {
 	public function handleException(Exception $e) {
 		switch ($e->getCode()) {
 			case Z_ERROR_TAG_NOT_FOUND:
+			case Z_ERROR_CITESERVER_INVALID_STYLE:
 				$this->e400($e->getMessage());
 		}
 		
@@ -2021,7 +2101,6 @@ class ApiController extends Controller {
 		switch ($e->getCode()) {
 			case Z_ERROR_SHARD_UNAVAILABLE:
 				$this->e503();
-				break;
 		}
 		
 		if (Z_ENV_TESTING_SITE) {

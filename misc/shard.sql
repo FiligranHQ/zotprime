@@ -273,7 +273,7 @@ ALTER TABLE `collections`
   ADD CONSTRAINT `collections_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `creators`
-  ADD CONSTRAINT `creators_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `creators_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `deletedItems`
   ADD CONSTRAINT `deletedItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;

@@ -326,6 +326,11 @@ class Zotero_DataObjects {
 				$libraryID, $key, $timestamp, $timestampMS, $timestamp, $timestampMS
 			);
 			Zotero_DB::query($sql, $params, $shardID);
+			
+			// Queue item for deletion from search index
+			if ($type == 'item') {
+				Zotero_Solr::queueItem($libraryID, $key);
+			}
 		}
 		
 		Zotero_DB::commit();

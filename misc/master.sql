@@ -223,6 +223,11 @@ CREATE TABLE `shards` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+CREATE TABLE `solrQueue` (
+  `itemID` INT(10) UNSIGNED NOT NULL,
+  PRIMARY KEY (`itemID`)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8;
+
 
 CREATE TABLE `storageAccounts` (
   `userID` int(10) unsigned NOT NULL,

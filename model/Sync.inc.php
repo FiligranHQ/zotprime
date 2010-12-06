@@ -471,6 +471,14 @@ class Zotero_Sync {
 			catch (Exception $e) {
 				Z_Core::logError($e);
 			}
+			
+			try {
+				// Index new items
+				Zotero_Solr::notifyProcessor();
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
+			}
 		}
 		// Timeout error
 		else if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
@@ -842,10 +850,8 @@ class Zotero_Sync {
 	 * Remove upload process and locks from database
 	 */
 	public static function removeUploadProcess($syncProcessID) {
-		Zotero_DB::beginTransaction();
 		$sql = "DELETE FROM syncProcesses WHERE syncProcessID=?";
 		Zotero_DB::query($sql, $syncProcessID);
-		Zotero_DB::commit();
 	}
 	
 	
@@ -1656,7 +1662,8 @@ class Zotero_Sync {
 	}
 	
 	
-	private static function getHostID($hostname) {
+	// TODO: move out of here, since this is used in Solr too
+	public static function getHostID($hostname) {
 		$cacheKey = "syncQueueHostID_" . md5($hostname);
 		$hostID = Z_Core::$MC->get($cacheKey);
 		if ($hostID) {

@@ -160,9 +160,8 @@ Z_Core::$MC = new Z_MemcachedClientLocal(
 );
 
 // Solr
-require('Solr.inc.php');
 $parts = explode(":", Z_CONFIG::$SOLR_SERVER);
-Z_Core::$Solr = new Z_Solr(
+Z_Core::$Solr = new SolrClient(
 	array(
 		'hostname' => $parts[0],
 		'login'    => "",

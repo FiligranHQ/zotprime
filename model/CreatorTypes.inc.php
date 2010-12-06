@@ -115,6 +115,8 @@ class Zotero_CreatorTypes {
 	
 	
 	public static function getPrimaryIDForType($itemTypeID) {
+		// TODO: cache
+		
 		$sql = "SELECT creatorTypeID FROM itemTypeCreatorTypes
 			WHERE itemTypeID=? AND primaryField=1";
 		return Zotero_DB::valueQuery($sql, $itemTypeID);

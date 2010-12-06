@@ -219,7 +219,7 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Item) {
-				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams['content'], $apiVersion);
+				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $apiVersion);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Search) {

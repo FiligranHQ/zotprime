@@ -25,16 +25,27 @@
 */
 
 class Zotero_API {
+	public static $maxBibliographyItems = 500;
+	
 	private static $defaultQueryParams = array(
 		'format' => "atom",
 		'order' => "dateAdded",
 		'sort' => "desc",
 		'start' => 0,
 		'limit' => 50,
-		'q' => null,
-		'fq' => null,
+		'q' => '',
+		'pprint' => false,
+		
+		// format='atom'
 		'content' => "html",
-		'pprint' => false
+		
+		// format='bib'
+		'style' => "chicago-note-bibliography",
+		'css' => "inline",
+		
+		// search
+		'tag' => '',
+		'tagType' => ''
 	);
 	
 	
@@ -91,6 +102,12 @@ class Zotero_API {
 		$nonDefault = array();
 		foreach ($params as $key=>$val) {
 			if (isset(self::$defaultQueryParams[$key]) && self::$defaultQueryParams[$key] != $val) {
+				// Don't include 'limit' as a non-default parameter in bib mode,
+				// since it's just used internally to enforce a maximum bib size
+				if ($key == 'limit' && $params['format'] == 'bib' && $val > self::$maxBibliographyItems) {
+					continue;
+				}
+				
 				$nonDefault[$key] = $val;
 			}
 		}
@@ -109,6 +126,48 @@ class Zotero_API {
 			default:
 				return 'asc';
 		}
+	}
+	
+	
+	public static function getSearchParamValues($params, $param) {
+		if (!isset($params[$param])) {
+			return false;
+		}
+		
+		$vals = is_array($params[$param]) ? $params[$param] : array($params[$param]);
+		
+		$sets = array();
+		
+		foreach ($vals as $val) {
+			$val = trim($val);
+			if ($val === '') {
+				continue;
+			}
+			
+			$negation = false;
+			
+			// Negation
+			if ($val[0] == "-") {
+				$negation = true;
+				$val = substr($val, 1);
+			}
+			// Literal hyphen
+			else if (substr($val, 0, 2) == '\-') {
+				$val = substr($val, 1);
+			}
+			
+			// Separate into boolean OR parts
+			$parts = preg_split("/\s+OR\s+/", $val);
+			
+			$val = array(
+				'negation' => $negation,
+				'values' => $parts
+			);
+			
+			$sets[] = $val;
+		}
+		
+		return $sets;
 	}
 	
 	

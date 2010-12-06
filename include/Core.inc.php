@@ -30,7 +30,7 @@ class Z_Core {
 	public static $Solr = null; // Solr
 	
 	public static function debug($str, $level=false) {
-		//error_log($str);
+		//Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $str);
 	}
 	
 	
@@ -47,8 +47,6 @@ class Z_Core {
 	}
 	
 	public static function exitClean() {
-		// Pull in references of global variables
-		extract($GLOBALS, EXTR_REFS|EXTR_SKIP);
 		include('footer.inc.php');
 		exit;
 	}

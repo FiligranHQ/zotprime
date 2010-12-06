@@ -78,6 +78,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 	}
 	
 	
+
 	public static function getAllAdvanced($libraryID, $params) {
 		$results = array('objects' => array(), 'total' => 0);
 		
@@ -94,28 +95,28 @@ class Zotero_Tags extends Zotero_DataObjects {
 			}
 		}
 		
-		if (!empty($params['fq'])) {
-			if (!is_array($params['fq'])) {
-				$params['fq'] = array($params['fq']);
-			}
-			foreach ($params['fq'] as $fq) {
-				$facet = explode(":", $fq);
-				if (sizeOf($facet) == 2 && preg_match('/-?TagType/', $facet[0])) {
-					switch ($facet[1]) {
-						case 0:
-						case 1:
-							break;
-						
-						default:
-							throw new Exception("Invalid tag type '{$facet[1]}'", Z_ERROR_INVALID_GROUP_TYPE);
-					}
-					
-					$sql .= "AND type";
-					// If first character is '-', negate
-					$sql .= ($facet[0][0] == '-' ? '!' : '');
-					$sql .= "=? ";
-					$sqlParams[] = $facet[1];
+		$tagTypeSets = Zotero_API::getSearchParamValues($params, 'tagType');
+		if ($tagTypeSets) {
+			$positives = array();
+			$negatives = array();
+			
+			foreach ($tagTypeSets as $set) {
+				if ($set['negation']) {
+					$negatives = array_merge($negatives, $set['values']);
 				}
+				else {
+					$positives = array_merge($positives, $set['values']);
+				}
+			}
+			
+			if ($positives) {
+				$sql .= "AND type IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ") ";
+				$sqlParams = array_merge($sqlParams, $positives);
+			}
+			
+			if ($negatives) {
+				$sql .= "AND type NOT IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ") ";
+				$sqlParams = array_merge($sqlParams, $negatives);
 			}
 		}
 		

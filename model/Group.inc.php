@@ -697,6 +697,9 @@ class Zotero_Group {
 			Z_Core::logError($e);
 		}
 		
+		// Queue library for deletion from search index
+		Zotero_Solr::queueLibrary($this->libraryID);
+		
 		Zotero_DB::commit();
 		
 		$this->erased = true;

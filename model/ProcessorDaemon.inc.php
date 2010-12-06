@@ -69,7 +69,7 @@ abstract class Zotero_Processor_Daemon {
 	
 	
 	public function run() {
-		$this->log("Starting sync " . $this->name . " processor daemon");
+		$this->log("Starting " . $this->name . " processor daemon");
 		
 		$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
 		$success = socket_bind($socket, Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS, $this->port);
@@ -398,6 +398,32 @@ class Zotero_Error_Processor_Daemon extends Zotero_Processor_Daemon {
 	
 	protected function removeProcess($id) {
 		Zotero_Sync::purgeErrorProcess($id);
+	}
+}
+
+
+class Zotero_Index_Processor_Daemon extends Zotero_Processor_Daemon {
+	protected $name = 'index';
+	
+	public function __construct($config=array()) {
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_INDEX;
+		parent::__construct($config);
+	}
+	
+	public function log($msg) {
+		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_INDEX, $msg);
+	}
+	
+	protected function countQueuedProcesses() {
+		return Zotero_Solr::countQueuedProcesses();
+	}
+	
+	protected function getOldProcesses($host=null, $seconds=null) {
+		return Zotero_Solr::getOldProcesses($seconds);
+	}
+	
+	protected function removeProcess($id) {
+		Zotero_Solr::removeProcess($id);
 	}
 }
 ?>
