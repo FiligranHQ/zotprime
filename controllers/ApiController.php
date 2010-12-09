@@ -603,6 +603,9 @@ class ApiController extends Controller {
 					);
 				}
 			}
+			else if (!isset($results)) {
+				$results = array('items' => array(), 'total' => 0);
+			}
 			
 			// TEMP
 			if ($solr) {
@@ -1260,6 +1263,10 @@ class ApiController extends Controller {
 		// Add a group
 		//
 		if ($this->method == 'POST') {
+			if (!$this->permissions->isSuper()) {
+				$this->e403();
+			}
+			
 			if ($groupID) {
 				$this->e400("POST requests cannot end with a groupID (did you mean PUT?)");
 			}
@@ -1314,6 +1321,10 @@ class ApiController extends Controller {
 		// Update a group
 		//
 		if ($this->method == 'PUT') {
+			if (!$this->permissions->isSuper()) {
+				$this->e403();
+			}
+			
 			if (!$groupID) {
 				$this->e400("PUT requests must end with a groupID (did you mean POST?)");
 			}
@@ -1373,6 +1384,10 @@ class ApiController extends Controller {
 		// Delete a group
 		//
 		if ($this->method == 'DELETE') {
+			if (!$this->permissions->isSuper()) {
+				$this->e403();
+			}
+			
 			if (!$groupID) {
 				$this->e400("DELETE requests must end with a groupID");
 			}
