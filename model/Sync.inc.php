@@ -1099,8 +1099,8 @@ class Zotero_Sync {
 			$doc->documentElement->setAttribute('earliest', $earliestModTime ? $earliestModTime : 0);
 			
 			// Deleted objects
-			$deletedKeys = self::getDeletedObjectKeys($userLibraryID, $lastsync, true);
-			$deletedIDs = self::getDeletedObjectIDs($userLibraryID, $lastsync, true);
+			$deletedKeys = self::getDeletedObjectKeys($userID, $lastsync, true);
+			$deletedIDs = self::getDeletedObjectIDs($userID, $lastsync, true);
 			if ($deletedKeys || $deletedIDs) {
 				$deletedNode = $doc->createElement('deleted');
 				if ($deletedKeys) {
@@ -1685,7 +1685,7 @@ class Zotero_Sync {
 	 *					'libraryID', 'id', and 'rowType' ('key' or 'id'),
 	 * 					FALSE if none, or -1 if last sync time is before start of log
 	 */
-	private static function getDeletedObjectKeys($libraryID, $lastsync, $includeAllUserObjects=false) {
+	private static function getDeletedObjectKeys($userID, $lastsync, $includeAllUserObjects=false) {
 		/*
 		$sql = "SELECT version FROM version WHERE schema='syncdeletelog'";
 		$syncLogStart = Zotero_DB::valueQuery($sql);
@@ -1701,71 +1701,29 @@ class Zotero_Sync {
 		}
 		*/
 		
-		// A subquery here was very slow in MySQL 5.1.33 but should work in MySQL 6
-		
-		/*
-		$sql = "SELECT DISTINCT libraryID, objectType, `key`, timestamp FROM syncDeleteLogKeys WHERE ";
-		$params = array($libraryID);
-		if ($includeAllUserObjects) {
-			$sql .= "(libraryID=? OR libraryID IN
-						(SELECT libraryID FROM groups WHERE groupID IN (";
-			$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
-			$groupIDs = Zotero_Groups::getUserGroups($userID);
-			if ($groupIDs) {
-				$params = array_merge($params, $groupIDs);
-				$q = array();
-				for ($i=0; $i<sizeOf($groupIDs); $i++) {
-					$q[] = '?';
-				}
-				$sql .= implode(',', $q);
-			}
-			$sql .= "))) ";
-		}
-		else {
-			$sql .= "libraryID=? ";
-		}
-		if ($lastsync) {
-			$params[] = $lastsync;
-			$sql .= " AND timestamp>?";
-		}
-		$sql .= " ORDER BY timestamp";
-		*/
-		
 		if (strpos($lastsync, '.') === false) {
 			$lastsync .= '.';
 		}
 		list($timestamp, $timestampMS) = explode(".", $lastsync);
 		
-		$fields = "libraryID, objectType, `key`, timestamp, timestampMS";
-		$sql = "SELECT $fields FROM syncDeleteLogKeys WHERE libraryID=?";
-		$params = array($libraryID);
+		if ($includeAllUserObjects) {
+			$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		}
+		else {
+			$libraryIDs = array(Zotero_Users::getLibraryIDFromUserID($userID));
+		}
+		
+		$sql = "SELECT libraryID, objectType, `key`, timestamp, timestampMS
+				FROM syncDeleteLogKeys WHERE libraryID IN ("
+				. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+				. ")";
+		$params = $libraryIDs;
 		if ($timestamp) {
 			$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
 			$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
 		}
-		if ($includeAllUserObjects) {
-			$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
-			$groupIDs = Zotero_Groups::getUserGroups($userID);
-		}
-		else {
-			$groupIDs = array();
-		}
-		if ($groupIDs) {
-			$sql .= " UNION SELECT $fields FROM syncDeleteLogKeys JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID)
-						WHERE groupID IN (";
-			$params = array_merge($params, $groupIDs);
-			$q = array();
-			for ($i=0; $i<sizeOf($groupIDs); $i++) {
-				$q[] = '?';
-			}
-			$sql .= implode(',', $q) . ")";
-			if ($timestamp) {
-				$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
-				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
-			}
-		}
 		$sql .= " ORDER BY CONCAT(timestamp, '.', IFNULL(timestampMS, 0))";
-		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByUserID($userID));
 		if (!$rows) {
 			return false;
 		}
@@ -1786,7 +1744,7 @@ class Zotero_Sync {
 	}
 	
 	
-	private static function getDeletedObjectIDs($libraryID, $lastsync, $includeAllUserObjects=false) {
+	private static function getDeletedObjectIDs($userID, $lastsync, $includeAllUserObjects=false) {
 		/*
 		$sql = "SELECT version FROM version WHERE schema='syncdeletelog'";
 		$syncLogStart = Zotero_DB::valueQuery($sql);
@@ -1802,45 +1760,24 @@ class Zotero_Sync {
 		}
 		*/
 		
-		// A subquery here was very slow in MySQL 5.1.33 but should work in MySQL 6
-		/*
-		$sql = "SELECT DISTINCT libraryID, objectType, id, timestamp
-					FROM syncDeleteLogIDs WHERE ";
-		$params = array($libraryID);
-		if ($includeAllUserObjects) {
-			$sql .= "(libraryID=? OR libraryID IN
-						(SELECT libraryID FROM groups WHERE groupID IN (";
-			$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
-			$groupIDs = Zotero_Groups::getUserGroups($userID);
-			if ($groupIDs) {
-				$params = array_merge($params, $groupIDs);
-				$q = array();
-				for ($i=0; $i<sizeOf($groupIDs); $i++) {
-					$q[] = '?';
-				}
-				$sql .= implode(',', $q);
-			}
-			$sql .= "))) ";
-		}
-		else {
-			$sql .= "libraryID=? ";
-		}
-		if ($lastsync) {
-			$params[] = $lastsync;
-			$sql .= " AND timestamp>?";
-		}
-		$sql .= " ORDER BY timestamp";
-		*/
-		
 		if (strpos($lastsync, '.') === false) {
 			$lastsync .= '.';
 		}
 		list($timestamp, $timestampMS) = explode(".", $lastsync);
 		$timestampMS = (int) $timestampMS;
 		
-		$fields = "libraryID, objectType, id, timestamp, timestampMS";
-		$sql = "SELECT $fields FROM syncDeleteLogIDs WHERE libraryID=?";
-		$params = array($libraryID);
+		if ($includeAllUserObjects) {
+			$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		}
+		else {
+			$libraryIDs = array(Zotero_Users::getLibraryIDFromUserID($userID));
+		}
+		
+		$sql = "SELECT libraryID, objectType, id, timestamp, timestampMS
+				FROM syncDeleteLogIDs WHERE libraryID IN ("
+				. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+				. ")";
+		$params = $libraryIDs;
 		if ($timestamp) {
 			// Send any entries from before these were being properly sent
 			if ($timestamp < 1260778500) {
@@ -1854,39 +1791,9 @@ class Zotero_Sync {
 				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
 			}
 		}
-		if ($includeAllUserObjects) {
-			$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
-			$groupIDs = Zotero_Groups::getUserGroups($userID);
-		}
-		else {
-			$groupIDs = array();
-		}
-		if ($groupIDs) {
-			$sql .= " UNION SELECT $fields FROM syncDeleteLogIDs JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID)
-						WHERE groupID IN (";
-			$params = array_merge($params, $groupIDs);
-			$q = array();
-			for ($i=0; $i<sizeOf($groupIDs); $i++) {
-				$q[] = '?';
-			}
-			$sql .= implode(',', $q) . ")";
-			if ($timestamp) {
-				// Send any entries from before these were being properly sent
-				if ($timestamp < 1260778500) {
-					$sql .= " AND (CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?
-								OR CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) BETWEEN 1257968068 AND ?)";
-					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
-					$params[] = 1260778500;
-				}
-				else {
-					$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
-					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
-				}
-			}
-		}
 		$sql .= " ORDER BY timestamp";
 		
-		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByUserID($userID));
 		if (!$rows) {
 			return false;
 		}

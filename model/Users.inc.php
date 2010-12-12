@@ -172,35 +172,12 @@ class Zotero_Users {
 	public static function getEarliestDataTimestamp($userID) {
 		$earliest = false;
 		
-		$libraryID = self::getLibraryIDFromUserID($userID);
-		$sql = '';
-		$params = array();
-		foreach (Zotero_DataObjects::$objectTypes as $type) {
-			$className = 'Zotero_' . $type['plural'];
-			$table = call_user_func(array($className, 'field'), 'table');
-			if ($table == 'relations') {
-				$field = 'serverDateModified';
-			}
-			else {
-				$field = 'dateModified';
-			}
-			
-			$sql .= "SELECT UNIX_TIMESTAMP($table.$field) AS time FROM $table WHERE libraryID=?
-						UNION ";
-			$params[] = $libraryID;
-		}
-		$sql = substr($sql, 0, -6) . " ORDER BY time ASC LIMIT 1";
-		$time = Zotero_DB::valueQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
-		if ($time) {
-			$earliest = $time;
-		}
+		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		$shardIDs = Zotero_Shards::getUserShards($userID);
 		
-		$shardIDs = Zotero_Groups::getUserGroupShards($userID);
 		foreach ($shardIDs as $shardID) {
 			$sql = '';
 			$params = array();
-			
-			$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
 			
 			foreach (Zotero_DataObjects::$objectTypes as $type) {
 				$className = 'Zotero_' . $type['plural'];
@@ -213,10 +190,10 @@ class Zotero_Users {
 				}
 				
 				$sql .= "SELECT UNIX_TIMESTAMP($table.$field) AS time FROM $table
-						JOIN $masterDB.groups USING (libraryID)
-						JOIN $masterDB.groupUsers USING (groupID) WHERE userID=?
-						UNION ";
-				$params[] = $userID;
+						WHERE libraryID IN ("
+						. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+						. ") UNION ";
+				$params = array_merge($params, $libraryIDs);
 			}
 			
 			$sql = substr($sql, 0, -6) . " ORDER BY time ASC LIMIT 1";
@@ -233,22 +210,17 @@ class Zotero_Users {
 	public static function getLastStorageSync($userID) {
 		$lastModified = false;
 		
-		$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".users "
-				. "JOIN items USING (libraryID) WHERE userID=? ORDER BY time DESC LIMIT 1";
-		$time = Zotero_DB::valueQuery($sql, $userID, Zotero_Shards::getByUserID($userID));
-		if ($time) {
-			$lastModified = $time;
-		}
+		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		$shardIDs = Zotero_Shards::getUserShards($userID);
 		
-		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
-		$shardIDs = Zotero_Groups::getUserGroupShards($userID);
 		foreach ($shardIDs as $shardID) {
-			$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM $masterDB.groupUsers
-					JOIN $masterDB.groups USING (groupID)
-					JOIN items USING (libraryID) JOIN storageFileItems USING (itemID)
-					WHERE userID=?
+			$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM items
+					JOIN storageFileItems USING (itemID)
+					WHERE libraryID IN ("
+					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+					. ")
 					ORDER BY time DESC LIMIT 1";
-			$time = Zotero_DB::valueQuery($sql, $userID, $shardID);
+			$time = Zotero_DB::valueQuery($sql, $libraryIDs, $shardID);
 			if ($time > $lastModified) {
 				$lastModified = $time;
 			}

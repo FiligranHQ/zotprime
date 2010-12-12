@@ -29,7 +29,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
 		'dateAdded', 'dateModified', 'serverDateModified',
-		'firstCreator', 'numNotes', 'numAttachments');
+		'numNotes', 'numAttachments');
 	private static $maxDataValueLength = 65535;
 	
 	private static $itemsByID = array();
@@ -370,174 +370,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		return $results;
 	}
 	
-	/*
-	 * Generate SQL to retrieve creatorDataHashes for firstCreator field
-	 *
-	 * Format:
-	 *
-	 * 1:  'e48437e66f1e01311ba72d182b8a9a09'
-	 * 2:  'e48437e66f1e01311ba72d182b8a9a09,a4c42d664aa99b73885cc271fdcaa37f'
-	 * 3+: 'e48437e66f1e01311ba72d182b8a9a09,+'
-	 *
-	 * Why do we do this entirely in SQL? Because we're crazy. Crazy like foxes.
-	 */
-	public static function getFirstCreatorHashesSQL() {
-		// TODO: memcache keyed with localizedAnd
-		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
-		
-		/* This whole block is to get the firstCreator */
-		$sql = "COALESCE(" .
-			// First try for primary creator types
-			"CASE (" .
-				"SELECT COUNT(*) FROM itemCreators IC " .
-				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
-				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
-				"WHERE itemID=I.itemID AND primaryField=1 " .
-				"AND ITCT.itemTypeID=I.itemTypeID" .
-			") " .
-			"WHEN 0 THEN NULL " .
-			"WHEN 1 THEN (" .
-				"SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
-				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
-				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
-				"WHERE itemID=I.itemID AND primaryField=1 " .
-				"AND ITCT.itemTypeID=I.itemTypeID" .
-			") " .
-			"WHEN 2 THEN (" .
-				"SELECT CONCAT(" .
-				"(SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
-				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
-				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
-				"WHERE itemID=I.itemID AND primaryField=1 AND ITCT.itemTypeID=I.itemTypeID " .
-				"ORDER BY orderIndex LIMIT 1)" .
-				" , ',' , " .
-				"(SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
-				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
-				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
-				"WHERE itemID=I.itemID AND primaryField=1 AND ITCT.itemTypeID=I.itemTypeID " .
-				"ORDER BY orderIndex LIMIT 1,1))" .
-			") " .
-			"ELSE (" .
-				"SELECT CONCAT(" .
-				"(SELECT creatorDataHash FROM itemCreators IC NATURAL JOIN creators " .
-				"LEFT JOIN $masterDB.itemTypeCreatorTypes ITCT " .
-				"ON (IC.creatorTypeID=ITCT.creatorTypeID) " .
-				"WHERE itemID=I.itemID AND primaryField=1 AND ITCT.itemTypeID=I.itemTypeID " .
-				"ORDER BY orderIndex LIMIT 1)" .
-				" , ',+' )" .
-			") " .
-			"END, " .
-			
-			// Then try editors
-			"CASE (" .
-				"SELECT COUNT(*) FROM itemCreators " .
-				"NATURAL JOIN $masterDB.creatorTypes WHERE itemID=I.itemID AND creatorTypeID IN (3)" .
-			") " .
-			"WHEN 0 THEN NULL " .
-			"WHEN 1 THEN (" .
-				"SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators " .
-				"WHERE itemID=I.itemID AND creatorTypeID IN (3)" .
-			") " .
-			"WHEN 2 THEN (" .
-				"SELECT CONCAT(" .
-				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1)" .
-				" , ',' , " .
-				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1,1)) " .
-			") " .
-			"ELSE (" .
-				"SELECT CONCAT(" .
-				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (3) ORDER BY orderIndex LIMIT 1)" .
-				" , ',+' )" .
-			") " .
-			"END, " .
-			
-			// Then try contributors
-			"CASE (" .
-				"SELECT COUNT(*) FROM itemCreators " .
-				"NATURAL JOIN $masterDB.creatorTypes WHERE itemID=I.itemID AND creatorTypeID IN (2)" .
-			") " .
-			"WHEN 0 THEN NULL " .
-			"WHEN 1 THEN (" .
-				"SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators " .
-				"WHERE itemID=I.itemID AND creatorTypeID IN (2)" .
-			") " .
-			"WHEN 2 THEN (" .
-				"SELECT CONCAT(" .
-				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1)" .
-				" , ',' , " .
-				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1,1)) " .
-			") " .
-			"ELSE (" .
-				"SELECT CONCAT(" .
-				"(SELECT creatorDataHash FROM itemCreators NATURAL JOIN creators WHERE itemID=I.itemID AND creatorTypeID IN (2) ORDER BY orderIndex LIMIT 1)" .
-				" , ',+' )" .
-			") " .
-			"END" .
-		") AS firstCreatorHashes";
-		
-		return $sql;
-	}
-	
-	
-	/**
-	 * Convert hash string from getFirstCreatorHashesSQL() to firstCreator string
-	 */
-	public static function getFirstCreator($hashes) {
-		$localizedAnd = " and ";
-		$etAl = " et al.";
-		
-		if (!is_array($hashes)) {
-			throw new Exception('$hashes is not an array');
-		}
-		
-		$cacheKey = "firstCreator_" . md5(implode('_', $hashes));
-		$firstCreator = Z_Core::$MC->get($cacheKey);
-		if ($firstCreator) {
-			return $firstCreator;
-		}
-		
-		switch (sizeOf($hashes)) {
-			case 1:
-				$firstCreator = Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName");
-/*				if (!$firstCreator) {
-					throw new Exception("Returned firstCreator is empty");
-				}
-*/				break;
-			
-			case 2:
-				if (isset($hashes[1]) && $hashes[1] == "+") {
-					$firstCreator = Z_Core::$Mongo->valueQuery("creatorData", $hashes[0], "lastName");
-/*					if (!$firstCreator) {
-						throw new Exception("Returned firstCreator is empty");
-					}
-*/					$firstCreator .= $etAl;
-				}
-				else {
-					$names = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $hashes)), array("lastName"));
-					
-					$first = $names->getNext();
-					$second = $names->getNext();
-					
-					$firstCreator = $first["_id"] == $hashes[0]
-						? $first["lastName"] . $localizedAnd . $second["lastName"]
-						: $second["lastName"] . $localizedAnd . $first["lastName"];
-					
-/*					if ($firstCreator == $localizedAnd) {
-						throw new Exception("Returned firstCreator is empty");
-					}
-*/				}
-				break;
-			
-			default:
-				throw new Exception('$hashes must have 1 or 2 elements (' . sizeOf($hashes) . ')');
-		}
-		
-		Z_Core::$MC->set($cacheKey, $firstCreator);
-		
-		return $firstCreator;
-	}
-	
-	
 	/**
 	 * Store item in internal id-based cache
 	 */
@@ -867,7 +699,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
-				case 'firstCreator':
 				case 'numAttachments':
 				case 'numNotes':
 					continue (2);
@@ -1130,7 +961,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($item->isRegularItem()) {
 			$xml->addChild(
 				'zapi:creatorSummary',
-				htmlspecialchars($item->firstCreator),
+				htmlspecialchars($item->creatorSummary),
 				Zotero_Atom::$nsZoteroAPI
 			);
 		}
@@ -1187,7 +1018,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	private static function loadItems($libraryID, $itemIDs=array()) {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
-		$sql = 'SELECT I.*, ' . self::getFirstCreatorHashesSQL() . ',
+		$sql = 'SELECT I.*,
 				(SELECT COUNT(*) FROM itemNotes INo
 					WHERE sourceItemID=I.itemID AND INo.itemID NOT IN
 					(SELECT itemID FROM deletedItems)) AS numNotes,
@@ -1195,7 +1026,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					WHERE sourceItemID=I.itemID AND IA.itemID NOT IN
 					(SELECT itemID FROM deletedItems)) AS numAttachments	
 			FROM items I WHERE 1';
-		$q = array();
+		
 		// TODO: optimize
 		if ($itemIDs) {
 			foreach ($itemIDs as $itemID) {
@@ -1203,14 +1034,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					throw new Exception("Invalid itemID $itemID");
 				}
 			}
-			$sql .= ' AND I.itemID IN (';
-			foreach ($itemIDs as $itemID) {
-				$q[] = '?';
-			}
-			$sql .= join(',', $q) . ')';
+			$sql .= ' AND I.itemID IN ('
+					. implode(',', array_fill(0, sizeOf($itemIDs), '?'))
+					. ')';
 		}
 		
-		$stmt = Zotero_DB::getStatement($sql, "loadItems_" . sizeOf($q), $shardID);
+		$stmt = Zotero_DB::getStatement($sql, "loadItems_" . sizeOf($itemIDs), $shardID);
 		$itemRows = Zotero_DB::queryFromStatement($stmt, $itemIDs);
 		$loadedItemIDs = array();
 		
@@ -1248,7 +1077,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			/*
 			_cachedFields = ['itemID', 'itemTypeID', 'dateAdded', 'dateModified',
-				'firstCreator', 'numNotes', 'numAttachments', 'numChildren'];
+				'numNotes', 'numAttachments', 'numChildren'];
 			*/
 			//this._reloadCache = false;
 		}

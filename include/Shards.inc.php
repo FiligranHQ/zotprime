@@ -44,7 +44,7 @@ class Zotero_Shards {
 		//	return $shardInfo;
 		//}
 		
-		$sql = "SELECT address, port, username, password, db,
+		$sql = "SELECT address, port, username, password, db, `ssl`,
 				CASE
 					WHEN shardHosts.state='up' THEN shards.state
 					WHEN shardHosts.state='readonly' THEN
@@ -111,6 +111,19 @@ class Zotero_Shards {
 	}
 	
 	
+	/**
+	 * Returns shardIDs of all shards storing libraries this user belongs to
+	 */
+	public static function getUserShards($userID) {
+		return array_unique(
+			array_merge(
+				array(self::getByUserID($userID)),
+				Zotero_Groups::getUserGroupShards($userID)
+			)
+		);
+	}
+	
+	
 	public static function getNextShard() {
 		// TODO: figure out best shard
 		return 2;
@@ -170,6 +183,7 @@ class Zotero_Shards {
 			'itemRelated',
 			'itemTags',
 			'savedSearchConditions',
+			'shardLibraries',
 			'storageFileItems',
 			'syncDeleteLogIDs',
 			'syncDeleteLogKeys'
@@ -187,9 +201,10 @@ class Zotero_Shards {
 				case 'items':
 				case 'relations':
 				case 'savedSearches':
-				case 'tags':
+				case 'shardLibraries':
 				case 'syncDeleteLogIDs':
 				case 'syncDeleteLogKeys':
+				case 'tags':
 					$sql = "SELECT * FROM $table WHERE libraryID=?";
 					break;
 				
@@ -256,6 +271,7 @@ class Zotero_Shards {
 			'items',
 			'relations',
 			'savedSearches',
+			'shardLibraries',
 			'tags',
 			'syncDeleteLogIDs',
 			'syncDeleteLogKeys'
@@ -281,6 +297,7 @@ class Zotero_Shards {
 			'items',
 			'relations',
 			'savedSearches',
+			'shardLibraries',
 			'tags',
 			'syncDeleteLogIDs',
 			'syncDeleteLogKeys'

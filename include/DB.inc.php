@@ -86,14 +86,25 @@ class Zotero_DB {
 			}
 		}
 		
-		$this->links[$shardID] = new Zend_Db_Adapter_Mysqli(array(
+		$config = array(
 			'host'     => $shardInfo['address'],
 			'port'     => $shardInfo['port'],
 			'username' => $shardInfo['username'],
 			'password' => $shardInfo['password'],
 			'dbname'   => $shardInfo['db'],
-			'charset'  => 'utf8'
-		));
+			'charset'  => 'utf8',
+			
+		);
+		
+		// Requires patch to Zend from http://framework.zend.com/issues/browse/ZF-6140
+		if ($shardInfo['ssl']) {
+			$config['driver_options'] = array(
+				'realConnectFlags' => MYSQLI_CLIENT_SSL,
+				'sslCipher' => 'DHE-RSA-AES256-SHA',
+			);
+		}
+		
+		$this->links[$shardID] = new Zend_Db_Adapter_Mysqli($config);
 		
 		return $this->links[$shardID];
 	}

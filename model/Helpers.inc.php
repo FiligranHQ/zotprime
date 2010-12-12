@@ -91,11 +91,9 @@ class Zotero_Helpers {
 				case 'itemTypeID':
 				case 'itemID':
 				case 'title':
-				//case 'firstCreator':
 				//case 'numAttachments':
 				//case 'numNotes':
 				case 'serverDateModified':
-					// 'continue' apparently is the same as 'break' in PHP's switch
 					continue 2;
 			}
 			

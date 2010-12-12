@@ -180,7 +180,7 @@ CREATE TABLE `relations` (
   PRIMARY KEY (`relationID`),
   UNIQUE KEY `uniqueRelations` (`libraryID`,`subject`,`predicate`,`object`),
   KEY `object` (`libraryID`,`object`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
@@ -208,8 +208,15 @@ CREATE TABLE `savedSearches` (
   `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
   PRIMARY KEY (`searchID`),
   UNIQUE KEY `key` (`libraryID`,`key`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+
+CREATE TABLE IF NOT EXISTS `shardLibraries` (
+  `libraryID` int(10) unsigned NOT NULL,
+  `libraryType` enum('user','group') NOT NULL,
+  PRIMARY KEY (`libraryID`),
+  KEY `libraryType` (`libraryType`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE `storageFileItems` (
@@ -270,32 +277,27 @@ ALTER TABLE `collectionItems`
 
 ALTER TABLE `collections`
   ADD CONSTRAINT `collections_ibfk_1` FOREIGN KEY (`parentCollectionID`) REFERENCES `collections` (`collectionID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `collections_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `collections_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `creators`
-  ADD CONSTRAINT `creators_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `creators_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `deletedItems`
   ADD CONSTRAINT `deletedItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `groupItems`
-  ADD CONSTRAINT `groupItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `groupItems_ibfk_2` FOREIGN KEY (`createdByUserID`) REFERENCES `master`.`users` (`userID`) ON DELETE SET NULL,
-  ADD CONSTRAINT `groupItems_ibfk_3` FOREIGN KEY (`lastModifiedByUserID`) REFERENCES `master`.`users` (`userID`) ON DELETE SET NULL;
+  ADD CONSTRAINT `groupItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `itemAttachments`
   ADD CONSTRAINT `itemAttachments_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `itemAttachments_ibfk_2` FOREIGN KEY (`sourceItemID`) REFERENCES `items` (`itemID`) ON DELETE SET NULL,
-  ADD CONSTRAINT `itemAttachments_ibfk_3` FOREIGN KEY (`charsetID`) REFERENCES `master`.`charsets` (`charsetID`);
+  ADD CONSTRAINT `itemAttachments_ibfk_2` FOREIGN KEY (`sourceItemID`) REFERENCES `items` (`itemID`) ON DELETE SET NULL;
 
 ALTER TABLE `itemCreators`
   ADD CONSTRAINT `itemCreators_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `itemCreators_ibfk_2` FOREIGN KEY (`creatorID`) REFERENCES `creators` (`creatorID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `itemCreators_ibfk_3` FOREIGN KEY (`creatorTypeID`) REFERENCES `master`.`creatorTypes` (`creatorTypeID`);
+  ADD CONSTRAINT `itemCreators_ibfk_2` FOREIGN KEY (`creatorID`) REFERENCES `creators` (`creatorID`) ON DELETE CASCADE;
 
 ALTER TABLE `itemData`
-  ADD CONSTRAINT `itemData_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
-  ADD CONSTRAINT `itemData_ibfk_2` FOREIGN KEY (`fieldID`) REFERENCES `master`.`fields` (`fieldID`);
+  ADD CONSTRAINT `itemData_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `itemNotes`
   ADD CONSTRAINT `itemNotes_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
@@ -306,30 +308,29 @@ ALTER TABLE `itemRelated`
   ADD CONSTRAINT `itemRelated_ibfk_2` FOREIGN KEY (`linkedItemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `items`
-  ADD CONSTRAINT `items_ibfk_1` FOREIGN KEY (`itemTypeID`) REFERENCES `master`.`itemTypes` (`itemTypeID`),
-  ADD CONSTRAINT `items_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `items_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `itemTags`
   ADD CONSTRAINT `itemTags_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
   ADD CONSTRAINT `itemTags_ibfk_2` FOREIGN KEY (`tagID`) REFERENCES `tags` (`tagID`) ON DELETE CASCADE;
 
 ALTER TABLE `relations`
-  ADD CONSTRAINT `relations_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `relations_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `savedSearchConditions`
   ADD CONSTRAINT `savedSearchConditions_ibfk_1` FOREIGN KEY (`searchID`) REFERENCES `savedSearches` (`searchID`) ON DELETE CASCADE;
 
 ALTER TABLE `savedSearches`
-  ADD CONSTRAINT `savedSearches_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `savedSearches_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `storageFileItems`
   ADD CONSTRAINT `storageFileItems_ibfk_2` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `syncDeleteLogIDs`
-  ADD CONSTRAINT `syncDeleteLogIDs_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `syncDeleteLogIDs_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `syncDeleteLogKeys`
-  ADD CONSTRAINT `syncDeleteLogKeys_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `syncDeleteLogKeys_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `tags`
-  ADD CONSTRAINT `tags_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `master`.`libraries` (`libraryID`) ON DELETE CASCADE;
+  ADD CONSTRAINT `tags_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;

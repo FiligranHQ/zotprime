@@ -229,33 +229,36 @@ class Zotero_DataObjects {
 			
 			if ($groupIDs) {
 				$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
+				$joinedLibraryIDs = array();
+				foreach ($joinedGroupIDs as $groupID) {
+					$joinedLibraryIDs[] = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+				}
 				
-				$shardGroupIDs = array();
+				$shardLibraryIDs = array();
 				
 				// Separate groups into shards for querying
 				foreach ($groupIDs as $groupID) {
-					$shardID = Zotero_Shards::getByGroupID($groupID);
-					if (!isset($shardGroupIDs[$shardID])) {
-						$shardGroupIDs[$shardID] = array();
+					$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+					$shardID = Zotero_Shards::getByLibraryID($libraryID);
+					if (!isset($shardLibraryIDs[$shardID])) {
+						$shardLibraryIDs[$shardID] = array();
 					}
-					$shardGroupIDs[$shardID][] = $groupID;
+					$shardLibraryIDs[$shardID][] = $libraryID;
 				}
 				
 				// Send query at each shard
-				foreach ($shardGroupIDs as $shardID=>$groupIDs) {
-					$sql = "SELECT groupID, $id AS id FROM $table "
-							. "JOIN " . Z_CONFIG::$SHARD_MASTER_DB. ".groups "
-							. "USING (libraryID) WHERE (groupID IN (";
-					$q = array_fill(0, sizeOf($groupIDs), '?');
-					$sql .= implode(', ', $q) . ")";
-					$params = $groupIDs;
+				foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
+					$sql = "SELECT libraryID, $id AS id FROM $table
+							WHERE (libraryID IN
+							(" .  implode(', ', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
+					$params = $libraryIDs;
 					$sql .= " AND CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?)";
 					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
 					
-					if ($joinedGroupIDs) {
-						$sql .= " OR groupID IN (";
-						$params = array_merge($params, $joinedGroupIDs);
-						$q = array_fill(0, sizeOf($joinedGroupIDs), '?');
+					if ($joinedLibraryIDs) {
+						$sql .= " OR libraryID IN (";
+						$params = array_merge($params, $joinedLibraryIDs);
+						$q = array_fill(0, sizeOf($joinedLibraryIDs), '?');
 						$sql .= implode(', ', $q) . ")";
 					}
 					
@@ -263,8 +266,7 @@ class Zotero_DataObjects {
 					if ($rows) {
 						// Separate ids by libraryID
 						foreach ($rows as $row) {
-							$libraryID = Zotero_Groups::getLibraryIDFromGroupID($row['groupID']);
-							$updatedByLibraryID[$libraryID][] = $row['id'];
+							$updatedByLibraryID[$row['libraryID']][] = $row['id'];
 						}
 					}
 				}

@@ -33,7 +33,6 @@ class Zotero_Item {
 	private $dateModified;
 	private $serverDateModified;
 	private $serverDateModifiedMS;
-	private $firstCreator;
 	private $numNotes;
 	private $numAttachments;
 	
@@ -42,9 +41,9 @@ class Zotero_Item {
 	private $itemDataLoaded = false;
 	private $relatedItemsLoaded = false;
 	
-	private $firstCreatorHashes = array();
 	private $itemData = array();
 	private $creators = array();
+	private $creatorSummary;
 	
 	private $sourceItem;
 	private $noteTitle = null;
@@ -107,6 +106,9 @@ class Zotero_Item {
 			return $this->getField($field);
 		}
 		switch ($field) {
+			case 'creatorSummary':
+				return $this->getCreatorSummary();
+				
 			case 'deleted':
 				return $this->getDeleted();
 			
@@ -197,11 +199,6 @@ class Zotero_Item {
 		}
 		
 		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
-			// Generate firstCreator string if we only have hashes
-			if ($field == 'firstCreator' && !$this->firstCreator && $this->firstCreatorHashes) {
-				$this->firstCreator = Zotero_Items::getFirstCreator($this->firstCreatorHashes);
-			}
-			
 			Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
 			
 			return $this->$field;
@@ -383,12 +380,17 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT fieldID FROM itemData WHERE itemID=?";
-		if ($asNames) {
-			$sql = "SELECT fieldName FROM " . Z_CONFIG::$SHARD_MASTER_DB . ".fields WHERE fieldID IN ($sql)";
-		}
 		$fields = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$fields) {
 			$fields = array();
+		}
+		
+		if ($asNames) {
+			$fieldNames = array();
+			foreach ($fields as $field) {
+				$fieldNames[] = Zotero_ItemFields::getName($field);
+			}
+			$fields = $fieldNames;
 		}
 		
 		Z_Core::$MC->set($cacheKey, $fields);
@@ -464,10 +466,6 @@ class Zotero_Item {
 					case 'key':
 					case 'serverDateModified':
 						$colSQL = 'I.' . $field;
-						break;
-					
-					case 'firstCreator':
-						$colSQL = Zotero_Items::getFirstCreatorHashesSQL();
 						break;
 					
 					case 'numNotes':
@@ -550,9 +548,7 @@ class Zotero_Item {
 		
 		foreach ($row as $field=>$val) {
 			// Only accept primary field data through loadFromRow()
-			//
-			// firstCreatorHashes is generated via SQL and turns into the firstCreator primary field
-			if (in_array($field, Zotero_Items::$primaryFields) || $field == 'firstCreatorHashes') {
+			if (in_array($field, Zotero_Items::$primaryFields)) {
 				//Zotero.debug("Setting field '" + col + "' to '" + row[col] + "' for item " + this.id);
 				switch ($field) {
 					case 'itemID':
@@ -561,11 +557,6 @@ class Zotero_Item {
 						
 					case 'itemTypeID':
 						$this->setType($val, true);
-						break;
-					
-					case 'firstCreatorHashes':
-						$this->firstCreator = '';
-						$this->firstCreatorHashes = $val ? explode(',', $val) : array();
 						break;
 					
 					default:
@@ -675,14 +666,14 @@ class Zotero_Item {
 	 * via base fields (e.g. label => publisher => studio)
 	 */
 	public function getFieldsNotInType($itemTypeID, $allowBaseConversion=false) {
-		$masterDB = Z_CONFIG::$SHARD_MASTER_DB;
+		$usedFields = self::getUsedFields();
 		
-		$sql = "SELECT fieldID FROM $masterDB.itemTypeFields
-				WHERE itemTypeID=? AND fieldID IN
-					(SELECT fieldID FROM itemData WHERE itemID=?) AND
-				fieldID NOT IN
-					(SELECT fieldID FROM $masterDB.itemTypeFields WHERE itemTypeID=?)";
-			
+		$sql = "SELECT fieldID FROM itemTypeFields
+				WHERE itemTypeID=? AND fieldID IN ("
+				. implode(', ', array_fill(0, sizeOf($usedFields), '?'))
+				. ") AND
+				fieldID NOT IN (SELECT fieldID FROM itemTypeFields WHERE itemTypeID=?)";
+		
 		if ($allowBaseConversion) {
 			trigger_error("Unimplemented", E_USER_ERROR);
 			/*
@@ -703,8 +694,7 @@ class Zotero_Item {
 		
 		return Zotero_DB::columnQuery(
 			$sql,
-			array($this->itemTypeID, $this->id, $itemTypeID),
-			Zotero_Shards::getByLibraryID($this->libraryID)
+			array_merge(array($this->itemTypeID), $usedFields, array($itemTypeID))
 		);
 	}
 	
@@ -752,7 +742,6 @@ class Zotero_Item {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
-				case 'firstCreator':
 				case 'numNotes':
 				case 'numAttachments':
 					trigger_error("Primary field '$field' cannot be changed through setField()", E_USER_ERROR);
@@ -888,6 +877,68 @@ class Zotero_Item {
 			|| $this->changedNote
 			|| $this->changedSource
 			|| $this->changedAttachmentData;
+	}
+	
+	
+	public function getCreatorSummary() {
+		if ($this->creatorSummary !== null) {
+			return $this->creatorSummary;
+		}
+		
+		// TODO: memcache
+		
+		$itemTypeID = $this->getField('itemTypeID');
+		$creators = $this->getCreators();
+		
+		$creatorTypeIDsToTry = array(
+			// First try for primary creator types
+			Zotero_CreatorTypes::getPrimaryIDForType($itemTypeID),
+			// Then try editors
+			Zotero_CreatorTypes::getID('editor'),
+			// Then try contributors
+			Zotero_CreatorTypes::getID('contributor')
+		);
+		
+		$localizedAnd = " and ";
+		$etAl = " et al.";
+		
+		foreach ($creatorTypeIDsToTry as $creatorTypeID) {
+			$loc = array();
+			foreach ($creators as $orderIndex=>$creator) {
+				if ($creator['creatorTypeID'] == $creatorTypeID) {
+					$loc[] = $orderIndex;
+					
+					if (sizeOf($loc) == 3) {
+						break;
+					}
+				}
+			}
+			
+			switch (sizeOf($loc)) {
+				case 0:
+					continue 2;
+				
+				case 1:
+					$creatorSummary = $creators[$loc[0]]['ref']->lastName;
+					break;
+				
+				case 2:
+					$creatorSummary = $creators[$loc[0]]['ref']->lastName
+							. $localizedAnd
+							. $creators[$loc[1]]['ref']->lastName;
+					break;
+				
+				case 3:
+					$creatorSummary = $creators[$loc[0]]['ref']->lastName . $etAl;
+					break;
+			}
+			
+			$this->creatorSummary = $creatorSummary;
+			return $this->creatorSummary;
+		}
+		
+		$this->creatorSummary = '';
+		return '';
 	}
 	
 	
@@ -2366,10 +2417,6 @@ class Zotero_Item {
 					$arr['primary']['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
 					continue;
 				
-				case 'firstCreator':
-					$arr['virtual'][$field] = $this->getField('firstCreator');
-					continue;
-					
 				case 'numNotes':
 				case 'numAttachments':
 					$arr['virtual'][$field] = $this->$field;
@@ -2579,13 +2626,15 @@ class Zotero_Item {
 			return '';
 		}
 		
-		$sql = "SELECT charset FROM itemAttachments
-				JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".charsets USING (charsetID)
-				WHERE itemID=?";
+		$sql = "SELECT charsetID FROM itemAttachments WHERE itemID=?";
 		$charset = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
-		if (!$charset) {
+		if ($charset) {
+			$charset = Zotero_CharacterSets::getName($charset);
+		}
+		else {
 			$charset = '';
 		}
+		
 		$this->attachmentData['charset'] = $charset;
 		return $charset;
 	}
@@ -2800,7 +2849,6 @@ class Zotero_Item {
 		foreach (Zotero_Items::$primaryFields as $field) {
 			switch ($field) {
 				case 'itemID':
-				case 'firstCreator':
 				case 'numAttachments':
 				case 'numNotes':
 					continue (2);

@@ -492,8 +492,8 @@ class Zotero_Group {
 	 * @return {Integer[]}	Array of itemIDs
 	 */
 	public function getItems($asIDs=false) {
-		$sql = "SELECT itemID FROM items JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID) WHERE groupID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$sql = "SELECT itemID FROM items WHERE libraryID=?";
+		$ids = Zotero_DB::columnQuery($sql, $this->libraryID, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$ids) {
 			return array();
 		}
@@ -510,8 +510,8 @@ class Zotero_Group {
 	 * Returns the number of items in the group
 	 */
 	public function numItems() {
-		$sql = "SELECT COUNT(*) FROM items JOIN " . Z_CONFIG::$SHARD_MASTER_DB . ".groups USING (libraryID) WHERE groupID=?";
-		return Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$sql = "SELECT COUNT(*) FROM items WHERE libraryID=?";
+		return Zotero_DB::valueQuery($sql, $this->libraryID, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -677,6 +677,12 @@ class Zotero_Group {
 		$this->logGroupLibraryRemoval();
 		
 		Zotero_Libraries::deleteCachedData($this->libraryID);
+		
+		$sql = "DELETE FROM shardLibraries WHERE libraryID=?";
+		$deleted = Zotero_DB::query($sql, $this->libraryID, Zotero_Shards::getByLibraryID($this->libraryID));
+		if (!$deleted) {
+			throw new Exception("Group not deleted");
+		}
 		
 		$sql = "DELETE FROM libraries WHERE libraryID=?";
 		$deleted = Zotero_DB::query($sql, $this->libraryID);

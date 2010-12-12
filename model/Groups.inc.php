@@ -243,6 +243,18 @@ class Zotero_Groups {
 	}
 	
 	
+	public static function getUserOwnedGroups($userID) {
+		$sql = "SELECT groupID FROM groups G
+				JOIN groupUsers GU ON (G.groupID=GU.groupID AND role='owner')
+				WHERE userID=?";
+		$groups = Zotero_DB::columnQuery($sql, $userID);
+		if (!$groups) {
+			return array();
+		}
+		return $groups;
+	}
+	
+	
 	/**
 	 * Returns shardIDs of all shards storing groups this user belongs to
 	 */
