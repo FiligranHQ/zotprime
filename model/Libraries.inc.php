@@ -30,8 +30,17 @@ class Zotero_Libraries {
 			throw new Exception('$shardID not provided');
 		}
 		
+		Zotero_DB::beginTransaction();
+		
 		$sql = "INSERT INTO libraries (libraryType, shardID) VALUES (?,?)";
-		return Zotero_DB::query($sql, array($type, $shardID));
+		$libraryID = Zotero_DB::query($sql, array($type, $shardID));
+		
+		$sql = "INSERT INTO shardLibraries (libraryID, libraryType) VALUES (?,?)";
+		Zotero_DB::query($sql, array($libraryID, $type), $shardID);
+		
+		Zotero_DB::commit();
+		
+		return $libraryID;
 	}
 	
 	
