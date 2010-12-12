@@ -936,6 +936,15 @@ class Zotero_Items extends Zotero_DataObjects {
 			$c = HTMLPurifier_Config::createDefault();
 			$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
 			$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
+			$c->set('HTML.DefinitionID', 'notes');
+			$c->set('HTML.DefinitionRev', 1);
+			
+			// Don't tidy
+			$c->set('HTML.TidyLevel', 'none');
+			// Allow some things that TinyMCE allows to prevent erroneous conflicts
+			$def = $c->getHTMLDefinition(true);
+			$def->addAttribute('a', 'target', 'Enum#_blank,_self,_target,_top');
+			
 			$HTMLPurifier = new HTMLPurifier($c);
 			$note = $HTMLPurifier->purify($note);
 			$xml->addChild('note', htmlspecialchars($note));
@@ -969,6 +978,15 @@ class Zotero_Items extends Zotero_DataObjects {
 				$c = HTMLPurifier_Config::createDefault();
 				$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
 				$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
+				$c->set('HTML.DefinitionID', 'notes');
+				$c->set('HTML.DefinitionRev', 1);
+				
+				// Don't tidy
+				$c->set('HTML.TidyLevel', 'none');
+				// Allow some things that TinyMCE allows to prevent erroneous conflicts
+				$def = $c->getHTMLDefinition(true);
+				$def->addAttribute('a', 'target', 'Enum#_blank,_self,_target,_top');
+				
 				$HTMLPurifier = new HTMLPurifier($c);
 				$note = $HTMLPurifier->purify($note);
 				$xml->addChild('note', htmlspecialchars($note));
