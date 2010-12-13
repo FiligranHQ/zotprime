@@ -458,6 +458,12 @@ ALTER TABLE `sessions`
 ALTER TABLE `shards`
   ADD CONSTRAINT `shards_ibfk_1` FOREIGN KEY (`shardHostID`) REFERENCES `shardHosts` (`shardHostID`);
 
+ALTER TABLE `solrProcesses`
+  ADD CONSTRAINT `solrProcesses_ibfk_1` FOREIGN KEY (`hostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`);
+
+ALTER TABLE `solrQueue`
+  ADD CONSTRAINT `solrQueue_ibfk_1` FOREIGN KEY (`solrProcessID`) REFERENCES `solrProcesses` (`solrProcessID`) ON DELETE SET NULL ON UPDATE SET NULL;
+
 ALTER TABLE `storageAccounts`
   ADD CONSTRAINT `storageAccounts_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
