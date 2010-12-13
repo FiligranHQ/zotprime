@@ -223,10 +223,22 @@ CREATE TABLE `shards` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+
+CREATE TABLE IF NOT EXISTS `solrProcesses` (
+  `solrProcessID` int(10) unsigned NOT NULL,
+  `hostID` tinyint(3) unsigned NOT NULL,
+  `started` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`solrProcessID`),
+  KEY `hostID` (`hostID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `solrQueue` (
   `itemID` INT(10) UNSIGNED NOT NULL,
   PRIMARY KEY (`itemID`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8;
+
 
 
 CREATE TABLE `storageAccounts` (
