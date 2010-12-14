@@ -244,7 +244,7 @@ class Zotero_Groups {
 	
 	
 	public static function getUserOwnedGroups($userID) {
-		$sql = "SELECT groupID FROM groups G
+		$sql = "SELECT G.groupID FROM groups G
 				JOIN groupUsers GU ON (G.groupID=GU.groupID AND role='owner')
 				WHERE userID=?";
 		$groups = Zotero_DB::columnQuery($sql, $userID);
@@ -252,6 +252,16 @@ class Zotero_Groups {
 			return array();
 		}
 		return $groups;
+	}
+	
+	
+	public static function getUserOwnedGroupLibraries($userID) {
+		$groups = self::getUserOwnedGroups($userID);
+		$libraries = array();
+		foreach ($groups as $group) {
+			$libraries[] = Zotero_Groups::getLibraryIDFromGroupID($group);
+		}
+		return $libraries;
 	}
 	
 	

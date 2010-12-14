@@ -539,26 +539,32 @@ class Zotero_S3 {
 		$libraryBytes = Zotero_DB::valueQuery($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 		$usage['library'] = round($libraryBytes / 1024 / 1024, 1);
 		
-		$ownedGroups = Zotero_Groups::getUserOwnedGroups($userID);
-		$shardIDs = Zotero_Groups::getUserGroupShards($userID);
-		
 		$groupBytes = 0;
 		$usage['groups'] = array();
-		foreach ($shardIDs as $shardID) {
-			$sql = "SELECT G.groupID, SUM(size) AS `bytes` FROM storageFileItems
-					JOIN items I USING (itemID)
-					WHERE groupID IN
-					(" . implode(', ', array_fill(0, sizeOf($ownedGroups), '?')) . ")
-					GROUP BY groupID WITH ROLLUP";
-			$groups = Zotero_DB::query($sql, $ownedGroups, $shardID);
-			if ($groups) {
-				foreach ($groups as $group) {
-					if ($group['groupID']) {
-						$usage['groups'][] = array('id' => $group['groupID'], 'usage' => round($group['bytes'] / 1024 / 1024, 1));
-					}
-					// ROLLUP row
-					else {
-						$groupBytes += $group['bytes'];
+		
+		$ownedLibraries = Zotero_Groups::getUserOwnedGroupLibraries($userID);
+		if ($ownedLibraries) {
+			$shardIDs = Zotero_Groups::getUserGroupShards($userID);
+			
+			foreach ($shardIDs as $shardID) {
+				$sql = "SELECT libraryID, SUM(size) AS `bytes` FROM storageFileItems
+						JOIN items I USING (itemID)
+						WHERE libraryID IN
+						(" . implode(', ', array_fill(0, sizeOf($ownedLibraries), '?')) . ")
+						GROUP BY libraryID WITH ROLLUP";
+				$libraries = Zotero_DB::query($sql, $ownedLibraries, $shardID);
+				if ($libraries) {
+					foreach ($libraries as $library) {
+						if ($library['libraryID']) {
+							$usage['groups'][] = array(
+								'id' => Zotero_Groups::getGroupIDFromLibraryID($library['libraryID']),
+								'usage' => round($library['bytes'] / 1024 / 1024, 1)
+							);
+						}
+						// ROLLUP row
+						else {
+							$groupBytes += $library['bytes'];
+						}
 					}
 				}
 			}
