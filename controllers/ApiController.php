@@ -531,6 +531,9 @@ class ApiController extends Controller {
 					}
 					
 					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
+					if (!$item) {
+						$this->e404("Item not found");
+					}
 					$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
 					$notes = $item->getNotes();
 					$attachments = $item->getAttachments();
