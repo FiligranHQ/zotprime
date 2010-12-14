@@ -211,7 +211,7 @@ class ApiController extends Controller {
 		if (!empty($extra['scopeObjectKey'])) {
 			// Handle incoming requests using ids instead of keys
 			//  - Keys might be all numeric, so only do this if length != 8
-			if (is_numeric($extra['scopeObjectKey']) && strlen($extra['scopeObjectKey']) != 8) {
+			if (preg_match('/[0-9]{8}/', $extra['scopeObjectKey']) && strlen($extra['scopeObjectKey']) != 8) {
 				$this->scopeObjectID = (int) $extra['scopeObjectKey'];
 			}
 			else if (preg_match('/[A-Z0-9]{8}/', $extra['scopeObjectKey'])) {
@@ -229,7 +229,7 @@ class ApiController extends Controller {
 			else if (!empty($_GET['iskey'])) {
 				$this->objectKey = $extra['key'];
 			}
-			else if (is_numeric($extra['key'])) {
+			else if (preg_match('/[0-9]{8}/', $extra['key'])) {
 				$this->objectID = (int) $extra['key'];
 			}
 			else if (preg_match('/[A-Z0-9]{8}/', $extra['key'])) {
@@ -392,7 +392,7 @@ class ApiController extends Controller {
 					$this->e500("A file sync error occurred. Please sync again.");
 				}
 				// If we have an id, make sure this isn't really an all-numeric key
-				if ($this->objectID && strlen($this->objectID) == 8 && is_numeric($this->objectID)) {
+				if ($this->objectID && strlen($this->objectID) == 8 && preg_match('/[0-9]{8}/', $this->objectID)) {
 					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectID);
 					if ($item) {
 						$this->objectKey = $this->objectID;
@@ -511,7 +511,7 @@ class ApiController extends Controller {
 				}
 				else if ($this->subset == 'children') {
 					// If we have an id, make sure this isn't really an all-numeric key
-					if ($this->objectID && strlen($this->objectID) == 8 && is_numeric($this->objectID)) {
+					if ($this->objectID && strlen($this->objectID) == 8 && preg_match('/[0-9]{8}/', $this->objectID)) {
 						$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectID);
 						if ($item) {
 							$this->objectKey = $this->objectID;
