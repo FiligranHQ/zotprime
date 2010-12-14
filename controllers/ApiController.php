@@ -211,7 +211,7 @@ class ApiController extends Controller {
 		if (!empty($extra['scopeObjectKey'])) {
 			// Handle incoming requests using ids instead of keys
 			//  - Keys might be all numeric, so only do this if length != 8
-			if (preg_match('/[0-9]{8}/', $extra['scopeObjectKey']) && strlen($extra['scopeObjectKey']) != 8) {
+			if (preg_match('/^[0-9]+$/', $extra['scopeObjectKey']) && strlen($extra['scopeObjectKey']) != 8) {
 				$this->scopeObjectID = (int) $extra['scopeObjectKey'];
 			}
 			else if (preg_match('/[A-Z0-9]{8}/', $extra['scopeObjectKey'])) {
@@ -229,7 +229,7 @@ class ApiController extends Controller {
 			else if (!empty($_GET['iskey'])) {
 				$this->objectKey = $extra['key'];
 			}
-			else if (preg_match('/[0-9]{8}/', $extra['key'])) {
+			else if (preg_match('/^[0-9]+$/', $extra['key'])) {
 				$this->objectID = (int) $extra['key'];
 			}
 			else if (preg_match('/[A-Z0-9]{8}/', $extra['key'])) {
