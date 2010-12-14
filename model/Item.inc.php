@@ -667,6 +667,9 @@ class Zotero_Item {
 	 */
 	public function getFieldsNotInType($itemTypeID, $allowBaseConversion=false) {
 		$usedFields = self::getUsedFields();
+		if (!$usedFields) {
+			return false;
+		}
 		
 		$sql = "SELECT fieldID FROM itemTypeFields
 				WHERE itemTypeID=? AND fieldID IN ("
