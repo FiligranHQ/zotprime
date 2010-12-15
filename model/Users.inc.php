@@ -27,6 +27,8 @@
 class Zotero_Users {
 	public static $userXMLHash = array();
 	
+	private static $usernamesByID = array();
+	
 	public static function getLibraryIDFromUserID($userID) {
 		$cacheKey = 'userLibraryID_' . $userID;
 		$libraryID = Z_Core::$MC->get($cacheKey);
@@ -69,6 +71,10 @@ class Zotero_Users {
 	
 	
 	public static function getUsername($userID, $skipAutoAdd=false) {
+		if (!empty(self::$usernamesByID[$userID])) {
+			return self::$usernamesByID[$userID];
+		}
+		
 		$sql = "SELECT username FROM users WHERE userID=?";
 		$username = Zotero_DB::valueQuery($sql, $userID);
 		if (!$username && !$skipAutoAdd) {
@@ -85,6 +91,9 @@ class Zotero_Users {
 				throw new Exception("Username for userID $userID not found after fetching from API", Z_ERROR_USER_NOT_FOUND);
 			}
 		}
+		
+		self::$usernamesByID[$userID] = $username;
+		
 		return $username;
 	}
 	
