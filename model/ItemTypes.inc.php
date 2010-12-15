@@ -73,11 +73,19 @@ class Zotero_ItemTypes {
 			return self::$typeIDs[$typeOrTypeID];
 		}
 		
-		$sql = "(SELECT itemTypeID FROM itemTypes WHERE itemTypeID=?) UNION
+		$cacheKey = "itemTypeID_" . $typeOrTypeID;
+		$typeID = Z_Core::$MC->get($cacheKey);
+		if ($typeID) {
+			self::$typeIDs[$typeOrTypeID] = $typeID;
+			return $typeID;
+		}
+		
+		$sql = "(SELECT itemTypeID FROM itemTypes WHERE itemTypeID=?) UNION 
 				(SELECT itemTypeID FROM itemTypes WHERE itemTypeName=?) LIMIT 1";
 		$typeID = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		
 		self::$typeIDs[$typeOrTypeID] = $typeID;
+		Z_Core::$MC->set($cacheKey, $typeID);
 		
 		return $typeID;
 	}
@@ -88,11 +96,19 @@ class Zotero_ItemTypes {
 			return self::$typeNames[$typeOrTypeID];
 		}
 		
-		$sql = "(SELECT itemTypeName FROM itemTypes WHERE itemTypeID=?) UNION
+		$cacheKey = "itemTypeName_" . $typeOrTypeID;
+		$typeName = Z_Core::$MC->get($cacheKey);
+		if ($typeName) {
+			self::$typeNames[$typeOrTypeID] = $typeName;
+			return $typeName;
+		}
+		
+		$sql = "(SELECT itemTypeName FROM itemTypes WHERE itemTypeID=?) UNION 
 				(SELECT itemTypeName FROM itemTypes WHERE itemTypeName=?) LIMIT 1";
 		$typeName = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		
 		self::$typeNames[$typeOrTypeID] = $typeName;
+		Z_Core::$MC->set($cacheKey, $typeName);
 		
 		return $typeName;
 	}
