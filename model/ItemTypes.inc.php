@@ -80,7 +80,7 @@ class Zotero_ItemTypes {
 			return $typeID;
 		}
 		
-		$sql = "(SELECT itemTypeID FROM itemTypes WHERE itemTypeID=?) UNION 
+		$sql = "(SELECT itemTypeID FROM itemTypes WHERE itemTypeID=?) UNION
 				(SELECT itemTypeID FROM itemTypes WHERE itemTypeName=?) LIMIT 1";
 		$typeID = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		
@@ -103,7 +103,7 @@ class Zotero_ItemTypes {
 			return $typeName;
 		}
 		
-		$sql = "(SELECT itemTypeName FROM itemTypes WHERE itemTypeID=?) UNION 
+		$sql = "(SELECT itemTypeName FROM itemTypes WHERE itemTypeID=?) UNION
 				(SELECT itemTypeName FROM itemTypes WHERE itemTypeName=?) LIMIT 1";
 		$typeName = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		

@@ -790,7 +790,7 @@ class Zotero_DB {
 		$queries = array();
 		
 		foreach ($profiler->getQueryProfiles() as $query) {
-			$sql = str_replace("\t", "", str_replace("\n", "", $query->getQuery()));
+			$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
 			$hash = md5($sql);
 			if (isset($queries[$hash])) {
 				$queries[$hash]['count']++;

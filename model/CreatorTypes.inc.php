@@ -66,11 +66,19 @@ class Zotero_CreatorTypes {
 			return self::$typeIDs[$typeOrTypeID];
 		}
 		
+		$cacheKey = "creatorTypeID_" . $typeOrTypeID;
+		$typeID = Z_Core::$MC->get($cacheKey);
+		if ($typeID) {
+			self::$typeIDs[$typeOrTypeID] = $typeID;
+			return $typeID;
+		}
+		
 		$sql = "(SELECT creatorTypeID FROM creatorTypes WHERE creatorTypeID=?) UNION
 				(SELECT creatorTypeID FROM creatorTypes WHERE creatorTypeName=?) LIMIT 1";
 		$typeID = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		
 		self::$typeIDs[$typeOrTypeID] = $typeID;
+		Z_Core::$MC->set($cacheKey, $typeID);
 		
 		return $typeID;
 	}
@@ -81,11 +89,19 @@ class Zotero_CreatorTypes {
 			return self::$typeNames[$typeOrTypeID];
 		}
 		
+		$cacheKey = "creatorTypeName_" . $typeOrTypeID;
+		$typeName = Z_Core::$MC->get($cacheKey);
+		if ($typeName) {
+			self::$typeNames[$typeOrTypeID] = $typeName;
+			return $typeName;
+		}
+		
 		$sql = "(SELECT creatorTypeName FROM creatorTypes WHERE creatorTypeID=?) UNION
 				(SELECT creatorTypeName FROM creatorTypes WHERE creatorTypeName=?) LIMIT 1";
 		$typeName = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		
 		self::$typeNames[$typeOrTypeID] = $typeName;
+		Z_Core::$MC->set($cacheKey, $typeName);
 		
 		return $typeName;
 	}

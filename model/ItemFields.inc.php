@@ -159,7 +159,7 @@ class Zotero_ItemFields {
 			return $fieldID;
 		}
 		
-		$sql = "(SELECT fieldID FROM fields WHERE fieldID=?) UNION 
+		$sql = "(SELECT fieldID FROM fields WHERE fieldID=?) UNION
 				(SELECT fieldID FROM fields WHERE fieldName=?) LIMIT 1";
 		$fieldID = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
@@ -184,7 +184,7 @@ class Zotero_ItemFields {
 			return $fieldName;
 		}
 		
-		$sql = "(SELECT fieldName FROM fields WHERE fieldID=?) UNION 
+		$sql = "(SELECT fieldName FROM fields WHERE fieldID=?) UNION
 				(SELECT fieldName FROM fields WHERE fieldName=?) LIMIT 1";
 		$fieldName = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
