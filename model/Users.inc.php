@@ -75,6 +75,13 @@ class Zotero_Users {
 			return self::$usernamesByID[$userID];
 		}
 		
+		$cacheKey = "usernameByID_" . $userID;
+		$username = Z_Core::$MC->get($cacheKey);
+		if ($username) {
+			self::$usernamesByID[$userID] = $username;
+			return $username;
+		}
+		
 		$sql = "SELECT username FROM users WHERE userID=?";
 		$username = Zotero_DB::valueQuery($sql, $userID);
 		if (!$username && !$skipAutoAdd) {
@@ -93,6 +100,7 @@ class Zotero_Users {
 		}
 		
 		self::$usernamesByID[$userID] = $username;
+		Z_Core::$MC->set($cacheKey, $username);
 		
 		return $username;
 	}
