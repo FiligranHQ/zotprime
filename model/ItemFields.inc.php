@@ -146,10 +146,17 @@ class Zotero_ItemFields {
 
 	
 	public static function getID($fieldOrFieldID) {
-		// TODO: batch load and memcache
+		// TODO: batch load
 		
 		if (isset(self::$fieldIDs[$fieldOrFieldID])) {
 			return self::$fieldIDs[$fieldOrFieldID];
+		}
+		
+		$cacheKey = "itemFieldID_" . $fieldOrFieldID;
+		$fieldID = Z_Core::$MC->get($cacheKey);
+		if ($fieldID) {
+			self::$fieldIDs[$fieldOrFieldID] = $fieldID;
+			return $fieldID;
 		}
 		
 		$sql = "(SELECT fieldID FROM fields WHERE fieldID=?) UNION
@@ -157,16 +164,24 @@ class Zotero_ItemFields {
 		$fieldID = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
 		self::$fieldIDs[$fieldOrFieldID] = $fieldID;
+		Z_Core::$MC->set($cacheKey, $fieldID);
 		
 		return $fieldID;
 	}
 	
 	
 	public static function getName($fieldOrFieldID) {
-		// TODO: batch load and memcache
+		// TODO: batch load
 		
 		if (isset(self::$fieldNames[$fieldOrFieldID])) {
 			return self::$fieldNames[$fieldOrFieldID];
+		}
+		
+		$cacheKey = "itemFieldName_" . $fieldOrFieldID;
+		$fieldName = Z_Core::$MC->get($cacheKey);
+		if ($fieldName) {
+			self::$fieldNames[$fieldOrFieldID] = $fieldName;
+			return $fieldName;
 		}
 		
 		$sql = "(SELECT fieldName FROM fields WHERE fieldID=?) UNION
@@ -174,6 +189,7 @@ class Zotero_ItemFields {
 		$fieldName = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
 		self::$fieldNames[$fieldOrFieldID] = $fieldName;
+		Z_Core::$MC->set($cacheKey, $fieldName);
 		
 		return $fieldName;
 	}
