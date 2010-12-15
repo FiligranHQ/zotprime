@@ -255,16 +255,26 @@ class Zotero_ItemFields {
 			return self::$itemTypeFields[$itemTypeID];
 		}
 		
+		$cacheKey = "itemTypeFields_" . $itemTypeID;
+		$fields = Z_Core::$MC->get($cacheKey);
+		if ($fields !== false) {
+			self::$itemTypeFields[$itemTypeID] = $fields;
+			return $fields;
+		}
+		
 		if (!Zotero_ItemTypes::getID($itemTypeID)) {
 			trigger_error("Invalid item type id '$itemTypeID'", E_USER_ERROR);
 		}
 		
-		$sql = 'SELECT fieldID FROM itemTypeFields
-					WHERE itemTypeID=? ORDER BY orderIndex';
+		$sql = 'SELECT fieldID FROM itemTypeFields WHERE itemTypeID=? ORDER BY orderIndex';
 		$fields = Zotero_DB::columnQuery($sql, $itemTypeID);
+		if (!$fields) {
+			$fields = array();
+		}
 		
-		$fields = $fields ? $fields : array();
 		self::$itemTypeFields[$itemTypeID] = $fields;
+		Z_Core::$MC->set($cacheKey, $fields);
+		
 		return $fields;
 	}
 	
