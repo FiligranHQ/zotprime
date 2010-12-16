@@ -51,6 +51,9 @@ class ApiController extends Controller {
 	private $subset;
 	private $fileMode;
 	
+	private $profile = false;
+	private $profileShard = 0;
+	
 	public function __construct($action, $settings, $extra) {
 		if (!Z_CONFIG::$API_ENABLED) {
 			$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
@@ -71,6 +74,10 @@ class ApiController extends Controller {
 					? strtotime($_SERVER['HTTP_IF_UNMODIFIED_SINCE']) : false;
 			
 			$this->body = trim(file_get_contents("php://input"));
+		}
+		
+		if ($this->profile) {
+			Zotero_DB::profileStart($this->profileShard);
 		}
 		
 		// If HTTP Basic Auth credentials provided, authenticate
@@ -2043,6 +2050,10 @@ class ApiController extends Controller {
 	private function end($responseCode=200) {
 		if (!($this->responseXML instanceof SimpleXMLElement)) {
 			throw new Exception("Response XML not provided");
+		}
+		
+		if ($this->profile) {
+			Zotero_DB::profileEnd($this->profileShard);
 		}
 		
 		$updated = (string) $this->responseXML->updated;

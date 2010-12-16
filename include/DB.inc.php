@@ -789,21 +789,24 @@ class Zotero_DB {
 		
 		$queries = array();
 		
-		foreach ($profiler->getQueryProfiles() as $query) {
-			$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
-			$hash = md5($sql);
-			if (isset($queries[$hash])) {
-				$queries[$hash]['count']++;
-				$queries[$hash]['time'] += $query->getElapsedSecs();
-			}
-			else {
-				$queries[$hash]['sql'] = $sql;
-				$queries[$hash]['count'] = 1;
-				$queries[$hash]['time'] = $query->getElapsedSecs();
-			}
-			if ($query->getElapsedSecs() > $longestTime) {
-				$longestTime  = $query->getElapsedSecs();
-				$longestQuery = $query->getQuery();
+		$profiles = $profiler->getQueryProfiles();
+		if ($profiles) {
+			foreach ($profiles as $query) {
+				$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
+				$hash = md5($sql);
+				if (isset($queries[$hash])) {
+					$queries[$hash]['count']++;
+					$queries[$hash]['time'] += $query->getElapsedSecs();
+				}
+				else {
+					$queries[$hash]['sql'] = $sql;
+					$queries[$hash]['count'] = 1;
+					$queries[$hash]['time'] = $query->getElapsedSecs();
+				}
+				if ($query->getElapsedSecs() > $longestTime) {
+					$longestTime  = $query->getElapsedSecs();
+					$longestQuery = $query->getQuery();
+				}
 			}
 		}
 		
@@ -828,7 +831,9 @@ class Zotero_DB {
 		echo "Longest query: \n" . $longestQuery . "\n";
 		
 		$temp = ob_get_clean();
-		file_put_contents("/tmp/profile_" . $shardID, $temp);
+		
+		$id = substr(md5(uniqid(rand(), true)), 0, 10);
+		file_put_contents("/tmp/profile_" . $shardID . "_" . $id, $temp);
 		
 		$profiler->setEnabled(false);
 	}
