@@ -25,17 +25,17 @@
 */
 
 class Zotero_Groups {
-	private $groups = array();
+	private static $groups = array();
 	
 	public static function get($groupID) {
 		if (!$groupID) {
 			throw new Exception('$groupID not set');
 		}
 		
-		if (isset($groups[$groupID])) {
-			$group = $groups[$groupID];
+		if (isset(self::$groups[$groupID])) {
+			$group = self::$groups[$groupID];
 			if ($group->erased) {
-				unset($groups[$groupID]);
+				unset(self::$groups[$groupID]);
 				return false;
 			}
 			return $group;
@@ -47,9 +47,9 @@ class Zotero_Groups {
 			return false;
 		}
 		
-		$groups[$groupID] = $group;
+		self::$groups[$groupID] = $group;
 		
-		return $groups[$groupID];
+		return self::$groups[$groupID];
 	}
 	
 	
