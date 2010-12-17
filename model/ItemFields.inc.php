@@ -29,6 +29,7 @@ class Zotero_ItemFields {
 	private static $fieldNames = array();
 	private static $customFieldCheck = array();
 	private static $itemTypeFields = array();
+	private static $itemTypeBaseFieldIDCache = array();
 	
 	private static $localizedFields = array(
 			"itemType"			=> "Type",
@@ -171,8 +172,6 @@ class Zotero_ItemFields {
 	
 	
 	public static function getName($fieldOrFieldID) {
-		// TODO: batch load
-		
 		if (isset(self::$fieldNames[$fieldOrFieldID])) {
 			return self::$fieldNames[$fieldOrFieldID];
 		}
@@ -196,16 +195,18 @@ class Zotero_ItemFields {
 	
 	
 	public static function getLocalizedString($itemType, $field) {
-		// unused currently
-		//var typeName = Zotero.ItemTypes.getName(itemType);
-		$fieldName = self::getName($field);
-		
 		// Fields in the items table are special cases
 		switch ($field) {
 			case 'dateAdded':
 			case 'dateModified':
 			case 'itemType':
 				$fieldName = $field;
+				break;
+			
+			default:
+				// unused currently
+				//var typeName = Zotero.ItemTypes.getName(itemType);
+				$fieldName = self::getName($field);
 		}
 		
 		// TODO: different labels for different item types
@@ -223,7 +224,7 @@ class Zotero_ItemFields {
 	 */
 	public static function validate($field, $value) {
 		if (empty($field)) {
-			trigger_error("Field not provided", E_USER_ERROR);
+			throw new Exception("Field not provided");
 		}
 		
 		switch ($field) {
@@ -237,11 +238,11 @@ class Zotero_ItemFields {
 	
 	public static function isValidForType($fieldID, $itemTypeID) {
 		if (!self::getID($fieldID)) {
-			trigger_error("Invalid fieldID '$fieldID'", E_USER_ERROR);
+			throw new Exception("Invalid fieldID '$fieldID'");
 		}
 		
 		if (!Zotero_ItemTypes::getID($itemTypeID)) {
-			trigger_error("Invalid item type id '$itemTypeID'", E_USER_ERROR);
+			throw new Exception("Invalid item type id '$itemTypeID'");
 		}
 		
 		$sql = "SELECT COUNT(*) FROM itemTypeFields WHERE
@@ -263,7 +264,7 @@ class Zotero_ItemFields {
 		}
 		
 		if (!Zotero_ItemTypes::getID($itemTypeID)) {
-			trigger_error("Invalid item type id '$itemTypeID'", E_USER_ERROR);
+			throw new Exception("Invalid item type id '$itemTypeID'");
 		}
 		
 		$sql = 'SELECT fieldID FROM itemTypeFields WHERE itemTypeID=? ORDER BY orderIndex';
@@ -282,7 +283,7 @@ class Zotero_ItemFields {
 	public static function isBaseField($field) {
 		$fieldID = self::getID($field);
 		if (!$fieldID) {
-			trigger_error("Invalid field '$field'", E_USER_ERROR);
+			throw new Exception("Invalid field '$field'");
 		}
 		
 		$sql = "SELECT COUNT(*) FROM baseFieldMappings WHERE baseFieldID=?";
@@ -293,12 +294,12 @@ class Zotero_ItemFields {
 	public static function isFieldOfBase($field, $baseField) {
 		$fieldID = self::getID($field);
 		if (!$fieldID) {
-			trigger_error("Invalid field '$field'", E_USER_ERROR);
+			throw new Exception("Invalid field '$field'");
 		}
 		
 		$baseFieldID = self::getID($baseField);
 		if (!$baseFieldID) {
-			trigger_error("Invalid field '$baseField' for base field", E_USER_ERROR);
+			throw new Exception("Invalid field '$baseField' for base field");
 		}
 		
 		if ($fieldID == $baseFieldID) {
@@ -329,14 +330,34 @@ class Zotero_ItemFields {
 	 * Accepts names or ids
 	 */
 	public static function getFieldIDFromTypeAndBase($itemType, $baseField) {
+		// Check local cache
+		if (isset(self::$itemTypeBaseFieldIDCache[$itemType][$baseField])) {
+			return self::$itemTypeBaseFieldIDCache[$itemType][$baseField];
+		}
+		
+		// Check memcached
+		$cacheKey = "itemTypeBaseFieldID_" . $itemType . "_" . $baseField;
+		$fieldID = Z_Core::$MC->get($cacheKey);
+		if ($fieldID !== false) {
+			if (!isset(self::$itemTypeBaseFieldIDCache[$itemType])) {
+				self::$itemTypeBaseFieldIDCache[$itemType] = array();
+			}
+			// FALSE is stored as 0
+			if ($fieldID == 0) {
+				$fieldID = false;
+			}
+			self::$itemTypeBaseFieldIDCache[$itemType][$baseField] = $fieldID;
+			return $fieldID;
+		}
+		
 		$itemTypeID = Zotero_ItemTypes::getID($itemType);
 		if (!$itemTypeID) {
-			trigger_error("Invalid item type '$itemType'", E_USER_ERROR);
+			throw new Exception("Invalid item type '$itemType'");
 		}
 		
 		$baseFieldID = self::getID($baseField);
 		if (!$baseFieldID) {
-			trigger_error("Invalid field '$baseField' for base field", E_USER_ERROR);
+			throw new Exception("Invalid field '$baseField' for base field");
 		}
 		
 		$sql = "SELECT fieldID FROM baseFieldMappings
@@ -344,8 +365,20 @@ class Zotero_ItemFields {
 				UNION
 				SELECT baseFieldID FROM baseFieldMappings
 					WHERE itemTypeID=? AND baseFieldID=?";
-		return Zotero_DB::valueQuery($sql,
-			array($itemTypeID, $baseFieldID, $itemTypeID, $baseFieldID));
+		$fieldID =  Zotero_DB::valueQuery(
+			$sql,
+			array($itemTypeID, $baseFieldID, $itemTypeID, $baseFieldID)
+		);
+		
+		// Store in local cache
+		if (!isset(self::$itemTypeBaseFieldIDCache[$itemType])) {
+			self::$itemTypeBaseFieldIDCache[$itemType] = array();
+		}
+		self::$itemTypeBaseFieldIDCache[$itemType][$baseField] = $fieldID;
+		// Store in memcached (and store FALSE as 0)
+		Z_Core::$MC->set($cacheKey, $fieldID ? $fieldID : 0);
+		
+		return $fieldID;
 	}
 	
 	
@@ -364,16 +397,16 @@ class Zotero_ItemFields {
 	public static function getBaseIDFromTypeAndField($itemType, $typeField) {
 		$itemTypeID = Zotero_ItemTypes::getID($itemType);
 		if (!$itemTypeID) {
-			trigger_error("Invalid item type '$itemType'", E_USER_ERROR);
+			throw new Exception("Invalid item type '$itemType'");
 		}
 		
 		$typeFieldID = self::getID($typeField);
 		if (!$typeFieldID) {
-			trigger_error("Invalid field '$typeField'", E_USER_ERROR);
+			throw new Exception("Invalid field '$typeField'");
 		}
 		
 		if (!self::isValidForType($typeFieldID, $itemTypeID)) {
-			trigger_error("'$typeField' is not a valid field for '$itemType'", E_USER_ERROR);
+			throw new Exception("'$typeField' is not a valid field for '$itemType'");
 		}
 		
 		// If typeField is already a base field, just return that
@@ -394,7 +427,7 @@ class Zotero_ItemFields {
 	public static function getTypeFieldsFromBase($baseField, $asNames=false) {
 		$baseFieldID = self::getID($baseField);
 		if (!$baseFieldID) {
-			trigger_error("Invalid base field '$baseField'", E_USER_ERROR);
+			throw new Exception("Invalid base field '$baseField'");
 		}
 		
 		if ($asNames) {
@@ -422,7 +455,7 @@ class Zotero_ItemFields {
 		$sql = "SELECT custom FROM fields WHERE fieldID=?";
 		$isCustom = Zotero_DB::valueQuery($sql, $fieldID);
 		if ($isCustom === false) {
-			trigger_error("Invalid fieldID '$fieldID'", E_USER_ERROR);
+			throw new Exception("Invalid fieldID '$fieldID'");
 		}
 		
 		self::$customFieldCheck[$fieldID] = !!$isCustom;

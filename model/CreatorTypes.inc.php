@@ -27,6 +27,7 @@
 class Zotero_CreatorTypes {
 	private static $typeIDs = array();
 	private static $typeNames = array();
+	private static $primaryIDCache = array();
 	
 	private static $localizedStrings = array(
 		"author"				=> "Author",
@@ -131,11 +132,29 @@ class Zotero_CreatorTypes {
 	
 	
 	public static function getPrimaryIDForType($itemTypeID) {
-		// TODO: cache
+		// Check local cache
+		if (isset(self::$primaryIDCache[$itemTypeID])) {
+			return self::$primaryIDCache[$itemTypeID];
+		}
+		
+		// Check memcached
+		$cacheKey = "primaryCreatorTypeID_" . $itemTypeID;
+		$creatorTypeID = Z_Core::$MC->get($cacheKey);
+		if ($creatorTypeID) {
+			self::$primaryIDCache[$itemTypeID] = $creatorTypeID;
+			return $creatorTypeID;
+		}
+
 		
 		$sql = "SELECT creatorTypeID FROM itemTypeCreatorTypes
 			WHERE itemTypeID=? AND primaryField=1";
-		return Zotero_DB::valueQuery($sql, $itemTypeID);
+		$creatorTypeID = Zotero_DB::valueQuery($sql, $itemTypeID);
+		
+		// Store in local cache and memcached
+		self::$primaryIDCache[$itemTypeID] = $creatorTypeID;
+		Z_Core::$MC->set($cacheKey, $creatorTypeID);
+		
+		return $creatorTypeID;
 	}
 	
 	
