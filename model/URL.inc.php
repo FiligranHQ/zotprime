@@ -5,6 +5,9 @@
 
 class Zotero_URL {
 	/**
+	 * Handle multiple identical parameters in the CGI-standard way instead of
+	 * PHP's foo[]=bar way
+	 *
 	 * By Evan K on http://us.php.net/manual/en/function.parse-str.php
 	 */
 	public static function proper_parse_str($str) {
