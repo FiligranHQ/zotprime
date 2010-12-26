@@ -167,6 +167,7 @@ class Zotero_Shards {
 		Zotero_DB::query("SET foreign_key_checks=0", false, $newShardID);
 		
 		$tables = array(
+			'shardLibraries',
 			'collections',
 			'creators',
 			'items',
@@ -183,7 +184,6 @@ class Zotero_Shards {
 			'itemRelated',
 			'itemTags',
 			'savedSearchConditions',
-			'shardLibraries',
 			'storageFileItems',
 			'syncDeleteLogIDs',
 			'syncDeleteLogKeys'
