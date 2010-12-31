@@ -377,7 +377,7 @@ class ApiController extends Controller {
 		
 		// TEMP
 		//$solr = !empty($_GET['solr']);
-		$solr = false;
+		$solr = true;
 		
 		$itemIDs = array();
 		$items = array();
@@ -2086,6 +2086,8 @@ class ApiController extends Controller {
 			throw new Exception("Non-English locales are not yet supported");
 		}
 		
+		$locale = empty($_GET['locale']) ? 'en-US' : $_GET['locale'];
+		
 		if ($this->subset == 'itemTypeCreatorTypes') {
 			if (empty($_GET['itemType'])) {
 				$this->e400("'itemType' not provided");
@@ -2100,7 +2102,7 @@ class ApiController extends Controller {
 			
 			// Notes and attachments don't have creators
 			if ($itemType == 'note' || $itemType == 'attachment') {
-				echo "[]";
+				echo "{[]}";
 				exit;
 			}
 		}
@@ -2123,18 +2125,23 @@ class ApiController extends Controller {
 		
 		switch ($this->subset) {
 			case 'itemTypes':
-				$rows = Zotero_ItemTypes::getAll(true);
+				$rows = Zotero_ItemTypes::getAll($locale);
 				$propName = 'itemType';
 				break;
 			
 			case 'itemFields':
-				$rows = Zotero_ItemFields::getAll(true);
+				$rows = Zotero_ItemFields::getAll($locale);
 				$propName = 'field';
 				break;
 			
 			case 'itemTypeCreatorTypes':
-				$rows = Zotero_CreatorTypes::getTypesForItemType($itemTypeID, true);
+				$rows = Zotero_CreatorTypes::getTypesForItemType($itemTypeID, $locale);
 				$propName = 'creatorType';
+				break;
+			
+			case 'creatorFields':
+				$rows = Zotero_Creators::getLocalizedFieldNames();
+				$propName = 'field';
 				break;
 		}
 		

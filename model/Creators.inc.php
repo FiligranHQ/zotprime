@@ -416,6 +416,37 @@ class Zotero_Creators extends Zotero_DataObjects {
 	}
 	
 	
+	public static function getLocalizedFieldNames($locale='en-US') {
+		if ($locale != 'en-US') {
+			throw new Exception("Locale not yet supported");
+		}
+		
+		$fields = array('firstName', 'lastName', 'name');
+		$rows = array();
+		foreach ($fields as $field) {
+			$rows[] = array('name' => $field);
+		}
+		
+		foreach ($rows as &$row) {
+			switch ($row['name']) {
+				case 'firstName':
+					$row['localized'] = 'First';
+					break;
+				
+				case 'lastName':
+					$row['localized'] = 'Last';
+					break;
+				
+				case 'name':
+					$row['localized'] = 'Name';
+					break;
+			}
+		}
+		
+		return $rows;
+	}
+	
+	
 	public static function purge() {
 		trigger_error("Unimplemented", E_USER_ERROR);
 	}

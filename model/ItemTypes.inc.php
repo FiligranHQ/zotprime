@@ -115,13 +115,17 @@ class Zotero_ItemTypes {
 	}
 	
 	
-	public static function getLocalizedString($typeOrTypeID) {
+	public static function getLocalizedString($typeOrTypeID, $locale='en-US') {
+		if ($locale != 'en-US') {
+			throw new Exception("Locale not yet supported");
+		}
+		
 		$itemType = self::getName($typeOrTypeID);
 		return self::$localizedStrings[$itemType];
 	}
 	
 	
-	public static function getAll($includeLocalized=false) {
+	public static function getAll($locale=false) {
 		$sql = "SELECT itemTypeID AS id, itemTypeName AS name FROM itemTypes";
 		// TEMP - skip nsfReviewer and attachment
 		$sql .= " WHERE itemTypeID NOT IN (14,10001)";
@@ -129,12 +133,12 @@ class Zotero_ItemTypes {
 		
 		// TODO: cache
 		
-		if (!$includeLocalized) {
+		if (!$locale) {
 			return $rows;
 		}
 		
 		foreach ($rows as &$row) {
-			$row['localized'] =  self::getLocalizedString($row['id']);
+			$row['localized'] =  self::getLocalizedString($row['id'], $locale);
 		}
 		
 		usort($rows, function ($a, $b) {

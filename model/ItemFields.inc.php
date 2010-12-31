@@ -198,7 +198,11 @@ class Zotero_ItemFields {
 	}
 	
 	
-	public static function getLocalizedString($itemType, $field) {
+	public static function getLocalizedString($itemType, $field, $locale='en-US') {
+		if ($locale != 'en-US') {
+			throw new Exception("Locale not yet supported");
+		}
+		
 		// Fields in the items table are special cases
 		switch ($field) {
 			case 'dateAdded':
@@ -219,7 +223,7 @@ class Zotero_ItemFields {
 	}
 	
 	
-	public static function getAll($includeLocalized=false) {
+	public static function getAll($locale=false) {
 		$sql = "SELECT DISTINCT fieldID AS id, fieldName AS name
 				FROM fields JOIN itemTypeFields USING (fieldID)";
 		// TEMP - skip nsfReviewer fields
@@ -228,12 +232,12 @@ class Zotero_ItemFields {
 		
 		// TODO: cache
 		
-		if (!$includeLocalized) {
+		if (!$locale) {
 			return $rows;
 		}
 		
 		foreach ($rows as &$row) {
-			$row['localized'] =  self::getLocalizedString(false, $row['id']);
+			$row['localized'] =  self::getLocalizedString(false, $row['id'], $locale);
 		}
 		
 		usort($rows, function ($a, $b) {

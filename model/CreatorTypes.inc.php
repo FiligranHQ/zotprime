@@ -108,24 +108,27 @@ class Zotero_CreatorTypes {
 	}
 	
 	
-	public static function getLocalizedString($typeOrTypeID) {
+	public static function getLocalizedString($typeOrTypeID, $locale='en-US') {
+		if ($locale != 'en-US') {
+			throw new Exception("Locale not yet supported");
+		}
 		$type = self::getName($typeOrTypeID);
 		return self::$localizedStrings[$type];
 	}
 	
 	
-	public static function getTypesForItemType($itemTypeID, $localized=false) {
+	public static function getTypesForItemType($itemTypeID, $locale=false) {
 		$sql = "SELECT creatorTypeID AS id, creatorTypeName AS name
 			FROM itemTypeCreatorTypes NATURAL JOIN creatorTypes
 			WHERE itemTypeID=? ORDER BY primaryField=1 DESC";
 		$rows = Zotero_DB::query($sql, $itemTypeID);
 		
-		if (!$localized) {
+		if (!$locale) {
 			return $rows;
 		}
 		
 		foreach ($rows as &$row) {
-			$row['localized'] =  self::getLocalizedString($row['id']);
+			$row['localized'] =  self::getLocalizedString($row['id'], $locale);
 		}
 		
 		$primary = array_shift($rows);
