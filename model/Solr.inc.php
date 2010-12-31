@@ -83,7 +83,7 @@ class Zotero_Solr {
 		// TEMP
 		return;
 		
-		$sql = "INSERT IGNORE INTO solrQueue (libraryID, `key`) VALUES ";
+		$sql = "INSERT IGNORE INTO solrQueue (libraryID, `key`) VALUES (?,?)";
 		Zotero_DB::query($sql, array($libraryID, ''));
 	}
 	
@@ -123,15 +123,11 @@ class Zotero_Solr {
 	
 	
 	public static function processFromQueue($solrProcessID) {
-		// Update host id field with the host processing the data
-		$hostname = gethostname();
-		$hostID = Zotero_Sync::getHostID($hostname);
-		if (!$hostID) {
-			throw new Exception("Host ID not found for hostname '$hostname'");
-		}
+		// Update host field with the host processing the data
+		$addr = gethostbyname(gethostname());
 		
-		$sql = "INSERT INTO solrProcesses (solrProcessID, hostID) VALUES (?, ?)";
-		Zotero_DB::query($sql, array($solrProcessID, $hostID));
+		$sql = "INSERT INTO solrProcesses (solrProcessID, processorHost) VALUES (?, INET_ATON(?))";
+		Zotero_DB::query($sql, array($solrProcessID, $addr));
 		
 		$updateItems = array();
 		$deletePairs = array();
@@ -143,12 +139,13 @@ class Zotero_Solr {
 			if (!$pair['key']) {
 				if (Zotero_Libraries::exists($pair['libraryID'])) {
 					// For now, ignore existing library
-					Z_Core::logError("");
+					//Z_Core::logError("");
 					continue;
 				}
 				
 				// Delete by query
 				$deleteLibraries[] = $pair['libraryID'];
+				continue;
 			}
 			
 			$item = Zotero_Items::getByLibraryAndKey($pair['libraryID'], $pair['key']);
@@ -196,11 +193,10 @@ class Zotero_Solr {
 	
 	public static function getOldProcesses($host=null, $seconds=60) {
 		$sql = "SELECT DISTINCT solrProcessID FROM solrProcesses
-				LEFT JOIN syncQueueHosts ON (hostID=syncQueueHostID)
 				WHERE started < NOW() - INTERVAL ? SECOND";
 		$params = array($seconds);
 		if ($host) {
-			$sql .= " AND hostname=?";
+			$sql .= " AND processorHost=INET_ATON(?)";
 			$params[] = $host;
 		}
 		return Zotero_DB::columnQuery($sql, $params);
@@ -210,26 +206,6 @@ class Zotero_Solr {
 	public static function removeProcess($solrProcessID) {
 		$sql = "DELETE FROM solrProcesses WHERE solrProcessID=?";
 		Zotero_DB::query($sql, $solrProcessID);
-	}
-	
-	
-	public static function notifyProcessor($signal="NEXT") {
-		// TEMP
-		return;
-		
-		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$PROCESSOR_PORT_INDEX;
-		
-		$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		// Enable broadcast
-		if (preg_match('/\.255$/', $addr)) {
-			socket_set_option($socket, SOL_SOCKET, SO_BROADCAST, 1);
-		}
-		$success = socket_sendto($socket, $signal, strlen($signal), MSG_EOF, $addr, $port);
-		if (!$success) {
-			$code = socket_last_error($socket);
-			throw new Exception(socket_strerror($code));
-		}
 	}
 }
 ?>

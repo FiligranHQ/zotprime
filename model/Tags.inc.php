@@ -68,6 +68,28 @@ class Zotero_Tags extends Zotero_DataObjects {
 	/*
 	 * Returns array of all tagIDs for this tag (of all types)
 	 */
+	public static function getID($libraryID, $name, $type) {
+		if (!$libraryID) {
+			throw new Exception("Library ID not provided");
+		}
+		
+		$name = trim($name);
+		//$lcname = strtolower($name);
+		$type = (int) $type;
+		
+		// TODO: cache
+		
+		$sql = "SELECT tagID FROM tags WHERE name=? AND type=? AND libraryID=?";
+		$params = array($name, $type, $libraryID);
+		$tagID = Zotero_DB::valueQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		
+		return $tagID;
+	}
+	
+	
+	/*
+	 * Returns array of all tagIDs for this tag (of all types)
+	 */
 	public static function getIDs($libraryID, $name) {
 		$sql = "SELECT tagID FROM tags WHERE libraryID=? AND name=?";
 		$tagIDs = Zotero_DB::columnQuery($sql, array($libraryID, $name), Zotero_Shards::getByLibraryID($libraryID));

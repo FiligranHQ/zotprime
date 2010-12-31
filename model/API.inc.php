@@ -44,6 +44,7 @@ class Zotero_API {
 		'css' => "inline",
 		
 		// search
+		'key' => '',
 		'tag' => '',
 		'tagType' => ''
 	);
@@ -75,6 +76,11 @@ class Zotero_API {
 	
 	public static function getCollectionURI(Zotero_Collection $collection) {
 		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
+	}
+	
+	
+	public static function getItemsURI($libraryID) {
+		return self::getLibraryURI($libraryID) . "/items";
 	}
 	
 	
@@ -157,7 +163,7 @@ class Zotero_API {
 			}
 			
 			// Separate into boolean OR parts
-			$parts = preg_split("/\s+OR\s+/", $val);
+			$parts = preg_split("/\s+||\s+/", $val);
 			
 			$val = array(
 				'negation' => $negation,

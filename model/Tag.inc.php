@@ -92,7 +92,7 @@ class Zotero_Tag {
 	
 	
 	/**
-	 * Check if tag exists in the database
+	 * Check if tag exists in the database          
 	 *
 	 * @return	bool			TRUE if the item exists, FALSE if not
 	 */
@@ -103,6 +103,38 @@ class Zotero_Tag {
 		
 		$sql = "SELECT COUNT(*) FROM tags WHERE tagID=?";
 		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+	}
+	
+	
+	public function addItem($itemID) {
+		$current = $this->getLinkedItems(true);
+		if (in_array($itemID, $current)) {
+			Z_Core::debug("Item $itemID already has tag $this->id");
+			return false;
+		}
+		
+		$this->prepFieldChange('linkedItems');
+		$item = Zotero_Items::get($this->libraryID, $itemID);
+		if (!$item) {
+			throw new Exception("Can't link invalid item $itemID to tag $this->id");
+		}
+		$this->linkedItems[] = $item;
+		return true;
+	}
+	
+	
+	public function removeItem($itemID) {
+		$current = $this->getLinkedItems(true);
+		$index = array_search($itemID, $current);
+		
+		if ($index === false) {
+			Z_Core::debug("Item $itemID doesn't have tag $this->id");
+			return false;
+		}
+		
+		$this->prepFieldChange('linkedItems');
+		array_splice($this->linkedItems, $index, 1);
+		return true;
 	}
 	
 	
@@ -145,12 +177,18 @@ class Zotero_Tag {
 				$timestampMS
 			);
 			
-			$params = array_merge(array($tagID), $params, $params);
-			
-			$sql = "INSERT INTO tags SET tagID=?, $fields ON DUPLICATE KEY UPDATE $fields";
-			$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 			try {
-				$insertID = Zotero_DB::queryFromStatement($stmt, $params);
+				if ($isNew) {
+					$sql = "INSERT INTO tags SET tagID=?, $fields";
+					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
+					Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
+					Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
+				}
+				else {
+					$sql = "UPDATE tags SET $fields WHERE tagID=?";
+					$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+					Zotero_DB::queryFromStatement($stmt, array_merge($params, array($tagID)));
+				}
 			}
 			catch (Exception $e) {
 				// If an incoming tag is the same as an existing tag, but with a different key,
@@ -170,19 +208,25 @@ class Zotero_Tag {
 						}
 					}
 					
+					// Save again
+					if ($isNew) {
+						$sql = "INSERT INTO tags SET tagID=?, $fields";
+						$stmt = Zotero_DB::getStatement($sql, true, $shardID);
+						Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
+						Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
+					}
+					else {
+						$sql = "UPDATE tags SET $fields WHERE tagID=?";
+						$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+						Zotero_DB::queryFromStatement($stmt, array_merge($params, array($tagID)));
+					}
+					
 					$new = array_unique(array_merge($linked, $this->getLinkedItems(true)));
 					$this->setLinkedItems($new);
 				}
 				else {
 					throw $e;
 				}
-			}
-			if (!$this->id) {
-				if (!$insertID) {
-					throw new Exception("Tag id not available after INSERT");
-				}
-				$tagID = $insertID;
-				Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $insertID);
 			}
 			
 			// Linked items
@@ -574,7 +618,8 @@ class Zotero_Tag {
 				break;
 			
 			case 'key':
-				if (!preg_match('/^[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}$/', $value)) {
+				// 'I' used to exist in client
+				if (!preg_match('/^[23456789ABCDEFGHIJKLMNPQRSTUVWXYZ]{8}$/', $value)) {
 					$this->invalidValueError($field, $value);
 				}
 				break;
@@ -607,11 +652,10 @@ class Zotero_Tag {
 			$this->previousData = $this->serialize();
 		}
 	}
-
 	
 	
 	private function generateKey() {
-		trigger_error('Unimplemented', E_USER_ERROR);
+		return Zotero_ID::getKey();
 	}
 	
 	

@@ -30,7 +30,7 @@ class Zotero_Utilities {
 	 *
 	 * @param		int		$length
 	 * @param		string	$case				'lower', 'upper' or 'mixed' (optional, default 'lower')
-	 * @param		bool	$exclude_ambiguous	Include letters that are hard to distinguish visibly
+	 * @param		bool	$exclude_ambiguous	Exclude letters that are hard to distinguish visually
 	 *											(Optional, default false)
 	 **/
 	public static function randomString($length, $case='lower', $exclude_ambiguous=false) {
@@ -40,12 +40,14 @@ class Zotero_Utilities {
 		$numbers = array('2','3','4','5','6','7','8','9');
 		
 		switch ($case){
-			case 'lower':
-				$characters = array_merge($lower, $numbers);
-				if (!$exclude_ambiguous){
-					$characters = array_merge($characters, array('l','1','0'));
-				}
+			// Special case for object ids, which are inadvertently missing 'L' and 'Y'
+			case 'key':
+				$characters = array_merge(
+					array('A','B','C','D','E','F','G','H','I','J','K','M','N','P','Q','R','S','T','U','V','W','X','Z'),
+					$numbers
+				);
 				break;
+			
 			case 'mixed':
 				$characters = array_merge($lower, $upper, $numbers);
 				if (!$exclude_ambiguous){
@@ -55,9 +57,12 @@ class Zotero_Utilities {
 			case 'upper':
 				$characters = array_merge($upper, $numbers);
 				if (!$exclude_ambiguous){
+					// This should include 'I', but the client uses it, so too late
 					$characters = array_merge($characters, array('1','0','O'));
 				}
 				break;
+			
+			case 'lower':
 			default:
 				$characters = array_merge($lower, $numbers);
 				if (!$exclude_ambiguous){
@@ -92,5 +97,79 @@ class Zotero_Utilities {
         $slug = str_replace(" ", "_", $slug);
         return $slug;
     }
+    
+    
+    // By umbrae on http://us2.php.net/json_encode
+	public static function json_encode_pretty($json_obj, $mask=false) {
+		$tab = "  ";
+		$new_json = "";
+		$indent_level = 0;
+		$in_string = false;
+		
+		$json = json_encode($json_obj, $mask);
+		$len = strlen($json);
+		
+		for($c = 0; $c < $len; $c++)
+		{
+			$char = $json[$c];
+			switch($char)
+			{
+				case '{':
+				case '[':
+					if(!$in_string)
+					{
+						$new_json .= $char . "\n" . str_repeat($tab, $indent_level+1);
+						$indent_level++;
+					}
+					else
+					{
+						$new_json .= $char;
+					}
+					break;
+				case '}':
+				case ']':
+					if(!$in_string)
+					{
+						$indent_level--;
+						$new_json .= "\n" . str_repeat($tab, $indent_level) . $char;
+					}
+					else
+					{
+						$new_json .= $char;
+					}
+					break;
+				case ',':
+					if(!$in_string)
+					{
+						$new_json .= ",\n" . str_repeat($tab, $indent_level);
+					}
+					else
+					{
+						$new_json .= $char;
+					}
+					break;
+				case ':':
+					if(!$in_string)
+					{
+						$new_json .= ": ";
+					}
+					else
+					{
+						$new_json .= $char;
+					}
+					break;
+				case '"':
+					if($c > 0 && $json[$c-1] != '\\')
+					{
+						$in_string = !$in_string;
+					}
+				default:
+					$new_json .= $char;
+					break;                   
+			}
+		}
+	
+		return $new_json;
+	} 
 }
 ?>

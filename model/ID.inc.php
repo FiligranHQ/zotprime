@@ -44,6 +44,11 @@ class Zotero_ID {
 	}
 	
 	
+	public static function getKey() {
+		return Zotero_Utilities::randomString(8, 'key', true);
+	}
+	
+	
 	public static function getBigInt() {
 		return rand(1, 2147483647);
 	}

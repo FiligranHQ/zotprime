@@ -297,7 +297,7 @@ class SyncController extends Controller {
 				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $numUpdated);
 				
 				try {
-					Zotero_Sync::notifyDownloadProcessor();
+					Zotero_Processors::notifyProcessors('download');
 				}
 				catch (Exception $e) {
 					Z_Core::logError($e);
@@ -412,8 +412,8 @@ class SyncController extends Controller {
 				Zotero_Sync::queueUpload($this->userID, $this->sessionID, $xmldata, $affectedLibraries);
 				
 				try {
-					Zotero_Sync::notifyUploadProcessor();
-					Zotero_Sync::notifyErrorProcessor();
+					Zotero_Processors::notifyProcessors('upload');
+					Zotero_Processors::notifyProcessors('error');
 					usleep(750000);
 				}
 				catch (Exception $e) {
@@ -430,7 +430,7 @@ class SyncController extends Controller {
 				$this->responseXML['timestamp'] = $timestamp;
 				$this->responseXML->addChild('uploaded');
 				
-				Zotero_Solr::notifyProcessor();
+				Zotero_Processors::notifyProcessors('index');
 				
 				$this->end();
 			}

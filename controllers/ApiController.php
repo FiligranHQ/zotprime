@@ -54,6 +54,7 @@ class ApiController extends Controller {
 	private $profile = false;
 	private $profileShard = 0;
 	
+	
 	public function __construct($action, $settings, $extra) {
 		if (!Z_CONFIG::$API_ENABLED) {
 			$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
@@ -63,9 +64,19 @@ class ApiController extends Controller {
 		require_once('../model/Error.inc.php');
 		
 		$this->method = $_SERVER['REQUEST_METHOD'];
+		
 		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE'))) {
 			header("HTTP/1.0 501 Not Implemented");
 			die("Method is not implemented");
+		}
+		
+		// There doesn't seem to be a way for PHP to start processing the request
+		// before the entire body is sent, so an Expect: 100 Continue will,
+		// depending on the client, either fail or cause a delay while the client
+		// waits for the 100 response. To make this explicit, we return an error.
+		if (!empty($_SERVER['HTTP_EXPECT'])) {
+			header("HTTP/1.0 417 Expectation Failed");
+			die("Expect header is not supported");
 		}
 		
 		if ($this->method == 'POST' || $this->method == 'PUT') {
@@ -318,6 +329,7 @@ class ApiController extends Controller {
 						case 'none':
 						case 'html':
 						case 'bib':
+						case 'json':
 						case 'full':
 							break;
 						
@@ -350,12 +362,19 @@ class ApiController extends Controller {
 		}
 	}
 	
+	
 	public function index() {
 		$this->e400("Invalid Request");
 	}
 	
 	
 	public function items() {
+		if ($this->method == 'POST' || $this->method == 'PUT') {
+			if (!$this->body) {
+				$this->e400("$this->method data not provided");
+			}
+		}
+		
 		// TEMP
 		//$solr = !empty($_GET['solr']);
 		$solr = false;
@@ -365,7 +384,9 @@ class ApiController extends Controller {
 		$totalResults = null;
 		
 		// Single item
-		if (($this->objectID || $this->objectKey) && $this->subset != 'children') {
+		if (($this->objectID || $this->objectKey) && !$this->subset) {
+			$this->allowMethods(array('GET', 'PUT'));
+			
 			// Check for general library access
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
 				//var_dump($this->objectLibraryID);
@@ -379,6 +400,7 @@ class ApiController extends Controller {
 			else {
 				$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
 			}
+			
 			if (!$item) {
 				// Possibly temporary workaround to block unnecessary full syncs
 				if ($this->fileMode && $this->method == 'POST') {
@@ -427,20 +449,45 @@ class ApiController extends Controller {
 			
 			// If id, redirect to key URL
 			if ($this->objectID) {
+				$this->allowMethods(array('GET'));
+				
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
 				header("Location: " . Zotero_API::getItemURI($item) . $qs);
 				exit;
 			}
 			
-			$this->allowMethods(array('GET'));
+			// Update existing item
+			if ($this->method == 'PUT') {
+				// TEMP: allow skipping ETag during development
+				if (empty($_GET['skipetag'])) {
+					
+					if (empty($_SERVER['HTTP_IF_MATCH'])) {
+						$this->e400("If-Match header not provided");
+					}
+					
+					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+						$this->e400("Invalid ETag in If-Match header");
+					}
+					
+					if ($item->etag != $matches[1]) {
+						$this->e412("ETag does not match current version of item");
+					}
+					
+				}
+				
+				$obj = $this->jsonDecode($this->body);
+				Zotero_Items::updateFromJSON($item, $obj);
+				$this->queryParams['content'] = 'json';
+			}
 			
+			// Display item
 			$this->responseXML = Zotero_Items::convertItemToAtom(
 				$item, $this->queryParams, $this->apiVersion
 			);
 		}
 		// Multiple items
 		else {
-			$this->allowMethods(array('GET'));
+			$this->allowMethods(array('GET', 'POST'));
 			
 			// If no access, return empty feed
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
@@ -456,6 +503,8 @@ class ApiController extends Controller {
 			}
 			
 			if ($this->scopeObject) {
+				$this->allowMethods(array('GET'));
+				
 				// If id, redirect to key URL
 				if ($this->scopeObjectID) {
 					if (!in_array($this->scopeObject, array("collections", "tags"))) {
@@ -504,6 +553,8 @@ class ApiController extends Controller {
 			else {
 				// Top-level items
 				if ($this->subset == 'top') {
+					$this->allowMethods(array('GET'));
+					
 					$title = "Top-Level Items";
 					if ($solr) {
 						$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
@@ -513,6 +564,8 @@ class ApiController extends Controller {
 					}
 				}
 				else if ($this->subset == 'trash') {
+					$this->allowMethods(array('GET'));
+					
 					$title = "Deleted Items";
 					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
 				}
@@ -528,6 +581,8 @@ class ApiController extends Controller {
 					
 					// If id, redirect to key URL
 					if ($this->objectID) {
+						$this->allowMethods(array('GET'));
+						
 						$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
 						if (!$item) {
 							$this->e404("Item not found");
@@ -541,6 +596,18 @@ class ApiController extends Controller {
 					if (!$item) {
 						$this->e404("Item not found");
 					}
+					
+					// Create new child items
+					if ($this->method == 'POST') {
+						$obj = $this->jsonDecode($this->body);
+						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item);
+						
+						var_dump($keys);
+						//$this->e303();
+						exit;
+					}
+					
+					// Display items
 					$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
 					$notes = $item->getNotes();
 					$attachments = $item->getAttachments();
@@ -548,6 +615,22 @@ class ApiController extends Controller {
 				}
 				// All items
 				else {
+					// Create new items
+					if ($this->method == 'POST') {
+						$obj = $this->jsonDecode($this->body);
+						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID);
+						
+						if (!$keys) {
+							throw new Exception("No items added");
+						}
+						
+						$uri = Zotero_API::getItemsURI($this->objectLibraryID)
+								. "?key="
+								. urlencode(implode(",", $keys))
+								. "&content=json";
+						$this->e303($uri);
+					}
+					
 					$title = "Items";
 					// TEMP
 					if ($solr) {
@@ -1780,6 +1863,7 @@ class ApiController extends Controller {
 	}
 	
 	
+	
 	public function keys() {
 		if (!$this->permissions->isSuper()) {
 			$this->e404();
@@ -1993,6 +2077,172 @@ class ApiController extends Controller {
 		}
 	}
 	
+	
+	/**
+	 * JSON type/field data
+	 */
+	public function mappings() {
+		if (!empty($_GET['locale']) && $_GET['locale'] != 'en-US') {
+			throw new Exception("Non-English locales are not yet supported");
+		}
+		
+		if ($this->subset == 'itemTypeCreatorTypes') {
+			if (empty($_GET['itemType'])) {
+				$this->e400("'itemType' not provided");
+			}
+			
+			$itemType = $_GET['itemType'];
+			
+			$itemTypeID = Zotero_ItemTypes::getID($itemType);
+			if (!$itemTypeID) {
+				$this->e400("Invalid item type '$itemType'");
+			}
+			
+			// Notes and attachments don't have creators
+			if ($itemType == 'note' || $itemType == 'attachment') {
+				echo "[]";
+				exit;
+			}
+		}
+		
+		// TODO: check If-Modified-Since and return 304 if not changed
+		
+		$cacheKey = $this->subset . "JSON";
+		if (isset($itemTypeID)) {
+			$cacheKey .= "_" . $itemTypeID;
+		}
+		$ttl = 60;
+		if ($this->queryParams['pprint']) {
+			$cacheKey .= "_pprint";
+		}
+		$json = Z_Core::$MC->get($cacheKey);
+		if ($json) {
+			echo $json;
+			exit;
+		}
+		
+		switch ($this->subset) {
+			case 'itemTypes':
+				$rows = Zotero_ItemTypes::getAll(true);
+				$propName = 'itemType';
+				break;
+			
+			case 'itemFields':
+				$rows = Zotero_ItemFields::getAll(true);
+				$propName = 'field';
+				break;
+			
+			case 'itemTypeCreatorTypes':
+				$rows = Zotero_CreatorTypes::getTypesForItemType($itemTypeID, true);
+				$propName = 'creatorType';
+				break;
+		}
+		
+		$json = array();
+		foreach ($rows as $row) {
+			$json[] = array(
+				$propName => $row['name'],
+				'localized' => $row['localized']
+			);
+		}
+		
+		header("Content-Type: application/json");
+		
+		if ($this->queryParams['pprint']) {
+			$json = Zotero_Utilities::json_encode_pretty($json);
+			Z_Core::$MC->set($cacheKey, $json, $ttl);
+		}
+		else {
+			$json = json_encode($json);
+			Z_Core::$MC->set($cacheKey, $json, $ttl);
+		}
+		
+		echo $json;
+		exit;
+	}
+	
+	
+	public function newItem() {
+		if (empty($_GET['itemType'])) {
+			$this->e400("'itemType' not provided");
+		}
+		
+		$itemType = $_GET['itemType'];
+		
+		$itemTypeID = Zotero_ItemTypes::getID($itemType);
+		if (!$itemTypeID) {
+			$this->e400("Invalid item type '$itemType'");
+		}
+		
+		if ($itemType == 'attachment') {
+			throw new Exception("'attachment' items cannot currently be created via the API", Z_ERROR_INVALID_INPUT);
+		}
+		
+		// TODO: check If-Modified-Since and return 304 if not changed
+		
+		$cacheKey = "newItemJSON_" . $itemTypeID;
+		$ttl = 60;
+		if ($this->queryParams['pprint']) {
+			$cacheKey .= "_pprint";
+		}
+		$json = Z_Core::$MC->get($cacheKey);
+		if ($json) {
+			echo $json;
+			exit;
+		}
+		
+		// Generate template
+		
+		$json = array(
+			'itemType' => $itemType
+		);
+		
+		$fieldIDs = Zotero_ItemFields::getItemTypeFields($itemTypeID);
+		$first = true;
+		foreach ($fieldIDs as $fieldID) {
+			$fieldName = Zotero_ItemFields::getName($fieldID);
+			$json[$fieldName] = "";
+			
+			if ($first && $itemType != 'note' && $itemType != 'attachment') {
+				$creatorTypeID = Zotero_CreatorTypes::getPrimaryIDForType($itemTypeID);
+				$creatorTypeName = Zotero_CreatorTypes::getName($creatorTypeID);
+				$json['creators'] = array(
+					array(
+						'creatorType' => $creatorTypeName,
+						'firstName' => '',
+						'lastName' => ''
+					)
+				);
+				$first = false;
+			}
+		}
+		
+		if ($itemType == 'note') {
+			$json['note'] = '';
+		}
+		
+		$json['tags'] = array();
+		
+		if ($itemType != 'note' && $itemType != 'attachment') {
+			$json['notes'] = array();
+		}
+		
+		header("Content-Type: application/json");
+		
+		if ($this->queryParams['pprint']) {
+			$json = Zotero_Utilities::json_encode_pretty($json);
+			Z_Core::$MC->set($cacheKey, $json, $ttl);
+		}
+		else {
+			$json = json_encode($json);
+			Z_Core::$MC->set($cacheKey, $json, $ttl);
+		}
+		
+		echo $json;
+		exit;
+	}
+	
+	
 	public function noop() {
 		echo "Nothing to see here.";
 		exit;
@@ -2040,9 +2290,11 @@ class ApiController extends Controller {
 	/**
 	 * Verify the HTTP method
 	 */
-	private function allowMethods($methods) {
+	private function allowMethods($methods, $message=false) {
 		if (!in_array($this->method, $methods)) {
-			$this->e405();
+			header("HTTP/1.1 405 Method Not Allowed");
+			header("Allow: " . implode(", ", $methods));
+			die($message ? $message : "Method not allowed");
 		}
 	}
 	
@@ -2106,11 +2358,40 @@ class ApiController extends Controller {
 	}
 	
 	
+	private function jsonDecode($json) {
+		$obj = json_decode($json);
+		
+		switch(json_last_error()) {
+			case JSON_ERROR_DEPTH:
+				$error = 'Maximum stack depth exceeded';
+				break;
+				
+			case JSON_ERROR_CTRL_CHAR:
+				$error = 'Unexpected control character found';
+				break;
+			case JSON_ERROR_SYNTAX:
+				$error = 'Syntax error, malformed JSON';
+				break;
+			
+			case JSON_ERROR_NONE:
+			default:
+				$error = '';
+        }
+        
+        if (!empty($error)) {
+            $this->e400('JSON Error: ' . $error);
+        }
+        
+        return $obj;
+    }
+	
+	
 	public function handleException(Exception $e) {
 		switch ($e->getCode()) {
-			case Z_ERROR_TAG_NOT_FOUND:
+			case Z_ERROR_INVALID_INPUT:
 			case Z_ERROR_CITESERVER_INVALID_STYLE:
-				$this->e400($e->getMessage());
+			case Z_ERROR_TAG_NOT_FOUND:
+				$this->e400(htmlspecialchars($e->getMessage()));
 		}
 		
 		$id = substr(md5(uniqid(rand(), true)), 0, 10);
@@ -2141,8 +2422,14 @@ class ApiController extends Controller {
 	}
 	
 	
+	private function e303($url) {
+		header('HTTP/1.1 303 See Other');
+		header("Location: $url");
+		die();
+	}
+	
+	
 	private function e400($message="Invalid request") {
-		header('WWW-Authenticate: Basic realm="Zotero API"');
 		header('HTTP/1.0 400 Bad Request');
 		die($message);
 	}
@@ -2151,55 +2438,49 @@ class ApiController extends Controller {
 	private function e401($message="Access denied") {
 		header('WWW-Authenticate: Basic realm="Zotero API"');
 		header('HTTP/1.0 401 Unauthorized');
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e403($message="Forbidden") {
 		header('HTTP/1.0 403 Forbidden');
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e404($message="Not found") {
 		header("HTTP/1.0 404 Not Found");
-		die($message);
-	}
-	
-	
-	private function e405($message="Method not allowed") {
-		header("HTTP/1.1 405 Method Not Allowed");
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e409($message) {
 		header("HTTP/1.1 409 Conflict");
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e412($message=false) {
 		header("HTTP/1.1 412 Precondition Failed");
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e413($message=false) {
 		header("HTTP/1.1 413 Request Entity Too Large");
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e500($message="An error occurred") {
 		header("HTTP/1.0 500 Internal Server Error");
-		die($message);
+		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e503($message="Service unavailable") {
 		header("HTTP/1.0 503 Service Unavailable");
-		die($message);
+		die(htmlspecialchars($message));
 	}
 }
 ?>

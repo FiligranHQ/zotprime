@@ -42,17 +42,16 @@ class Z_CONFIG {
 	public static $LOG_TIMEZONE = 'US/Eastern';
 	public static $LOG_TARGET_DEFAULT = 'errors';
 	
-	public static $SYNC_PROCESSOR_BIND_ADDRESS = '192.168.1.255';
-	public static $SYNC_PROCESSOR_PORT_DOWNLOAD = 3455;
-	public static $SYNC_PROCESSOR_PORT_UPLOAD = 3456;
-	public static $SYNC_PROCESSOR_PORT_ERROR = 3457;
+	public static $PROCESSOR_PORT_DOWNLOAD = 3455;
+	public static $PROCESSOR_PORT_UPLOAD = 3456;
+	public static $PROCESSOR_PORT_ERROR = 3457;
 	public static $PROCESSOR_PORT_INDEX = 3458;
 	
-	public static $SYNC_PROCESSOR_LOG_ADDRESS = '';
-	public static $SYNC_PROCESSOR_LOG_PORT = 1463;
-	public static $SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD = 'sync-processor-download';
-	public static $SYNC_PROCESSOR_LOG_TARGET_UPLOAD = 'sync-processor-upload';
-	public static $SYNC_PROCESSOR_LOG_TARGET_ERROR = 'sync-processor-error';
+	public static $PROCESSOR_LOG_ADDRESS = '';
+	public static $PROCESSOR_LOG_PORT = 1463;
+	public static $PROCESSOR_LOG_TARGET_DOWNLOAD = 'sync-processor-download';
+	public static $PROCESSOR_LOG_TARGET_UPLOAD = 'sync-processor-upload';
+	public static $PROCESSOR_LOG_TARGET_ERROR = 'sync-processor-error';
 	public static $PROCESSOR_LOG_TARGET_INDEX = 'processor-index';
 	
 	public static $SYNC_DOWNLOAD_SMALLEST_FIRST = false;

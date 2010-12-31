@@ -55,7 +55,9 @@ class Z_Log {
 		
 		// Get short hostname
 		$host = gethostname();
-		$host = substr($host, 0, strpos($host, '.'));
+		if (strpos($host, '.') !== false) {
+			$host = substr($host, 0, strpos($host, '.'));
+		}
 		
 		$messages = array();
 		foreach ($categoryMessagePairs as $pair) {

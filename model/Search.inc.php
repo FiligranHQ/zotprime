@@ -164,17 +164,16 @@ class Zotero_Search {
 				$timestampMS
 			);
 			
-			$params = array_merge(array($searchID), $params, $params);
-			
-			$sql = "INSERT INTO savedSearches SET searchID=?, $fields
-					ON DUPLICATE KEY UPDATE $fields";
-			$insertID = Zotero_DB::query($sql, $params, $shardID);
-			if (!$this->id) {
-				if (!$insertID) {
-					throw new Exception("Search id not available after INSERT");
-				}
-				$searchID = $insertID;
-				Zotero_Searches::cacheLibraryKeyID($this->libraryID, $key, $insertID);
+			if ($isNew) {
+				$sql = "INSERT INTO savedSearches SET searchID=?, $fields";
+				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				Zotero_DB::queryFromStatement($stmt, array_merge(array($searchID), $params));
+				Zotero_Searches::cacheLibraryKeyID($this->libraryID, $key, $searchID);
+			}
+			else {
+				$sql = "UPDATE savedSearches SET $fields WHERE searchID=?";
+				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($searchID)));
 			}
 			
 			// Close gaps in savedSearchIDs

@@ -161,26 +161,25 @@ class Zotero_Creator {
 				$timestampMS
 			);
 			
-			$params = array_merge(array($creatorID), $params, $params);
-			
-			$sql = "INSERT INTO creators SET creatorID=?, $fields ON DUPLICATE KEY UPDATE $fields";
-			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
-			$insertID = Zotero_DB::queryFromStatement($stmt, $params);
-			if (!$this->id) {
-				if (!$insertID) {
-					throw new Exception("Creator id not available after INSERT");
-				}
-				$creatorID = $insertID;
-				Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $insertID);
+			if ($isNew) {
+				$sql = "INSERT INTO creators SET creatorID=?, $fields";
+				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				Zotero_DB::queryFromStatement($stmt, array_merge(array($creatorID), $params));
+				Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
+			}
+			else {
+				$sql = "UPDATE creators SET $fields WHERE creatorID=?";
+				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($creatorID)));
 			}
 			
-			// Update mod times of associated items -- from the client, but is
-			// this necessary here?
+			// The client updates the mod time of associated items here, but
+			// we don't, because either A) this is from syncing, where appropriate
+			// mod times come from the client or B) the change is made through
+			// $item->setCreator(), which updates the mod time.
 			//
-			// What about for server-originated writes?
-			//if ($this->id) {
-			//	Zotero_Creators::updateLinkedItems($creatorID, $dateModified);
-			//}
+			// If the server started to make other independent creator changes,
+			// linked items would need to be updated.
 			
 			Zotero_DB::commit();
 			
@@ -222,12 +221,15 @@ class Zotero_Creator {
 	}
 	
 	
-	public function equals(Zotero_Creator $creator) {
+	public function equals($creator) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
 		return
 			($creator->firstName === $this->firstName) &&
 			($creator->lastName === $this->lastName) &&
-			($creator->fieldMode == $this->fieldMode) &&
-			($creator->birthYear == $this->birthYear);
+			($creator->fieldMode == $this->fieldMode);
 	}
 	
 	
@@ -308,7 +310,7 @@ class Zotero_Creator {
 	
 	
 	private function generateKey() {
-		trigger_error('Unimplemented', E_USER_ERROR);
+		return Zotero_ID::getKey();
 	}
 	
 	

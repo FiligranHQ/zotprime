@@ -114,13 +114,29 @@ class Zotero_CreatorTypes {
 	}
 	
 	
-	public static function getTypesForItemType($itemTypeID) {
-		// TODO: sort needs to be on localized strings
-		// (though still put primary field at top)
+	public static function getTypesForItemType($itemTypeID, $localized=false) {
 		$sql = "SELECT creatorTypeID AS id, creatorTypeName AS name
 			FROM itemTypeCreatorTypes NATURAL JOIN creatorTypes
-			WHERE itemTypeID=? ORDER BY primaryField=1 DESC, creatorTypeName";
-		return Zotero_DB::query($sql, $itemTypeID);
+			WHERE itemTypeID=? ORDER BY primaryField=1 DESC";
+		$rows = Zotero_DB::query($sql, $itemTypeID);
+		
+		if (!$localized) {
+			return $rows;
+		}
+		
+		foreach ($rows as &$row) {
+			$row['localized'] =  self::getLocalizedString($row['id']);
+		}
+		
+		$primary = array_shift($rows);
+		
+		usort($rows, function ($a, $b) {
+			return strcmp($a["localized"], $b["localized"]);
+		});
+		
+		array_unshift($rows, $primary);
+		
+		return $rows;
 	}
 	
 	

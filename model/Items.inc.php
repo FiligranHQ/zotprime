@@ -35,6 +35,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	private static $itemsByID = array();
 	private static $dataValuesByHash = array();
 	
+	
 	public static function get($libraryID, $itemIDs) {
 		$numArgs = func_num_args();
 		if ($numArgs != 2) {
@@ -228,6 +229,15 @@ class Zotero_Items extends Zotero_DataObjects {
 			$keys = $params['keys'];
 		}
 		
+		if (!empty($params['key'])) {
+			if ($keys) {
+				$keys = array_intersect($keys, explode(',', $params['key']));
+			}
+			else {
+				$keys = explode(',', $params['key']);
+			}
+		}
+		
 		// Tags
 		//
 		// ?tag=foo
@@ -236,7 +246,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		// ?tag=\-foo // literal hyphen (only for first character)
 		// ?tag=foo&tag=bar // AND
 		// ?tag=foo&tagType=0
-		// ?tag=foo bar OR bar&tagType=0
+		// ?tag=foo bar || bar&tagType=0
 		$tagSets = Zotero_API::getSearchParamValues($params, 'tag');
 		$tagTypeSets = Zotero_API::getSearchParamValues($params, 'tagType');
 		
@@ -319,7 +329,12 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			
 			// Combine with passed keys
-			$keys = array_merge($keys, $tagKeys);
+			if ($keys) {
+				$keys = array_intersect($keys, $tagKeys);
+			}
+			else {
+				$keys = $tagKeys;
+			}
 		}
 		
 		if ($keys) {
@@ -370,15 +385,25 @@ class Zotero_Items extends Zotero_DataObjects {
 		return $results;
 	}
 	
+	
 	/**
 	 * Store item in internal id-based cache
 	 */
 	public static function cache(Zotero_Item $item) {
-		if (isset($itemsByID[$item->id])) {
+		if (isset(self::$itemsByID[$item->id])) {
 			Z_Core::debug("Item $item->id is already cached");
 		}
 		
-		$itemsByID[$item->id] = $item;
+		self::$itemsByID[$item->id] = $item;
+	}
+	
+	
+	public static function reload($libraryID, $itemIDs) {
+		if (is_scalar($itemIDs)) {
+			$itemIDs = array($itemIDs);
+		}
+		
+		self::loadItems($libraryID, $itemIDs);
 	}
 	
 	
@@ -998,6 +1023,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
 		}
+		else if ($content == 'json') {
+			$xml->content['type'] = 'application/json';
+			$xml->content['etag'] = $item->etag;
+			$xml->content = $item->toJSON(false, $queryParams['pprint']);
+		}
 		// Not for public consumption
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';
@@ -1012,6 +1042,358 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		return $xml;
+	}
+	
+	
+	/**
+	 * Create new items from a decoded JSON object
+	 */
+	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null) {
+		self::validateJSONItems($json, true);
+		
+		// TODO: lock checks
+		
+		$keys = array();
+		
+		Zotero_DB::beginTransaction();
+		
+		foreach ($json->items as $jsonItem) {
+			$item = new Zotero_Item;
+			$item->libraryID = $libraryID;
+			
+			self::updateFromJSON($item, $jsonItem, true);
+			
+			$item->save();
+			$keys[] = $item->key;
+		}
+		
+		Zotero_DB::commit();
+		
+		if ($keys) {
+			// Index new items
+			try {
+				Zotero_Processors::notifyProcessors('index');
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
+			}
+		}
+		
+		return $keys;
+	}
+	
+	
+	public static function updateFromJSON(Zotero_Item $item, $json, $newItem=false) {
+		self::validateJSONItem($json, $newItem);
+		
+		if (!$newItem) {
+			// TODO: lock checks
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		$forceChange = false;
+		$twoStage = false;
+		
+		foreach ($json as $key=>$val) {
+			switch ($key) {
+				case 'itemType':
+					$item->setField("itemTypeID", Zotero_ItemTypes::getID($val));
+					break;
+					
+				case 'creators':
+					if (!$val && !$item->numCreators()) {
+						continue 2;
+					}
+					
+					$orderIndex = -1;
+					
+					foreach ($val as $orderIndex=>$newCreatorData) {
+						// JSON uses 'name' and 'firstName'/'lastName',
+						// so switch to just 'firstName'/'lastName'
+						if (isset($newCreatorData->name)) {
+							$newCreatorData->firstName = '';
+							$newCreatorData->lastName = $newCreatorData->name;
+							unset($newCreatorData->name);
+							$newCreatorData->fieldMode = 1;
+						}
+						else {
+							$newCreatorData->fieldMode = 0;
+						}
+						
+						$newCreatorTypeID = Zotero_CreatorTypes::getID($newCreatorData->creatorType);
+						
+						// Same creator in this position
+						$existingCreator = $item->getCreator($orderIndex);
+						if ($existingCreator && $existingCreator['ref']->equals($newCreatorData)) {
+							// Just change the creatorTypeID
+							if ($existingCreator['creatorTypeID'] != $newCreatorTypeID) {
+								$item->setCreator($orderIndex, $existingCreator['ref'], $newCreatorTypeID);
+							}
+							continue;
+						}
+						
+						// Same creator in a different position, so use that
+						$existingCreators = $item->getCreators();
+						for ($i=0,$len=sizeOf($existingCreators); $i<$len; $i++) {
+							if ($existingCreators[$i]['ref']->equals($newCreatorData)) {
+								$item->setCreator($orderIndex, $existingCreators[$i]['ref'], $newCreatorTypeID);
+								continue;
+							}
+						}
+						
+						// Make a fake creator to use for the data lookup
+						$newCreator = new Zotero_Creator;
+						$newCreator->libraryID = $item->libraryID;
+						foreach ($newCreatorData as $key=>$val) {
+							if ($key == 'creatorType') {
+								continue;
+							}
+							$newCreator->$key = $val;
+						}
+						
+						// Look for an equivalent creator in this library
+						$hash = Zotero_Creators::getDataHash($newCreator, true);
+						$candidates = Zotero_Creators::getCreatorsWithData($item->libraryID, $hash, true);
+						if ($candidates) {
+							$c = Zotero_Creators::get($item->libraryID, $candidates[0]);
+							$item->setCreator($orderIndex, $c, $newCreatorTypeID);
+							continue;
+						}
+						
+						// None found, so make a new one
+						$newCreator->save();
+						$item->setCreator($orderIndex, $newCreator, $newCreatorTypeID);
+					}
+					
+					// Remove all existing creators above the current index
+					$i = max(array_keys($item->getCreators()));
+					while ($i>$orderIndex) {
+						$item->removeCreator($i);
+						$i--;
+					}
+					
+					break;
+				
+				case 'tags':
+					// If item isn't yet saved, add tags below
+					if (!$item->id) {
+						$twoStage = true;
+						break;
+					}
+					
+					if ($item->setTags($val)) {
+						$forceChange = true;
+					}
+					break;
+				
+				case 'note':
+					$item->setNote($val);
+					break;
+				
+				default:
+					$item->setField($key, $val);
+					break;
+			}
+		}
+		
+		// For changes that don't register as changes internally, force a dateModified update
+		if ($forceChange) {
+			$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
+		}
+		$item->save();
+		
+		// Additional steps that have to be performed on a saved object
+		if ($twoStage) {
+			foreach ($json as $key=>$val) {
+				switch ($key) {
+					case 'tags':
+						if ($item->setTags($val)) {
+							$forceChange = true;
+						}
+						break;
+				}
+			}
+			
+			// For changes that don't register as changes internally, force a dateModified update
+			if ($forceChange) {
+				$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
+			}
+			$item->save();
+		}
+		
+		Zotero_DB::commit();
+		
+		if (!$newItem) {
+			// Index new items
+			try {
+				Zotero_Processors::notifyProcessors('index');
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
+			}
+		}
+	}
+	
+	
+	public static function validateJSONItem($json, $newItem=false) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object');
+		}
+		
+		if ($newItem) {
+			$requiredProps = array('itemType');
+		}
+		else {
+			$requiredProps = array('itemType', 'creators', 'tags');
+		}
+		
+		foreach ($requiredProps as $prop) {
+			if (!isset($json->$prop)) {
+				throw new Exception("'$prop' property not provided", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		
+		foreach ($json as $key=>$val) {
+			switch ($key) {
+				case 'itemType':
+					if (!is_string($val)) {
+						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (!Zotero_ItemTypes::getID($val)) {
+						throw new Exception("'$val' is not a valid itemType", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+					
+				case 'tags':
+					if (!is_array($val)) {
+						throw new Exception("'tags' property must be an array", Z_ERROR_INVALID_INPUT);
+					}
+					
+					foreach ($val as $tag) {
+						$empty = true;
+						
+						foreach ($tag as $k=>$v) {
+							switch ($k) {
+								case 'tag':
+									if (!is_scalar($v)) {
+										throw new Exception("Invalid tag name", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+									
+								case 'type':
+									if (!is_numeric($v)) {
+										throw new Exception("Invalid tag type '$v'", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+								
+								default:
+									throw new Exception("Invalid tag property '$k'", Z_ERROR_INVALID_INPUT);
+							}
+							
+							$empty = false;
+						}
+						
+						if ($empty) {
+							throw new Exception("Tag object is empty", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					break;
+					
+				case 'creators':
+					if (!is_array($val)) {
+						throw new Exception("'creators' property must be an array", Z_ERROR_INVALID_INPUT);
+					}
+					
+					foreach ($val as $creator) {
+						$empty = true;
+						
+						foreach ($creator as $k=>$v) {
+							switch ($k) {
+								case 'creatorType':
+									if (!Zotero_CreatorTypes::getID($v)) {
+										throw new Exception("'$v' is not a valid creator type", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+								
+								case 'firstName':
+									if (!isset($creator->lastName)) {
+										throw new Exception("'lastName' creator field must be set if 'firstName' is set", Z_ERROR_INVALID_INPUT);
+									}
+									if (isset($creator->name)) {
+										throw new Exception("'firstName' and 'name' creator fields are mutually exclusive", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+								
+								case 'lastName':
+									if (!isset($creator->firstName)) {
+										throw new Exception("'firstName' creator field must be set if 'lastName' is set", Z_ERROR_INVALID_INPUT);
+									}
+									if (isset($creator->name)) {
+										throw new Exception("'lastName' and 'name' creator fields are mutually exclusive", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+								
+								case 'name':
+									if (isset($creator->firstName)) {
+										throw new Exception("'firstName' and 'name' creator fields are mutually exclusive", Z_ERROR_INVALID_INPUT);
+									}
+									if (isset($creator->lastName)) {
+										throw new Exception("'lastName' and 'name' creator fields are mutually exclusive", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+								
+								default:
+									throw new Exception("Invalid creator property '$k'", Z_ERROR_INVALID_INPUT);
+							}
+							
+							$empty = false;
+						}
+						
+						if ($empty) {
+							throw new Exception("Creator object is empty", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					break;
+				
+				case 'note':
+					if (!$item->isNote() && !$item->isAttachment()) {
+						throw new Exception("'note' property is only valid for note and attachment items", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'notes':
+					if (!$newItem) {
+						throw new Exception("'notes' property is valid only for new items", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				default:
+					if (is_array($val)) {
+						throw new Exception("Unexpected array for property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (!Zotero_ItemFields::getID($key)) {
+						throw new Exception("'$key' is not a valid item field", Z_ERROR_INVALID_INPUT);
+					}
+					
+					break;
+			}
+		}
+	}
+	
+	
+	public static function validateJSONItems($json) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object');
+		}
+		
+		foreach ($json as $key=>$val) {
+			if ($key != 'items') {
+				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+			}
+		}
 	}
 	
 	
@@ -1060,7 +1442,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				}
 				// Existing item -- reload in place
 				else {
-					throw new Exception("Unimplemented");
+					self::$itemsByID[$itemID]->loadFromRow($row, true);
 				}
 			}
 		}

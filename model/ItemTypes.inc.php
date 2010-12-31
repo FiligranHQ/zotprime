@@ -66,6 +66,7 @@ class Zotero_ItemTypes {
 		"document"				=> "Document",
 		"encyclopediaArticle"	=> "Encyclopedia Article",
 		"dictionaryEntry"		=> "Dictionary Entry",
+		"nsfReviewer"			=> "NSF Reviewer"
 	);
 	
 	public static function getID($typeOrTypeID) {
@@ -117,6 +118,30 @@ class Zotero_ItemTypes {
 	public static function getLocalizedString($typeOrTypeID) {
 		$itemType = self::getName($typeOrTypeID);
 		return self::$localizedStrings[$itemType];
+	}
+	
+	
+	public static function getAll($includeLocalized=false) {
+		$sql = "SELECT itemTypeID AS id, itemTypeName AS name FROM itemTypes";
+		// TEMP - skip nsfReviewer and attachment
+		$sql .= " WHERE itemTypeID NOT IN (14,10001)";
+		$rows = Zotero_DB::query($sql);
+		
+		// TODO: cache
+		
+		if (!$includeLocalized) {
+			return $rows;
+		}
+		
+		foreach ($rows as &$row) {
+			$row['localized'] =  self::getLocalizedString($row['id']);
+		}
+		
+		usort($rows, function ($a, $b) {
+			return strcmp($a["localized"], $b["localized"]);
+		});
+		
+		return $rows;
 	}
 	
 	

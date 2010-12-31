@@ -99,8 +99,9 @@ class Zotero_Creators extends Zotero_DataObjects {
 		}
 		
 		// Check memcache
-		if (Z_Core::$MC->get($key)) {
-			self::$dataByHash[$hash] = $value;
+		$data = Z_Core::$MC->get($key);
+		if ($data) {
+			self::$dataByHash[$hash] = $data;
 			return $hash;
 		}
 		
@@ -150,6 +151,20 @@ class Zotero_Creators extends Zotero_DataObjects {
 		Z_Core::$MC->set($key, $data);
 		
 		return $data;
+	}
+	
+	
+	public static function getCreatorsWithData($libraryID, $hash, $sortByItemCountDesc=false) {
+		$sql = "SELECT creatorID FROM creators ";
+		if ($sortByItemCountDesc) {
+			$sql .= "LEFT JOIN itemCreators USING (creatorID) ";
+		}
+		$sql .= "WHERE libraryID=? AND creatorDataHash=?";
+		if ($sortByItemCountDesc) {
+			$sql .= " ORDER BY IFNULL(COUNT(*), 0) DESC";
+		}
+		$ids = Zotero_DB::columnQuery($sql, array($libraryID, $hash), Zotero_Shards::getByLibraryID($libraryID));
+		return $ids;
 	}
 	
 	

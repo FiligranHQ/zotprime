@@ -29,6 +29,7 @@ abstract class Zotero_Processor {
 	
 	public function run($id=null) {
 		$this->id = $id;
+		$this->addr = gethostbyname(gethostname());
 		
 		$this->log("Starting sync processor");
 		
@@ -73,45 +74,53 @@ abstract class Zotero_Processor {
 		}
 	}
 	
+	
+	protected function notifyProcessor($signal) {
+		Zotero_Processors::notifyProcessor($this->mode, $signal, $this->addr, $this->port);
+	}
+	
+	
+	private function log($msg) {
+		$targetVariable = "PROCESSOR_LOG_TARGET_" . strtoupper($this->mode);
+		Z_Log::log(Z_CONFIG::$$targetVariable, "[" . $this->id . "] $msg");
+	}
+	
+	
 	//
 	// Abstract methods
 	//
-	abstract protected function log($msg);
 	abstract protected function processFromQueue();
-	abstract protected function notifyProcessor($signal);
 }
 
 class Zotero_Download_Processor extends Zotero_Processor {
-	protected function log($msg) {
-		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD, "[" . $this->id . "] $msg");
+	protected $mode = 'download';
+	
+	public function __construct() {
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_DOWNLOAD;
 	}
 	
 	protected function processFromQueue() {
 		return Zotero_Sync::processDownloadFromQueue($this->id);
 	}
-	
-	protected function notifyProcessor($signal) {
-		Zotero_Sync::notifyDownloadProcessor($signal);
-	}
 }
 
 class Zotero_Upload_Processor extends Zotero_Processor {
-	protected function log($msg) {
-		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_UPLOAD, "[" . $this->id . "] $msg");
+	protected $mode = 'upload';
+	
+	public function __construct() {
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_UPLOAD;
 	}
 	
 	protected function processFromQueue() {
 		return Zotero_Sync::processUploadFromQueue($this->id);
 	}
-	
-	protected function notifyProcessor($signal) {
-		Zotero_Sync::notifyUploadProcessor($signal);
-	}
 }
 
 class Zotero_Error_Processor extends Zotero_Processor {
-	protected function log($msg) {
-		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_ERROR, "[" . $this->id . "] $msg");
+	protected $mode = 'error';
+	
+	public function __construct() {
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_ERROR;
 	}
 	
 	protected function processFromQueue() {
@@ -120,22 +129,21 @@ class Zotero_Error_Processor extends Zotero_Processor {
 	
 	protected function notifyProcessor($signal) {
 		// Tell the upload processor a process is available
-		Zotero_Sync::notifyUploadProcessor('NEXT');
-		Zotero_Sync::notifyErrorProcessor($signal);
+		Zotero_Processors::notifyProcessors('upload', $signal);
+		
+		Zotero_Processors::notifyProcessor($this->mode, $signal, $this->addr, $this->port);
 	}
 }
 
 class Zotero_Index_Processor extends Zotero_Processor {
-	protected function log($msg) {
-		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_INDEX, "[" . $this->id . "] $msg");
+	protected $mode = 'index';
+	
+	public function __construct() {
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_INDEX;
 	}
 	
 	protected function processFromQueue() {
 		return Zotero_Solr::processFromQueue($this->id);
-	}
-	
-	protected function notifyProcessor($signal) {
-		Zotero_Solr::notifyProcessor($signal);
 	}
 }
 ?>

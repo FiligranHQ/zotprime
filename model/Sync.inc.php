@@ -143,20 +143,14 @@ class Zotero_Sync {
 			$lastsyncMS = substr($float[1], 0, 4);
 		}
 		
-		$hostname = gethostname();
-		$hostID = self::getHostID($hostname);
-		if (!$hostID) {
-			throw new Exception("Host ID not found for hostname '$hostname'");
-		}
-		
 		$sql = "INSERT INTO syncDownloadQueue
-				(syncDownloadQueueID, syncQueueHostID, userID, sessionID, lastsync, lastsyncMS, version, objects)
-				VALUES (?, ?, ?, ?, FROM_UNIXTIME(?), ?, ?, ?)";
+				(syncDownloadQueueID, processorHost, userID, sessionID, lastsync, lastsyncMS, version, objects)
+				VALUES (?, INET_ATON(?), ?, ?, FROM_UNIXTIME(?), ?, ?, ?)";
 		Zotero_DB::query(
 			$sql,
 			array(
 				$syncQueueID,
-				$hostID,
+				gethostbyname(gethostname()),
 				$userID,
 				$sessionID,
 				$lastsync,
@@ -179,22 +173,16 @@ class Zotero_Sync {
 		$sql = "DELETE FROM syncUploadQueue WHERE sessionID=? AND finished IS NOT NULL";
 		Zotero_DB::query($sql, $sessionID);
 		
-		$hostname = gethostname();
-		$hostID = self::getHostID($hostname);
-		if (!$hostID) {
-			throw new Exception("Host ID not found for hostname '$hostname'");
-		}
-		
 		Zotero_DB::beginTransaction();
 		
 		$sql = "INSERT INTO syncUploadQueue
-				(syncUploadQueueID, syncQueueHostID, userID, sessionID, xmldata, dataLength, hasCreator)
-				VALUES (?, ?, ?, ?, ?, ?, ?)";
+				(syncUploadQueueID, processorHost, userID, sessionID, xmldata, dataLength, hasCreator)
+				VALUES (?, INET_ATON(?), ?, ?, ?, ?, ?)";
 		Zotero_DB::query(
 			$sql,
 			array(
 				$syncQueueID,
-				$hostID,
+				gethostbyname(gethostname()),
 				$userID,
 				$sessionID,
 				$xmldata,
@@ -401,20 +389,15 @@ class Zotero_Sync {
 			return 0;
 		}
 		
-		// Update host id field with the host processing the data
-		$hostname = gethostname();
-		$hostID = self::getHostID($hostname);
-		if (!$hostID) {
-			throw new Exception("Host ID not found for hostname '$hostname'");
-		}
+		$host = gethostbyname(gethostname());
 		
 		$startedTimestamp = microtime(true);
 		if (strpos($startedTimestamp, '.') === false) {
 			$startedTimestamp .= '.';
 		}
 		list($started, $startedMS) = explode('.', $startedTimestamp);
-		$sql = "UPDATE syncUploadQueue SET started=FROM_UNIXTIME(?), startedMS=?, syncQueueHostID=? WHERE syncUploadQueueID=?";
-		Zotero_DB::query($sql, array($started, $startedMS, $hostID, $row['syncUploadQueueID']));
+		$sql = "UPDATE syncUploadQueue SET started=FROM_UNIXTIME(?), startedMS=?, processorHost=INET_ATON(?) WHERE syncUploadQueueID=?";
+		Zotero_DB::query($sql, array($started, $startedMS, $host, $row['syncUploadQueueID']));
 		
 		Zotero_DB::commit();
 		
@@ -447,14 +430,14 @@ class Zotero_Sync {
 			
 			try {
 				$sql = "INSERT INTO syncUploadProcessLog
-						(userID, dataLength, syncQueueHostID, processDuration, totalDuration, error)
-						VALUES (?,?,?,?,?,?)";
+						(userID, dataLength, processorHost, processDuration, totalDuration, error)
+						VALUES (?,?,INET_ATON(?),?,?,?)";
 				Zotero_DB::query(
 					$sql,
 					array(
 						$row['userID'],
 						$row['dataLength'],
-						$hostID,
+						$host,
 						round((float) microtime(true) - $startedTimestamp, 2),
 						max(0, min(time() - strtotime($row['added']), 65535)),
 						0
@@ -474,7 +457,7 @@ class Zotero_Sync {
 			
 			try {
 				// Index new items
-				Zotero_Solr::notifyProcessor();
+				Zotero_Processors::notifyProcessors('index');
 			}
 			catch (Exception $e) {
 				Z_Core::logError($e);
@@ -515,14 +498,14 @@ class Zotero_Sync {
 			
 			try {
 				$sql = "INSERT INTO syncUploadProcessLog
-						(userID, dataLength, syncQueueHostID, processDuration, totalDuration, error)
-						VALUES (?,?,?,?,?,?)";
+						(userID, dataLength, processorHost, processDuration, totalDuration, error)
+						VALUES (?,?,INET_ATON(?),?,?,?)";
 				Zotero_DB::query(
 					$sql,
 					array(
 						$row['userID'],
 						$row['dataLength'],
-						$row['syncQueueHostID'],
+						$row['processorHost'],
 						round((float) microtime(true) - $startedTimestamp, 2),
 						max(0, min(time() - strtotime($row['added']), 65535)),
 						1
@@ -751,36 +734,6 @@ class Zotero_Sync {
 	}
 	
 	
-	/**
-	 * Let the processor daemon know there's a queued process, etc.
-	 */
-	public static function notifyDownloadProcessor($signal="NEXT") {
-		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$SYNC_PROCESSOR_PORT_DOWNLOAD;
-		self::notifyProcessor('download', $addr, $port, $signal);
-	}
-	
-	
-	/**
-	 * Let the processor daemon know there's a queued process, etc.
-	 */
-	public static function notifyUploadProcessor($signal="NEXT") {
-		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$SYNC_PROCESSOR_PORT_UPLOAD;
-		self::notifyProcessor('upload', $addr, $port, $signal);
-	}
-	
-	
-	/**
-	 * Pass a message to the processor daemon
-	 */
-	public static function notifyErrorProcessor($signal="NEXT") {
-		$addr = Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS;
-		$port = Z_CONFIG::$SYNC_PROCESSOR_PORT_ERROR;
-		self::notifyProcessor('error', $addr, $port, $signal);
-	}
-	
-	
 	public static function countQueuedDownloadProcesses() {
 		$sql = "SELECT COUNT(*) FROM syncDownloadQueue WHERE started IS NULL";
 		return Zotero_DB::valueQuery($sql);
@@ -799,11 +752,10 @@ class Zotero_Sync {
 	
 	public static function getOldDownloadProcesses($host=null, $seconds=60) {
 		$sql = "SELECT syncDownloadProcessID FROM syncDownloadQueue
-				LEFT JOIN syncQueueHosts USING (syncQueueHostID)
 				WHERE started < NOW() - INTERVAL ? SECOND";
 		$params = array($seconds);
 		if ($host) {
-			$sql .= " AND hostname=?";
+			$sql .= " AND processorHost=INET_ATON(?)";
 			$params[] = $host;
 		}
 		return Zotero_DB::columnQuery($sql, $params);
@@ -812,11 +764,10 @@ class Zotero_Sync {
 	
 	public static function getOldUploadProcesses($host, $seconds=60) {
 		$sql = "SELECT syncProcessID FROM syncUploadQueue
-				LEFT JOIN syncQueueHosts USING (syncQueueHostID)
 				WHERE started < NOW() - INTERVAL ? SECOND AND errorCheck!=1";
 		$params = array($seconds);
 		if ($host) {
-			$sql .= " AND hostname=?";
+			$sql .= " AND processorHost=INET_ATON(?)";
 			$params[] = $host;
 		}
 		return Zotero_DB::columnQuery($sql, $params);
@@ -825,11 +776,10 @@ class Zotero_Sync {
 	
 	public static function getOldErrorProcesses($host, $seconds=60) {
 		$sql = "SELECT syncProcessID FROM syncUploadQueue
-				LEFT JOIN syncQueueHosts USING (syncQueueHostID)
 				WHERE started < NOW() - INTERVAL ? SECOND AND errorCheck=1";
 		$params = array($seconds);
 		if ($host) {
-			$sql .= " AND hostname=?";
+			$sql .= " AND processorHost=INET_ATON(?)";
 			$params[] = $host;
 		}
 		return Zotero_DB::columnQuery($sql, $params);
@@ -1593,30 +1543,6 @@ class Zotero_Sync {
 	}
 	
 	
-	private static function notifyProcessor($processor, $addr, $port, $signal) {
-		switch ($processor) {
-			case 'download':
-			case 'upload':
-			case 'error':
-				break;
-			
-			default:
-				throw new Exception("Invalid processor '$processor'");
-		}
-		
-		$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		// Enable broadcast
-		if (preg_match('/\.255$/', $addr)) {
-			socket_set_option($socket, SOL_SOCKET, SO_BROADCAST, 1);
-		}
-		$success = socket_sendto($socket, $signal, strlen($signal), MSG_EOF, $addr, $port);
-		if (!$success) {
-			$code = socket_last_error($socket);
-			throw new Exception(socket_strerror($code));
-		}
-	}
-	
-	
 	private static function addDownloadProcess($syncDownloadQueueID, $syncDownloadProcessID) {
 		$sql = "UPDATE syncDownloadQueue SET syncDownloadProcessID=? WHERE syncDownloadQueueID=?";
 		Zotero_DB::query($sql, array($syncDownloadProcessID, $syncDownloadQueueID));
@@ -1659,22 +1585,6 @@ class Zotero_Sync {
 		Zotero_DB::commit();
 		
 		return $syncProcessID;
-	}
-	
-	
-	// TODO: move out of here, since this is used in Solr too
-	public static function getHostID($hostname) {
-		$cacheKey = "syncQueueHostID_" . md5($hostname);
-		$hostID = Z_Core::$MC->get($cacheKey);
-		if ($hostID) {
-			return $hostID;
-		}
-		$sql = "SELECT syncQueueHostID FROM syncQueueHosts WHERE hostname=?";
-		$hostID = Zotero_DB::valueQuery($sql, $hostname);
-		if ($hostID) {
-			Z_Core::$MC->set($cacheKey, $hostID);
-		}
-		return $hostID;
 	}
 	
 	

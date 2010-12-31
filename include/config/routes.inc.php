@@ -60,6 +60,11 @@ if ($_SERVER['HTTP_HOST'] == preg_replace('/https?:\/\/(.+)\//', '$1', Z_CONFIG:
 	$router->connect('/users/:userID/:action/:key/:subset', array('controller' => 'Api'));
 	$router->connect('/groups/:groupID/:action/:key/:subset', array('controller' => 'Api'));
 	
+	$router->connect('/itemTypes', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemTypes')));
+	$router->connect('/itemFields', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemFields')));
+	$router->connect('/itemTypeCreatorTypes', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemTypeCreatorTypes')));
+	$router->connect('/items/new', array('controller' => 'Api', 'action' => 'newItem'));
+	
 	$router->connect('/test/setup', array('controller' => 'Api', 'action' => 'testSetup'));
 }
 // Sync

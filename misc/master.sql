@@ -189,6 +189,16 @@ CREATE TABLE `libraries` (
 
 
 
+CREATE TABLE `processorDaemons` (
+  `mode` enum('download','upload','error','index') NOT NULL,
+  `addr` int(10) unsigned NOT NULL,
+  `port` smallint(5) unsigned NOT NULL,
+  `lastSeen` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`mode`,`addr`)
+) ENGINE=MEMORY DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `sessions` (
   `sessionID` char(32) CHARACTER SET ascii NOT NULL,
   `userID` int(10) unsigned NOT NULL,
@@ -312,7 +322,7 @@ CREATE TABLE `storageUploadQueue` (
 
 CREATE TABLE `syncDownloadQueue` (
   `syncDownloadQueueID` int(10) unsigned NOT NULL,
-  `syncQueueHostID` tinyint(3) unsigned NOT NULL,
+  `processorHost` int(10) unsigned DEFAULT NULL,
   `userID` int(10) unsigned NOT NULL,
   `sessionID` char(32) CHARACTER SET ascii NOT NULL,
   `lastsync` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -320,6 +330,7 @@ CREATE TABLE `syncDownloadQueue` (
   `version` smallint(5) unsigned NOT NULL,
   `added` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `objects` int(10) unsigned NOT NULL,
+  `lastCheck` timestamp NULL DEFAULT NULL,
   `tries` smallint(5) unsigned NOT NULL DEFAULT '0',
   `started` timestamp NULL DEFAULT NULL,
   `syncDownloadProcessID` int(10) unsigned DEFAULT NULL,
@@ -327,13 +338,12 @@ CREATE TABLE `syncDownloadQueue` (
   `finishedMS` smallint(5) unsigned NOT NULL DEFAULT '0',
   `xmldata` longtext,
   `errorCode` int(10) unsigned DEFAULT NULL,
-  `errorMessage` mediumtext,
+  `errorMessage` text,
   PRIMARY KEY (`syncDownloadQueueID`),
   KEY `userID` (`userID`),
   KEY `sessionID` (`sessionID`),
   KEY `started` (`started`),
-  KEY `syncDownloadProcessID` (`syncDownloadProcessID`),
-  KEY `syncQueueHostID` (`syncQueueHostID`)
+  KEY `syncDownloadProcessID` (`syncDownloadProcessID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -359,7 +369,7 @@ CREATE TABLE `syncProcessLocks` (
 
 CREATE TABLE `syncUploadQueue` (
   `syncUploadQueueID` int(10) unsigned NOT NULL,
-  `syncQueueHostID` tinyint(3) unsigned NOT NULL,
+  `processorHost` int(10) unsigned DEFAULT NULL,
   `xmldata` mediumtext NOT NULL,
   `dataLength` int(10) unsigned NOT NULL DEFAULT '0',
   `hasCreator` tinyint(3) unsigned NOT NULL DEFAULT '0',
@@ -379,17 +389,9 @@ CREATE TABLE `syncUploadQueue` (
   UNIQUE KEY `sessionID` (`sessionID`),
   UNIQUE KEY `syncProcessID` (`syncProcessID`),
   KEY `userID` (`userID`),
-  KEY `started` (`started`),
-  KEY `syncQueueHostID` (`syncQueueHostID`)
+  KEY `started` (`started`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-
-
-CREATE TABLE `syncQueueHosts` (
-  `syncQueueHostID` tinyint(3) unsigned NOT NULL,
-  `hostname` varchar(50) NOT NULL,
-  PRIMARY KEY (`syncQueueHostID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE `syncUploadQueueLocks` (
@@ -403,12 +405,11 @@ CREATE TABLE `syncUploadQueueLocks` (
 CREATE TABLE `syncUploadProcessLog` (
   `userID` int(10) unsigned NOT NULL,
   `dataLength` int(10) unsigned NOT NULL,
-  `syncQueueHostID` tinyint(3) unsigned DEFAULT NULL,
+  `processorHost` int(10) unsigned NOT NULL,
   `processDuration` float(6,2) NOT NULL,
   `totalDuration` smallint(5) unsigned NOT NULL,
   `error` tinyint(4) NOT NULL DEFAULT '0',
   `finished` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY `syncQueueHostID` (`syncQueueHostID`),
   KEY `finished` (`finished`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -470,9 +471,6 @@ ALTER TABLE `sessions`
 ALTER TABLE `shards`
   ADD CONSTRAINT `shards_ibfk_1` FOREIGN KEY (`shardHostID`) REFERENCES `shardHosts` (`shardHostID`);
 
-ALTER TABLE `solrProcesses`
-  ADD CONSTRAINT `solrProcesses_ibfk_1` FOREIGN KEY (`hostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`);
-
 ALTER TABLE `solrQueue`
   ADD CONSTRAINT `solrQueue_ibfk_1` FOREIGN KEY (`solrProcessID`) REFERENCES `solrProcesses` (`solrProcessID`) ON DELETE SET NULL ON UPDATE SET NULL;
 
@@ -487,7 +485,6 @@ ALTER TABLE `storageUploadQueue`
 
 ALTER TABLE `syncDownloadQueue`
   ADD CONSTRAINT `syncDownloadQueue_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `syncDownloadQueue_ibfk_2` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`),
   ADD CONSTRAINT `syncDownloadQueue_ibfk_3` FOREIGN KEY (`sessionID`) REFERENCES `sessions` (`sessionID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `syncProcesses`
@@ -500,15 +497,11 @@ ALTER TABLE `syncProcessLocks`
 ALTER TABLE `syncUploadQueue`
   ADD CONSTRAINT `syncUploadQueue_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `syncUploadQueue_ibfk_2` FOREIGN KEY (`syncProcessID`) REFERENCES `syncProcesses` (`syncProcessID`) ON DELETE SET NULL,
-  ADD CONSTRAINT `syncUploadQueue_ibfk_3` FOREIGN KEY (`sessionID`) REFERENCES `sessions` (`sessionID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `syncUploadQueue_ibfk_4` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`);
+  ADD CONSTRAINT `syncUploadQueue_ibfk_3` FOREIGN KEY (`sessionID`) REFERENCES `sessions` (`sessionID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `syncUploadQueueLocks`
   ADD CONSTRAINT `syncUploadQueueLocks_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncUploadQueue` (`syncUploadQueueID`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `syncUploadQueueLocks_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE `syncUploadProcessLog`
-  ADD CONSTRAINT `syncUploadProcessLog_ibfk_1` FOREIGN KEY (`syncQueueHostID`) REFERENCES `syncQueueHosts` (`syncQueueHostID`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE `syncUploadQueuePostWriteLog`
   ADD CONSTRAINT `syncUploadQueuePostWriteLog_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncUploadQueue` (`syncUploadQueueID`) ON DELETE CASCADE;

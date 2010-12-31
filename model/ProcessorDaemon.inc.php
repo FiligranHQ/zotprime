@@ -26,20 +26,19 @@
 
 abstract class Zotero_Processor_Daemon {
 	// Default is no concurrency
-	private $minProcessors = 1;
 	private $maxProcessors = 1;
-	private $minQueuedProcesses = 1; // minimum queued processes before we do anything
-	private $maxQueuedPerProcessor = 3;
 	private $minPurgeInterval = 20; // minimum time between purging orphaned processors
 	private $minCheckInterval = 15; // minimum time between checking queued processes on NEXT
 	private $lockWait = 2; // Delay when a processor returns a LOCK signal
 	
 	private $hostname;
+	private $addr;
+	
 	private $processors = array();
-	private $totalProcesses = 0;
+	private $queuedProcesses = 0;
 	
 	// Set by implementors
-	protected $name;
+	protected $mode;
 	protected $port;
 	
 	public function __construct($config=array()) {
@@ -47,14 +46,12 @@ abstract class Zotero_Processor_Daemon {
 		set_time_limit(0);
 		
 		$this->hostname = gethostname();
+		$this->addr = gethostbyname($this->hostname);
 		
 		// Set configuration parameters
 		foreach ($config as $key => $val) {
 			switch ($key) {
-				case 'minProcessors':
 				case 'maxProcessors':
-				case 'minQueuedProcesses':
-				case 'maxQueuedPerProcessor':
 				case 'minPurgeInterval':
 				case 'minCheckInterval':
 				case 'lockWait':
@@ -69,22 +66,23 @@ abstract class Zotero_Processor_Daemon {
 	
 	
 	public function run() {
-		$this->log("Starting " . $this->name . " processor daemon");
+		$this->log("Starting " . $this->mode . " processor daemon");
+		$this->register();
 		
+		// Bind
 		$socket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		$success = socket_bind($socket, Z_CONFIG::$SYNC_PROCESSOR_BIND_ADDRESS, $this->port);
+		$success = socket_bind($socket, $this->addr, $this->port);
 		if (!$success) {
 			$code = socket_last_error($socket);
+			$this->unregister();
 			die(socket_strerror($code));
 		}
 		
 		$buffer = 'GO';
-		$name = null;
+		$mode = null;
 		
 		$first = true;
 		$lastPurge = 0;
-		$this->totalProcesses = $this->countQueuedProcesses();
-		$lastCheck = microtime(true);
 		
 		do {
 			if ($first) {
@@ -105,10 +103,9 @@ abstract class Zotero_Processor_Daemon {
 				$this->removeProcessor($id);
 				
 				if ($signal == "DONE" || $signal == "ERROR") {
-					$this->totalProcesses--;
+				
 				}
 				else if ($signal == "NONE") {
-					$this->totalProcesses = 0;
 					continue;
 				}
 				else if ($signal == "LOCK") {
@@ -120,11 +117,6 @@ abstract class Zotero_Processor_Daemon {
 			}
 			
 			if ($buffer == "NEXT" || $buffer == "GO") {
-				if ($buffer == "NEXT") {
-					//$this->log("NEXT received");
-					$this->totalProcesses++;
-				}
-				
 				if ($lastPurge == 0) {
 					$lastPurge = microtime(true);
 				}
@@ -145,48 +137,24 @@ abstract class Zotero_Processor_Daemon {
 				}
 				
 				try {
-					// Under some conditions, do a DB query to determine number of queued processes
-					if ($buffer == "NEXT" && ($numProcessors <= 0 || (microtime(true) - $lastCheck) >= $this->minCheckInterval)) {
-						//$this->log("Checking queued processes");
-						$queuedProcesses = $this->countQueuedProcesses();
-						$this->totalProcesses = $numProcessors + $queuedProcesses;
-						$lastCheck = microtime(true);
-					}
-					// Otherwise just use our latest figures
-					else {
-						$queuedProcesses = max($this->totalProcesses - $numProcessors, 0);
-					}
+					$queuedProcesses = $this->countQueuedProcesses();
 					
 					$this->log($numProcessors . " processor" . $this->pluralize($numProcessors) . ", "
 						. $queuedProcesses . " queued process" . $this->pluralize($queuedProcesses, "es"));
 					
-					
-					if ($queuedProcesses == 0) {
-						continue;
-					}
-					
-					if ($queuedProcesses < $this->minQueuedProcesses) {
-						$this->log("Under minimum queued processes");
-						continue;
-					}
-					
-					// See if we're above minimum and below the queued-per-processor limit
-					$threshold = $numProcessors * $this->maxQueuedPerProcessor;
-					if ($numProcessors >= $this->minProcessors && $queuedProcesses < $threshold) {
-						$this->log("Under queued-per-processor limit");
+					// Nothing queued, so go back and wait
+					if (!$queuedProcesses) {
 						continue;
 					}
 					
 					// Wanna be startin' somethin'
-					$toStart = min(
-						$queuedProcesses,
-						max(
-							$this->minProcessors - $numProcessors,
-							
-							ceil(($queuedProcesses - $threshold) / $this->maxQueuedPerProcessor)
-						),
-						$this->maxProcessors - $numProcessors
-					);
+					$maxToStart = $this->maxProcessors - $numProcessors;
+					if ($queuedProcesses > $maxToStart) {
+						$toStart = $maxToStart;
+					}
+					else {
+						$toStart = 1;
+					}
 					
 					if ($toStart <= 0) {
 						$this->log("No processors to start");
@@ -200,7 +168,7 @@ abstract class Zotero_Processor_Daemon {
 						$id = Zotero_ID::getBigInt();
 						$pid = shell_exec(
 							Z_CONFIG::$CLI_PHP_PATH . " " . Z_ENV_BASE_PATH . "processor/"
-							. $this->name . "/processor.php $id > /dev/null & echo $!"
+							. $this->mode . "/processor.php $id > /dev/null & echo $!"
 						);
 						$this->processors[$id] = $pid;
 					}
@@ -220,6 +188,17 @@ abstract class Zotero_Processor_Daemon {
 		while ($buffer != 'QUIT');
 		
 		$this->log("QUIT received — exiting");
+		$this->unregister();
+	}
+	
+	
+	private function register() {
+		Zotero_Processors::register($this->mode, $this->addr, $this->port);
+	}
+	
+	
+	private function unregister() {
+		Zotero_Processors::unregister($this->mode, $this->addr, $this->port);
 	}
 	
 	
@@ -316,13 +295,10 @@ abstract class Zotero_Processor_Daemon {
 
 
 class Zotero_Download_Processor_Daemon extends Zotero_Processor_Daemon {
-	protected $name = 'download';
+	protected $mode = 'download';
 	
 	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$SYNC_PROCESSOR_PORT_DOWNLOAD;
-		if (!$config || !isset($config['minProcessors'])) {
-			$config['minProcessors'] = 2;
-		}
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_DOWNLOAD;
 		if (!$config || !isset($config['maxProcessors'])) {
 			$config['maxProcessors'] = 3;
 		}
@@ -330,7 +306,7 @@ class Zotero_Download_Processor_Daemon extends Zotero_Processor_Daemon {
 	}
 	
 	public function log($msg) {
-		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_DOWNLOAD, $msg);
+		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_DOWNLOAD, $msg);
 	}
 	
 	protected function countQueuedProcesses() {
@@ -348,15 +324,15 @@ class Zotero_Download_Processor_Daemon extends Zotero_Processor_Daemon {
 
 
 class Zotero_Upload_Processor_Daemon extends Zotero_Processor_Daemon {
-	protected $name = 'upload';
+	protected $mode = 'upload';
 	
 	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$SYNC_PROCESSOR_PORT_UPLOAD;
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_UPLOAD;
 		parent::__construct($config);
 	}
 	
 	public function log($msg) {
-		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_UPLOAD, $msg);
+		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_UPLOAD, $msg);
 	}
 	
 	protected function countQueuedProcesses() {
@@ -374,18 +350,15 @@ class Zotero_Upload_Processor_Daemon extends Zotero_Processor_Daemon {
 
 
 class Zotero_Error_Processor_Daemon extends Zotero_Processor_Daemon {
-	protected $name = 'error';
+	protected $mode = 'error';
 	
 	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$SYNC_PROCESSOR_PORT_ERROR;
-		if (!$config || !isset($config['minQueuedProcesses'])) {
-			$config['minQueuedProcesses'] = 1; // TODO: increase
-		}
+		$this->port = Z_CONFIG::$PROCESSOR_PORT_ERROR;
 		parent::__construct($config);
 	}
 	
 	public function log($msg) {
-		Z_Log::log(Z_CONFIG::$SYNC_PROCESSOR_LOG_TARGET_ERROR, $msg);
+		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_ERROR, $msg);
 	}
 	
 	protected function countQueuedProcesses() {
@@ -403,7 +376,7 @@ class Zotero_Error_Processor_Daemon extends Zotero_Processor_Daemon {
 
 
 class Zotero_Index_Processor_Daemon extends Zotero_Processor_Daemon {
-	protected $name = 'index';
+	protected $mode = 'index';
 	
 	public function __construct($config=array()) {
 		$this->port = Z_CONFIG::$PROCESSOR_PORT_INDEX;

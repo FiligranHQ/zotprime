@@ -25,11 +25,14 @@
 */
 
 class Zotero_ItemFields {
-	private static $fieldIDs = array();
-	private static $fieldNames = array();
 	private static $customFieldCheck = array();
-	private static $itemTypeFields = array();
+	
+	// Caches
+	private static $fieldIDCache = array();
+	private static $fieldNameCache = array();
+	private static $itemTypeFieldsCache = array();
 	private static $itemTypeBaseFieldIDCache = array();
+	private static $isValidForTypeCache = array();
 	
 	private static $localizedFields = array(
 			"itemType"			=> "Type",
@@ -130,6 +133,7 @@ class Zotero_ItemFields {
 			"forumTitle"			=> "Forum/Listserv Title",
 			"episodeNumber"			=> "Episode Number",
 			"blogTitle"				=> "Blog Title",
+			"medium"				=> "Medium",
 			"caseName"				=> "Case Name",
 			"nameOfAct"				=> "Name of Act",
 			"subject"				=> "Subject",
@@ -149,14 +153,14 @@ class Zotero_ItemFields {
 	public static function getID($fieldOrFieldID) {
 		// TODO: batch load
 		
-		if (isset(self::$fieldIDs[$fieldOrFieldID])) {
-			return self::$fieldIDs[$fieldOrFieldID];
+		if (isset(self::$fieldIDCache[$fieldOrFieldID])) {
+			return self::$fieldIDCache[$fieldOrFieldID];
 		}
 		
 		$cacheKey = "itemFieldID_" . $fieldOrFieldID;
 		$fieldID = Z_Core::$MC->get($cacheKey);
 		if ($fieldID) {
-			self::$fieldIDs[$fieldOrFieldID] = $fieldID;
+			self::$fieldIDCache[$fieldOrFieldID] = $fieldID;
 			return $fieldID;
 		}
 		
@@ -164,7 +168,7 @@ class Zotero_ItemFields {
 				(SELECT fieldID FROM fields WHERE fieldName=?) LIMIT 1";
 		$fieldID = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
-		self::$fieldIDs[$fieldOrFieldID] = $fieldID;
+		self::$fieldIDCache[$fieldOrFieldID] = $fieldID;
 		Z_Core::$MC->set($cacheKey, $fieldID);
 		
 		return $fieldID;
@@ -172,14 +176,14 @@ class Zotero_ItemFields {
 	
 	
 	public static function getName($fieldOrFieldID) {
-		if (isset(self::$fieldNames[$fieldOrFieldID])) {
-			return self::$fieldNames[$fieldOrFieldID];
+		if (isset(self::$fieldNameCache[$fieldOrFieldID])) {
+			return self::$fieldNameCache[$fieldOrFieldID];
 		}
 		
 		$cacheKey = "itemFieldName_" . $fieldOrFieldID;
 		$fieldName = Z_Core::$MC->get($cacheKey);
 		if ($fieldName) {
-			self::$fieldNames[$fieldOrFieldID] = $fieldName;
+			self::$fieldNameCache[$fieldOrFieldID] = $fieldName;
 			return $fieldName;
 		}
 		
@@ -187,7 +191,7 @@ class Zotero_ItemFields {
 				(SELECT fieldName FROM fields WHERE fieldName=?) LIMIT 1";
 		$fieldName = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
-		self::$fieldNames[$fieldOrFieldID] = $fieldName;
+		self::$fieldNameCache[$fieldOrFieldID] = $fieldName;
 		Z_Core::$MC->set($cacheKey, $fieldName);
 		
 		return $fieldName;
@@ -215,6 +219,31 @@ class Zotero_ItemFields {
 	}
 	
 	
+	public static function getAll($includeLocalized=false) {
+		$sql = "SELECT DISTINCT fieldID AS id, fieldName AS name
+				FROM fields JOIN itemTypeFields USING (fieldID)";
+		// TEMP - skip nsfReviewer fields
+		$sql .= " WHERE fieldID < 10000";
+		$rows = Zotero_DB::query($sql);
+		
+		// TODO: cache
+		
+		if (!$includeLocalized) {
+			return $rows;
+		}
+		
+		foreach ($rows as &$row) {
+			$row['localized'] =  self::getLocalizedString(false, $row['id']);
+		}
+		
+		usort($rows, function ($a, $b) {
+			return strcmp($a["localized"], $b["localized"]);
+		});
+		
+		return $rows;
+	}
+	
+	
 	/**
 	 * Validates field content
 	 *
@@ -237,6 +266,22 @@ class Zotero_ItemFields {
 	
 	
 	public static function isValidForType($fieldID, $itemTypeID) {
+		// Check local cache
+		if (isset(self::$isValidForTypeCache[$itemTypeID][$fieldID])) {
+			return self::$isValidForTypeCache[$itemTypeID][$fieldID];
+		}
+		
+		// Check memcached
+		$cacheKey = "isValidForType_" . $itemTypeID . "_" . $fieldID;
+		$valid = Z_Core::$MC->get($cacheKey);
+		if ($valid !== false) {
+			if (!isset(self::$isValidForTypeCache[$itemTypeID])) {
+				self::$isValidForTypeCache[$itemTypeID] = array();
+			}
+			self::$isValidForTypeCache[$itemTypeID] = !!$valid;
+			return $valid;
+		}
+		
 		if (!self::getID($fieldID)) {
 			throw new Exception("Invalid fieldID '$fieldID'");
 		}
@@ -245,21 +290,29 @@ class Zotero_ItemFields {
 			throw new Exception("Invalid item type id '$itemTypeID'");
 		}
 		
-		$sql = "SELECT COUNT(*) FROM itemTypeFields WHERE
-			itemTypeID=? AND fieldID=?";
-		return !!Zotero_DB::valueQuery($sql, array($itemTypeID, $fieldID));
+		$sql = "SELECT COUNT(*) FROM itemTypeFields WHERE itemTypeID=? AND fieldID=?";
+		$valid = !!Zotero_DB::valueQuery($sql, array($itemTypeID, $fieldID));
+		
+		// Store in local cache and memcached
+		if (!isset(self::$isValidForTypeCache[$itemTypeID])) {
+			self::$isValidForTypeCache[$itemTypeID] = array();
+		}
+		self::$isValidForTypeCache[$itemTypeID] = $valid;
+		Z_Core::$MC->get($cacheKey, $valid ? true : 0);
+		
+		return $valid;
 	}
 	
 	
 	public static function getItemTypeFields($itemTypeID) {
-		if (isset(self::$itemTypeFields[$itemTypeID])) {
-			return self::$itemTypeFields[$itemTypeID];
+		if (isset(self::$itemTypeFieldsCache[$itemTypeID])) {
+			return self::$itemTypeFieldsCache[$itemTypeID];
 		}
 		
 		$cacheKey = "itemTypeFields_" . $itemTypeID;
 		$fields = Z_Core::$MC->get($cacheKey);
 		if ($fields !== false) {
-			self::$itemTypeFields[$itemTypeID] = $fields;
+			self::$itemTypeFieldsCache[$itemTypeID] = $fields;
 			return $fields;
 		}
 		
@@ -273,7 +326,7 @@ class Zotero_ItemFields {
 			$fields = array();
 		}
 		
-		self::$itemTypeFields[$itemTypeID] = $fields;
+		self::$itemTypeFieldsCache[$itemTypeID] = $fields;
 		Z_Core::$MC->set($cacheKey, $fields);
 		
 		return $fields;

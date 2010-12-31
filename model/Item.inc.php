@@ -36,11 +36,6 @@ class Zotero_Item {
 	private $numNotes;
 	private $numAttachments;
 	
-	private $primaryDataLoaded = false;
-	private $creatorsLoaded = false;
-	private $itemDataLoaded = false;
-	private $relatedItemsLoaded = false;
-	
 	private $itemData = array();
 	private $creators = array();
 	private $creatorSummary;
@@ -48,18 +43,6 @@ class Zotero_Item {
 	private $sourceItem;
 	private $noteTitle = null;
 	private $noteText = null;
-	
-	private $loaded = false;
-	private $changed = array();
-	private $changedPrimaryData = array();
-	private $changedItemData = array();
-	private $changedCreators = array();
-	private $changedDeleted = false;
-	private $changedNote = false;
-	private $changedSource = false;
-	private $changedAttachmentData = array();
-	
-	private $previousData;
 	
 	private $deleted = null;
 	
@@ -74,6 +57,10 @@ class Zotero_Item {
 	
 	private $relatedItems = array();
 	
+	// Populated by init()
+	private $loaded = array();
+	private $changed = array();
+	private $previousData = array();
 	
 	public function __construct() {
 		$numArgs = func_num_args();
@@ -81,21 +68,47 @@ class Zotero_Item {
 			throw new Exception("Constructor doesn't take any parameters");
 		}
 		
-/*		if ($libraryID || $key) {
-			if ($libraryID) {
-				if (!is_integer($libraryID)) {
-					trigger_error("Library ID must be an integer (was " . gettype($libraryID) . ")", E_USER_ERROR);
-				}
-				$this->libraryID = $libraryID;
-			}
-			if ($key) {
-				if (!is_string($key)) {
-					trigger_error("Key must be a string (was " . gettype($key) . ")", E_USER_ERROR);
-				}
-				$this->key = $key;
-			}
+		$this->init();
+	}
+	
+	
+	private function init() {
+		$this->loaded = array();
+		$props = array(
+			'primaryData',
+			'itemData',
+			'creators',
+			'relatedItems'
+		);
+		foreach ($props as $prop) {
+			$this->loaded[$prop] = false;
 		}
-*/	}
+		
+		$this->changed = array();
+		// Array
+		$props = array(
+			'primaryData',
+			'itemData',
+			'creators',
+			'relatedItems',
+			'attachmentData'
+		);
+		foreach ($props as $prop) {
+			$this->changed[$prop] = array();
+		}
+		
+		// Boolean
+		$props = array(
+			'deleted',
+			'note',
+			'source'
+		);
+		foreach ($props as $prop) {
+			$this->changed[$prop] = false;
+		}
+		
+		$this->previousData = array();
+	}
 	
 	
 	public function __get($field) {
@@ -138,6 +151,9 @@ class Zotero_Item {
 			
 			case 'relatedItems':
 				return $this->getRelatedItems();
+			
+			case 'etag':
+				return $this->getETag();
 		}
 		
 		trigger_error("'$field' is not a primary or attachment field", E_USER_ERROR);
@@ -194,7 +210,7 @@ class Zotero_Item {
 	public function getField($field, $unformatted=false, $includeBaseMapped=false, $skipValidation=false) {
 		Z_Core::debug("Requesting field '$field' for item $this->id", 4);
 		
-		if (($this->id || $this->key) && !$this->primaryDataLoaded) {
+		if (($this->id || $this->key) && !$this->loaded['primaryData']) {
 			$this->loadPrimaryData(true);
 		}
 		
@@ -235,7 +251,7 @@ class Zotero_Item {
 			return '';
 		}
 		
-		if ($this->id && is_null($this->itemData[$fieldID]) && !$this->itemDataLoaded) {
+		if ($this->id && is_null($this->itemData[$fieldID]) && !$this->loaded['itemData']) {
 			$this->loadItemData();
 		}
 		
@@ -375,6 +391,7 @@ class Zotero_Item {
 		$cacheKey = ($asNames ? "itemUsedFieldNames" : "itemUsedFieldIDs") . '_' . $this->id;
 		
 		$fields = Z_Core::$MC->get($cacheKey);
+		$fields = false;
 		if ($fields !== false) {
 			return $fields;
 		}
@@ -406,7 +423,7 @@ class Zotero_Item {
 	 */
 	public function exists() {
 		if (!$this->id) {
-			trigger_error('$this->id not set');
+			throw new Exception('$this->id not set');
 		}
 		
 		$sql = "SELECT COUNT(*) FROM items WHERE itemID=?";
@@ -424,7 +441,7 @@ class Zotero_Item {
 	private function loadPrimaryData($allowFail=false) {
 		Z_Core::debug("Loading primary data for item $this->id");
 		
-		if ($this->primaryDataLoaded) {
+		if ($this->loaded['primaryData']) {
 			throw new Exception("Primary data already loaded for item $this->id");
 		}
 		
@@ -443,7 +460,7 @@ class Zotero_Item {
 		// Use cached check for existence if possible
 		if ($libraryID && $key) {
 			if (!Zotero_Items::existsByLibraryAndKey($libraryID, $key)) {
-				$this->primaryDataLoaded = true;
+				$this->loaded['primaryData'] = true;
 				
 				if ($allowFail) {
 					return false;
@@ -518,7 +535,7 @@ class Zotero_Item {
 			$row = Zotero_DB::rowQueryFromStatement($stmt, array($libraryID, $key));
 		}
 		
-		$this->primaryDataLoaded = true;
+		$this->loaded['primaryData'] = true;
 		
 		if (!$row) {
 			if ($allowFail) {
@@ -534,22 +551,19 @@ class Zotero_Item {
 	
 	
 	public function loadFromRow($row, $reload=false) {
-		/*
 		if ($reload) {
 			$this->init();
 		}
 		
-		// If necessary or reloading, set the type, initialize this._itemData,
-		// and reset _itemDataLoaded
-		if (reload || (!this._itemTypeID && row.itemTypeID)) {
-			this.setType(row.itemTypeID, true);
+		// If necessary or reloading, set the type and reinitialize $this->itemData
+		if ($reload || (!$this->itemTypeID && $row['itemTypeID'])) {
+			$this->setType($row['itemTypeID'], true);
 		}
-		*/
 		
 		foreach ($row as $field=>$val) {
 			// Only accept primary field data through loadFromRow()
 			if (in_array($field, Zotero_Items::$primaryFields)) {
-				//Zotero.debug("Setting field '" + col + "' to '" + row[col] + "' for item " + this.id);
+				//Z_Core::debug("Setting field '" + col + "' to '" + row[col] + "' for item " + this.id);
 				switch ($field) {
 					case 'itemID':
 						$this->id = $val;
@@ -568,7 +582,7 @@ class Zotero_Item {
 			}
 		}
 		
-		$this->primaryDataLoaded = true;
+		$this->loaded['primaryData'] = true;
 	}
 	
 	
@@ -578,6 +592,10 @@ class Zotero_Item {
 		}
 		
 		// TODO: block switching to/from note or attachment
+		
+		if (!Zotero_ItemTypes::getID($itemTypeID)) {
+			throw new Exception("Invalid itemTypeID", Z_ERROR_INVALID_INPUT);
+		}
 		
 		$copiedFields = array();
 		
@@ -649,10 +667,10 @@ class Zotero_Item {
 		}
 		
 		if ($loadIn) {
-			$this->itemDataLoaded = false;
+			$this->loaded['itemData'] = false;
 		}
 		else {
-			$this->changedPrimaryData['itemTypeID'] = true;
+			$this->changed['primaryData']['itemTypeID'] = true;
 		}
 		
 		return true;
@@ -665,7 +683,7 @@ class Zotero_Item {
 	 * If _allowBaseConversion_, don't return fields that can be converted
 	 * via base fields (e.g. label => publisher => studio)
 	 */
-	public function getFieldsNotInType($itemTypeID, $allowBaseConversion=false) {
+	private function getFieldsNotInType($itemTypeID, $allowBaseConversion=false) {
 		$usedFields = self::getUsedFields();
 		if (!$usedFields) {
 			return false;
@@ -707,9 +725,8 @@ class Zotero_Item {
 	 * @param 	string|int	$field				Field name or ID
 	 * @param	mixed		$value				Field value
 	 * @param	bool		$loadIn				Populate the data fields without marking as changed
-	 * @param	bool 		$skipValidation		Don't check item type/field validity, etc.
 	 */
-	public function setField($field, $value, $loadIn=false, $skipValidation=false) {
+	public function setField($field, $value, $loadIn=false) {
 		if (empty($field)) {
 			trigger_error("Field not specified", E_USER_ERROR);
 		}
@@ -719,7 +736,7 @@ class Zotero_Item {
 			case 'id':
 			case 'libraryID':
 			case 'key':
-				if ($this->primaryDataLoaded) {
+				if ($this->loaded['primaryData']) {
 					throw new Exception("Cannot set $field after item is already loaded");
 				}
 				//this._checkValue(field, val);
@@ -728,12 +745,12 @@ class Zotero_Item {
 		}
 		
 		if ($this->id || $this->key) {
-			if (!$this->primaryDataLoaded) {
+			if (!$this->loaded['primaryData']) {
 				$this->loadPrimaryData(true);
 			}
 		}
 		else {
-			$this->primaryDataLoaded = true;
+			$this->loaded['primaryData'] = true;
 		}
 		
 		// Primary field
@@ -750,32 +767,23 @@ class Zotero_Item {
 					trigger_error("Primary field '$field' cannot be changed through setField()", E_USER_ERROR);
 			}
 			
-			// Only allow primary field changes if $skipValidation is true, since it means
-			// we're loading in data from a client
-			if ($skipValidation) {
-				if (!Zotero_ItemFields::validate($field, $value)) {
-					trigger_error("Value '$value' of type " . gettype($value) . " does not validate for field '$field'", E_USER_ERROR);
-				}
-				
-				if ($loadIn) {
-					trigger_error('Is this allowed?', E_USER_ERROR);
-				}
-				
-				if ($this->$field != $value) {
-					Z_Core::debug("Field $field has changed from {$this->$field} to $value", 4);
-					
-					if ($field == 'itemTypeID') {
-						$this->setType($value, $loadIn);
-					}
-					else {
-						$this->$field = $value;
-						$this->changedPrimaryData[$field] = true;
-					}
-				}
-				return true;
+			if (!Zotero_ItemFields::validate($field, $value)) {
+				trigger_error("Value '$value' of type " . gettype($value) . " does not validate for field '$field'", E_USER_ERROR);
 			}
 			
-			trigger_error("Primary field '$field' cannot be changed through setField() if \$skipValidation is false", E_USER_ERROR);
+			if ($this->$field != $value) {
+				Z_Core::debug("Field $field has changed from {$this->$field} to $value", 4);
+				
+				if ($field == 'itemTypeID') {
+					$this->setType($value, $loadIn);
+				}
+				else {
+					$this->$field = $value;
+					$this->changed['primaryData'][$field] = true;
+				}
+			}
+			
+			return true;
 		}
 		
 		//
@@ -789,22 +797,23 @@ class Zotero_Item {
 		// If existing item, load field data first unless we're already in
 		// the middle of a load
 		if ($this->id) {
-			if (!$loadIn && !$this->itemDataLoaded) {
+			if (!$loadIn && !$this->loaded['itemData']) {
 				$this->loadItemData();
 			}
 		}
 		else {
-			$this->itemDataLoaded = true;
+			$this->loaded['itemData'] = true;
 		}
 		
 		$fieldID = Zotero_ItemFields::getID($field);
 		
 		if (!$fieldID) {
-			trigger_error("'$field' is not a valid itemData field.", E_USER_ERROR);
+			throw new Exception("'$field' is not a valid itemData field.", Z_ERROR_INVALID_INPUT);
 		}
 		
-		if (!$skipValidation && !Zotero_ItemFields::isValidForType($fieldID, $this->itemTypeID)) {
-			trigger_error("'$field' is not a valid field for type " . $this->itemTypeID, E_USER_ERROR);
+		if (!Zotero_ItemFields::isValidForType($fieldID, $this->itemTypeID)) {
+			throw new Exception("'$field' is not a valid field for type '"
+				. Zotero_ItemTypes::getName($this->itemTypeID) . "'", Z_ERROR_INVALID_INPUT);
 		}
 		
 		if (!$loadIn) {
@@ -820,7 +829,7 @@ class Zotero_Item {
 				if (value && (!Zotero.Date.isSQLDate(value) &&
 						!Zotero.Date.isSQLDateTime(value) &&
 						value != 'CURRENT_TIMESTAMP')) {
-					Zotero.debug("Discarding invalid accessDate '" + value
+					Z_Core::debug("Discarding invalid accessDate '" + value
 						+ "' in Item.setField()");
 					return false;
 				}
@@ -834,18 +843,13 @@ class Zotero_Item {
 				return false;
 			}
 			
-			/*
-			// Save a copy of the object before modifying
-			if (!this._preChangeArray) {
-				this._preChangeArray = this.toArray();
-			}
-			*/
+			// TODO: Save a copy of the object before modifying?
 		}
 		
 		$this->itemData[$fieldID] = $value;
 		
 		if (!$loadIn) {
-			$this->changedItemData[$fieldID] = true;
+			$this->changed['itemData'][$fieldID] = true;
 		}
 		return true;
 	}
@@ -872,14 +876,12 @@ class Zotero_Item {
 	
 	
 	public function hasChanged() {
-		return $this->changed
-			|| $this->changedPrimaryData
-			|| $this->changedItemData
-			|| $this->changedCreators
-			|| $this->changedDeleted
-			|| $this->changedNote
-			|| $this->changedSource
-			|| $this->changedAttachmentData;
+		foreach ($this->changed as $changed) {
+			if ($changed) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	
@@ -986,8 +988,8 @@ class Zotero_Item {
 			return;
 		}
 		
-		if (!$this->changedDeleted) {
-			$this->changedDeleted = true;
+		if (!$this->changed['deleted']) {
+			$this->changed['deleted'] = true;
 		}
 		$this->deleted = $deleted;
 	}
@@ -1030,7 +1032,8 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$this->prepFieldChange('relatedItems');
+		$this->storePreviousData('relatedItems');
+		$this->changed['relatedItems'] = true;
 		$this->relatedItems[] = $itemID;
 		return true;
 	}
@@ -1048,7 +1051,8 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$this->prepFieldChange('relatedItems');
+		$this->storePreviousData('relatedItems');
+		$this->changed['relatedItems'] = true;
 		unset($this->relatedItems[$index]);
 		return true;
 	}
@@ -1097,8 +1101,16 @@ class Zotero_Item {
 				$itemID = $this->id ? $this->id : Zotero_ID::get('items');
 				$key = $this->key ? $this->key : $this->generateKey();
 				
-				$sqlColumns = array('itemID', 'itemTypeID', 'libraryID', 'key',
-					'dateAdded', 'dateModified', 'serverDateModified', 'serverDateModifiedMS');
+				$sqlColumns = array(
+					'itemID',
+					'itemTypeID',
+					'libraryID',
+					'key',
+					'dateAdded',
+					'dateModified',
+					'serverDateModified',
+					'serverDateModifiedMS'
+				);
 				$timestamp = Zotero_DB::getTransactionTimestamp();
 				$timestampMS = Zotero_DB::getTransactionTimestampMS();
 				$sqlValues = array(
@@ -1144,7 +1156,7 @@ class Zotero_Item {
 				//
 				// ItemData
 				//
-				if ($this->changedItemData) {
+				if ($this->changed['itemData']) {
 					// Use manual bound parameters to speed things up
 					$origInsertSQL = "INSERT INTO itemData VALUES ";
 					$insertSQL = $origInsertSQL;
@@ -1152,7 +1164,7 @@ class Zotero_Item {
 					$insertCounter = 0;
 					$maxInsertGroups = 40;
 					
-					$fieldIDs = array_keys($this->changedItemData);
+					$fieldIDs = array_keys($this->changed['itemData']);
 					
 					foreach ($fieldIDs as $fieldID) {
 						$value = $this->getField($fieldID, true, false, true);
@@ -1216,8 +1228,8 @@ class Zotero_Item {
 				//
 				// Creators
 				//
-				if ($this->changedCreators) {
-					$indexes = array_keys($this->changedCreators);
+				if ($this->changed['creators']) {
+					$indexes = array_keys($this->changed['creators']);
 					
 					// TODO: group queries
 					
@@ -1271,7 +1283,7 @@ class Zotero_Item {
 				
 				
 				// Deleted item
-				if ($this->changedDeleted) {
+				if ($this->changed['deleted']) {
 					$deleted = $this->getDeleted();
 					if ($deleted) {
 						$sql = "REPLACE INTO deletedItems (itemID) VALUES (?)";
@@ -1285,7 +1297,7 @@ class Zotero_Item {
 				
 				
 				// Note
-				if ($this->isNote() || $this->changedNote) {
+				if ($this->isNote() || $this->changed['note']) {
 					$title = Zotero_Notes::noteToTitle($this->noteText);
 					
 					$sql = "INSERT INTO itemNotes
@@ -1351,15 +1363,10 @@ class Zotero_Item {
 					trigger_error("Unimplemented", E_USER_ERROR);
 					// NOTE: don't need much of this on insert
 					
-					//$notifierData = array();
-					//$notifierData[$this->id] = { old: $this->serialize };
-					
 					$newItem = Zotero_Items::get($this->libraryID, $sourceItemID);
 					// FK check
 					if ($newItem) {
 						if ($sourceItemID) {
-							//$newItemNotifierData = {};
-							//newItemNotifierData[newItem.id] = { old: newItem.serialize };
 						}
 						else {
 							trigger_error("Cannot set $type source to invalid item $sourceItemID", E_USER_ERROR);
@@ -1374,8 +1381,6 @@ class Zotero_Item {
 					else {
 						$oldItem = Zotero_Items::get($this->libraryID, $oldSourceItemID);
 						if ($oldSourceItemID && $oldItem) {
-							//$oldItemNotifierData = {};
-							//oldItemNotifierData[oldItem.id] = { old: oldItem.serialize };
 						}
 						else {
 							//$oldItemNotifierData = null;
@@ -1453,8 +1458,8 @@ class Zotero_Item {
 						$currentIDs = array();
 					}
 					
-					if ($this->previousData['related']) {
-						foreach($this->previousData['related'] as $id) {
+					if ($this->previousData['relatedItems']) {
+						foreach($this->previousData['relatedItems'] as $id) {
 							if (!in_array($id, $currentIDs)) {
 								$removed[] = $id;
 							}
@@ -1462,8 +1467,8 @@ class Zotero_Item {
 					}
 					
 					foreach ($currentIDs as $id) {
-						if ($this->previousData['related'] &&
-								in_array($id, $this->previousData['related'])) {
+						if ($this->previousData['relatedItems'] &&
+								in_array($id, $this->previousData['relatedItems'])) {
 							continue;
 						}
 						$newids[] = $id;
@@ -1508,18 +1513,28 @@ class Zotero_Item {
 				$sql = "UPDATE items SET ";
 				$sqlValues = array();
 				
-				$updateFields = array('itemTypeID', 'libraryID', 'key', 'dateAdded', 'dateModified');
-				foreach ($updateFields as $updateField) {
-					if (in_array($updateField, $this->changedPrimaryData)) {
-						$sql .= "`$updateField`=?, ";
-						$sqlValues[] = $this->$updateField;
-					}
-				}
-				
 				$timestamp = Zotero_DB::getTransactionTimestamp();
 				$timestampMS = Zotero_DB::getTransactionTimestampMS();
 				
-				// TODO: update dateModified if change is on server?
+				$updateFields = array(
+					'itemTypeID',
+					'libraryID',
+					'key',
+					'dateAdded',
+					'dateModified'
+				);
+				
+				foreach ($updateFields as $updateField) {
+					if (in_array($updateField, $this->changed['primaryData'])) {
+						$sql .= "`$updateField`=?, ";
+						$sqlValues[] = $this->$updateField;
+					}
+					else if ($updateField == 'dateModified') {
+						$sql .= "`$updateField`=?, ";
+						$sqlValues[] = $timestamp;
+					}
+				}
+				
 				$sql .= "serverDateModified=?, serverDateModifiedMS=? WHERE itemID=?";
 				array_push(
 					$sqlValues,
@@ -1544,7 +1559,7 @@ class Zotero_Item {
 				//
 				// ItemData
 				//
-				if ($this->changedItemData) {
+				if ($this->changed['itemData']) {
 					$del = array();
 					
 					$origReplaceSQL = "REPLACE INTO itemData VALUES ";
@@ -1553,7 +1568,7 @@ class Zotero_Item {
 					$replaceCounter = 0;
 					$maxReplaceGroups = 40;
 					
-					$fieldIDs = array_keys($this->changedItemData);
+					$fieldIDs = array_keys($this->changed['itemData']);
 					
 					foreach ($fieldIDs as $fieldID) {
 						$value = $this->getField($fieldID, true, false, true);
@@ -1639,8 +1654,8 @@ class Zotero_Item {
 				//
 				// Creators
 				//
-				if ($this->changedCreators) {
-					$indexes = array_keys($this->changedCreators);
+				if ($this->changed['creators']) {
+					$indexes = array_keys($this->changed['creators']);
 					
 					$sql = "INSERT INTO itemCreators
 								(itemID, creatorID, creatorTypeID, orderIndex) VALUES ";
@@ -1695,7 +1710,7 @@ class Zotero_Item {
 				}
 				
 				// Deleted item
-				if ($this->changedDeleted) {
+				if ($this->changed['deleted']) {
 					$deleted = $this->getDeleted();
 					if ($deleted) {
 						$sql = "REPLACE INTO deletedItems (itemID) VALUES (?)";
@@ -1710,7 +1725,7 @@ class Zotero_Item {
 				
 				// In case this was previously a standalone item,
 				// delete from any collections it may have been in
-				if ($this->changedSource && $this->getSource()) {
+				if ($this->changed['source'] && $this->getSource()) {
 					$sql = "DELETE FROM collectionItems WHERE itemID=?";
 					Zotero_DB::query($sql, $this->id, $shardID);
 				}
@@ -1718,7 +1733,7 @@ class Zotero_Item {
 				//
 				// Note or attachment note
 				//
-				if ($this->changedNote) {
+				if ($this->changed['note']) {
 					// Only record sourceItemID in itemNotes for notes
 					if ($this->isNote()) {
 						$sourceItemID = $this->getSource();
@@ -1745,7 +1760,7 @@ class Zotero_Item {
 				
 				
 				// Attachment
-				if ($this->changedAttachmentData) {
+				if ($this->changed['attachmentData']) {
 					$sql = "REPLACE INTO itemAttachments
 						(itemID, sourceItemID, linkMode, mimeType, charsetID, path, storageModTime, storageHash)
 						VALUES (?,?,?,?,?,?,?,?)";
@@ -1782,12 +1797,12 @@ class Zotero_Item {
 				//
 				// Source item id
 				//
-				if ($this->changedSource) {
+				if ($this->changed['source']) {
 					$type = Zotero_ItemTypes::getName($this->itemTypeID);
 					$Type = ucwords($type);
 					
 					// Update DB, if not a note or attachment we already changed above
-					if (!$this->changedAttachmentData && (!$this->changedNote || !$this->isNote())) {
+					if (!$this->changed['attachmentData'] && (!$this->changed['note'] || !$this->isNote())) {
 						$sql = "UPDATE item" . $Type . "s SET sourceItemID=? WHERE itemID=?";
 						$parent = $this->getSource();
 						$bindParams = array(
@@ -1799,17 +1814,13 @@ class Zotero_Item {
 				}
 				
 				
-				if (false && $this->changedSource) {
+				if (false && $this->changed['source']) {
 					trigger_error("Unimplemented", E_USER_ERROR);
-					//$notifierData = array();
-					//$notifierData[$this->id] = { old: $this->serialize };
 					
 					$newItem = Zotero_Items::get($this->libraryID, $sourceItemID);
 					// FK check
 					if ($newItem) {
 						if ($sourceItemID) {
-							//$newItemNotifierData = {};
-							//newItemNotifierData[newItem.id] = { old: newItem.serialize };
 						}
 						else {
 							trigger_error("Cannot set $type source to invalid item $sourceItemID", E_USER_ERROR);
@@ -1824,8 +1835,6 @@ class Zotero_Item {
 					else {
 						$oldItem = Zotero_Items::get($this->libraryID, $oldSourceItemID);
 						if ($oldSourceItemID && $oldItem) {
-							//$oldItemNotifierData = {};
-							//oldItemNotifierData[oldItem.id] = { old: oldItem.serialize };
 						}
 						else {
 							//$oldItemNotifierData = null;
@@ -1902,8 +1911,8 @@ class Zotero_Item {
 						$currentIDs = array();
 					}
 					
-					if ($this->previousData['related']) {
-						foreach($this->previousData['related'] as $id) {
+					if ($this->previousData['relatedItems']) {
+						foreach($this->previousData['relatedItems'] as $id) {
 							if (!in_array($id, $currentIDs)) {
 								$removed[] = $id;
 							}
@@ -1911,8 +1920,8 @@ class Zotero_Item {
 					}
 					
 					foreach ($currentIDs as $id) {
-						if ($this->previousData['related'] &&
-								in_array($id, $this->previousData['related'])) {
+						if ($this->previousData['relatedItems'] &&
+								in_array($id, $this->previousData['relatedItems'])) {
 							continue;
 						}
 						$newids[] = $id;
@@ -1959,10 +1968,8 @@ class Zotero_Item {
 			$this->key = $key;
 		}
 		
-		$this->previousData = array();
-		
 		// TODO: invalidate memcache
-		//Zotero_Items::reload($$this->getID());
+		Zotero_Items::reload($this->libraryID, $this->id);
 		
 		if ($isNew) {
 			Zotero_Items::cache($this);
@@ -1985,7 +1992,7 @@ class Zotero_Item {
 	 * Returns the number of creators for this item
 	 */
 	public function numCreators() {
-		if ($this->id && !$this->creatorsLoaded) {
+		if ($this->id && !$this->loaded['creators']) {
 			$this->loadCreators();
 		}
 		return sizeOf($this->creators);
@@ -1997,7 +2004,7 @@ class Zotero_Item {
 	 * @return	Zotero_Creator
 	 */
 	public function getCreator($orderIndex) {
-		if ($this->id && !$this->creatorsLoaded) {
+		if ($this->id && !$this->loaded['creators']) {
 			$this->loadCreators();
 		}
 		
@@ -2012,7 +2019,7 @@ class Zotero_Item {
 	 * @return	array				Array of Zotero_Creator objects
 	 */
 	public function getCreators() {
-		if ($this->id && !$this->creatorsLoaded) {
+		if ($this->id && !$this->loaded['creators']) {
 			$this->loadCreators();
 		}
 		
@@ -2021,22 +2028,24 @@ class Zotero_Item {
 	
 	
 	public function setCreator($orderIndex, Zotero_Creator $creator, $creatorTypeID) {
-		if ($this->id && !$this->creatorsLoaded) {
+		if ($this->id && !$this->loaded['creators']) {
 			$this->loadCreators();
 		}
 		
 		if (!is_integer($orderIndex)) {
-			trigger_error("orderIndex must be an integer", E_USER_ERROR);
+			throw new Exception("orderIndex must be an integer");
 		}
 		if (!($creator instanceof Zotero_Creator)) {
-			trigger_error("creator must be a Zotero_Creator object", E_USER_ERROR);
+			throw new Exception("creator must be a Zotero_Creator object");
 		}
 		if (!is_integer($creatorTypeID)) {
-			trigger_error("creatorTypeID must be an integer", E_USER_ERROR);
+			throw new Exception("creatorTypeID must be an integer");
 		}
-		
 		if (!Zotero_CreatorTypes::getID($creatorTypeID)) {
-			trigger_error("Invalid creatorTypeID '$creatorTypeID'", E_USER_ERROR);
+			throw new Exception("Invalid creatorTypeID '$creatorTypeID'");
+		}
+		if ($this->libraryID != $creator->libraryID) {
+			throw new Exception("Creator library IDs don't match");
 		}
 		
 		// If creator already exists at this position, cancel
@@ -2050,7 +2059,7 @@ class Zotero_Item {
 		
 		$this->creators[$orderIndex]['ref'] = $creator;
 		$this->creators[$orderIndex]['creatorTypeID'] = $creatorTypeID;
-		$this->changedCreators[$orderIndex] = true;
+		$this->changed['creators'][$orderIndex] = true;
 		return true;
 	}
 	
@@ -2059,7 +2068,7 @@ class Zotero_Item {
 	* Remove a creator and shift others down
 	*/
 	public function removeCreator($orderIndex) {
-		if ($this->id && !$this->creatorsLoaded) {
+		if ($this->id && !$this->loaded['creators']) {
 			$this->loadCreators();
 		}
 		
@@ -2070,7 +2079,7 @@ class Zotero_Item {
 		$this->creators[$orderIndex] = false;
 		array_splice($this->creators, $orderIndex, 1);
 		for ($i=$orderIndex, $max=sizeOf($this->creators)+1; $i<$max; $i++) {
-			$this->changedCreators[$i] = true;
+			$this->changed['creators'][$i] = true;
 		}
 		return true;
 	}
@@ -2191,7 +2200,7 @@ class Zotero_Item {
 		}
 		
 		$this->sourceItem = $sourceItemID;
-		$this->changedSource = true;
+		$this->changed['source'] = true;
 	}
 	
 	
@@ -2222,7 +2231,7 @@ class Zotero_Item {
 		}
 		
 		$this->sourceItem = $sourceItemKey ? $sourceItemKey : null;
-		$this->changedSource = true;
+		$this->changed['source'] = true;
 		
 		return true;
 	}
@@ -2353,7 +2362,7 @@ class Zotero_Item {
 		}
 		
 		$this->noteText = $text;
-		$this->changedNote = true;
+		$this->changed['note'] = true;
 	}
 	
 	
@@ -2380,139 +2389,6 @@ class Zotero_Item {
 		}
 		
 		return $this->numNotes + $deleted;
-	}
-	
-	
-	
-	
-	/*
-	 * Convert the item object into a persistent form
-	 *	for use by the export functions
-	 *
-	 * Modes:
-	 *
-	 * 1 == e.g. [Letter to Valee]
-	 * 2 == e.g. [Stothard; Letter to Valee; May 8, 1928]
-	 */
-	public function serialize($mode=false) {
-		if ($this->id || $this->key) {
-			if (!$this->primaryDataLoaded) {
-				$this->loadPrimaryData(true);
-			}
-			if (!$this->itemDataLoaded) {
-				$this->loadItemData();
-			}
-		}
-		
-		$arr = array();
-		$arr['primary'] = array();
-		$arr['virtual'] = array();
-		$arr['fields'] = array();
-		
-		// Primary and virtual fields
-		foreach (Zotero_Items::$primaryFields as $field) {
-			switch ($field) {
-				case 'itemID':
-					$arr['primary'][$field] = $this->id;
-					continue;
-					
-				case 'itemTypeID':
-					$arr['primary']['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
-					continue;
-				
-				case 'numNotes':
-				case 'numAttachments':
-					$arr['virtual'][$field] = $this->$field;
-					continue;
-				
-				// For the rest, just copy over
-				default:
-					$arr['primary'][$field] = $this->$field;
-			}
-		}
-		
-		// Item metadata
-		foreach ($this->itemData as $field=>$value) {
-			$arr['fields'][Zotero_ItemFields::getName($field)] =
-				$this->itemData[$field] ? $this->itemData[$field] : '';
-		}
-		
-		if ($mode == 1 || $mode == 2) {
-			if (!$arr['fields']['title'] &&
-					($this->itemTypeID == Zotero_ItemTypes::getID('letter') ||
-					$this->itemTypeID == Zotero_ItemTypes::getID('interview'))) {
-				$arr['fields']['title'] = $this->getDisplayTitle($mode == 2);
-			}
-		}
-		
-		
-		if ($this->isRegularItem()) {
-			// Creators
-			$arr['creators'] = array();
-			$creators = $this->getCreators();
-			foreach ($creators as $creator) {
-				$creatorArr = array();
-				// Convert creatorTypeIDs to text
-				$creator['creatorType'] =
-					Zotero_CreatorTypes::getName($creator['creatorTypeID']);
-				$creator['creatorID'] = $creator['ref']->id;
-				$creator['firstName'] = $creator['ref']->firstName;
-				$creator['lastName'] = $creator['ref']->lastName;
-				$creator['fieldMode'] = $creator['ref']->fieldMode;
-				$arr['creators'][] = $creator;
-			}
-			
-			// Attach children of regular items
-			
-			// Append attached notes
-			$arr['notes'] = array();
-			$noteIDs = $this->getNotes();
-			if ($noteIDs) {
-				foreach ($noteIDs as $noteID) {
-					$note = Zotero_Items::get($this->libraryID, $noteID);
-					$arr['notes'][] = $note->serialize();
-				}
-			}
-			
-			// Append attachments
-			$arr['attachments'] = array();
-			$attachmentIDs = $this->getAttachments();
-			if ($attachmentIDs) {
-				foreach ($attachmentIDs as $attachmentID) {
-					$attachment = Zotero_Items::get($this->libraryID, $attachmentID);
-					$arr['attachments'][] = $attachment->serialize();
-				}
-			}
-		}
-		// Notes and embedded attachment notes
-		else {
-			if ($this->isAttachment()) {
-				$arr['attachment'] = array();
-				$arr['attachment']['linkMode'] = $this->attachmentLinkMode;
-				$arr['attachment']['mimeType'] = $this->attachmentMIMEType;
-				$arr['attachment']['charset'] = Zotero_CharacterSets::getName($this->attachmentCharset);
-				$arr['attachment']['path'] = $this->attachmentPath;
-			}
-			
-			$arr['note'] = $this->getNote();
-			$parent = $this->getSource();
-			if ($parent) {
-				$arr['sourceItemID'] = $parent;
-			}
-		}
-		
-		$arr['tags'] = array();
-		$tags = $this->getTags();
-		if ($tags) {
-			foreach ($tags as $tag) {
-				$arr['tags'][] = $tag->serialize();
-			}
-		}
-		
-		$related = $this->getRelatedItems();
-		$arr['related'] = $related ? $related : array();
-		
-		return $arr;
 	}
 	
 	
@@ -2549,7 +2425,6 @@ class Zotero_Item {
 		}
 		return $itemIDs;
 	}
-
 	
 	
 	//
@@ -2758,7 +2633,7 @@ class Zotero_Item {
 			return;
 		}
 		
-		$this->changedAttachmentData[$field] = true;
+		$this->changed['attachmentData'][$field] = true;
 		$this->attachmentData[$field] = $val;
 	}
 	
@@ -2799,7 +2674,8 @@ class Zotero_Item {
 	//
 	// Methods dealing with tags
 	//
-	
+	// save() is not required for tag functions
+	//
 	public function numTags() {
 		if (!$this->id) {
 			return 0;
@@ -2808,6 +2684,7 @@ class Zotero_Item {
 		return (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
+	
 	/**
 	 * Returns all tags assigned to an item
 	 *
@@ -2815,13 +2692,14 @@ class Zotero_Item {
 	 */
 	public function getTags($asIDs=false) {
 		if (!$this->id) {
-			return false;
+			return array();
 		}
-		$sql = "SELECT T.tagID FROM tags T JOIN itemTags IT ON (T.tagID=IT.tagID)
+		
+		$sql = "SELECT tagID FROM tags JOIN itemTags USING (tagID)
 				WHERE itemID=? ORDER BY name";
 		$tagIDs = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if (!$tagIDs) {
-			return false;
+			return array();
 		}
 		
 		if ($asIDs) {
@@ -2837,8 +2715,183 @@ class Zotero_Item {
 	}
 	
 	
+	/**
+	 * $tags is an array of objects with properties 'tag' and 'type'
+	 */
+	public function setTags($newTags) {
+		if (!$this->id) {
+			throw new Exception('itemID not set');
+		}
+		
+		$numTags = $this->numTags();
+		
+		if (!$newTags && !$numTags) {
+			return false;
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		$existingTags = $this->getTags();
+		
+		$toAdd = array();
+		$toRemove = array();
+		
+		// Get new tags not in existing
+		for ($i=0, $len=sizeOf($newTags); $i<$len; $i++) {
+			if (!isset($newTags[$i]->type)) {
+				$newTags[$i]->type = 0;
+			}
+			
+			$name = $newTags[$i]->tag; // 'tag', not 'name', since that's what JSON uses
+			$type = $newTags[$i]->type;
+			
+			foreach ($existingTags as $tag) {
+				if ($tag->name == $name && $tag->type == $type) {
+					continue 2;
+				}
+			}
+			
+			$toAdd[] = $newTags[$i];
+		}
+		
+		// Get existing tags not in new
+		for ($i=0, $len=sizeOf($existingTags); $i<$len; $i++) {
+			$name = $existingTags[$i]->name;
+			$type = $existingTags[$i]->type;
+			
+			foreach ($newTags as $tag) {
+				if ($tag->tag == $name && $tag->type == $type) {
+					continue 2;
+				}
+			}
+			
+			$toRemove[] = $existingTags[$i];
+		}
+		
+		foreach ($toAdd as $tag) {
+			$name = $tag->tag;
+			$type = $tag->type;
+			
+			$tagID = Zotero_Tags::getID($this->libraryID, $name, $type);
+			if (!$tagID) {
+				$tag = new Zotero_Tag;
+				$tag->libraryID = $this->libraryID;
+				$tag->name = $name;
+				$tag->type = $type;
+				$tagID = $tag->save();
+			}
+			
+			$tag = Zotero_Tags::get($this->libraryID, $tagID);
+			$tag->addItem($this->id);
+			$tag->save();
+		}
+		
+		foreach ($toRemove as $tag) {
+			$tag->removeItem($this->id);
+			$tag->save();
+		}
+		
+		Zotero_DB::commit();
+		
+		return $toAdd || $toRemove;
+	}
+	
+	
+	
 	public function toAtom($content='none', $apiVersion=null) {
 		return Zotero_Items::convertItemToAtom($this, $content, $apiVersion);
+	}
+	
+	
+	public function toJSON($asArray=false, $prettyPrint=false) {
+		if ($this->id || $this->key) {
+			if (!$this->loaded['primaryData']) {
+				$this->loadPrimaryData(true);
+			}
+			if (!$this->loaded['itemData']) {
+				$this->loadItemData();
+			}
+		}
+		
+		$regularItem = $this->isRegularItem();
+		
+		$arr = array();
+		$arr['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
+		
+		// For regular items, show title and creators first
+		if ($regularItem) {
+			// Get 'title' or the equivalent base-mapped field
+			$titleFieldID = Zotero_ItemFields::getBaseIDFromTypeAndField($this->itemTypeID, 'title');
+			$titleFieldName = Zotero_ItemFields::getName($titleFieldID);
+			$arr[$titleFieldName] = $this->itemData[$titleFieldID];
+			
+			// Creators
+			$arr['creators'] = array();
+			$creators = $this->getCreators();
+			foreach ($creators as $creator) {
+				$c = array();
+				$c['creatorType'] = Zotero_CreatorTypes::getName($creator['creatorTypeID']);
+				
+				// Single-field mode
+				if ($creator['ref']->fieldMode == 1) {
+					$c['name'] = $creator['ref']->lastName;
+				}
+				// Two-field mode
+				else {
+					$c['firstName'] = $creator['ref']->firstName;
+					$c['lastName'] = $creator['ref']->lastName;
+				}
+				$arr['creators'][] = $c;
+			}
+		}
+		else {
+			$titleFieldID = false;
+		}
+			
+		// Item metadata
+		foreach ($this->itemData as $field=>$value) {
+			if ($field == $titleFieldID) {
+				continue;
+			}
+			
+			$arr[Zotero_ItemFields::getName($field)] =
+				$this->itemData[$field] ? $this->itemData[$field] : '';
+		}
+		
+		// Embedded note for notes and attachments
+		if (!$regularItem) {
+			$arr['note'] = $this->getNote();
+		}
+		
+		// Tags
+		$arr['tags'] = array();
+		$tags = $this->getTags();
+		if ($tags) {
+			foreach ($tags as $tag) {
+				$t = array(
+					'tag' => $tag->name
+				);
+				if ($tag->type != 0) {
+					$t['type'] = $tag->type;
+				}
+				$arr['tags'][] = $t;
+			}
+		}
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+		if ($prettyPrint) {
+			$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
+		}
+		else {
+			$json = json_encode($arr, $mask);
+		}
+		// Until JSON_UNESCAPED_SLASHES is available
+		$json = str_replace('\\/', '/', $json);
+		return $json;
 	}
 	
 	
@@ -3043,7 +3096,7 @@ class Zotero_Item {
 		Z_Core::debug("Loading item data for item $this->id");
 		
 		// TODO: remove?
-		if ($this->itemDataLoaded) {
+		if ($this->loaded['itemData']) {
 			trigger_error("Item data for item $this->id already loaded", E_USER_ERROR);
 		}
 		
@@ -3063,19 +3116,6 @@ class Zotero_Item {
 		
 		if ($fields) {
 			foreach($fields as $field) {
-				// TEMP
-				if (!$field['hash']) {
-					$s = Zotero_Shards::getByLibraryID($this->libraryID);
-					$sql = "SELECT MD5(value) AS hash FROM itemDataOld JOIN itemDataValues USING (itemDataValueID) WHERE itemID=? AND fieldID=?";
-					$hash = Zotero_DB::valueQuery($sql, array($this->id, $field['fieldID']), $s);
-					if (!$hash) {
-						throw new Exception("Hash not available for item $this->id AND field {$field['fieldID']}");
-					}
-					$sql = "UPDATE itemData SET itemDataValueHash=? WHERE itemID=? AND fieldID=?";
-					Zotero_DB::query($sql, array($hash, $this->id, $field['fieldID']), $s);
-					$field['hash'] = $hash;
-				}
-				
 				$value = Zotero_Items::getDataValue($field['hash']);
 				if ($value === false) {
 					throw new Exception("Item data value for hash '{$field['hash']}' not found");
@@ -3093,7 +3133,7 @@ class Zotero_Item {
 			}
 		}
 		
-		$this->itemDataLoaded = true;
+		$this->loaded['itemData'] = true;
 	}
 	
 	
@@ -3108,6 +3148,7 @@ class Zotero_Item {
 		
 		$cacheKey = "itemCreators_" . $this->id;
 		$creators = Z_Core::$MC->get($cacheKey);
+		$creators = false;
 		if ($creators === false) {
 			$sql = "SELECT creatorID, creatorTypeID, orderIndex FROM itemCreators
 					WHERE itemID=? ORDER BY orderIndex";
@@ -3118,7 +3159,7 @@ class Zotero_Item {
 		}
 		
 		$this->creators = array();
-		$this->creatorsLoaded = true;
+		$this->loaded['creators'] = true;
 		
 		if (!$creators) {
 			return;
@@ -3145,11 +3186,11 @@ class Zotero_Item {
 		
 		Z_Core::debug("Loading related items for item $this->id");
 		
-		if ($this->relatedItemsLoaded) {
+		if ($this->loaded['relatedItems']) {
 			trigger_error("Related items for item $this->id already loaded", E_USER_ERROR);
 		}
 		
-		if (!$this->primaryDataLoaded) {
+		if (!$this->loaded['primaryData']) {
 			$this->loadPrimaryData(true);
 		}
 		
@@ -3160,9 +3201,10 @@ class Zotero_Item {
 		
 		$cacheKey = "itemRelated_" . $this->id;
 		$ids = Z_Core::$MC->get($cacheKey);
+		$ids = false;
 		if ($ids !== false) {
 			$this->relatedItems = $ids;
-			$this->relatedItemsLoaded = true;
+			$this->loaded['relatedItems'] = true;
 			return;
 		}
 		
@@ -3170,14 +3212,14 @@ class Zotero_Item {
 		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->relatedItems = $ids ? $ids : array();
-		$this->relatedItemsLoaded = true;
+		$this->loaded['relatedItems'] = true;
 		
 		Z_Core::$MC->set($cacheKey, $this->relatedItems);
 	}
 	
 	
 	private function getRelatedItems() {
-		if (!$this->relatedItemsLoaded) {
+		if (!$this->loaded['relatedItems']) {
 			$this->loadRelatedItems();
 		}
 		return $this->relatedItems;
@@ -3185,7 +3227,7 @@ class Zotero_Item {
 	
 	
 	private function setRelatedItems($itemIDs) {
-		if (!$this->relatedItemsLoaded) {
+		if (!$this->loaded['relatedItems']) {
 			$this->loadRelatedItems();
 		}
 		
@@ -3227,7 +3269,8 @@ class Zotero_Item {
 		
 		// Mark as changed if new or removed ids
 		if ($newIDs || sizeOf($oldIDs) != sizeOf($currentIDs)) {
-			$this->prepFieldChange('relatedItems');
+			$this->storePreviousData('relatedItems');
+			$this->changed['relatedItems'] = true;
 		}
 		else {
 			Z_Core::debug('Related items not changed', 4);
@@ -3239,22 +3282,22 @@ class Zotero_Item {
 	}
 	
 	
-	private function prepFieldChange($field) {
-		if (!$this->changed) {
-			$this->changed = array();
+	private function getETag() {
+		if (!$this->loaded['primaryData']) {
+			$this->loadPrimaryData();
 		}
-		$this->changed[$field] = true;
 		
-		// Save a copy of the data before changing
-		if ($this->id && $this->exists() && !$this->previousData) {
-			$this->previousData = $this->serialize();
-		}
+		return md5($this->serverDateModified . '.' . $this->serverDateModifiedMS);
+	}
+	
+	
+	private function storePreviousData($field) {
+		$this->previousData[$field] = $this->$field;
 	}
 	
 	
 	private function generateKey() {
-		trigger_error('Unimplemented', E_USER_ERROR);
-		//return md5('server_' . $this->userID . '_' . ??? . date('Y-m-d H:i:s'));
+		return Zotero_ID::getKey();
 	}
 }
 ?>
