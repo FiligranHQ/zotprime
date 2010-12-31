@@ -377,7 +377,7 @@ class ApiController extends Controller {
 		
 		// TEMP
 		//$solr = !empty($_GET['solr']);
-		$solr = true;
+		$solr = false;
 		
 		$itemIDs = array();
 		$items = array();
