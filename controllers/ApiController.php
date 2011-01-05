@@ -385,7 +385,12 @@ class ApiController extends Controller {
 		
 		// Single item
 		if (($this->objectID || $this->objectKey) && !$this->subset) {
-			$this->allowMethods(array('GET', 'PUT'));
+			if ($this->fileMode) {
+				$this->allowMethods(array('GET', 'PUT', 'POST'));
+			}
+			else {
+				$this->allowMethods(array('GET', 'PUT'));
+			}
 			
 			// Check for general library access
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
