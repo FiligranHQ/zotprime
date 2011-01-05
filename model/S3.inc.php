@@ -514,6 +514,9 @@ class Zotero_S3 {
 		}
 		
 		$personalQuota = self::getUserValues($userID);
+		if ($personalQuota && strtotime($personalQuota['expiration']) < time()) {
+			$personalQuota = false;
+		}
 		$personalQuota = $personalQuota ? $personalQuota['quota'] : 0;
 		
 		$instQuota = self::getInstitutionalUserQuota($userID);
