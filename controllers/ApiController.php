@@ -482,13 +482,22 @@ class ApiController extends Controller {
 				
 				$obj = $this->jsonDecode($this->body);
 				Zotero_Items::updateFromJSON($item, $obj);
+				$this->queryParams['format'] = 'atom';
 				$this->queryParams['content'] = 'json';
 			}
 			
 			// Display item
-			$this->responseXML = Zotero_Items::convertItemToAtom(
-				$item, $this->queryParams, $this->apiVersion
-			);
+			switch ($this->queryParams['format']) {
+				case 'atom':
+					$this->responseXML = Zotero_Items::convertItemToAtom(
+						$item, $this->queryParams, $this->apiVersion
+					);
+					break;
+			
+				case 'bib':
+					echo Zotero_Cite::getBibliographyFromCiteServer(array($item), $this->queryParams['style'], $this->queryParams['css']);
+					exit;
+			}
 		}
 		// Multiple items
 		else {
