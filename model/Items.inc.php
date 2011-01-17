@@ -457,6 +457,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$key = self::getDataValueCacheKey($hash);
 		$value = Z_Core::$MC->get($key);
 		if ($value !== false) {
+			self::$dataValuesByHash[$hash] = $value;
 			return $value;
 		}
 		
@@ -470,6 +471,57 @@ class Zotero_Items extends Zotero_DataObjects {
 		Z_Core::$MC->set($key, $value);
 		
 		return $value;
+	}
+	
+	
+	public static function getDataValues($hashes) {
+		$foundHashes = array();
+		$cacheKeys = array();
+		
+		$hashes = array_values(array_unique($hashes));
+		$numHashes = sizeOf($hashes);
+		
+		for ($i=0; $i<sizeOf($hashes); $i++) {
+			$hash = $hashes[$i];
+			// Check local cache
+			if (isset(self::$dataValuesByHash[$hash])) {
+				$foundHashes[$hash] = self::$dataValuesByHash[$hash];
+				array_splice($hashes, $i, 1);
+				$i--;
+				continue;
+			}
+			
+			// If not found, get memcache key
+			$cacheKeys[] = self::getDataValueCacheKey($hash);
+		}
+		
+		// Check memcache
+		$values = Z_Core::$MC->get($cacheKeys);
+		if ($values) {
+			foreach ($values as $key=>$val) {
+				$hash = substr($key, -32);
+				$foundHashes[$hash] = $val;
+				self::$dataValuesByHash[$hash] = $val;
+				array_splice($hashes, array_search($hash, $hashes), 1);
+			}
+		}
+		
+		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)));
+		while ($row = $cursor->getNext()) {
+			// Store in local cache and memcache
+			self::$dataValuesByHash[$row['_id']] = $row['value'];
+			$key = self::getDataValueCacheKey($row['_id']);
+			Z_Core::$MC->set($key, $row['value']);
+			
+			$foundHashes[$row['_id']] = $row['value'];
+		}
+		
+		$numValues = sizeOf($foundHashes);
+		if ($numValues != $numHashes) {
+			throw new Exception("Number of values doesn't match number of hashes ($numValues != $numHashes)");
+		}
+		
+		return $foundHashes;
 	}
 	
 	
