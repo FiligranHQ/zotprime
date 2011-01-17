@@ -30,7 +30,7 @@ mb_language('uni');
 mb_internal_encoding('UTF-8');
 date_default_timezone_set('UTC');
 
-function __autoload($className) {
+function zotero_autoload($className) {
 	// Get "Zotero_" classes from model directory
 	if (strpos($className, 'Zotero_') === 0) {
 		$fileName = str_replace('Zotero_', '', $className) . '.inc.php';
@@ -57,10 +57,12 @@ function __autoload($className) {
 	// Strip "Z_" namespace
 	if (strpos($className, 'Z_') === 0) {
 		$className = str_replace('Z_', '', $className);
+		require_once $className . '.inc.php';
+		return;
 	}
-	
-	require_once $className . '.inc.php';
 }
+
+spl_autoload_register('zotero_autoload');
 
 // Read in configuration variables
 require('config/config.inc.php');
