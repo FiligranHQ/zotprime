@@ -33,6 +33,7 @@ class Zotero_ItemFields {
 	private static $itemTypeFieldsCache = array();
 	private static $itemTypeBaseFieldIDCache = array();
 	private static $isValidForTypeCache = array();
+	private static $isBaseFieldCache = array();
 	
 	private static $localizedFields = array(
 			"itemType"			=> "Type",
@@ -283,7 +284,7 @@ class Zotero_ItemFields {
 				self::$isValidForTypeCache[$itemTypeID] = array();
 			}
 			self::$isValidForTypeCache[$itemTypeID] = !!$valid;
-			return $valid;
+			return !!$valid;
 		}
 		
 		if (!self::getID($fieldID)) {
@@ -343,8 +344,25 @@ class Zotero_ItemFields {
 			throw new Exception("Invalid field '$field'");
 		}
 		
+		if (isset(self::$isBaseFieldCache[$fieldID])) {
+			return self::$isBaseFieldCache[$fieldID];
+		}
+		
+		$cacheKey = "isBaseField_" . $fieldID;
+		$isBase = Z_Core::$MC->get($cacheKey);
+		if ($isBase !== false) {
+			self::$isBaseFieldCache[$fieldID] = !!$isBase;
+			return !!$isBase;
+		}
+		
 		$sql = "SELECT COUNT(*) FROM baseFieldMappings WHERE baseFieldID=?";
-		return !!Zotero_DB::valueQuery($sql, $fieldID);
+		$isBase = !!Zotero_DB::valueQuery($sql, $fieldID);
+		
+		self::$isBaseFieldCache[$fieldID] = $isBase;
+		// Store in memcached (and store FALSE as 0)
+		Z_Core::$MC->set($cacheKey, $isBase ? true : 0);
+		
+		return $isBase;
 	}
 	
 	
@@ -387,32 +405,34 @@ class Zotero_ItemFields {
 	 * Accepts names or ids
 	 */
 	public static function getFieldIDFromTypeAndBase($itemType, $baseField) {
+		$itemTypeID = Zotero_ItemTypes::getID($itemType);
+		$baseFieldID = self::getID($baseField);
+		
 		// Check local cache
-		if (isset(self::$itemTypeBaseFieldIDCache[$itemType][$baseField])) {
-			return self::$itemTypeBaseFieldIDCache[$itemType][$baseField];
+		if (isset(self::$itemTypeBaseFieldIDCache[$itemTypeID][$baseFieldID])) {
+			return self::$itemTypeBaseFieldIDCache[$itemTypeID][$baseFieldID];
 		}
 		
 		// Check memcached
-		$cacheKey = "itemTypeBaseFieldID_" . $itemType . "_" . $baseField;
+		$cacheKey = "itemTypeBaseFieldID_" . $itemTypeID . "_" . $baseFieldID;
 		$fieldID = Z_Core::$MC->get($cacheKey);
+		$fieldID = false;
 		if ($fieldID !== false) {
-			if (!isset(self::$itemTypeBaseFieldIDCache[$itemType])) {
-				self::$itemTypeBaseFieldIDCache[$itemType] = array();
+			if (!isset(self::$itemTypeBaseFieldIDCache[$itemTypeID])) {
+				self::$itemTypeBaseFieldIDCache[$itemTypeID] = array();
 			}
 			// FALSE is stored as 0
 			if ($fieldID == 0) {
 				$fieldID = false;
 			}
-			self::$itemTypeBaseFieldIDCache[$itemType][$baseField] = $fieldID;
+			self::$itemTypeBaseFieldIDCache[$itemTypeID][$baseFieldID] = $fieldID;
 			return $fieldID;
 		}
 		
-		$itemTypeID = Zotero_ItemTypes::getID($itemType);
 		if (!$itemTypeID) {
 			throw new Exception("Invalid item type '$itemType'");
 		}
 		
-		$baseFieldID = self::getID($baseField);
 		if (!$baseFieldID) {
 			throw new Exception("Invalid field '$baseField' for base field");
 		}
@@ -427,11 +447,17 @@ class Zotero_ItemFields {
 			array($itemTypeID, $baseFieldID, $itemTypeID, $baseFieldID)
 		);
 		
-		// Store in local cache
-		if (!isset(self::$itemTypeBaseFieldIDCache[$itemType])) {
-			self::$itemTypeBaseFieldIDCache[$itemType] = array();
+		if (!$fieldID) {
+			if (self::isBaseField($baseFieldID) && self::isValidForType($baseFieldID, $itemTypeID)) {
+				$fieldID = $baseFieldID;
+			}
 		}
-		self::$itemTypeBaseFieldIDCache[$itemType][$baseField] = $fieldID;
+		
+		// Store in local cache
+		if (!isset(self::$itemTypeBaseFieldIDCache[$itemTypeID])) {
+			self::$itemTypeBaseFieldIDCache[$itemTypeID] = array();
+		}
+		self::$itemTypeBaseFieldIDCache[$itemTypeID][$baseFieldID] = $fieldID;
 		// Store in memcached (and store FALSE as 0)
 		Z_Core::$MC->set($cacheKey, $fieldID ? $fieldID : 0);
 		
