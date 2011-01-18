@@ -377,7 +377,7 @@ class ApiController extends Controller {
 		
 		// TEMP
 		//$solr = !empty($_GET['solr']);
-		$solr = false;
+		$solr = Z_CONFIG::$TESTING_SITE;
 		
 		$itemIDs = array();
 		$items = array();
@@ -639,7 +639,7 @@ class ApiController extends Controller {
 						}
 						
 						$uri = Zotero_API::getItemsURI($this->objectLibraryID)
-								. "?key="
+								. "?itemKey="
 								. urlencode(implode(",", $keys))
 								. "&content=json";
 						$this->e303($uri);
@@ -684,7 +684,7 @@ class ApiController extends Controller {
 			if ($itemIDs) {
 				// TEMP
 				if ($solr) {
-					$this->queryParams['keys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
+					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
 					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
 				}
 				else {

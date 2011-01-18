@@ -225,16 +225,16 @@ class Zotero_Items extends Zotero_DataObjects {
 		$keys = array();
 		
 		// Pass a list of keys, for when the initial search is done via SQL
-		if (!empty($params['keys'])) {
-			$keys = $params['keys'];
+		if (!empty($params['dbkeys'])) {
+			$keys = $params['dbkeys'];
 		}
 		
-		if (!empty($params['key'])) {
+		if (!empty($params['itemKey'])) {
 			if ($keys) {
-				$keys = array_intersect($keys, explode(',', $params['key']));
+				$keys = array_intersect($keys, explode(',', $params['itemKey']));
 			}
 			else {
-				$keys = explode(',', $params['key']);
+				$keys = explode(',', $params['itemKey']);
 			}
 		}
 		
@@ -1239,6 +1239,10 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
+				case 'notes':
+					$twoStage = true;
+					break;
+				
 				case 'note':
 					$item->setNote($val);
 					break;
@@ -1259,6 +1263,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($twoStage) {
 			foreach ($json as $key=>$val) {
 				switch ($key) {
+					case 'notes':
+						throw new Exception("Unimplemented");
+						exit;
+						break;
+					
 					case 'tags':
 						if ($item->setTags($val)) {
 							$forceChange = true;
@@ -1418,6 +1427,19 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'notes':
 					if (!$newItem) {
 						throw new Exception("'notes' property is valid only for new items", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (!is_array($val)) {
+						throw new Exception("'notes' property must be an array", Z_ERROR_INVALID_INPUT);
+					}
+					
+					foreach ($val as $note) {
+						if (isset($note->itemType) && $note->itemType != 'note') {
+							throw new Exception("Child note must be of itemType 'note'", Z_ERROR_INVALID_INPUT);
+						}
+						if (!isset($note->note)) {
+							throw new Exception("'note' property not provided for child note", Z_ERROR_INVALID_INPUT);
+						}
 					}
 					break;
 				

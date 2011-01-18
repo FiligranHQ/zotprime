@@ -44,7 +44,7 @@ class Zotero_API {
 		'css' => "inline",
 		
 		// search
-		'key' => '',
+		'itemKey' => '',
 		'tag' => '',
 		'tagType' => ''
 	);
