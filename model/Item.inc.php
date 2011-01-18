@@ -272,7 +272,6 @@ class Zotero_Item {
 	public function getDisplayTitle($includeAuthorAndDate=false) {
 		$title = $this->getField('title', false, true);
 		$itemTypeID = $this->itemTypeID;
-		$itemTypeName = Zotero_ItemTypes::getName($itemTypeID);
 		
 		if (!$title && ($itemTypeID == 8 || $itemTypeID == 10)) { // 'letter' and 'interview' itemTypeIDs
 			$creators = $this->getCreators();
@@ -345,9 +344,9 @@ class Zotero_Item {
 				
 				//$strParts[] = Zotero.getString('pane.items.' + itemTypeName + '.' + str, names);
 				
-				$loc = Zotero_ItemTypes::getLocalizedString($itemTypeName);
+				$loc = Zotero_ItemTypes::getLocalizedString($itemTypeID);
 				// Letter
-				if ($itemTypeName == 'letter') {
+				if ($itemTypeID == 8) {
 					$loc .= ' to ';
 				}
 				// Interview
@@ -358,7 +357,7 @@ class Zotero_Item {
 				
 			}
 			else {
-				$strParts[] = Zotero_ItemTypes::getLocalizedString($itemTypeName);
+				$strParts[] = Zotero_ItemTypes::getLocalizedString($itemTypeID);
 			}
 			
 			if ($includeAuthorAndDate) {
@@ -371,6 +370,13 @@ class Zotero_Item {
 			$title = '[';
 			$title .= join('; ', $strParts);
 			$title .= ']';
+		}
+		else if ($itemTypeID == 17 && $title) { // 'case' itemTypeID
+			$reporter = $this->getField('reporter');
+			if ($reporter) {
+				// TODO: was localeJoin() in client
+				$title = $title . ' (' + $reporter + ')';
+			}
 		}
 		
 		return $title;
@@ -2976,6 +2982,9 @@ class Zotero_Item {
 					break;
 				
 				case 'accessDate':
+					if (!Zotero_Date::isSQLDateTime($val)) {
+						continue 2;
+					}
 					$fieldName .= "_tdt";
 					$val = Zotero_Date::sqlToISO8601($val);
 					break;
@@ -3069,14 +3078,14 @@ class Zotero_Item {
 		}
 		
 		// Related items
-		$related = $this->relatedItems;
+		/*$related = $this->relatedItems;
 		if ($related) {
 			$related = Zotero_Items::get($this->libraryID, $related);
 			$keys = array();
 			foreach ($related as $item) {
 				$doc->addField('relatedItem', $item->key);
 			}
-		}
+		}*/
 		
 		return $doc;
 	}

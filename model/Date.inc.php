@@ -29,7 +29,7 @@ class Zotero_Date {
 	// Allow zeroes in multipart dates
 	// TODO: Allow negative multipart in DB and here with \-?
 	private static $multipartRE = "/^[0-9]{4}\-(0[0-9]|10|11|12)\-(0[0-9]|[1-2][0-9]|30|31) /";
-	private static $_sqldateRE = "/^\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31)$/";
+	private static $sqldateRE = "/^\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31)$/";
 	private static $sqldatetimeRE = "/^\-?[0-9]{4}\-(0[1-9]|10|11|12)\-(0[1-9]|[1-2][0-9]|30|31) ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])$/";
 	
 	/**
@@ -46,15 +46,15 @@ class Zotero_Date {
 	 * (e.g. '2006-11-03 November 3rd, 2006' returns '2006-11-03')
 	 */
 	public static function multipartToSQL($multi) {
-			if (!$multi) {
-				return '';
-			}
-			
-			if (!self::isMultipart($multi)) {
-				return '0000-00-00';
-			}
-			
-			return substr($multi, 0, 10);
+		if (!$multi) {
+			return '';
+		}
+		
+		if (!self::isMultipart($multi)) {
+			return '0000-00-00';
+		}
+		
+		return substr($multi, 0, 10);
 	}
 	
 	
@@ -75,8 +75,21 @@ class Zotero_Date {
 	}
 	
 	
+	public static function isSQLDate($str) {
+		return !!preg_match(self::$sqldateRE, $str);
+	}
+	
+	
+	public static function isSQLDateTime($str) {
+		return !!preg_match(self::$sqldatetimeRE, $str);
+	}
+	
+	
 	public static function sqlToISO8601($sqlDate) {
 		$date = substr($sqlDate, 0, 10);
+		// Replace '00' with '01' in month and day
+		$date = str_replace("-00-", "-01-", $date);
+		$date = str_replace("-00", "-01", $date);
 		$time = substr($sqlDate, 11);
 		if (!$time) {
 			$time = "00:00:00";
