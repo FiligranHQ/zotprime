@@ -25,8 +25,7 @@
 */
 
 error_reporting(E_ALL | E_STRICT);
-
-set_include_path("../include");
+set_include_path(get_include_path() . PATH_SEPARATOR . "../include");
 require_once("header.inc.php");
 
 class Tests extends PHPUnit_Framework_TestSuite {
