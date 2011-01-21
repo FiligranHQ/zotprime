@@ -34,11 +34,14 @@ class Z_CONFIG {
 	public static $MONGO_SAFE_NUM = 2;
 	
 	public static $SOLR_SERVER = "192.168.1.1:8983";
+	
 	public static $CITE_SERVERS = array(
 		"192.168.1.1:8080", "192.168.1.2:8080"
 	);
 	
 	public static $LOG_TO_SCRIBE = false;
+	public static $LOG_ADDRESS = '';
+	public static $LOG_PORT = 1463;
 	public static $LOG_TIMEZONE = 'US/Eastern';
 	public static $LOG_TARGET_DEFAULT = 'errors';
 	
@@ -47,8 +50,6 @@ class Z_CONFIG {
 	public static $PROCESSOR_PORT_ERROR = 3457;
 	public static $PROCESSOR_PORT_INDEX = 3458;
 	
-	public static $PROCESSOR_LOG_ADDRESS = '';
-	public static $PROCESSOR_LOG_PORT = 1463;
 	public static $PROCESSOR_LOG_TARGET_DOWNLOAD = 'sync-processor-download';
 	public static $PROCESSOR_LOG_TARGET_UPLOAD = 'sync-processor-upload';
 	public static $PROCESSOR_LOG_TARGET_ERROR = 'sync-processor-error';
@@ -59,7 +60,7 @@ class Z_CONFIG {
 	
 	// Set some things manually for running via command line
 	public static $CLI_PHP_PATH = '/usr/bin/php';
-	public static $CLI_DOCUMENT_ROOT = "/var/www/sync.example.com/";
+	public static $CLI_DOCUMENT_ROOT = "/var/www/dataserver/";
 	public static $CLI_SERVER_NAME = "sync.example.com";
 	public static $CLI_SERVER_PORT = "80";
 	

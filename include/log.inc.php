@@ -101,7 +101,7 @@ class Z_Log {
 			$entries[] = new LogEntry($message);
 		}
 		
-		$socket = new TSocket(Z_CONFIG::$SYNC_PROCESSOR_LOG_ADDRESS, Z_CONFIG::$SYNC_PROCESSOR_LOG_PORT, true);
+		$socket = new TSocket(Z_CONFIG::$LOG_ADDRESS, Z_CONFIG::$LOG_PORT, true);
 		$transport = new TFramedTransport($socket);
 		$protocol = new TBinaryProtocol($transport, false, false);
 		$scribe = new scribeClient($protocol, $protocol);
