@@ -61,7 +61,8 @@ CREATE TABLE `creators` (
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
   PRIMARY KEY (`creatorID`),
-  UNIQUE KEY `key` (`libraryID`,`key`)
+  UNIQUE KEY `key` (`libraryID`,`key`),
+  KEY `hash` (`libraryID`,`creatorDataHash`(5))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
