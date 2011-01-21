@@ -318,7 +318,7 @@ class Zotero_Sync {
 					Zotero_DB::getTransactionTimestamp(),
 					Zotero_DB::getTransactionTimestampMS(),
 					$e->getCode(),
-					serialize($e),
+					substr(serialize($e), 0, 65535),
 					$row['syncDownloadQueueID']
 				)
 			);
