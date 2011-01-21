@@ -131,6 +131,7 @@ define('Z_ENV_SELF', $matches[0]);
 // Load in core functions
 
 require('DB.inc.php');
+require('IPAddress.inc.php');
 require('Shards.inc.php');
 require('config/dbconnect.inc.php');
 
