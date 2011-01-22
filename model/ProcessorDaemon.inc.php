@@ -45,6 +45,10 @@ abstract class Zotero_Processor_Daemon {
 		error_reporting(E_ALL | E_STRICT);
 		set_time_limit(0);
 		
+		// Catch TERM and unregister from the database
+		declare(ticks = 1);
+		pcntl_signal(SIGTERM, array($this, 'handleSignal'));
+		
 		$this->hostname = gethostname();
 		$this->addr = gethostbyname($this->hostname);
 		
@@ -189,6 +193,12 @@ abstract class Zotero_Processor_Daemon {
 		
 		$this->log("QUIT received — exiting");
 		$this->unregister();
+	}
+	
+	
+	public function handleSignal() {
+		$this->unregister();
+		exit;
 	}
 	
 	
