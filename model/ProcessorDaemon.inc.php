@@ -45,10 +45,6 @@ abstract class Zotero_Processor_Daemon {
 		error_reporting(E_ALL | E_STRICT);
 		set_time_limit(0);
 		
-		// Catch TERM and unregister from the database
-		declare(ticks = 1);
-		pcntl_signal(SIGTERM, array($this, 'handleSignal'));
-		
 		$this->hostname = gethostname();
 		$this->addr = gethostbyname($this->hostname);
 		
@@ -70,6 +66,10 @@ abstract class Zotero_Processor_Daemon {
 	
 	
 	public function run() {
+		// Catch TERM and unregister from the database
+		//pcntl_signal(SIGTERM, array($this, 'handleSignal'));
+		//pcntl_signal(SIGINT, array($this, 'handleSignal'));
+		
 		$this->log("Starting " . $this->mode . " processor daemon");
 		$this->register();
 		
@@ -98,6 +98,8 @@ abstract class Zotero_Processor_Daemon {
 				$port = 0;
 				socket_recvfrom($socket, $buffer, 32, MSG_WAITALL, $from, $port);
 			}
+			
+			//pcntl_signal_dispatch();
 			
 			// Processor return value
 			if (preg_match('/^(DONE|NONE|LOCK|ERROR) ([0-9]+)/', $buffer, $return)) {
@@ -196,7 +198,18 @@ abstract class Zotero_Processor_Daemon {
 	}
 	
 	
-	public function handleSignal() {
+	public function handleSignal($sig) {
+		$signal = $sig;
+		switch ($sig) {
+			case 2:
+				$signal = 'INT';
+				break;
+			
+			case 15:
+				$signal = 'TERM';
+				break;
+		}
+		$this->log("Got $signal signal — exiting");
 		$this->unregister();
 		exit;
 	}
