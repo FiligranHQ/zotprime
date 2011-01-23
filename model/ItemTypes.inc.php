@@ -77,18 +77,19 @@ class Zotero_ItemTypes {
 		$cacheKey = "itemTypeID_" . $typeOrTypeID;
 		$typeID = Z_Core::$MC->get($cacheKey);
 		if ($typeID) {
-			self::$typeIDs[$typeOrTypeID] = $typeID;
-			return $typeID;
+			// casts are temporary until memcached reload
+			self::$typeIDs[$typeOrTypeID] = (int) $typeID;
+			return (int) $typeID;
 		}
 		
 		$sql = "(SELECT itemTypeID FROM itemTypes WHERE itemTypeID=?) UNION
 				(SELECT itemTypeID FROM itemTypes WHERE itemTypeName=?) LIMIT 1";
 		$typeID = Zotero_DB::valueQuery($sql, array($typeOrTypeID, $typeOrTypeID));
 		
-		self::$typeIDs[$typeOrTypeID] = $typeID;
-		Z_Core::$MC->set($cacheKey, $typeID);
+		self::$typeIDs[$typeOrTypeID] = $typeID ? (int) $typeID : false;
+		Z_Core::$MC->set($cacheKey, (int) $typeID);
 		
-		return $typeID;
+		return $typeID ? (int) $typeID : false;
 	}
 	
 	

@@ -161,18 +161,19 @@ class Zotero_ItemFields {
 		$cacheKey = "itemFieldID_" . $fieldOrFieldID;
 		$fieldID = Z_Core::$MC->get($cacheKey);
 		if ($fieldID) {
-			self::$fieldIDCache[$fieldOrFieldID] = $fieldID;
-			return $fieldID;
+			// casts are temporary until memcached reload
+			self::$fieldIDCache[$fieldOrFieldID] = (int) $fieldID;
+			return (int) $fieldID;
 		}
 		
 		$sql = "(SELECT fieldID FROM fields WHERE fieldID=?) UNION
 				(SELECT fieldID FROM fields WHERE fieldName=?) LIMIT 1";
 		$fieldID = Zotero_DB::valueQuery($sql, array($fieldOrFieldID, $fieldOrFieldID));
 		
-		self::$fieldIDCache[$fieldOrFieldID] = $fieldID;
-		Z_Core::$MC->set($cacheKey, $fieldID);
+		self::$fieldIDCache[$fieldOrFieldID] = $fieldID ? (int) $fieldID : false;
+		Z_Core::$MC->set($cacheKey, (int) $fieldID);
 		
-		return $fieldID;
+		return $fieldID ? (int) $fieldID : false;
 	}
 	
 	
