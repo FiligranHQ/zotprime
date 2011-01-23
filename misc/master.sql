@@ -149,7 +149,7 @@ CREATE TABLE `keyAccessLog` (
   `keyID` int(10) unsigned NOT NULL,
   `ipAddress` int(10) unsigned DEFAULT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
@@ -195,7 +195,7 @@ CREATE TABLE `processorDaemons` (
   `port` smallint(5) unsigned NOT NULL,
   `lastSeen` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`mode`,`addr`)
-) ENGINE=MEMORY DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
@@ -268,7 +268,7 @@ CREATE TABLE `storageDownloadLog` (
   `filename` varchar(1024) NOT NULL,
   `size` int(10) unsigned NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 DELAY_KEY_WRITE=1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
@@ -303,7 +303,7 @@ CREATE TABLE `storageUploadLog` (
   `filename` varchar(1024) NOT NULL,
   `size` int(10) unsigned NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 DELAY_KEY_WRITE=1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
@@ -470,9 +470,6 @@ ALTER TABLE `sessions`
 
 ALTER TABLE `shards`
   ADD CONSTRAINT `shards_ibfk_1` FOREIGN KEY (`shardHostID`) REFERENCES `shardHosts` (`shardHostID`);
-
-ALTER TABLE `solrQueue`
-  ADD CONSTRAINT `solrQueue_ibfk_1` FOREIGN KEY (`solrProcessID`) REFERENCES `solrProcesses` (`solrProcessID`) ON DELETE SET NULL ON UPDATE SET NULL;
 
 ALTER TABLE `storageAccounts`
   ADD CONSTRAINT `storageAccounts_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE;

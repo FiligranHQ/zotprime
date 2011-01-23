@@ -90,7 +90,7 @@ class Zotero_S3 {
 		$filename = $info['filename'];
 		$size = $info['size'];
 		
-		$sql = "INSERT DELAYED INTO storageDownloadLog
+		$sql = "INSERT INTO storageDownloadLog
 				(ownerUserID, downloadUserID, ipAddress, storageFileID, filename, size)
 				VALUES (?, ?, INET_ATON(?), ?, ?, ?)";
 		Zotero_DB::query($sql, array($ownerUserID, $downloadUserID, $ipAddress, $storageFileID, $filename, $size));
@@ -141,7 +141,7 @@ class Zotero_S3 {
 		$sql = "DELETE FROM storageUploadQueue WHERE uploadKey=?";
 		Zotero_DB::query($sql, $key);
 		
-		$sql = "INSERT DELAYED INTO storageUploadLog
+		$sql = "INSERT INTO storageUploadLog
 				(ownerUserID, uploadUserID, ipAddress, storageFileID, filename, size)
 				VALUES (?, ?, INET_ATON(?), ?, ?, ?)";
 		Zotero_DB::query($sql, array($ownerUserID, $uploadUserID, $ipAddress, $storageFileID, $filename, $size));

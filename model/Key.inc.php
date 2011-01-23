@@ -348,7 +348,7 @@ class Zotero_Key {
 		}
 		
 		$ip = IPAddress::getIP();
-		$sql = "INSERT DELAYED INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
+		$sql = "INSERT INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
 		Zotero_DB::query($sql, array($this->id, $ip));
 	}
 	
