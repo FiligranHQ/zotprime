@@ -30,6 +30,7 @@ class Z_Core {
 	public static $Solr = null; // Solr
 	
 	public static function debug($str, $level=false) {
+		//error_log($str);
 		//Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $str);
 	}
 	
@@ -46,6 +47,12 @@ class Z_Core {
 		return preg_match('/^[0-9]+$/', $val);
 	}
 	
+	public static function getBacktrace() {
+		ob_start();
+		debug_print_backtrace();
+		return ob_get_clean();
+	}
+	
 	public static function exitClean() {
 		include('footer.inc.php');
 		exit;
@@ -58,9 +65,7 @@ class Z_Core {
 	* @return	bool			On average, TRUE every $x times the function is called
 	**/
 	public static function probability($x) {
-		$first = rand(1,$x);
-		$second = rand(1,$x);
-		return ($first == $second);
+		return rand(1,$x) == rand(1,$x);
 	}
 }
 ?>

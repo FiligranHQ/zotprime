@@ -208,8 +208,10 @@ class Zotero_Sync {
 				foreach ($affectedLibraries as $libraryID) {
 					Zotero_DB::query("INSERT INTO tmpLibraryCheck VALUES (?)", $libraryID);
 				}
-				// TODO: remove subquery
-				$libraryID = Zotero_DB::valueQuery("SELECT * FROM tmpLibraryCheck WHERE libraryID NOT IN (SELECT libraryID FROM libraries) LIMIT 1");
+				$sql = "SELECT libraryID FROM tmpLibraryCheck
+						LEFT JOIN libraries USING (libraryID)
+						WHERE libraries.libraryID IS NULL LIMIT 1";
+				$libraryID = Zotero_DB::valueQuery($sql);
 				if ($libraryID) {
 					throw new Exception("Library $libraryID does not exist", Z_ERROR_LIBRARY_ACCESS_DENIED);
 				}
@@ -499,7 +501,7 @@ class Zotero_Sync {
 			try {
 				$sql = "INSERT INTO syncUploadProcessLog
 						(userID, dataLength, processorHost, processDuration, totalDuration, error)
-						VALUES (?,?,INET_ATON(?),?,?,?)";
+						VALUES (?,?,?,?,?,?)";
 				Zotero_DB::query(
 					$sql,
 					array(

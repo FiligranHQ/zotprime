@@ -304,7 +304,7 @@ class Zotero_ItemFields {
 			self::$isValidForTypeCache[$itemTypeID] = array();
 		}
 		self::$isValidForTypeCache[$itemTypeID] = $valid;
-		Z_Core::$MC->get($cacheKey, $valid ? true : 0);
+		Z_Core::$MC->set($cacheKey, $valid ? true : 0);
 		
 		return $valid;
 	}

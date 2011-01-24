@@ -386,7 +386,7 @@ class ApiController extends Controller {
 		// Single item
 		if (($this->objectID || $this->objectKey) && !$this->subset) {
 			if ($this->fileMode) {
-				$this->allowMethods(array('GET', 'PUT', 'POST'));
+				$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD'));
 			}
 			else {
 				$this->allowMethods(array('GET', 'PUT'));
