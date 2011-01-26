@@ -929,7 +929,7 @@ class Zotero_Sync {
 		$profile = false;
 		if ($profile) {
 			$shardID = Zotero_Shards::getByUserID($userID);
-			Zotero_DB::profileStart($shardID);
+			Zotero_DB::profileStart(0);
 		}
 		
 		if ($syncDownloadQueueID) {
@@ -1130,7 +1130,7 @@ class Zotero_Sync {
 		
 		if ($profile) {
 			$shardID = Zotero_Shards::getByUserID($userID);
-			Zotero_DB::profileEnd($shardID);
+			Zotero_DB::profileEnd(0);
 		}
 	}
 	
@@ -1233,24 +1233,16 @@ class Zotero_Sync {
 				unset($xml->creators);
 				
 				//
-				// Manual foreign keys checks
+				// Manual foreign key checks
 				//
 				// libraryID
-				$sql = "CREATE TEMPORARY TABLE tmpCreatorFKCheck (
-							libraryID INT UNSIGNED NOT NULL, UNIQUE KEY (libraryID)
-						)";
-				Zotero_DB::query($sql);
-				Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpCreatorFKCheck VALUES ", $addedLibraryIDs, 100);
-				$added = Zotero_DB::valueQuery("SELECT COUNT(*) FROM tmpCreatorFKCheck");
-				$count = Zotero_DB::valueQuery("SELECT COUNT(*) FROM tmpCreatorFKCheck JOIN libraries USING (libraryID)");
-				if ($count != $added) {
-					$sql = "SELECT FK.libraryID FROM tmpCreatorFKCheck FK
-							LEFT JOIN libraries L USING (libraryID)
-							WHERE FK.libraryID IS NULL";
-					$missing = Zotero_DB::columnQuery($sql);
-					throw new Exception("libraryIDs inserted into `creators` not found in `libraries` (" . implode(",", $missing) . ")");
+				foreach ($addedLibraryIDs as $addedLibraryID) {
+					$shardID = Zotero_Shards::getByLibraryID($addedLibraryID);
+					$sql = "SELECT COUNT(*) FROM shardLibraries WHERE libraryID=?";
+					if (!Zotero_DB::valueQuery($sql, $addedLibraryID, $shardID)) {
+						throw new Exception("libraryID inserted into `creators` not found in `shardLibraries` ($libraryID, $shardID)");
+					}
 				}
-				Zotero_DB::query("DROP TEMPORARY TABLE tmpCreatorFKCheck");
 				
 				// creatorDataHash
 				$addedCreatorDataHashes = array_unique($addedCreatorDataHashes);
