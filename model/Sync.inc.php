@@ -843,8 +843,13 @@ class Zotero_Sync {
 		}
 		
 		if (is_null($row['finished'])) {
-			$sql = "UPDATE syncDownloadQueue SET lastCheck=NOW() WHERE sessionID=?";
-			Zotero_DB::query($sql, $sessionID);
+			// Every two minutes, update lastCheck
+			if (!Z_Core::$MC->get("syncDownloadLastCheck_$sessionID")) {
+				$sql = "UPDATE syncDownloadQueue SET lastCheck=NOW() WHERE sessionID=?";
+				Zotero_DB::query($sql, $sessionID);
+				
+				Z_Core::$MC->set("syncDownloadLastCheck_$sessionID", true, 120);
+			}
 			Zotero_DB::commit();
 			return false;
 		}

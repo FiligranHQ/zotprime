@@ -417,7 +417,6 @@ class Zotero_ItemFields {
 		// Check memcached
 		$cacheKey = "itemTypeBaseFieldID_" . $itemTypeID . "_" . $baseFieldID;
 		$fieldID = Z_Core::$MC->get($cacheKey);
-		$fieldID = false;
 		if ($fieldID !== false) {
 			if (!isset(self::$itemTypeBaseFieldIDCache[$itemTypeID])) {
 				self::$itemTypeBaseFieldIDCache[$itemTypeID] = array();
