@@ -409,7 +409,13 @@ class Zotero_DB {
 			while ($row = $stmt->fetch()) {
 				if ($intFieldNames) {
 					foreach ($intFieldNames as $name) {
-						$row[$name] = is_null($row[$name]) ? null : (int) $row[$name];
+						if (is_null($row[$name])) {
+							$row[$name] = null;
+						}
+						// 32-bit hack: cast only numbers shorter than 10 characters as ints
+						else if (strlen($row[$name]) < 10) {
+							$row[$name] = (int) $row[$name];
+						}
 					}
 				}
 				$results[] = $row;
@@ -458,7 +464,11 @@ class Zotero_DB {
 			$mystmt = $stmt->getDriverStatement();
 			if (self::getIntegerColumns($mystmt)) {
 				$cast = function ($val) {
-					return is_null($val) ? null : (int) $val;
+					if (is_null($val)) {
+						return null;
+					}
+					// 32-bit hack: cast only numbers shorter than 10 characters as ints
+					return (strlen($val) < 10) ? (int) $val : $val;
 				};
 				return array_map($cast, $vals);
 			}
@@ -525,7 +535,13 @@ class Zotero_DB {
 			$intFieldNames = self::getIntegerColumns($mystmt);
 			if ($intFieldNames) {
 				foreach ($intFieldNames as $name) {
-					$row[$name] = is_null($row[$name]) ? null : (int) $row[$name];
+					if (is_null($row[$name])) {
+						$row[$name] = null;
+					}
+					// 32-bit hack: cast only numbers shorter than 10 characters as ints
+					else if (strlen($row[$name]) < 10) {
+						$row[$name] = (int) $row[$name];
+					}
 				}
 			}
 			return $row;
@@ -563,7 +579,7 @@ class Zotero_DB {
 			
 			$mystmt = $stmt->getDriverStatement();
 			
-			return self::getIntegerColumns($mystmt) ? (is_null($row[0]) ? null : (int) $row[0]) : $row[0];
+			return (self::getIntegerColumns($mystmt) && strlen($row[0]) < 10) ? (is_null($row[0]) ? null : (int) $row[0]) : $row[0];
 		}
 		catch (Exception $e) {
 			self::error($e, $sql, $params, $shardID);
