@@ -353,6 +353,7 @@ EOD;
 class MemcacheTests extends PHPUnit_Framework_TestCase {
 	public function testQueue() {
 		// Clean up
+		Z_Core::$MC->rollback(true);
 		Z_Core::$MC->delete("testFoo");
 		Z_Core::$MC->delete("testFoo2");
 		Z_Core::$MC->delete("testFoo3");
@@ -367,12 +368,14 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		Z_Core::$MC->add("testFoo3", "bar5");
 		Z_Core::$MC->set("testFoo3", "bar6");
 		
-		// For now, this should return true, since local caching is used throughout code
-		//
-		// Eventually, gets within a transaction should return the queued value
-		$this->assertEquals(Z_Core::$MC->get("testFoo"), false);
-		$this->assertEquals(Z_Core::$MC->get("testFoo2"), false);
-		$this->assertEquals(Z_Core::$MC->get("testFoo3"), false);
+		// Gets within a transaction should return the queued value
+		$this->assertEquals(Z_Core::$MC->get("testFoo"), "bar2");
+		$this->assertEquals(Z_Core::$MC->get("testFoo2"), "bar4");
+		$this->assertEquals(Z_Core::$MC->get("testFoo3"), "bar6");
+		
+		// Multi-gets within a transaction should return the queued value
+		$arr = array("testFoo" => "bar2", "testFoo2" => "bar4", "testFoo3" => "bar6");
+		$this->assertEquals(Z_Core::$MC->get(array("testFoo", "testFoo2", "testFoo3")), $arr);
 		
 		Z_Core::$MC->commit();
 		
@@ -388,6 +391,7 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 	
 	public function testUnicode() {
 		// Clean up
+		Z_Core::$MC->rollback(true);
 		Z_Core::$MC->delete("testUnicode1");
 		Z_Core::$MC->delete("testUnicode2");
 		
@@ -408,6 +412,7 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 	
 	public function testNonExistent() {
 		// Clean up
+		Z_Core::$MC->rollback(true);
 		Z_Core::$MC->delete("testMissing");
 		Z_Core::$MC->delete("testZero");
 		
@@ -419,6 +424,30 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		
 		// Clean up
 		Z_Core::$MC->delete("testZero");
+	}
+	
+	public function testMultiGet() {
+		// Clean up
+		Z_Core::$MC->rollback(true);
+		Z_Core::$MC->delete("testFoo");
+		Z_Core::$MC->delete("testFoo2");
+		Z_Core::$MC->delete("testFoo3");
+		
+		Z_Core::$MC->set("testFoo", "bar");
+		Z_Core::$MC->set("testFoo2", "bar2");
+		Z_Core::$MC->set("testFoo3", "bar3");
+		
+		$arr = array(
+			"testFoo" => "bar",
+			"testFoo2" => "bar2",
+			"testFoo3" => "bar3"
+		);
+		$this->assertEquals(Z_Core::$MC->get(array("testFoo", "testFoo2", "testFoo3")), $arr);
+		
+		// Clean up
+		Z_Core::$MC->delete("testFoo");
+		Z_Core::$MC->delete("testFoo2");
+		Z_Core::$MC->delete("testFoo3");
 	}
 }
 

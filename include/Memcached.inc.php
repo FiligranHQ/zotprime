@@ -24,7 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-// Client subclass to add prefix to all keys (set to the server port below)
+// Client subclass to add prefix to all keys and add some other behaviors
 class Z_MemcachedClientLocal {
 	private $client;
 	private $disabled;
@@ -72,18 +72,51 @@ class Z_MemcachedClientLocal {
 		}
 		
 		if (is_array($keys)){
+			$multi = true;
+			$realKeys = array();
 			for ($i=0; $i<sizeOf($keys); $i++) {
+				$realKeys[] = $keys[$i];
 				$keys[$i] = $this->prefix . $keys[$i];
 			}
 		}
 		else if (is_string($keys)) {
+			// Return values already set within this transaction
+			if ($this->queuing && isset($this->queueValues[$keys])) {
+				return $this->queueValues[$keys];
+			}
+			
+			$multi = false;
 			$keys = $this->prefix . $keys;
 		}
 		else {
 			throw new Exception('$keys must be an array or string');
 		}
 		
-		return $this->client->get($keys);
+		$results = $this->client->get($keys);
+		if (!$multi) {
+			return $results;
+		}
+		
+		if (!$results) {
+			$results = array();
+		}
+		
+		$newResults = array();
+		
+		// Strip prefixes
+		$len = strlen($this->prefix);
+		foreach ($results as $key=>$val) {
+			$newResults[substr($key, $len)] = $val;
+		}
+		
+		// Return values already set within this transaction
+		foreach ($realKeys as $key) {
+			if ($this->queuing && isset($this->queueValues[$key])) {
+				$newResults[$key] = $this->queueValues[$key];
+			}
+		}
+		
+		return $newResults;
 	}
 	
 	
@@ -93,8 +126,7 @@ class Z_MemcachedClientLocal {
 		}
 		
 		if ($this->queuing) {
-			// If this is already set, clear the previous value to save memory
-			// and mark for skipping when committing
+			// If this is already set, mark the previous position for skipping when committing
 			if (isset($this->queueKeyPos[$key])) {
 				$pos = $this->queueKeyPos[$key];
 				$this->queue[$pos]['skip'] = true;
@@ -220,10 +252,12 @@ class Z_MemcachedClientLocal {
 			$this->$op($key, $val, $exp);
 		}
 		$this->queue = array();
+		$this->queueKeyPos = array();
+		$this->queueValues = array();
 	}
 	
-	public function rollback() {
-		if (!$this->queuing) {
+	public function rollback($allowExisting=false) {
+		if (!$allowExisting && !$this->queuing) {
 			throw new Exception("Memcache wasn't queuing");
 		}
 		
