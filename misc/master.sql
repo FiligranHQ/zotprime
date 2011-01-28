@@ -320,7 +320,7 @@ CREATE TABLE `storageUploadQueue` (
 
 
 
-CREATE TABLE IF NOT EXISTS `syncDownloadProcessLog` (
+CREATE TABLE `syncDownloadProcessLog` (
   `userID` int(10) unsigned NOT NULL,
   `lastsync` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `objects` mediumint(8) unsigned NOT NULL,
@@ -330,7 +330,8 @@ CREATE TABLE IF NOT EXISTS `syncDownloadProcessLog` (
   `totalDuration` smallint(5) unsigned NOT NULL,
   `error` tinyint(4) NOT NULL DEFAULT '0',
   `finished` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY `finished` (`finished`)
+  KEY `finished` (`finished`),
+  KEY `userID` (`userID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -417,6 +418,7 @@ CREATE TABLE `syncUploadQueueLocks` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+
 CREATE TABLE `syncUploadProcessLog` (
   `userID` int(10) unsigned NOT NULL,
   `dataLength` int(10) unsigned NOT NULL,
@@ -425,7 +427,8 @@ CREATE TABLE `syncUploadProcessLog` (
   `totalDuration` smallint(5) unsigned NOT NULL,
   `error` tinyint(4) NOT NULL DEFAULT '0',
   `finished` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY `finished` (`finished`)
+  KEY `finished` (`finished`),
+  KEY `userID` (`userID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
