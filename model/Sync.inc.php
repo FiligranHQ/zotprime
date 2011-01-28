@@ -1657,24 +1657,46 @@ class Zotero_Sync {
 		}
 		list($timestamp, $timestampMS) = explode(".", $lastsync);
 		
+		// Personal library
+		$shardID = Zotero_Shards::getByUserID($userID);
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		$shardLibraryIDs[$shardID] = array($libraryID);
+		
+		// Group libraries
 		if ($includeAllUserObjects) {
-			$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
-		}
-		else {
-			$libraryIDs = array(Zotero_Users::getLibraryIDFromUserID($userID));
+			$groupIDs = Zotero_Groups::getUserGroups($userID);
+			if ($groupIDs) {
+				// Separate groups into shards for querying
+				foreach ($groupIDs as $groupID) {
+					$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+					$shardID = Zotero_Shards::getByLibraryID($libraryID);
+					if (!isset($shardLibraryIDs[$shardID])) {
+						$shardLibraryIDs[$shardID] = array();
+					}
+					$shardLibraryIDs[$shardID][] = $libraryID;
+				}
+			}
 		}
 		
-		$sql = "SELECT libraryID, objectType, `key`, timestamp, timestampMS
-				FROM syncDeleteLogKeys WHERE libraryID IN ("
-				. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
-				. ")";
-		$params = $libraryIDs;
-		if ($timestamp) {
-			$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
-			$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+		// Send query at each shard
+		$rows = array();
+		foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
+			$sql = "SELECT libraryID, objectType, `key`, timestamp, timestampMS
+					FROM syncDeleteLogKeys WHERE libraryID IN ("
+					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+					. ")";
+			$params = $libraryIDs;
+			if ($timestamp) {
+				$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
+				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+			}
+			$sql .= " ORDER BY CONCAT(timestamp, '.', IFNULL(timestampMS, 0))";
+			$shardRows = Zotero_DB::query($sql, $params, $shardID);
+			if ($shardRows) {
+				$rows = array_merge($rows, $shardRows);
+			}
 		}
-		$sql .= " ORDER BY CONCAT(timestamp, '.', IFNULL(timestampMS, 0))";
-		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByUserID($userID));
+		
 		if (!$rows) {
 			return false;
 		}
@@ -1717,34 +1739,56 @@ class Zotero_Sync {
 		list($timestamp, $timestampMS) = explode(".", $lastsync);
 		$timestampMS = (int) $timestampMS;
 		
+		// Personal library
+		$shardID = Zotero_Shards::getByUserID($userID);
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		$shardLibraryIDs[$shardID] = array($libraryID);
+		
+		// Group libraries
 		if ($includeAllUserObjects) {
-			$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
-		}
-		else {
-			$libraryIDs = array(Zotero_Users::getLibraryIDFromUserID($userID));
-		}
-		
-		$sql = "SELECT libraryID, objectType, id, timestamp, timestampMS
-				FROM syncDeleteLogIDs WHERE libraryID IN ("
-				. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
-				. ")";
-		$params = $libraryIDs;
-		if ($timestamp) {
-			// Send any entries from before these were being properly sent
-			if ($timestamp < 1260778500) {
-				$sql .= " AND (CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?
-							OR CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) BETWEEN 1257968068 AND ?)";
-				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
-				$params[] = 1260778500;
-			}
-			else {
-				$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
-				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+			$groupIDs = Zotero_Groups::getUserGroups($userID);
+			if ($groupIDs) {
+				// Separate groups into shards for querying
+				foreach ($groupIDs as $groupID) {
+					$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+					$shardID = Zotero_Shards::getByLibraryID($libraryID);
+					if (!isset($shardLibraryIDs[$shardID])) {
+						$shardLibraryIDs[$shardID] = array();
+					}
+					$shardLibraryIDs[$shardID][] = $libraryID;
+				}
 			}
 		}
-		$sql .= " ORDER BY timestamp";
 		
-		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByUserID($userID));
+		// Send query at each shard
+		$rows = array();
+		foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
+			$sql = "SELECT libraryID, objectType, id, timestamp, timestampMS
+					FROM syncDeleteLogIDs WHERE libraryID IN ("
+					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+					. ")";
+			$params = $libraryIDs;
+			if ($timestamp) {
+				// Send any entries from before these were being properly sent
+				if ($timestamp < 1260778500) {
+					$sql .= " AND (CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?
+								OR CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) BETWEEN 1257968068 AND ?)";
+					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+					$params[] = 1260778500;
+				}
+				else {
+					$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
+					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+				}
+			}
+			$sql .= " ORDER BY timestamp";
+			
+			$shardRows = Zotero_DB::query($sql, $params, $shardID);
+			if ($shardRows) {
+				$rows = array_merge($rows, $shardRows);
+			}
+		}
+		
 		if (!$rows) {
 			return false;
 		}
