@@ -320,6 +320,21 @@ CREATE TABLE `storageUploadQueue` (
 
 
 
+CREATE TABLE IF NOT EXISTS `syncDownloadProcessLog` (
+  `userID` int(10) unsigned NOT NULL,
+  `lastsync` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `objects` mediumint(8) unsigned NOT NULL,
+  `ipAddress` int(10) unsigned NOT NULL,
+  `processorHost` int(10) unsigned NOT NULL,
+  `processDuration` float(6,2) NOT NULL,
+  `totalDuration` smallint(5) unsigned NOT NULL,
+  `error` tinyint(4) NOT NULL DEFAULT '0',
+  `finished` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `finished` (`finished`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `syncDownloadQueue` (
   `syncDownloadQueueID` int(10) unsigned NOT NULL,
   `processorHost` int(10) unsigned DEFAULT NULL,

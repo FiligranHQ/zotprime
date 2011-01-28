@@ -240,21 +240,16 @@ class Zotero_Sync {
 		
 		// Get a queued process
 		$smallestFirst = Z_CONFIG::$SYNC_DOWNLOAD_SMALLEST_FIRST;
+		$sql = "SELECT syncDownloadQueueID, SDQ.userID,
+				CONCAT(UNIX_TIMESTAMP(lastsync), '.', lastsyncMS) AS lastsync,
+				version, added, objects, ipAddress
+				FROM syncDownloadQueue SDQ JOIN sessions USING (sessionID)
+				WHERE started IS NULL ORDER BY tries > 4, ";
 		if ($smallestFirst) {
-			$sql = "SELECT syncDownloadQueueID, userID,
-					CONCAT(UNIX_TIMESTAMP(lastsync), '.', lastsyncMS) AS lastsync,
-					version FROM syncDownloadQueue WHERE started IS NULL
-					ORDER BY tries > 4, ROUND(objects / 100), added LIMIT 1 FOR UPDATE";
-			$row = Zotero_DB::rowQuery($sql);
+			$sql .= "ROUND(objects / 100), ";
 		}
-		// Oldest first
-		else {
-			$sql = "SELECT syncDownloadQueueID, userID,
-					CONCAT(UNIX_TIMESTAMP(lastsync), '.', lastsyncMS) AS lastsync,
-					version FROM syncDownloadQueue WHERE started IS NULL
-					ORDER BY tries > 4, added LIMIT 1 FOR UPDATE";
-			$row = Zotero_DB::rowQuery($sql);
-		}
+		$sql .= "added LIMIT 1 FOR UPDATE";
+		$row = Zotero_DB::rowQuery($sql);
 		
 		// No pending processes
 		if (!$row) {
@@ -262,8 +257,11 @@ class Zotero_Sync {
 			return 0;
 		}
 		
-		$sql = "UPDATE syncDownloadQueue SET started=NOW() WHERE syncDownloadQueueID=?";
-		Zotero_DB::query($sql, $row['syncDownloadQueueID']);
+		$host = gethostbyname(gethostname());
+		$startedTimestamp = microtime(true);
+		
+		$sql = "UPDATE syncDownloadQueue SET started=FROM_UNIXTIME(?), processorHost=INET_ATON(?) WHERE syncDownloadQueueID=?";
+		Zotero_DB::query($sql, array(round($startedTimestamp), $host, $row['syncDownloadQueueID']));
 		
 		Zotero_DB::commit();
 		
@@ -300,6 +298,28 @@ class Zotero_Sync {
 					$row['syncDownloadQueueID']
 				)
 			);
+			
+			try {
+				$sql = "INSERT INTO syncDownloadProcessLog
+						(userID, lastsync, objects, ipAddress, processorHost, processDuration, totalDuration, error)
+						VALUES (?,FROM_UNIXTIME(?),?,?,INET_ATON(?),?,?,?)";
+				Zotero_DB::query(
+					$sql,
+					array(
+						$row['userID'],
+						round($row['lastsync']),
+						$row['objects'],
+						$row['ipAddress'],
+						$host,
+						round((float) microtime(true) - $startedTimestamp, 2),
+						max(0, min(time() - strtotime($row['added']), 65535)),
+						0
+					)
+				);
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
+			}
 		}
 		// Timeout error
 		else if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
@@ -324,6 +344,28 @@ class Zotero_Sync {
 					$row['syncDownloadQueueID']
 				)
 			);
+			
+			try {
+				$sql = "INSERT INTO syncDownloadProcessLog
+						(userID, lastsync, objects, ipAddress, processorHost, processDuration, totalDuration, error)
+						VALUES (?,FROM_UNIXTIME(?),?,?,INET_ATON(?),?,?,?)";
+				Zotero_DB::query(
+					$sql,
+					array(
+						$row['userID'],
+						$row['lastsync'],
+						$row['objects'],
+						$row['ipAddress'],
+						$host,
+						round((float) microtime(true) - $startedTimestamp, 2),
+						max(0, min(time() - strtotime($row['added']), 65535)),
+						1
+					)
+				);
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
+			}
 		}
 		
 		Zotero_DB::commit();
@@ -507,7 +549,7 @@ class Zotero_Sync {
 					array(
 						$row['userID'],
 						$row['dataLength'],
-						$row['processorHost'],
+						$host,
 						round((float) microtime(true) - $startedTimestamp, 2),
 						max(0, min(time() - strtotime($row['added']), 65535)),
 						1
