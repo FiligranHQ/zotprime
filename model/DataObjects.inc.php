@@ -290,7 +290,7 @@ class Zotero_DataObjects {
 		}
 		
 		self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
-		self::$primaryDataByID[$type][$libraryID][$row['id']] = self::$primaryDataByCreatorID[$type][$libraryID][$row['key']];
+		self::$primaryDataByID[$type][$libraryID][$row['id']] = self::$primaryDataByKey[$type][$libraryID][$row['key']];
 	}
 	
 	

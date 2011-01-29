@@ -891,7 +891,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				$xml->addChild('note', $note);
 			}
-			else {
+			else if ($item->isNote()) {
 				$xml->addChild('note', '');
 			}
 		}

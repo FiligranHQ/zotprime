@@ -35,6 +35,9 @@ function Zotero_dbConnectAuth($db) {
 		$user = '';
 		$pass = '';
 	}
+	else {
+		throw new Exception("Invalid db '$db'");
+	}
 	return array('host'=>$host, 'port'=>$port, 'db'=>$db, 'user'=>$user, 'pass'=>$pass);
 }
 ?>
