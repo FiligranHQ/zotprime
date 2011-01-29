@@ -35,6 +35,10 @@ class SyncController extends Controller {
 	private $updateKey = null;
 	private $responseXML = null;
 	
+	private $profile = false;
+	private $profileShard = 0;
+	
+	
 	public function __get($field) {
 		switch ($field) {
 			case 'apiVersion':
@@ -51,8 +55,12 @@ class SyncController extends Controller {
 	public function __construct($action, $settings, $extra) {
 		require_once('../model/Error.inc.php');
 		
+		if ($this->profile) {
+			Zotero_DB::profileStart($this->profileShard);
+		}
+		
 		// Run session garbage collection every so often
-		if (Z_Core::probability(1000)) {
+		if (Z_Core::probability(5000)) {
 			$this->sessionGC();
 		}
 		
@@ -535,9 +543,12 @@ class SyncController extends Controller {
 			$this->sessionLifetime
 		);
 		
-		if (Z_Core::probability(3)) {
+		// Every 10 minutes, update the timestamp in the DB
+		if (!Z_Core::$MC->get("syncSession_" . $sessionID . "_dbUpdated")) {
 			$sql = "UPDATE sessions SET timestamp=NOW() WHERE sessionID=?";
 			Zotero_DB::query($sql, $sessionID);
+			
+			Z_Core::$MC->set("syncSession_" . $sessionID . "_dbUpdated", true, 600);
 		}
 		
 		$this->sessionID = $sessionID;
@@ -560,16 +571,16 @@ class SyncController extends Controller {
 			$wait = 5;
 		}
 		else if ($index < 11) {
-			$wait = 10;
-		}
-		else if ($index < 23) {
 			$wait = 25;
 		}
+		else if ($index < 23) {
+			$wait = 45;
+		}
 		else if ($index < 33) {
-			$wait = 60;
+			$wait = 70;
 		}
 		else {
-			$wait = 120;
+			$wait = 130;
 		}
 		
 		Z_Core::$MC->increment('syncWaitIndex_' . $sessionID);
@@ -727,6 +738,10 @@ class SyncController extends Controller {
 	
 	
 	private function end() {
+		if ($this->profile) {
+			Zotero_DB::profileEnd($this->profileShard);
+		}
+		
 		header("Content-Type: text/xml");
 		$xmlstr = $this->responseXML->asXML();
 		echo $xmlstr;

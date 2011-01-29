@@ -841,8 +841,8 @@ class Zotero_DB {
 		var_dump($queries);
 		
 		echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
-		echo 'Average query length: ' . $totalTime / $queryCount . ' seconds' . "\n";
-		echo 'Queries per second: ' . $queryCount / $totalTime . "\n";
+		echo 'Average query length: ' . ($queryCount ? ($totalTime / $queryCount) : "N/A") . ' seconds' . "\n";
+		echo 'Queries per second: ' . ($totalTime ? ($queryCount / $totalTime) : "N/A") . "\n";
 		echo 'Longest query length: ' . $longestTime . "\n";
 		echo "Longest query: \n" . $longestQuery . "\n";
 		
