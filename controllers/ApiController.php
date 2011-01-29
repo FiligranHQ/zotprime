@@ -780,10 +780,11 @@ class ApiController extends Controller {
 	
 	
 	public function removestoragefiles() {
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($this->objectUserID);
+		
 		$this->allowMethods(array('POST'));
-		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID)
-				JOIN zotero_master.users USING (libraryID) WHERE userID=?";
-		Zotero_DB::query($sql, $this->objectUserID, Zotero_Shards::getByUserID($this->objectUserID));
+		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID) WHERE libraryID=?";
+		Zotero_DB::query($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 		header("HTTP/1.1 204 No Content");
 		exit;
 	}
