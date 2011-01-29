@@ -284,7 +284,7 @@ class Zotero_ItemFields {
 			if (!isset(self::$isValidForTypeCache[$itemTypeID])) {
 				self::$isValidForTypeCache[$itemTypeID] = array();
 			}
-			self::$isValidForTypeCache[$itemTypeID] = !!$valid;
+			self::$isValidForTypeCache[$itemTypeID][$fieldID] = !!$valid;
 			return !!$valid;
 		}
 		
@@ -303,7 +303,7 @@ class Zotero_ItemFields {
 		if (!isset(self::$isValidForTypeCache[$itemTypeID])) {
 			self::$isValidForTypeCache[$itemTypeID] = array();
 		}
-		self::$isValidForTypeCache[$itemTypeID] = $valid;
+		self::$isValidForTypeCache[$itemTypeID][$fieldID] = $valid;
 		Z_Core::$MC->set($cacheKey, $valid ? true : 0);
 		
 		return $valid;

@@ -403,7 +403,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT fieldID FROM itemData WHERE itemID=?";
-		$fields = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$fields = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
 		if (!$fields) {
 			$fields = array();
 		}
@@ -976,7 +977,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM deletedItems WHERE itemID=?";
-		$deleted = !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$deleted = !!Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		$this->deleted = $deleted;
 		
 		// Memcache returns false for empty keys, so use integers
@@ -2148,7 +2150,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT sourceItemID FROM item{$Type}s WHERE itemID=?";
-		$sourceItemID = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$sourceItemID = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		// Temporary sanity check
 		if ($sourceItemID && !is_int($sourceItemID)) {
 			trigger_error("sourceItemID is not an integer", E_USER_ERROR);
@@ -2465,8 +2468,9 @@ class Zotero_Item {
 		
 		// Return ENUM as 0-index integer
 		$sql = "SELECT linkMode - 1 FROM itemAttachments WHERE itemID=?";
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		// DEBUG: why is this returned as a float without the cast?
-		$linkMode = (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$linkMode = (int) Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		$this->attachmentData['linkMode'] = $linkMode;
 		return $linkMode;
 	}
@@ -2489,7 +2493,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT mimeType FROM itemAttachments WHERE itemID=?";
-		$mimeType = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$mimeType = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		if (!$mimeType) {
 			$mimeType = '';
 		}
@@ -2517,7 +2522,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT charsetID FROM itemAttachments WHERE itemID=?";
-		$charset = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$charset = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		if ($charset) {
 			$charset = Zotero_CharacterSets::getName($charset);
 		}
@@ -2544,7 +2550,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT path FROM itemAttachments WHERE itemID=?";
-		$path = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$path = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		if (!$path) {
 			$path = '';
 		}
@@ -2568,7 +2575,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT storageModTime FROM itemAttachments WHERE itemID=?";
-		$val = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$val = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		$this->attachmentData['storageModTime'] = $val;
 		return $val;
 	}
@@ -2589,7 +2597,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT storageHash FROM itemAttachments WHERE itemID=?";
-		$val = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$val = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		$this->attachmentData['storageHash'] = $val;
 		return $val;
 	}
@@ -3130,12 +3139,18 @@ class Zotero_Item {
 		$itemTypeFields = Zotero_ItemFields::getItemTypeFields($this->itemTypeID);
 		
 		if ($fields) {
+			$hashes = array();
 			foreach($fields as $field) {
-				$value = Zotero_Items::getDataValue($field['hash']);
-				if ($value === false) {
+				$hashes[] = $field['hash'];
+			}
+			
+			$values = Zotero_Items::getDataValues($hashes);
+			
+			foreach ($fields as $field) {
+				if (!isset($values[$field['hash']])) {
 					throw new Exception("Item data value for hash '{$field['hash']}' not found");
 				}
-				$this->setField($field['fieldID'], $value, true, true);
+				$this->setField($field['fieldID'], $values[$field['hash']], true, true);
 			}
 		}
 		
@@ -3181,7 +3196,7 @@ class Zotero_Item {
 		}
 		
 		foreach ($creators as $creator) {
-			$creatorObj = Zotero_Creators::get($this->libraryID, $creator['creatorID']);
+			$creatorObj = Zotero_Creators::get($this->libraryID, $creator['creatorID'], true);
 			if (!$creatorObj) {
 				Z_Core::$MC->delete($cacheKey);
 				throw new Exception("Creator {$creator['creatorID']} not found");
@@ -3224,7 +3239,8 @@ class Zotero_Item {
 		}
 		
 		$sql = "SELECT linkedItemID FROM itemRelated WHERE itemID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$ids = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
 		
 		$this->relatedItems = $ids ? $ids : array();
 		$this->loaded['relatedItems'] = true;

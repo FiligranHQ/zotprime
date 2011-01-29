@@ -42,6 +42,8 @@ class Zotero_DataObjects {
 	protected static $ZDO_table = '';
 	
 	private static $idCache = array();
+	private static $primaryDataByID = array();
+	private static $primaryDataByKey = array();
 	
 	public static function field($field) {
 		if (empty(static::$ZDO_object)) {
@@ -173,6 +175,133 @@ class Zotero_DataObjects {
 		
 		// TODO: remove expiration time
 		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
+	}
+	
+	
+	public static function getPrimaryDataByID($libraryID, $id) {
+		$type = static::field('object');
+		
+		if (!is_numeric($id)) {
+			throw new Exception("Invalid id '$id'");
+		}
+		
+		// If primary data isn't cached for library, do so now
+		if (!isset(self::$primaryDataByID[$type][$libraryID])) {
+			self::cachePrimaryDataByLibrary($libraryID);
+		}
+		
+		if (!isset(self::$primaryDataByID[$type][$libraryID][$id])) {
+			return false;
+		}
+		
+		return self::$primaryDataByID[$type][$libraryID][$id];
+	}
+	
+	
+	public static function getPrimaryDataByKey($libraryID, $key) {
+		$type = static::field('object');
+		
+		if (!is_numeric($libraryID)) {
+			throw new Exception("Invalid libraryID '$libraryID'");
+		}
+		if (!preg_match('/[A-Z0-9]{8}/', $key)) {
+			throw new Exception("Invalid key '$key'");
+		}
+		
+		// If primary data isn't cached for library, do so now
+		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
+			self::cachePrimaryDataByLibrary($libraryID);
+		}
+		
+		if (!isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
+			return false;
+		}
+		
+		return self::$primaryDataByKey[$type][$libraryID][$key];
+	}
+	
+	
+	private static function cachePrimaryDataByLibrary($libraryID) {
+		$type = static::field('object');
+		$types = static::field('objects');
+		
+		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
+			self::$primaryDataByKey[$type][$libraryID] = array();
+		}
+		
+		if (!isset(self::$primaryDataByID[$type][$libraryID])) {
+			self::$primaryDataByID[$type][$libraryID] = array();
+		}
+		
+		self::$primaryDataByKey[$type][$libraryID] = array();
+		self::$primaryDataByID[$type][$libraryID] = array();
+		
+		$className = "Zotero_" . ucwords($types);
+		$sql = call_user_func(array($className, 'getPrimaryDataSQL')) . "libraryID=?";
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		$rows = Zotero_DB::query($sql, $libraryID, $shardID);
+		
+		if (!$rows) {
+			return;
+		}
+		
+		foreach ($rows as $row) {
+			self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
+			self::$primaryDataByID[$type][$libraryID][$row['id']] =& self::$primaryDataByKey[$type][$libraryID][$row['key']];
+		}
+	}
+	
+	
+	public static function cachePrimaryData($row) {
+		$type = static::field('object');
+		
+		$libraryID = $row['libraryID'];
+		
+		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
+			self::$primaryDataByKey[$type][$libraryID] = array();
+		}
+		
+		if (!isset(self::$primaryDataByID[$type][$libraryID])) {
+			self::$primaryDataByID[$type][$libraryID] = array();
+		}
+		
+		$found = 0;
+		$expected = 6; // number of values below
+		
+		foreach ($row as $key=>$val) {
+			switch ($key) {
+				case 'id':
+				case 'libraryID':
+				case 'key':
+				case 'dateAdded':
+				case 'dateModified':
+				case 'creatorDataHash':
+					$found++;
+					break;
+				
+				default:
+					throw new Exception("Unknown primary data field '$key'");
+			}
+		}
+		
+		if ($found != $expected) {
+			throw new Exception("$found primary data fields provided -- excepted $expected");
+		}
+		
+		self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
+		self::$primaryDataByID[$type][$libraryID][$row['id']] = self::$primaryDataByCreatorID[$type][$libraryID][$row['key']];
+	}
+	
+	
+	public static function uncachePrimaryData($libraryID, $key) {
+		$type = static::field('object');
+		
+		if (isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
+			$id = self::$primaryDataByKey[$type][$libraryID][$key]['id'];
+			unset(self::$primaryDataByKey[$type][$libraryID][$key]);
+			unset(self::$primaryDataByID[$type][$libraryID][$id]);
+		}
 	}
 	
 	

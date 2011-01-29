@@ -499,7 +499,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$values = Z_Core::$MC->get($cacheKeys);
 		if ($values) {
 			foreach ($values as $key=>$val) {
-				$hash = substr($key, -32);
+				$hash = substr($key, -32); // pull out hash
 				$foundHashes[$hash] = $val;
 				self::$dataValuesByHash[$hash] = $val;
 				array_splice($hashes, array_search($hash, $hashes), 1);
@@ -836,28 +836,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			$xml['lastModifiedByUserID'] = $lastModifiedByUserID;
 		}
 		
-		// Note
-		if ($item->isNote()) {
-			$note = $item->getNote();
-			
-			// TEMP: Clean HTML before returning
-			$c = HTMLPurifier_Config::createDefault();
-			$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
-			$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
-			$c->set('HTML.DefinitionID', 'notes');
-			$c->set('HTML.DefinitionRev', 1);
-			
-			// Don't tidy
-			$c->set('HTML.TidyLevel', 'none');
-			// Allow some things that TinyMCE allows to prevent erroneous conflicts
-			$def = $c->getHTMLDefinition(true);
-			$def->addAttribute('a', 'target', 'Enum#_blank,_self,_target,_top');
-			
-			$HTMLPurifier = new HTMLPurifier($c);
-			$note = $HTMLPurifier->purify($note);
-			$xml->addChild('note', htmlspecialchars($note));
-		}
-		
 		if ($item->isAttachment()) {
 			$xml['linkMode'] = $item->attachmentLinkMode;
 			$xml['mimeType'] = $item->attachmentMIMEType;
@@ -879,25 +857,42 @@ class Zotero_Items extends Zotero_DataObjects {
 			if ($item->attachmentLinkMode != 3) {
 				$xml->addChild('path', htmlspecialchars($item->attachmentPath));
 			}
-			
-			$note = $item->getNote();
-			if ($note) {
-				// TEMP: Clean HTML before returning
-				$c = HTMLPurifier_Config::createDefault();
-				$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
-				$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
-				$c->set('HTML.DefinitionID', 'notes');
-				$c->set('HTML.DefinitionRev', 1);
+		}
+		
+		// Note
+		if ($item->isNote() || $item->isAttachment()) {
+			$noteHash = $item->getNoteHash();
+			if ($noteHash) {
+				$cacheKey = "purifiedNote_$noteHash";
+				$note = Z_Core::$MC->get($cacheKey);
 				
-				// Don't tidy
-				$c->set('HTML.TidyLevel', 'none');
-				// Allow some things that TinyMCE allows to prevent erroneous conflicts
-				$def = $c->getHTMLDefinition(true);
-				$def->addAttribute('a', 'target', 'Enum#_blank,_self,_target,_top');
+				if ($note === false) {
+					$note = $item->getNote();
+					
+					// TEMP: Clean HTML before returning
+					$c = HTMLPurifier_Config::createDefault();
+					$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
+					$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
+					$c->set('HTML.DefinitionID', 'notes');
+					$c->set('HTML.DefinitionRev', 1);
+					
+					// Don't tidy
+					$c->set('HTML.TidyLevel', 'none');
+					// Allow some things that TinyMCE allows to prevent erroneous conflicts
+					$def = $c->getHTMLDefinition(true);
+					$def->addAttribute('a', 'target', 'Enum#_blank,_self,_target,_top');
+					
+					$HTMLPurifier = new HTMLPurifier($c);
+					$note = $HTMLPurifier->purify($note);
+					$note = htmlspecialchars($note);
+					
+					Z_Core::$MC->set($cacheKey, $note);
+				}
 				
-				$HTMLPurifier = new HTMLPurifier($c);
-				$note = $HTMLPurifier->purify($note);
-				$xml->addChild('note', htmlspecialchars($note));
+				$xml->addChild('note', $note);
+			}
+			else {
+				$xml->addChild('note', '');
 			}
 		}
 		

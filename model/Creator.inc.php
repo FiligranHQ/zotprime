@@ -184,7 +184,6 @@ class Zotero_Creator {
 			Zotero_DB::commit();
 			
 			Zotero_Creators::cachePrimaryData(
-				$creatorID,
 				array(
 					'id' => $creatorID,
 					'libraryID' => $this->libraryID,
@@ -244,11 +243,11 @@ class Zotero_Creator {
 		
 		if ($this->id) {
 			//Z_Core::debug("Loading data for creator $this->libraryID/$this->id");
-			$row = Zotero_Creators::getPrimaryDataByCreatorID($this->libraryID, $this->id);
+			$row = Zotero_Creators::getPrimaryDataByID($this->libraryID, $this->id);
 		}
 		else {
 			//Z_Core::debug("Loading data for creator $this->libraryID/$this->key");
-			$row = Zotero_Creators::getPrimaryDataByLibraryAndKey($this->libraryID, $this->key);
+			$row = Zotero_Creators::getPrimaryDataByKey($this->libraryID, $this->key);
 		}
 		
 		$this->loaded = true;

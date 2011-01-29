@@ -168,83 +168,9 @@ class Zotero_Creators extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getPrimaryDataByCreatorID($libraryID, $creatorID) {
-		if (!is_numeric($creatorID)) {
-			throw new Exception("Invalid creatorID '$creatorID'");
-		}
-		
-		if (isset(self::$primaryDataByCreatorID[$libraryID][$creatorID])) {
-			return self::$primaryDataByCreatorID[$libraryID][$creatorID];
-		}
-		
-		$sql = self::getPrimaryDataSQL() . "creatorID=?";
-		$stmt = Zotero_DB::getStatement($sql, false, Zotero_Shards::getByLibraryID($libraryID));
-		$row = Zotero_DB::rowQueryFromStatement($stmt, $creatorID);
-		self::cachePrimaryData($creatorID, $row);
-		return $row;
-	}
-	
-	
-	public static function getPrimaryDataByLibraryAndKey($libraryID, $key) {
-		if (!is_numeric($libraryID)) {
-			throw new Exception("Invalid libraryID '$libraryID'");
-		}
-		if (!preg_match('/[A-Z0-9]{8}/', $key)) {
-			throw new Exception("Invalid key '$key'");
-		}
-		
-		// If primary creator data isn't cached for library, do so now
-		if (!isset(self::$primaryDataByLibraryAndKey[$libraryID])) {
-			self::cachePrimaryDataByLibrary($libraryID);
-		}
-		
-		if (!isset(self::$primaryDataByLibraryAndKey[$libraryID][$key])) {
-			return false;
-		}
-		
-		return self::$primaryDataByLibraryAndKey[$libraryID][$key];
-	}
-	
-	
-	public static function cachePrimaryData($creatorID, $row) {
-		if (!is_numeric($creatorID)) {
-			throw new Exception("Invalid creatorID '$creatorID'");
-		}
-		
-		$libraryID = $row['libraryID'];
-		
-		if (!isset(self::$primaryDataByCreatorID[$libraryID])) {
-			self::$primaryDataByCreatorID[$libraryID] = array();
-		}
-		
-		if (!$row) {
-			self::$primaryDataByCreatorID[$libraryID][$creatorID] = false;
-		}
-		
-		$found = 0;
-		$expected = 6; // number of values below
-		
-		foreach ($row as $key=>$val) {
-			switch ($key) {
-				case 'id':
-				case 'libraryID':
-				case 'key':
-				case 'dateAdded':
-				case 'dateModified':
-				case 'creatorDataHash':
-					$found++;
-					break;
-				
-				default:
-					throw new Exception("Unknown primary data field '$key'");
-			}
-		}
-		
-		if ($found != $expected) {
-			throw new Exception("$found primary data fields provided -- excepted $expected");
-		}
-		
-		self::$primaryDataByCreatorID[$libraryID][$creatorID] = $row;
+	public static function getPrimaryDataSQL() {
+		return "SELECT creatorID AS id, libraryID, `key`, dateAdded, dateModified, creatorDataHash
+				FROM creators WHERE ";
 	}
 	
 	
@@ -494,33 +420,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 			$hashFields[] = is_null($val) ? "" : $val;
 		}
 		return md5(join('_', $hashFields));
-	}
-	
-	
-	private static function getPrimaryDataSQL() {
-		return "SELECT creatorID AS id, libraryID, `key`, dateAdded, dateModified, creatorDataHash
-				FROM creators WHERE ";
-	}
-	
-	private static function cachePrimaryDataByLibrary($libraryID) {
-		self::$primaryDataByLibraryAndKey[$libraryID] = array();
-		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		$sql = self::getPrimaryDataSQL() . "libraryID=?";
-		$rows = Zotero_DB::query($sql, $libraryID, $shardID);
-		if (!$rows) {
-			return;
-		}
-		
-		if (!isset(self::$primaryDataByCreatorID[$libraryID])) {
-			self::$primaryDataByCreatorID[$libraryID] = array();
-		}
-		
-		foreach ($rows as $row) {
-			self::$primaryDataByCreatorID[$libraryID][$row['id']] = $row;
-			self::$primaryDataByLibraryAndKey[$libraryID][$row['key']] = self::$primaryDataByCreatorID[$libraryID][$row['id']];
-		}
 	}
 }
 ?>

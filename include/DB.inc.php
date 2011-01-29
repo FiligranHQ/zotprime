@@ -450,6 +450,30 @@ class Zotero_DB {
 			else {
 				$stmt->execute();
 			}
+			
+			return self::columnQueryFromStatement($stmt);
+		}
+		catch (Exception $e) {
+			self::error($e, $sql, $params, $shardID);
+		}
+	}
+	
+	
+	public static function columnQueryFromStatement(Zotero_DB_Statement $stmt, $params=false) {
+		try {
+			// Execute statement if not coming from self::query()
+			if ($params) {
+				self::logQuery($stmt->sql, $params, $stmt->shardID);
+				
+				$instance = self::getInstance();
+				$instance->checkShardTransaction($stmt->shardID);
+				
+				if (is_scalar($params)) {
+					$params = array($params);
+				}
+				$stmt->execute($params);
+			}
+			
 			$stmt->setFetchMode(Zend_Db::FETCH_NUM);
 			
 			$vals = array();
@@ -472,12 +496,12 @@ class Zotero_DB {
 				};
 				return array_map($cast, $vals);
 			}
+			
+			return $vals;
 		}
 		catch (Exception $e) {
-			self::error($e, $sql, $params, $shardID);
+			self::error($e, $stmt->sql, $params, $stmt->shardID);
 		}
-		
-		return $vals;
 	}
 	
 	
@@ -564,6 +588,7 @@ class Zotero_DB {
 		}
 		
 		$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
+		
 		try {
 			if ($params) {
 				$stmt->execute($params);
@@ -571,6 +596,30 @@ class Zotero_DB {
 			else {
 				$stmt->execute();
 			}
+			
+			return self::valueQueryFromStatement($stmt);
+		}
+		catch (Exception $e) {
+			self::error($e, $sql, $params, $shardID);
+		}
+	}
+	
+	
+	public static function valueQueryFromStatement(Zotero_DB_Statement $stmt, $params=false) {
+		try {
+			// Execute statement if not coming from self::valueQuery()
+			if ($params) {
+				self::logQuery($stmt->sql, $params, $stmt->shardID);
+				
+				$instance = self::getInstance();
+				$instance->checkShardTransaction($stmt->shardID);
+				
+				if (is_scalar($params)) {
+					$params = array($params);
+				}
+				$stmt->execute($params);
+			}
+			
 			$stmt->setFetchMode(Zend_Db::FETCH_NUM);
 			$row = $stmt->fetch();
 			if (!$row) {
@@ -582,7 +631,7 @@ class Zotero_DB {
 			return (self::getIntegerColumns($mystmt) && strlen($row[0]) < 10) ? (is_null($row[0]) ? null : (int) $row[0]) : $row[0];
 		}
 		catch (Exception $e) {
-			self::error($e, $sql, $params, $shardID);
+			self::error($e, $stmt->sql, $params, $stmt->shardID);
 		}
 	}
 	

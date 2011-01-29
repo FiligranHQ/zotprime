@@ -240,7 +240,8 @@ class Zotero_Tag {
 				
 				if ($full) {
 					$sql = "SELECT itemID FROM itemTags WHERE tagID=?";
-					$dbItemIDs = Zotero_DB::columnQuery($sql, $tagID, $shardID);
+					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
+					$dbItemIDs = Zotero_DB::columnQueryFromStatement($stmt, $tagID);
 					if ($dbItemIDs) {
 						$removed = array_diff($dbItemIDs, $currentIDs);
 						$newids = array_diff($currentIDs, $dbItemIDs);
@@ -592,7 +593,8 @@ class Zotero_Tag {
 		}
 		
 		$sql = "SELECT itemID FROM itemTags WHERE tagID=?";
-		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+		$ids = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
 		
 		$this->linkedItems = array();
 		if ($ids) {
