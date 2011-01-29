@@ -1,51 +1,44 @@
 #!/bin/sh
-MASTER="mysql -h 127.0.0.1 -P 3306 -u root"
-SLAVE="mysql -h 127.0.0.1 -P 3307 -u root"
-ID1="mysql -h 127.0.0.1 -P 3308 -u root"
-ID2="mysql -h 127.0.0.1 -P 3309 -u root"
-WWW="mysql -h 127.0.0.1 -P 3310 -u root"
-MYSQLDUMP="mysqldump -h 127.0.0.1 -P 3306 -u root"
+MASTER="mysql -h 127.0.0.1 -P 3307 -u root"
+SHARD="mysql -h 127.0.0.1 -P 3308 -u root"
+ID1="mysql -h 127.0.0.1 -P 3309 -u root"
+ID2="mysql -h 127.0.0.1 -P 3310 -u root"
+WWW="mysql -h 127.0.0.1 -P 3311 -u root"
 
-echo "STOP SLAVE;" | $SLAVE
-echo "RESET SLAVE;" | $SLAVE
-
-echo "DROP DATABASE IF EXISTS zoterotest1" | $SLAVE
-echo "DROP DATABASE IF EXISTS zoterotest2" | $SLAVE
-echo "DROP DATABASE IF EXISTS zoterotest_master" | $SLAVE
+echo "DROP DATABASE IF EXISTS zoterotest1" | $SHARD
+echo "DROP DATABASE IF EXISTS zoterotest2" | $SHARD
+echo "DROP DATABASE IF EXISTS zoterotest_master" | $SHARD
 echo "DROP DATABASE IF EXISTS zoterotest_master" | $MASTER
 echo "DROP DATABASE IF EXISTS zoterotest_ids" | $ID1
 echo "DROP DATABASE IF EXISTS zoterotest_ids" | $ID2
 
 echo "CREATE DATABASE zoterotest_master" | $MASTER
-echo "CREATE DATABASE zoterotest_master" | $SLAVE
-echo "CREATE DATABASE zoterotest1" | $SLAVE
-echo "CREATE DATABASE zoterotest2" | $SLAVE
+echo "CREATE DATABASE zoterotest_master" | $SHARD
+echo "CREATE DATABASE zoterotest1" | $SHARD
+echo "CREATE DATABASE zoterotest2" | $SHARD
 echo "CREATE DATABASE zoterotest_ids" | $ID1
 echo "CREATE DATABASE zoterotest_ids" | $ID2
 
 echo "DROP USER zoterotest0@localhost;" | $MASTER
-echo "DROP USER zoterotestrepl@localhost;" | $MASTER
-echo "DROP USER zoterotest1@localhost;" | $SLAVE
-echo "DROP USER zoterotest2@localhost;" | $SLAVE
+echo "DROP USER zoterotest1@localhost;" | $SHARD
+echo "DROP USER zoterotest2@localhost;" | $SHARD
 echo "DROP USER zoterotest_ids@localhost;" | $ID1
 echo "DROP USER zoterotest_ids@localhost;" | $ID2
 echo "DROP USER zoterotest_www@localhost;" | $WWW
 
 echo "CREATE USER zoterotest0@localhost IDENTIFIED BY 'pass0';" | $MASTER
-echo "CREATE USER zoterotestrepl@localhost IDENTIFIED BY 'passrepl';" | $MASTER
-echo "CREATE USER zoterotest1@localhost IDENTIFIED BY 'pass1';" | $SLAVE
-echo "CREATE USER zoterotest2@localhost IDENTIFIED BY 'pass2';" | $SLAVE
+echo "CREATE USER zoterotest1@localhost IDENTIFIED BY 'pass1';" | $SHARD
+echo "CREATE USER zoterotest2@localhost IDENTIFIED BY 'pass2';" | $SHARD
 echo "CREATE USER zoterotest_ids@localhost IDENTIFIED BY 'pass1';" | $ID1
 echo "CREATE USER zoterotest_ids@localhost IDENTIFIED BY 'pass2';" | $ID2
 echo "CREATE USER zoterotest_www@localhost IDENTIFIED BY 'pass';" | $WWW
 
 echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest_master.* TO zoterotest0@localhost;" | $MASTER
-echo "GRANT REPLICATION SLAVE ON *.* TO zoterotestrepl@localhost;" | $MASTER
 
-echo "GRANT SELECT ON zoterotest_master.* TO zoterotest1@localhost;" | $SLAVE
-echo "GRANT SELECT ON zoterotest_master.* TO zoterotest2@localhost;" | $SLAVE
-echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest1.* TO zoterotest1@localhost;" | $SLAVE
-echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest2.* TO zoterotest2@localhost;" | $SLAVE
+echo "GRANT SELECT ON zoterotest_master.* TO zoterotest1@localhost;" | $SHARD
+echo "GRANT SELECT ON zoterotest_master.* TO zoterotest2@localhost;" | $SHARD
+echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest1.* TO zoterotest1@localhost;" | $SHARD
+echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest2.* TO zoterotest2@localhost;" | $SHARD
 
 echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_ids@localhost;" | $ID1
 echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_ids@localhost;" | $ID2
@@ -57,14 +50,14 @@ $MASTER zoterotest_master < master.sql
 $MASTER zoterotest_master < coredata.sql
 
 # Set up shard info
-echo "INSERT INTO shardHosts VALUES (1, '127.0.0.1', 3307, 'up');" | $MASTER zoterotest_master
+echo "INSERT INTO shardHosts VALUES (1, '127.0.0.1', 3308, 'up');" | $MASTER zoterotest_master
 echo "INSERT INTO shards VALUES (1, 1, 'zoterotest1', 'pass1', 'zoterotest1', 'up');" | $MASTER zoterotest_master
 echo "INSERT INTO shards VALUES (2, 1, 'zoterotest2', 'pass2', 'zoterotest2', 'up');" | $MASTER zoterotest_master
 
 # Initial users and groups for tests
 echo "INSERT INTO libraries VALUES (1, 'user', '0000-00-00 00:00:00', 0, 1)" | $MASTER zoterotest_master
 echo "INSERT INTO libraries VALUES (2, 'user', '0000-00-00 00:00:00', 0, 1)" | $MASTER zoterotest_master
-echo "INSERT INTO libraries VALUES (3, 'group', '0000-00-00 00:00:00', 0, 1)" | $MASTER zoterotest_master
+echo "INSERT INTO libraries VALUES (3, 'group', '0000-00-00 00:00:00', 0, 2)" | $MASTER zoterotest_master
 echo "INSERT INTO users VALUES (1, 1, 'testuser', '0000-00-00 00:00:00', '0000-00-00 00:00:00')" | $MASTER zoterotest_master
 echo "INSERT INTO users VALUES (2, 2, 'testuser2', '0000-00-00 00:00:00', '0000-00-00 00:00:00')" | $MASTER zoterotest_master
 echo "INSERT INTO groups VALUES (1, 3, 'Test Group', 'test_group', 'Private', 1, 'admins', 'all', 'members', '', '', 0, '0000-00-00 00:00:00', '0000-00-00 00:00:00')" | $MASTER zoterotest_master
@@ -75,16 +68,15 @@ echo "DELETE FROM users" | $WWW zotero_www_test
 echo "INSERT INTO users VALUES (1, 'testuser', 'b7a875fc1ea228b9061041b7cec4bd3c52ab3ce3', 'test@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser')" | $WWW zotero_www_test
 echo "INSERT INTO users VALUES (2, 'testuser2', 'fc707fc0b8c62cfeeafffde7273978d29d6d2374', 'test2@zotero.org', NULL, 'member', NULL, NULL, NULL, 1, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 0, 'testuser2')" | $WWW zotero_www_test
 
-# Set up shard host replication
-#  - mysqldump table list should match replicate-do-table list below
-echo "CHANGE MASTER TO MASTER_HOST='127.0.0.1', MASTER_PORT=3306, MASTER_USER='zoterotestrepl', MASTER_PASSWORD='passrepl';" | $SLAVE
-$MYSQLDUMP --master-data=1 zoterotest_master baseFieldMappings charsets creatorTypes fields groups groupUsers itemTypeCreatorTypes itemTypeFields itemTypes libraries shardHosts shards users | $SLAVE zoterotest_master
-
 # Load in shard schema
-cat shard.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest1
-cat shard.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest2
-cat triggers.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest1
-cat triggers.sql | sed 's/`master`/`zoterotest_master`/g' | $SLAVE zoterotest2
+cat shard.sql | $SHARD zoterotest1
+cat shard.sql | $SHARD zoterotest2
+cat triggers.sql | $SHARD zoterotest1
+cat triggers.sql | $SHARD zoterotest2
+
+echo "INSERT INTO shardLibraries VALUES (1, 'user')" | $SHARD zoterotest1
+echo "INSERT INTO shardLibraries VALUES (2, 'user')" | $SHARD zoterotest1
+echo "INSERT INTO shardLibraries VALUES (3, 'group')" | $SHARD zoterotest2
 
 # Load in schema on id servers
 $ID1 zoterotest_ids < ids.sql
@@ -96,7 +88,7 @@ $ID2 zoterotest_ids < ids.sql
 # server-id = 1
 # datadir = /usr/local/var/mysql/master
 # socket = /usr/local/var/mysql/master/mysql.sock
-# port = 3306
+# port = 3307
 # log-bin = binary_log
 # innodb_flush_log_at_trx_commit = 1
 # sync_binlog = 1
@@ -106,7 +98,7 @@ $ID2 zoterotest_ids < ids.sql
 # default-time-zone = '+0:00'
 # 
 #
-# Slave my.cnf:
+# Shard my.cnf:
 #
 # [mysqld]
 # server-id = 10
@@ -119,20 +111,6 @@ $ID2 zoterotest_ids < ids.sql
 # default-character-set = utf8
 # sql_mode = STRICT_ALL_TABLES
 # default-time-zone = '+0:00'
-# relay-log = relay_log
-# replicate-do-table = zoterotest_master.baseFieldMappings
-# replicate-do-table = zoterotest_master.charsets
-# replicate-do-table = zoterotest_master.creatorTypes
-# replicate-do-table = zoterotest_master.fields
-# replicate-do-table = zoterotest_master.groups
-# replicate-do-table = zoterotest_master.groupUsers
-# replicate-do-table = zoterotest_master.itemTypeCreatorTypes
-# replicate-do-table = zoterotest_master.itemTypeFields
-# replicate-do-table = zoterotest_master.itemTypes
-# replicate-do-table = zoterotest_master.libraries
-# replicate-do-table = zoterotest_master.shardHosts
-# replicate-do-table = zoterotest_master.shards
-# replicate-do-table = zoterotest_master.users
 #
 # ID my.cnf:
 #
@@ -166,9 +144,6 @@ $ID2 zoterotest_ids < ids.sql
 # auto-increment-increment = 2
 # auto-increment-offset = 2
 
-
-echo "RESET MASTER;" | $MASTER
-echo "START SLAVE;" | $SLAVE
 
 mongo zoterotest --eval 'db.dropDatabase()'
 mongo zoterotest mongo_schema.js

@@ -12,11 +12,13 @@ Zotero_DB::query("DELETE FROM syncProcesses");
 Zotero_DB::query("DELETE FROM syncDownloadQueue");
 Zotero_DB::query("DELETE FROM syncUploadQueue");
 Zotero_DB::query("DELETE FROM libraries WHERE libraryID>3");
-Zotero_WWW_DB::query("DELETE FROM zotero_www_test.users WHERE userID>2");
+shell_exec("echo 'DELETE FROM zotero_www_test.users WHERE userID>2' | mysql -h 127.0.0.1 -P 3311 -u root");
+
+shell_exec("killall memcached; /usr/local/bin/memcached -d");
 
 $shards = array(1,2);
 foreach ($shards as $shardID) {
-	Zotero_DB::query("DELETE FROM items", false, $shardID);
+	Zotero_DB::query("DELETE FROM shardLibraries WHERE libraryID>3", false, $shardID);
 }
 
 // TODO: clear MongoDB values
