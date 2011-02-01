@@ -543,7 +543,7 @@ class Zotero_Sync {
 			try {
 				$sql = "INSERT INTO syncUploadProcessLog
 						(userID, dataLength, processorHost, processDuration, totalDuration, error)
-						VALUES (?,?,?,?,?,?)";
+						VALUES (?,?,INET_ATON(?),?,?,?)";
 				Zotero_DB::query(
 					$sql,
 					array(

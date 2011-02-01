@@ -35,8 +35,8 @@ class SyncController extends Controller {
 	private $updateKey = null;
 	private $responseXML = null;
 	
-	private $profile = false;
-	private $profileShard = 0;
+	private $profile = true;
+	private $profileShard = 3;
 	
 	
 	public function __get($field) {
@@ -160,7 +160,8 @@ class SyncController extends Controller {
 				'sessionID' => $sessionID,
 				'userID' => $userID
 			),
-			$this->sessionLifetime
+			// See note in sessionCheck()
+			$this->sessionLifetime - 600
 		);
 		
 		$this->responseXML->sessionID = $sessionID;
@@ -387,7 +388,7 @@ class SyncController extends Controller {
 		$doc->loadXML($xmldata);
 		
 		function relaxNGErrorHandler($errno, $errstr) {
-			//var_dump($errstr);
+			//Z_Core::logError($errstr);
 		}
 		set_error_handler('relaxNGErrorHandler');
 		if (!$doc->relaxNGValidate(Z_ENV_MODEL_PATH . 'relax-ng/upload.rng')) {
@@ -540,7 +541,10 @@ class SyncController extends Controller {
 				'sessionID' => $sessionID,
 				'userID' => $userID
 			),
-			$this->sessionLifetime
+			// Store in memcached for 10 minutes less than session timeout,
+			// since we update the DB at a minimum of every 10 minutes
+			// and a memory-only session could cause FK errors
+			$this->sessionLifetime - 600
 		);
 		
 		// Every 10 minutes, update the timestamp in the DB
