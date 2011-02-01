@@ -823,7 +823,7 @@ class ApiController extends Controller {
 		
 		// Redirect GET request to S3 URL
 		else if ($this->method == 'GET') {
-			$url = Zotero_S3::getDownloadURL($item, 30);
+			$url = Zotero_S3::getDownloadURL($item, 60);
 			if (!$url) {
 				$this->e404();
 			}
