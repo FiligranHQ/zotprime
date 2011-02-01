@@ -849,7 +849,7 @@ class Zotero_Sync {
 		
 		$lastsync = implode('.', self::getTimestampParts($lastsync));
 		
-		$key = self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion;
+		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata");
 		if ($xmldata) {
 			// Update the last-used timestamp
@@ -863,7 +863,7 @@ class Zotero_Sync {
 	
 	
 	public static function cacheDownload($userID, $lastsync, $xmldata) {
-		$key = self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion;
+		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		$doc = array(
 			"_id" => $key,
 			"userID" => $userID,
