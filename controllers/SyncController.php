@@ -32,10 +32,11 @@ class SyncController extends Controller {
 	private $sessionID = null;
 	private $userID = null;
 	private $userLibraryID = null;
+	private $ipAddress = null;
 	private $updateKey = null;
 	private $responseXML = null;
 	
-	private $profile = true;
+	private $profile = false;
 	private $profileShard = 3;
 	
 	
@@ -297,12 +298,38 @@ class SyncController extends Controller {
 			if (Z_ENV_TESTING_SITE && !empty($_GET['noqueue'])) {
 				$queue = false;
 			}
+			
+			// If we have a cached response, return that
+			try {
+				$startedTimestamp = microtime(true);
+				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync);
+				if ($cached) {
+					$this->responseXML = simplexml_load_string($cached);
+					
+					$duration = round((float) microtime(true) - $startedTimestamp, 2);
+					Zotero_Sync::logDownload(
+						$this->userID,
+						round($lastsync),
+						min(16777215, strlen($cached)),
+						$this->ipAddress ? $this->ipAddress : 0,
+						0,
+						$duration,
+						$duration,
+						0
+					);
+					
+					$this->end();
+				}
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
+			}
+			
 			$numUpdated = Zotero_DataObjects::countUpdated($this->userID, $lastsync, true);
 			if ($numUpdated < 5) {
 				$queue = false;
 			}
 			if ($queue) {
-				//$numUpdated = Zotero_DataObjects::countUpdated($this->userID, $lastsync, true);
 				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $numUpdated);
 				
 				try {
@@ -519,9 +546,11 @@ class SyncController extends Controller {
 		
 		$session = Z_Core::$MC->get("syncSession_$sessionID");
 		$userID = $session ? $session['userID'] : null;
+		// TEMP: can switch to just $session
+		$ipAddress = isset($session['ipAddress']) ? $session['ipAddress'] : null;
 		if (!$userID) {
-			$sql = "SELECT userid, (UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(timestamp)) AS age
-					FROM sessions WHERE sessionID=?";
+			$sql = "SELECT userid, (UNIX_TIMESTAMP(NOW())-UNIX_TIMESTAMP(timestamp)) AS age,
+					INET_NTOA(ipAddress) AS ipAddress FROM sessions WHERE sessionID=?";
 			$session = Zotero_DB::rowQuery($sql, $sessionID);
 			
 			if (!$session) {
@@ -533,13 +562,15 @@ class SyncController extends Controller {
 			}
 			
 			$userID = $session['userid'];
+			$ipAddress = $session['ipAddress'];
 		}
 		
 		$updated = Z_Core::$MC->set(
 			"syncSession_$sessionID",
 			array(
 				'sessionID' => $sessionID,
-				'userID' => $userID
+				'userID' => $userID,
+				'ipAddress' => $ipAddress
 			),
 			// Store in memcached for 10 minutes less than session timeout,
 			// since we update the DB at a minimum of every 10 minutes
@@ -558,6 +589,7 @@ class SyncController extends Controller {
 		$this->sessionID = $sessionID;
 		$this->userID = $userID;
 		$this->userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		$this->ipAddress = $ipAddress;
 	}
 	
 	

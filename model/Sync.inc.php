@@ -36,6 +36,9 @@ class Zotero_Sync {
 	// Don't process uploads larger than this in smallestFirst mode
 	private static $maxSmallestSize = 200000;
 	
+	// This needs to be incremented any time there's a change to the sync response
+	private static $cacheVersion = 1;
+	
 	public static function getResponseXML($version=null) {
 		if (!$version) {
 			$version = self::$defaultAPIVersion;
@@ -136,12 +139,7 @@ class Zotero_Sync {
 		$sql = "DELETE FROM syncDownloadQueue WHERE sessionID=? AND finished IS NOT NULL";
 		Zotero_DB::query($sql, $sessionID);
 		
-		$float = explode('.', $lastsync);
-		$lastsync = $float[0];
-		$lastsyncMS = isset($float[1]) ? substr($float[1], 0, 5) : 0;
-		if ($lastsyncMS > 65535) {
-			$lastsyncMS = substr($float[1], 0, 4);
-		}
+		list($lastsync, $lastsyncMS) = self::getTimestampParts($lastsync);
 		
 		$sql = "INSERT INTO syncDownloadQueue
 				(syncDownloadQueueID, processorHost, userID, sessionID, lastsync, lastsyncMS, version, objects)
@@ -299,27 +297,16 @@ class Zotero_Sync {
 				)
 			);
 			
-			try {
-				$sql = "INSERT INTO syncDownloadProcessLog
-						(userID, lastsync, objects, ipAddress, processorHost, processDuration, totalDuration, error)
-						VALUES (?,FROM_UNIXTIME(?),?,?,INET_ATON(?),?,?,?)";
-				Zotero_DB::query(
-					$sql,
-					array(
-						$row['userID'],
-						round($row['lastsync']),
-						$row['objects'],
-						$row['ipAddress'],
-						$host,
-						round((float) microtime(true) - $startedTimestamp, 2),
-						max(0, min(time() - strtotime($row['added']), 65535)),
-						0
-					)
-				);
-			}
-			catch (Exception $e) {
-				Z_Core::logError($e);
-			}
+			self::logDownload(
+				$row['userID'],
+				round($row['lastsync']),
+				$row['objects'],
+				$row['ipAddress'],
+				$host,
+				round((float) microtime(true) - $startedTimestamp, 2),
+				max(0, min(time() - strtotime($row['added']), 65535)),
+				0
+			);
 		}
 		// Timeout error
 		else if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
@@ -345,27 +332,16 @@ class Zotero_Sync {
 				)
 			);
 			
-			try {
-				$sql = "INSERT INTO syncDownloadProcessLog
-						(userID, lastsync, objects, ipAddress, processorHost, processDuration, totalDuration, error)
-						VALUES (?,FROM_UNIXTIME(?),?,?,INET_ATON(?),?,?,?)";
-				Zotero_DB::query(
-					$sql,
-					array(
-						$row['userID'],
-						$row['lastsync'],
-						$row['objects'],
-						$row['ipAddress'],
-						$host,
-						round((float) microtime(true) - $startedTimestamp, 2),
-						max(0, min(time() - strtotime($row['added']), 65535)),
-						1
-					)
-				);
-			}
-			catch (Exception $e) {
-				Z_Core::logError($e);
-			}
+			self::logDownload(
+				$row['userID'],
+				$row['lastsync'],
+				$row['objects'],
+				$row['ipAddress'],
+				$host,
+				round((float) microtime(true) - $startedTimestamp, 2),
+				max(0, min(time() - strtotime($row['added']), 65535)),
+				1
+			);
 		}
 		
 		Zotero_DB::commit();
@@ -866,6 +842,39 @@ class Zotero_Sync {
 	}
 	
 	
+	public static function getCachedDownload($userID, $lastsync) {
+		if (!$lastsync) {
+			throw new Exception('$lastsync not provided');
+		}
+		
+		$lastsync = implode('.', self::getTimestampParts($lastsync));
+		
+		$key = self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion;
+		$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata");
+		if ($xmldata) {
+			// Update the last-used timestamp
+			Z_Core::$Mongo->update(
+				"syncDownloadCache",
+				array("_id" => $key), array('$set' => array("lastUsed" => new MongoDate()))
+			);
+		}
+		return $xmldata;
+	}
+	
+	
+	public static function cacheDownload($userID, $lastsync, $xmldata) {
+		$key = self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion;
+		$doc = array(
+			"_id" => $key,
+			"userID" => $userID,
+			"lastsync" => $lastsync,
+			"xmldata" => $xmldata,
+			"lastUsed" => new MongoDate()
+		);
+		Z_Core::$Mongo->insert("syncDownloadCache", $doc);
+	}
+	
+	
 	/**
 	 * Get the result of a queued download process for a given sync session
 	 *
@@ -960,12 +969,48 @@ class Zotero_Sync {
 	}
 	
 	
+	public static function logDownload($userID, $lastsync, $object, $ipAddress, $host, $processDuration, $totalDuration, $error) {
+		try {
+			$sql = "INSERT INTO syncDownloadProcessLog
+					(userID, lastsync, objects, ipAddress, processorHost, processDuration, totalDuration, error)
+					VALUES (?,FROM_UNIXTIME(?),?,?,INET_ATON(?),?,?,?)";
+			Zotero_DB::query(
+				$sql,
+				array(
+					$userID,
+					$lastsync,
+					$object,
+					$ipAddress,
+					$host,
+					$processDuration,
+					$totalDuration,
+					$error
+				)
+			);
+		}
+		catch (Exception $e) {
+			Z_Core::logError($e);
+		}
+	}
+	
+	
 	//
 	//
 	// Private methods
 	//
 	//
 	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null, $skipValidation=false) {
+		try {
+			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync);
+			if ($cached) {
+				$doc->loadXML($cached);
+				return;
+			}
+		}
+		catch (Exception $e) {
+			Z_Core::logError($e);
+		}
+		
 		set_time_limit(1800);
 		
 		$profile = false;
@@ -1163,6 +1208,16 @@ class Zotero_Sync {
 					self::removeDownloadProcess($syncDownloadProcessID);
 				}
 				throw new Exception(self::$validationError . "\n\nXML:\n\n" .  $doc->saveXML());
+			}
+			
+			// Cache response in Mongo if response isn't empty
+			try {
+				if ($doc->documentElement->firstChild->hasChildNodes()) {
+					self::cacheDownload($userID, $lastsync, $doc->saveXML());
+				}
+			}
+			catch (Exception $e) {
+				Z_Core::logError($e);
 			}
 		}
 		
@@ -1803,6 +1858,17 @@ class Zotero_Sync {
 		}
 		
 		return $deletedIDs;
+	}
+	
+	
+	private static function getTimestampParts($timestamp) {
+		$float = explode('.', $timestamp);
+		$timestamp = $float[0];
+		$timestampMS = isset($float[1]) ? substr($float[1], 0, 5) : 0;
+		if ($timestampMS > 65535) {
+			$timestampMS = substr($float[1], 0, 4);
+		}
+		return array($timestamp, $timestampMS);
 	}
 }
 ?>
