@@ -966,7 +966,7 @@ class Zotero_Sync {
 	//
 	//
 	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null, $skipValidation=false) {
-		set_time_limit(900);
+		set_time_limit(1800);
 		
 		$profile = false;
 		if ($profile) {
