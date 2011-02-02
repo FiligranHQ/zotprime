@@ -971,9 +971,16 @@ class Zotero_Sync {
 	
 	public static function logDownload($userID, $lastsync, $object, $ipAddress, $host, $processDuration, $totalDuration, $error) {
 		try {
+			if (is_numeric($ipAddress)) {
+				$ipParam = "?";
+			}
+			else {
+				$ipParam = "INET_ATON(?)";
+			}
+			
 			$sql = "INSERT INTO syncDownloadProcessLog
 					(userID, lastsync, objects, ipAddress, processorHost, processDuration, totalDuration, error)
-					VALUES (?,FROM_UNIXTIME(?),?,?,INET_ATON(?),?,?,?)";
+					VALUES (?,FROM_UNIXTIME(?),?,$ipParam,INET_ATON(?),?,?,?)";
 			Zotero_DB::query(
 				$sql,
 				array(
