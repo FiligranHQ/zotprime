@@ -60,11 +60,6 @@ class SyncController extends Controller {
 			Zotero_DB::profileStart($this->profileShard);
 		}
 		
-		// Run session garbage collection every so often
-		if (Z_Core::probability(5000)) {
-			$this->sessionGC();
-		}
-		
 		// Inflate gzipped data
 		if (!empty($_GET['gzip'])) {
 			$gzdata = file_get_contents('php://input');
@@ -816,36 +811,6 @@ class SyncController extends Controller {
 	private function e409($message) {
 		header("HTTP/1.1 409 Conflict");
 		die($message);
-	}
-	
-	
-	private function sessionGC() {
-		$sql = "SELECT sessionID FROM sessions
-				WHERE (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(timestamp)) > ?";
-		$sessionIDs = Zotero_DB::columnQuery($sql, $this->sessionLifetime);
-		if ($sessionIDs) {
-			$cacheKeys = array();
-			foreach ($sessionIDs as $sessionID) {
-				$cacheKeys[] = 'syncSession_' . $sessionID;
-			}
-			$existingSessions = Z_Core::$MC->get($cacheKeys);
-			$existingSessionIDs = array();
-			if (!$existingSessions) {
-				return;
-			}
-			foreach ($existingSessions as $session) {
-				$existingSessionIDs[] = $session['sessionID'];
-			}
-			// Get all ids in $sessionIDs that aren't in $existingSessionIDs
-			$sessionIDs = array_diff($sessionIDs, $existingSessionIDs);
-			if (!$sessionIDs) {
-				return;
-			}
-			$sessionIDs = array_values($sessionIDs);
-			$sql = "DELETE FROM sessions WHERE sessionID IN ("
-				. implode(', ', array_fill(0, sizeOf($sessionIDs), '?')) . ")";
-			Zotero_DB::query($sql, $sessionIDs);
-		}
 	}
 }
 ?>
