@@ -31,6 +31,19 @@ abstract class Zotero_Processor {
 		$this->id = $id;
 		$this->addr = gethostbyname(gethostname());
 		
+		if (!Z_CONFIG::$PROCESSORS_ENABLED) {
+			$sleep = 20;
+			$this->log("Processors disabled — exiting in $sleep seconds");
+			sleep($sleep);
+			try {
+				$this->notifyProcessor("LOCK" . " " . $id);
+			}
+			catch (Exception $e) {
+				$this->log($e);
+			}
+			return;
+		}
+		
 		$this->log("Starting sync processor");
 		
 		$startTime = microtime(true);

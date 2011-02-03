@@ -2,6 +2,7 @@
 class Z_CONFIG {
 	public static $API_ENABLED = true;
 	public static $SYNC_ENABLED = true;
+	public static $PROCESSORS_ENABLED = true;
 	public static $MAINTENANCE_MESSAGE = 'Server updates in progress. Please try again in a few minutes.';
 	
 	public static $TESTING_SITE = true;
