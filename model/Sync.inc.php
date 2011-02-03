@@ -309,10 +309,13 @@ class Zotero_Sync {
 			);
 		}
 		// Timeout/connection error
-		else if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
+		else if (
+			strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
 				|| strpos($msg, "Too many connections") !== false
-				|| strpos($msg, "Can't connect to MySQL server") !==false) {
+				|| strpos($msg, "Can't connect to MySQL server") !==false
+				|| strpos($msg, "MongoCursorTimeoutException") !== false
+		) {
 			Z_Core::logError($e);
 			$sql = "UPDATE syncDownloadQueue SET started=NULL, tries=tries+1 WHERE syncDownloadQueueID=?";
 			Zotero_DB::query($sql, $row['syncDownloadQueueID']);
@@ -486,10 +489,13 @@ class Zotero_Sync {
 			}
 		}
 		// Timeout/connection error
-		else if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
+		else if (
+			strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
 				|| strpos($msg, "Too many connections") !== false
-				|| strpos($msg, "Can't connect to MySQL server") !==false) {
+				|| strpos($msg, "Can't connect to MySQL server") !==false
+				|| strpos($msg, "MongoCursorTimeoutException") !== false
+		) {
 			Z_Core::logError($e);
 			$sql = "UPDATE syncUploadQueue SET started=NULL, tries=tries+1 WHERE syncUploadQueueID=?";
 			Zotero_DB::query($sql, $row['syncUploadQueueID']);
