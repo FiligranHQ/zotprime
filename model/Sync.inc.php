@@ -860,6 +860,7 @@ class Zotero_Sync {
 		$lastsync = implode('.', self::getTimestampParts($lastsync));
 		
 		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
+		
 		$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata");
 		if ($xmldata) {
 			// Update the last-used timestamp
@@ -868,20 +869,39 @@ class Zotero_Sync {
 				array("_id" => $key), array('$set' => array("lastUsed" => new MongoDate()))
 			);
 		}
+		else {
+			$sql = "SELECT xmldata FROM syncDownloadCache WHERE hash=?";
+			$xmldata = Zotero_Cache_DB::valueQuery($sql, $key);
+			if ($xmldata) {
+				// Update the last-used timestamp
+				$sql = "UPDATE syncDownloadCache SET lastUsed=NOW() WHERE hash=?";
+				Zotero_Cache_DB::query($sql, $key);
+			}
+		}
+		
 		return $xmldata;
 	}
 	
 	
 	public static function cacheDownload($userID, $lastsync, $xmldata) {
 		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
-		$doc = array(
-			"_id" => $key,
-			"userID" => $userID,
-			"lastsync" => $lastsync,
-			"xmldata" => $xmldata,
-			"lastUsed" => new MongoDate()
-		);
-		Z_Core::$Mongo->insert("syncDownloadCache", $doc);
+		
+		// Save data <4MB to Mongo
+		if (strlen($xmldata) < 4000000) {
+			$doc = array(
+				"_id" => $key,
+				"userID" => $userID,
+				"lastsync" => $lastsync,
+				"xmldata" => $xmldata,
+				"lastUsed" => new MongoDate()
+			);
+			Z_Core::$Mongo->insert("syncDownloadCache", $doc);
+		}
+		// And everything else to MySQL
+		else {
+			$sql = "INSERT INTO syncDownloadCache (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
+			Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
+		}
 	}
 	
 	

@@ -35,6 +35,13 @@ function Zotero_dbConnectAuth($db) {
 		$user = '';
 		$pass = '';
 	}
+	else if ($db == 'cache') {
+		$host = '';
+		$port = 3306;
+		$db = '';
+		$user = '';
+		$pass = '';
+	}
 	else {
 		throw new Exception("Invalid db '$db'");
 	}
