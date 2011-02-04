@@ -1958,6 +1958,10 @@ class Zotero_Item {
 								VALUES (?,?)";
 						$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
 						
+						// TEMP: remove duplicates
+						// TODO: how do these get here?
+						$newids = array_values(array_unique($newids));
+						
 						foreach ($newids as $linkedItemID) {
 							$insertStatement->execute(array($this->id, $linkedItemID));
 						}
