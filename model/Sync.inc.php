@@ -1354,7 +1354,7 @@ class Zotero_Sync {
 					$shardID = Zotero_Shards::getByLibraryID($addedLibraryID);
 					$sql = "SELECT COUNT(*) FROM shardLibraries WHERE libraryID=?";
 					if (!Zotero_DB::valueQuery($sql, $addedLibraryID, $shardID)) {
-						throw new Exception("libraryID inserted into `creators` not found in `shardLibraries` ($libraryID, $shardID)");
+						throw new Exception("libraryID inserted into `creators` not found in `shardLibraries` ($addedLibraryID, $shardID)");
 					}
 				}
 				
