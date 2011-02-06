@@ -305,7 +305,7 @@ class SyncController extends Controller {
 					Zotero_Sync::logDownload(
 						$this->userID,
 						round($lastsync),
-						min(16777215, strlen($cached)),
+						strlen($cached),
 						$this->ipAddress ? $this->ipAddress : 0,
 						0,
 						$duration,
