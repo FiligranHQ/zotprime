@@ -323,7 +323,7 @@ CREATE TABLE `storageUploadQueue` (
 CREATE TABLE `syncDownloadProcessLog` (
   `userID` int(10) unsigned NOT NULL,
   `lastsync` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `objects` mediumint(8) unsigned NOT NULL,
+  `objects` int(10) unsigned NOT NULL,
   `ipAddress` int(10) unsigned NOT NULL,
   `processorHost` int(10) unsigned NOT NULL,
   `processDuration` float(6,2) NOT NULL,
