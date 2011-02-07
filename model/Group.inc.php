@@ -398,7 +398,7 @@ class Zotero_Group {
 		// A group user removal is logged as a deletion of the group from the user's personal library
 		$sql = "REPLACE INTO syncDeleteLogIDs (libraryID, objectType, id) VALUES (?, 'group', ?)";
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-		Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($this->libraryID));
+		Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($libraryID));
 		
 		// If group is locked by a sync, flag for later timestamp update
 		// once the sync is done so that the uploading user gets the change
