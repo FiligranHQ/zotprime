@@ -1046,8 +1046,10 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$this->storePreviousData('relatedItems');
-		$this->changed['relatedItems'] = true;
+		if (!$this->changed['relatedItems']) {
+			$this->storePreviousData('relatedItems');
+			$this->changed['relatedItems'] = true;
+		}
 		$this->relatedItems[] = $itemID;
 		return true;
 	}
@@ -1065,8 +1067,10 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$this->storePreviousData('relatedItems');
-		$this->changed['relatedItems'] = true;
+		if (!$this->changed['relatedItems']) {
+			$this->storePreviousData('relatedItems');
+			$this->changed['relatedItems'] = true;
+		}
 		unset($this->relatedItems[$index]);
 		return true;
 	}
@@ -3304,8 +3308,10 @@ class Zotero_Item {
 		
 		// Mark as changed if new or removed ids
 		if ($newIDs || sizeOf($oldIDs) != sizeOf($currentIDs)) {
-			$this->storePreviousData('relatedItems');
-			$this->changed['relatedItems'] = true;
+			if (!$this->changed['relatedItems']) {
+				$this->storePreviousData('relatedItems');
+				$this->changed['relatedItems'] = true;
+			}
 		}
 		else {
 			Z_Core::debug('Related items not changed', 4);
