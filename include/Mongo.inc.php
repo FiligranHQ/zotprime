@@ -139,6 +139,18 @@ class Z_Mongo {
 		$col = $this->db->$collectionName;
 		array_shift($arguments);
 		
+		// If query is allowed to run on slave
+		if (!empty($arguments[2])) {
+			if (!is_bool($arguments[2])) {
+				throw new Exception("slaveOkay must be a boolean");
+			}
+			MongoCursor::$slaveOkay = true;
+			array_pop($arguments);
+		}
+		else {
+			MongoCursor::$slaveOkay = false;
+		}
+		
 		// Insert-or-ignore methods
 		switch ($origMethod) {
 			case 'batchInsertIgnoreSafe':

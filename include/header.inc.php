@@ -141,7 +141,8 @@ Z_Core::$Mongo = new Z_Mongo(
 	"mongodb://" . implode(',', Z_CONFIG::$MONGO_SERVERS),
 	array(
 		"connect" => false,
-		"persist" => ""
+		"persist" => "",
+		"replicaSet" => true
 	),
 	Z_CONFIG::$MONGO_DB
 );

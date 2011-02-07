@@ -861,7 +861,7 @@ class Zotero_Sync {
 		
 		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
-		$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata");
+		$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
 		if ($xmldata) {
 			// Update the last-used timestamp
 			Z_Core::$Mongo->update(
