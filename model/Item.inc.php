@@ -1476,17 +1476,14 @@ class Zotero_Item {
 						$currentIDs = array();
 					}
 					
-					if ($this->previousData['relatedItems']) {
-						foreach($this->previousData['relatedItems'] as $id) {
-							if (!in_array($id, $currentIDs)) {
-								$removed[] = $id;
-							}
+					foreach ($this->previousData['relatedItems'] as $id) {
+						if (!in_array($id, $currentIDs)) {
+							$removed[] = $id;
 						}
 					}
 					
 					foreach ($currentIDs as $id) {
-						if ($this->previousData['relatedItems'] &&
-								in_array($id, $this->previousData['relatedItems'])) {
+						if (in_array($id, $this->previousData['relatedItems'])) {
 							continue;
 						}
 						$newids[] = $id;
@@ -1929,17 +1926,14 @@ class Zotero_Item {
 						$currentIDs = array();
 					}
 					
-					if ($this->previousData['relatedItems']) {
-						foreach($this->previousData['relatedItems'] as $id) {
-							if (!in_array($id, $currentIDs)) {
-								$removed[] = $id;
-							}
+					foreach ($this->previousData['relatedItems'] as $id) {
+						if (!in_array($id, $currentIDs)) {
+							$removed[] = $id;
 						}
 					}
 					
 					foreach ($currentIDs as $id) {
-						if ($this->previousData['relatedItems'] &&
-								in_array($id, $this->previousData['relatedItems'])) {
+						if (in_array($id, $this->previousData['relatedItems'])) {
 							continue;
 						}
 						$newids[] = $id;
@@ -1961,10 +1955,6 @@ class Zotero_Item {
 						$sql = "INSERT INTO itemRelated (itemID, linkedItemID)
 								VALUES (?,?)";
 						$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
-						
-						// TEMP: remove duplicates
-						// TODO: how do these get here?
-						$newids = array_values(array_unique($newids));
 						
 						foreach ($newids as $linkedItemID) {
 							$insertStatement->execute(array($this->id, $linkedItemID));
@@ -1990,12 +1980,12 @@ class Zotero_Item {
 			$this->key = $key;
 		}
 		
-		// TODO: invalidate memcache
-		Zotero_Items::reload($this->libraryID, $this->id);
-		
 		if ($isNew) {
 			Zotero_Items::cache($this);
 		}
+		
+		// TODO: invalidate memcache
+		Zotero_Items::reload($this->libraryID, $this->id);
 		
 		// Queue item for addition to search index
 		Zotero_Solr::queueItem($this->libraryID, $this->key);
@@ -3288,6 +3278,14 @@ class Zotero_Item {
 			}
 		}
 		else {
+			/*
+			// Don't bother with this because the DB trigger takes care of it
+			$found = Zotero_Items::get($this->libraryID, $itemIDs);
+			if (sizeOf($found) != sizeOf($itemIDs)) {
+				throw new Exception("Related item(s) not found (" . sizeOf($found) . " != " . sizeOf($itemIDs) . ")");
+			}
+			*/
+			
 			foreach ($itemIDs as $itemID) {
 				if ($itemID == $this->id) {
 					Z_Core::debug("Can't relate item to itself in Zotero.Item.setRelatedItems()", 2);
