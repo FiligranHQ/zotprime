@@ -144,11 +144,11 @@ class Z_Mongo {
 			if (!is_bool($arguments[2])) {
 				throw new Exception("slaveOkay must be a boolean");
 			}
-			$this->mongo->setSlaveOkay(true);
+			$col->setSlaveOkay(true);
 			array_pop($arguments);
 		}
 		else {
-			$this->mongo->setSlaveOkay(false);
+			$col->setSlaveOkay(false);
 		}
 		
 		// Insert-or-ignore methods
