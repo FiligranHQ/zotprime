@@ -96,6 +96,7 @@ $ID2 zoterotest_ids < ids.sql
 # default-character-set = utf8
 # sql_mode = STRICT_ALL_TABLES
 # default-time-zone = '+0:00'
+# event_scheduler = ON
 # 
 #
 # Shard my.cnf:

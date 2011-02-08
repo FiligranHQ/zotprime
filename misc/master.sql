@@ -523,3 +523,7 @@ ALTER TABLE `syncUploadQueuePostWriteLog`
 
 ALTER TABLE `users`
   ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE;
+
+
+
+CREATE EVENT sessionGC ON SCHEDULE EVERY 5 MINUTE DO DELETE FROM sessions WHERE (UNIX_TIMESTAMP() - UNIX_TIMESTAMP(timestamp)) > 3600;
