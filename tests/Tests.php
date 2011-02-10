@@ -36,7 +36,7 @@ class Tests extends PHPUnit_Framework_TestSuite {
 		$suite->addTestSuite('MemcacheTests');
 		$suite->addTestSuite('MongoTests');
 		$suite->addTestSuite('TagsTests');
-		$suite->addTestSuite('UsersTests');
+		//$suite->addTestSuite('UsersTests');
 		return $suite;
 	}
 	
@@ -269,6 +269,35 @@ class DBTests extends PHPUnit_Framework_TestCase {
 		
 		$id = Zotero_ID_DB_2::valueQuery("SELECT id FROM items");
 		$this->assertNotEquals(false, $id);
+	}
+	
+	public function testCloseDB() {
+		// Create a temporary table and close the connection
+		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER)");
+		Zotero_DB::query("INSERT INTO foo VALUES (1)");
+		
+		$bar = Zotero_DB::valueQuery("SELECT * FROM foo");
+		$this->assertEquals(1, $bar);
+		
+		Zotero_DB::close();
+		
+		// Reconnect -- temporary table should be gone
+		try {
+			Zotero_DB::valueQuery("SELECT * FROM foo");
+			throw new Exception("Table exists");
+		}
+		catch (Exception $e) {
+			$this->assertRegExp("/doesn't exist/", $e->getMessage());
+		}
+		
+		// Make sure new connection is working
+		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER)");
+		Zotero_DB::query("INSERT INTO foo VALUES (1)");
+		
+		$bar = Zotero_DB::valueQuery("SELECT * FROM foo");
+		$this->assertEquals(1, $bar);
+		
+		Zotero_DB::query("DROP TEMPORARY TABLE foo");
 	}
 }
 

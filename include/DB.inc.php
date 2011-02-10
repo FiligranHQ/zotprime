@@ -919,21 +919,10 @@ class Zotero_DB {
 	}
 	
 	
-	public static function close() {
+	public static function close($shardID=0) {
 		$instance = self::getInstance();
-		
-		foreach ($instance->links as &$link) {
-			if (is_resource($link)) {
-				$link->closeConnection();
-				unset($link);
-			}
-		}
-		
-		unset($instance);
-	}
-	
-	public function __destruct() {
-		$this->close();
+		$link = $instance->getShardLink($shardID);
+		$link->closeConnection();
 	}
 }
 
