@@ -1153,7 +1153,17 @@ class Zotero_Item {
 				$sql = substr($sql, 0, -2) . ')';
 				
 				// Save basic data to items table
-				$insertID = Zotero_DB::query($sql, $sqlValues, $shardID);
+				try {
+					$insertID = Zotero_DB::query($sql, $sqlValues, $shardID);
+				}
+				catch (Exception $e) {
+					// TEMP: Fix a key collision due to a missing key in existsByLibraryAndKey() cache
+					if (strpos($e->getMessage(), "Duplicate entry") !== false) {
+						Z_Core::$MC->delete("itemIDsByKey_" . $this->libraryID);
+					}
+					
+					throw ($e);
+				}
 				if (!$this->id) {
 					if (!$insertID) {
 						throw new Exception("Item id not available after INSERT");
