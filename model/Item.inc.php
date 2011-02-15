@@ -1159,7 +1159,7 @@ class Zotero_Item {
 				catch (Exception $e) {
 					// TEMP: Fix a key collision due to a missing key in existsByLibraryAndKey() cache
 					if (strpos($e->getMessage(), "Duplicate entry") !== false) {
-						Z_Core::$MC->delete("itemIDsByKey_" . $this->libraryID);
+						Zotero_Items::clearLibraryKeyCache($this->libraryID);
 					}
 					
 					throw ($e);

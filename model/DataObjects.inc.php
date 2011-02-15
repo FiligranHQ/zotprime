@@ -153,7 +153,7 @@ class Zotero_DataObjects {
 	/**
 	 * Cache a new libraryID/key/id combination
 	 *
-	 * Newly created ids must be registered here or getByLibraryAndKey() won't work
+		 * Newly created ids must be registered here or getByLibraryAndKey() won't work
 	 */
 	public static function cacheLibraryKeyID($libraryID, $key, $id) {
 		$type = static::field('object');
@@ -175,6 +175,12 @@ class Zotero_DataObjects {
 		
 		// TODO: remove expiration time
 		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
+	}
+	
+	
+	public static function clearLibraryKeyCache($libraryID) {
+		$type = static::field('object');
+		Z_Core::$MC->delete($type . 'IDsByKey_' . $libraryID);
 	}
 	
 	
@@ -331,8 +337,6 @@ class Zotero_DataObjects {
 		$id = static::field('id');
 		$type = static::field('object');
 		$types = static::field('objects');
-		
-		// A subquery here was very slow in MySQL 5.1.33 but should work in MySQL 6
 		
 		if (strpos($timestamp, '.') === false) {
 			$timestamp .= '.';
