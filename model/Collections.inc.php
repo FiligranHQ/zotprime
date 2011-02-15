@@ -220,14 +220,9 @@ class Zotero_Collections extends Zotero_DataObjects {
 			sizeOf($collections),
 			Zotero_Atom::$nsZoteroAPI
 		);
-		$itemIDs = $collection->getChildItems();
-		if ($itemIDs) {
-			$deletedItems = Zotero_Items::getDeleted($collection->libraryID, true);
-			$itemIDs = array_diff($itemIDs, $deletedItems);
-		}
 		$xml->addChild(
 			'zapi:numItems',
-			sizeOf($itemIDs),
+			$collection->numItems(),
 			Zotero_Atom::$nsZoteroAPI
 		);
 		

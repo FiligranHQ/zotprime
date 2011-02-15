@@ -283,6 +283,19 @@ class Zotero_Collection {
 	*/
 	
 	
+	public function numItems($includeDeleted=false) {
+		$sql = "SELECT COUNT(*) FROM collectionItems ";
+		if (!$includeDeleted) {
+			$sql .= "LEFT JOIN deletedItems DI USING (itemID)";
+		}
+		$sql .= "WHERE collectionID=?";
+		if (!$includeDeleted) {
+			$sql .= " AND DI.itemID IS NULL";
+		}
+		return Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+	}
+	
+	
 	/**
 	 * Returns child items
 	 *
