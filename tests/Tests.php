@@ -681,7 +681,6 @@ class MongoTests extends PHPUnit_Framework_TestCase {
 			"value" => $value
 		);
 		Z_Core::$Mongo->insertSafe("test", $doc);
-		$this->assertEquals($hash, $doc['_id']);
 		
 		$cursor = Z_Core::$Mongo->find("test", array("_id"=>$hash), array());
 		$cursor->getNext();
