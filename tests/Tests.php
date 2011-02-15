@@ -668,6 +668,32 @@ class MongoTests extends PHPUnit_Framework_TestCase {
 		$hashes = iterator_to_array($cursor);
 		$this->assertEquals(0, sizeOf($hashes));
 	}
+	
+	
+	public function testSlaveRead() {
+		Z_Core::$Mongo->resetTestTable();
+		
+		$value = "Foobar";
+		$hash = md5($value);
+		
+		$doc = array(
+			"_id" => $hash,
+			"value" => $value
+		);
+		Z_Core::$Mongo->insertSafe("test", $doc);
+		$this->assertEquals($hash, $doc['_id']);
+		
+		$cursor = Z_Core::$Mongo->find("test", array("_id"=>$hash), array());
+		$cursor->getNext();
+		$info = $cursor->info();
+		$primary = $info['server'];
+		
+		// Slave request should use a different server
+		$cursor = Z_Core::$Mongo->find("test", array("_id"=>$hash), array(), true);
+		$cursor->getNext();
+		$info = $cursor->info();
+		$this->assertNotEquals($primary, $info['server']);
+	}
 }
 
 
