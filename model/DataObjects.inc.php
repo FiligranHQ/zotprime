@@ -42,6 +42,7 @@ class Zotero_DataObjects {
 	protected static $ZDO_table = '';
 	
 	private static $idCache = array();
+	private static $idCacheIsFromMemcached = array();
 	private static $primaryDataByID = array();
 	private static $primaryDataByKey = array();
 	
@@ -119,15 +120,18 @@ class Zotero_DataObjects {
 		
 		if (!isset(self::$idCache[$type])) {
 			self::$idCache[$type] = array();
+			self::$idCacheIsFromMemcached[$type] = array();
 		}
 		
 		// Cache object ids in library if not done yet
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
+			self::$idCacheIsFromMemcached[$type][$libraryID] = false;
 			
 			$ids = Z_Core::$MC->get($type . 'IDsByKey_' . $libraryID);
 			if ($ids) {
 				self::$idCache[$type][$libraryID] = $ids;
+				self::$idCacheIsFromMemcached[$type][$libraryID] = true;
 			}
 			else {
 				$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
@@ -146,7 +150,17 @@ class Zotero_DataObjects {
 			}
 		}
 		
-		return isset(self::$idCache[$type][$libraryID][$key]);
+		$exists = isset(self::$idCache[$type][$libraryID][$key]);
+		
+		// If something is missing and we got this from memcached,
+		// refresh from the DB, just in case memcached has outdated data,
+		// which shouldn't happen but could if a set request failed
+		if (!$exists && self::$idCacheIsFromMemcached[$type][$libraryID]) {
+			self::clearLibraryKeyCache($libraryID);
+			return self::existsByLibraryAndKey($libraryID, $key);
+		}
+		
+		return $exists;
 	}
 	
 	
@@ -180,6 +194,7 @@ class Zotero_DataObjects {
 	
 	public static function clearLibraryKeyCache($libraryID) {
 		$type = static::field('object');
+		unset(self::$idCache[$type][$libraryID]);
 		Z_Core::$MC->delete($type . 'IDsByKey_' . $libraryID);
 	}
 	

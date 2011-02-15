@@ -1504,14 +1504,6 @@ class Zotero_Sync {
 						foreach ($collection['items'] as $key) {
 							$item = Zotero_Items::getByLibraryAndKey($collection['obj']->libraryID, $key);
 							if (!$item) {
-								// TEMP: Before we do anything rash, make sure this isn't just a missing cache value
-								$sql = "SELECT COUNT(*) FROM items WHERE libraryID=? AND `key`=?";
-								$libID = $collection['obj']->libraryID;
-								if (Zotero_DB::valueQuery($sql, array($libID, $key), Zotero_Shards::getByLibraryID($libID))) {
-									Zotero_Items::clearLibraryKeyCache($libID);
-									throw new Exception("Child item '$key' of collection $libID/{$collection['obj']->id} not found -- clearing cache");
-								}
-								
 								throw new Exception("Child item '$key' of collection {$collection['obj']->id} not found", Z_ERROR_ITEM_NOT_FOUND);
 							}
 							$ids[] = $item->id;
