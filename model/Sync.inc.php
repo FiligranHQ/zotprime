@@ -877,6 +877,8 @@ class Zotero_Sync {
 				$sql = "UPDATE syncDownloadCache SET lastUsed=NOW() WHERE hash=?";
 				Zotero_Cache_DB::query($sql, $key);
 			}
+			// Close cache db to avoid sleeping thread
+			Zotero_Cache_DB::close();
 		}
 		
 		return $xmldata;
