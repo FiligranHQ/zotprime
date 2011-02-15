@@ -225,7 +225,7 @@ class Zotero_ItemTypes {
 		$sql = "SELECT custom FROM itemTypes WHERE itemTypeID=?";
 		$isCustom = Zotero_DB::valueQuery($sql, $itemTypeID);
 		if ($isCustom === false) {
-			trigger_error("Invalid itemTypeID '$itemTypeID'", E_USER_ERROR);
+			throw new Exception("Invalid itemTypeID '$itemTypeID'");
 		}
 		
 		self::$customTypesCheck[$itemTypeID] = !!$isCustom;
@@ -236,16 +236,16 @@ class Zotero_ItemTypes {
 	
 	public static function addCustomType($name) {
 		if (self::getID($name)) {
-			trigger_error("Item type '$name' already exists", E_USER_ERROR);
+			throw new Exception("Item type '$name' already exists");
 		}
 		
 		if (!preg_match('/^[a-z][^\s0-9]+$/', $name)) {
-			trigger_error("Invalid item type name '$name'", E_USER_ERROR);
+			throw new Exception("Invalid item type name '$name'");
 		}
 		
 		// TODO: make sure user hasn't added too many already
 		
-		trigger_error("Unimplemented", E_USER_ERROR);
+		throw new Exception("Unimplemented");
 		// TODO: add to cache
 		
 		Zotero_DB::beginTransaction();
