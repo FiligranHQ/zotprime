@@ -351,6 +351,9 @@ class Zotero_Upload_Processor_Daemon extends Zotero_Processor_Daemon {
 	
 	public function __construct($config=array()) {
 		$this->port = Z_CONFIG::$PROCESSOR_PORT_UPLOAD;
+		if (!$config || !isset($config['maxProcessors'])) {
+			$config['maxProcessors'] = 3;
+		}
 		parent::__construct($config);
 	}
 	
