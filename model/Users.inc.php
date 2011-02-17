@@ -280,6 +280,9 @@ class Zotero_Users {
 					exclusive=0 WHERE userID=? AND exclusive=1";
 		Zotero_DB::query($sql, $userID);
 		
+		$sql = "UPDATE libraries SET lastUpdated=NOW(), lastUpdatedMS=0 WHERE libraryID=?";
+		Zotero_DB::query($sql, $libraryID);
+		
 		Zotero_DB::commit();
 	}
 	
