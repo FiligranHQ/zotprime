@@ -386,7 +386,7 @@ CREATE TABLE `syncProcessLocks` (
 CREATE TABLE `syncUploadQueue` (
   `syncUploadQueueID` int(10) unsigned NOT NULL,
   `processorHost` int(10) unsigned DEFAULT NULL,
-  `xmldata` mediumtext NOT NULL,
+  `xmldata` longtext NOT NULL,
   `dataLength` int(10) unsigned NOT NULL DEFAULT '0',
   `hasCreator` tinyint(3) unsigned NOT NULL DEFAULT '0',
   `userID` int(10) unsigned NOT NULL,
