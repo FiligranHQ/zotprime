@@ -1382,18 +1382,22 @@ class Zotero_Sync {
 				}
 				
 				// creatorDataHash
-				$addedCreatorDataHashes = array_unique($addedCreatorDataHashes);
-				$cursor = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $addedCreatorDataHashes)), array("_id"));
-				$hashes = array();
-				while ($cursor->hasNext()) {
-					$arr = $cursor->getNext();
-					$hashes[] = $arr['_id'];
-				}
-				$added = sizeOf($addedCreatorDataHashes);
-				$count = sizeOf($hashes);
-				if ($count != $added) {
-					$missing = array_diff($addedCreatorDataHashes, $hashes);
-					throw new Exception("creatorDataHashes inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ") $added $count");
+				// 
+				// Check Mongo in chunks to avoid cursor timeouts
+				$chunks = array_chunk(array_unique($addedCreatorDataHashes), 50);
+				foreach ($chunks as $chunk) {
+					$cursor = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $chunk)), array("_id"));
+					$hashes = array();
+					while ($cursor->hasNext()) {
+						$arr = $cursor->getNext();
+						$hashes[] = $arr['_id'];
+					}
+					$added = sizeOf($chunk);
+					$count = sizeOf($hashes);
+					if ($count != $added) {
+						$missing = array_diff($chunk, $hashes);
+						throw new Exception("creatorDataHashes inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ") $added $count");
+					}
 				}
 			}
 			
