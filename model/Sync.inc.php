@@ -495,6 +495,7 @@ class Zotero_Sync {
 				|| strpos($msg, "Too many connections") !== false
 				|| strpos($msg, "Can't connect to MySQL server") !==false
 				|| strpos($msg, "MongoCursorTimeoutException") !== false
+				|| strpos($msg, "cursor timed out") !== false
 		) {
 			Z_Core::logError($e);
 			$sql = "UPDATE syncUploadQueue SET started=NULL, tries=tries+1 WHERE syncUploadQueueID=?";
