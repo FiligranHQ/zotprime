@@ -363,8 +363,6 @@ class Zotero_Sync {
 	
 	
 	public static function processUploadFromQueue($syncProcessID) {
-		Zotero_DB::beginTransaction();
-		
 		if (Z_Core::probability(30)) {
 			$sql = "DELETE FROM syncProcesses WHERE started < (NOW() - INTERVAL 45 MINUTE)";
 			$row = Zotero_DB::query($sql);
@@ -381,6 +379,8 @@ class Zotero_Sync {
 					tries>=5 AND finished IS NULL";
 			$row = Zotero_DB::rowQuery($sql);
 		}
+		
+		Zotero_DB::beginTransaction();
 		
 		// Get a queued process
 		$smallestFirst = Z_CONFIG::$SYNC_UPLOAD_SMALLEST_FIRST;
@@ -506,11 +506,13 @@ class Zotero_Sync {
 		else {
 			// As of PHP 5.3.2 we can't serialize objects containing SimpleXMLElements,
 			// and since the stack trace includes one, we have to catch this and
-			// manually reconstruct an extension
+			// manually reconstruct an exception
 			try {
 				$serialized = serialize($e);
 			}
 			catch (Exception $e2) {
+				//$id = substr(md5(uniqid(rand(), true)), 0, 10);
+				//file_put_contents("/tmp/uploadError_$id", $e);
 				$serialized = serialize(new Exception($msg, $e->getCode()));
 			}
 			
@@ -902,7 +904,7 @@ class Zotero_Sync {
 		}
 		// And everything else to MySQL
 		else {
-			$sql = "INSERT INTO syncDownloadCache (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
+			$sql = "INSERT IGNORE INTO syncDownloadCache (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
 			Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
 		}
 	}
@@ -1048,7 +1050,7 @@ class Zotero_Sync {
 			}
 		}
 		catch (Exception $e) {
-			Z_Core::logError($e);
+			Z_Core::logError("WARNING: " . $e);
 		}
 		
 		set_time_limit(1800);
@@ -1257,7 +1259,7 @@ class Zotero_Sync {
 				}
 			}
 			catch (Exception $e) {
-				Z_Core::logError($e);
+				Z_Core::logError("WARNING: " . $e);
 			}
 		}
 		

@@ -317,7 +317,7 @@ class SyncController extends Controller {
 				}
 			}
 			catch (Exception $e) {
-				Z_Core::logError($e);
+				Z_Core::logError("WARNING: " . $e);
 			}
 			
 			$numUpdated = Zotero_DataObjects::countUpdated($this->userID, $lastsync, true);
