@@ -3,9 +3,16 @@
 set_include_path("../include");
 require("header.inc.php");
 
-if (empty($argv[1]) || empty($argv[2])) {
-	die("Usage: $argv[0] " . '$libraryID $newShardID' . "\n");
+if (empty($argv[1])) {
+	die("Usage: $argv[0] " . '$libraryID [$newShardID]' . "\n");
 }
 
-Zotero_Shards::moveLibrary($argv[1], $argv[2]);
+$libraryID = $argv[1];
+
+if (empty($argv[2])) {
+	$shardID = Zotero_Shards::getNextShard();
+}
+
+echo "Moving library $libraryID to shard $shardID\n";
+Zotero_Shards::moveLibrary($libraryID, $shardID);
 ?>
