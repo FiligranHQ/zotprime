@@ -39,6 +39,12 @@ class Z_Mongo {
 	
 	// TODO: document extensions
 	public function __call($origMethod, $arguments) {
+		switch ($origMethod) {
+			case 'getHosts':
+				$this->connect();
+				return call_user_func(array($this->mongo, $origMethod));
+		}
+		
 		if (empty($arguments[0])) {
 			throw new Exception("Collection name not provided");
 		}
@@ -228,6 +234,19 @@ class Z_Mongo {
 			default:
 				return $result;
 		}
+	}
+	
+	
+	/**
+	 * Get Mongo object
+	 *
+	 * Used only for debugging
+	 */
+	public function getMongo() {
+		// Comment out to use
+		throw new Exception("Unavailable");
+		
+		return $this->mongo;
 	}
 	
 	
