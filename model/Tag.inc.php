@@ -212,10 +212,17 @@ class Zotero_Tag {
 					}
 					
 					// Save again
-					$sql = "INSERT INTO tags SET tagID=?, $fields";
-					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
-					Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
-					Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
+					if ($isNew) {
+						$sql = "INSERT INTO tags SET tagID=?, $fields";
+						$stmt = Zotero_DB::getStatement($sql, true, $shardID);
+						Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
+						Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
+					}
+					else {
+						$sql = "UPDATE tags SET $fields WHERE tagID=?";
+						$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+						Zotero_DB::queryFromStatement($stmt, array_merge($params, array($tagID)));
+					}
 					
 					$new = array_unique(array_merge($linked, $this->getLinkedItems(true)));
 					$this->setLinkedItems($new);
