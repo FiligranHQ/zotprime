@@ -506,7 +506,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
-		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)));
+		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)), array(), true);
 		while ($row = $cursor->getNext()) {
 			// Store in local cache and memcache
 			self::$dataValuesByHash[$row['_id']] = $row['value'];
@@ -518,7 +518,26 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$numValues = sizeOf($foundHashes);
 		if ($numValues != $numHashes) {
-			throw new Exception("Number of values doesn't match number of hashes ($numValues != $numHashes)");
+			// Get any missing values from the primary
+			$found = array_keys($foundHashes);
+			$missing = array_diff($hashes, $found);
+			
+			Z_Core::logError(sizeOf($missing) . " values not found on Mongo slave -- checking primary");
+			
+			$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $missing)));
+			while ($row = $cursor->getNext()) {
+				// Store in local cache and memcache
+				self::$dataValuesByHash[$row['_id']] = $row['value'];
+				$key = self::getDataValueCacheKey($row['_id']);
+				Z_Core::$MC->set($key, $row['value']);
+				
+				$foundHashes[$row['_id']] = $row['value'];
+			}
+			
+			$numValues = sizeOf($foundHashes);
+			if ($numValues != $numHashes) {
+				throw new Exception("Number of values doesn't match number of hashes ($numValues != $numHashes)");
+			}
 		}
 		
 		return $foundHashes;
