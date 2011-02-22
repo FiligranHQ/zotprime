@@ -1184,6 +1184,8 @@ class Zotero_Item {
 					
 					$fieldIDs = array_keys($this->changed['itemData']);
 					
+					$lastFieldID = $fieldIDs[sizeOf($fieldIDs) - 1];
+					
 					foreach ($fieldIDs as $fieldID) {
 						$value = $this->getField($fieldID, true, false, true);
 						
@@ -1193,7 +1195,8 @@ class Zotero_Item {
 						}
 						
 						try {
-							$hash = Zotero_Items::getDataValueHash($value, true);
+							$last = $fieldID == $lastFieldID;
+							$hash = Zotero_Items::getDataValueHash($value, true, $last);
 						}
 						catch (Exception $e) {
 							$msg = $e->getMessage();
@@ -1585,6 +1588,8 @@ class Zotero_Item {
 					
 					$fieldIDs = array_keys($this->changed['itemData']);
 					
+					$lastFieldID = $fieldIDs[sizeOf($fieldIDs) - 1];
+					
 					foreach ($fieldIDs as $fieldID) {
 						$value = $this->getField($fieldID, true, false, true);
 						
@@ -1600,7 +1605,8 @@ class Zotero_Item {
 						}
 						
 						try {
-							$hash = Zotero_Items::getDataValueHash($value, true);
+							$last = $fieldID == $lastFieldID;
+							$hash = Zotero_Items::getDataValueHash($value, true, $last);
 						}
 						catch (Exception $e) {
 							$msg = $e->getMessage();

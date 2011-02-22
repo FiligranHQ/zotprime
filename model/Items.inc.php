@@ -407,7 +407,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getDataValueHash($value, $create=false) {
+	public static function getDataValueHash($value, $create=false, $safe=true) {
 		// For now, at least, simulate what MySQL used to throw
 		if (mb_strlen($value) > 65536) {
 			throw new Exception("Data too long for column 'value'");
@@ -436,7 +436,12 @@ class Zotero_Items extends Zotero_DataObjects {
 				"_id" => $hash,
 				"value" => $value
 			);
-			Z_Core::$Mongo->insertSafe("itemDataValues", $doc);
+			if ($safe) {
+				Z_Core::$Mongo->insertSafe("itemDataValues", $doc);
+			}
+			else {
+				Z_Core::$Mongo->insert("itemDataValues", $doc);
+			}
 		}
 		
 		// Store in local cache and memcache
@@ -506,6 +511,26 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
+		// Check Mongo
+		foreach ($hashes as $hash) {
+			$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value", true);
+			// If value not found on slave, try primary
+			if ($value === false) {
+				$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value");
+			}
+			if ($value === false) {
+				throw new Exception("Value not found ($hash)");
+			}
+			
+			// Store in local cache and memcache
+			self::$dataValuesByHash[$hash] = $value;
+			$key = self::getDataValueCacheKey($hash);
+			Z_Core::$MC->set($key, $value);
+			
+			$foundHashes[$hash] = $value;
+		}
+		
+		/*
 		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)), array(), true);
 		while ($row = $cursor->getNext()) {
 			// Store in local cache and memcache
@@ -539,6 +564,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				throw new Exception("Number of values doesn't match number of hashes ($numValues != $numHashes)");
 			}
 		}
+		*/
 		
 		return $foundHashes;
 	}
