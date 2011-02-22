@@ -760,6 +760,12 @@ class SyncController extends Controller {
 			);
 		}
 		
+		if (preg_match("/Incorrect datetime value: '([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})' "
+				. "for column 'date(Added|Modified)'/", $msg, $matches)) {
+			$msg = "Invalid timestamp '{$matches[1]}' in uploaded data. Sync again to correct automatically.";
+			$this->error(400, 'INVALID_TIMESTAMP', $msg);
+		}
+		
 		$this->error(500, 'ERROR_PROCESSING_UPLOAD_DATA',
 			$explicit
 				? $msg
