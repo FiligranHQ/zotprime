@@ -762,7 +762,21 @@ class SyncController extends Controller {
 		
 		if (preg_match("/Incorrect datetime value: '([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})' "
 				. "for column 'date(Added|Modified)'/", $msg, $matches)) {
-			$msg = "Invalid timestamp '{$matches[1]}' in uploaded data. Sync again to correct automatically.";
+			
+			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+				require_once('../model/ToolkitVersionComparator.inc.php');
+				
+				if (ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "2.1rc1") < 0) {
+					$msg = "Invalid timestamp '{$matches[1]}' in uploaded data. Upgrade to Zotero 2.1rc1 when available to fix automatically.";
+				}
+				else {
+					$msg = "Invalid timestamp '{$matches[1]}' in uploaded data. Sync again to correct automatically.";
+				}
+			}
+			else {
+				$msg = "Invalid timestamp '{$matches[1]}' in uploaded data. Upgrade to Zotero 2.1rc1 when available to fix automatically.";
+			}
+			
 			$this->error(400, 'INVALID_TIMESTAMP', $msg);
 		}
 		
