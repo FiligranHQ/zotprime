@@ -220,7 +220,19 @@ class Z_Mongo {
 				return true;
 		}
 		
-		$result = call_user_func_array(array($col, $method), $arguments);
+		try {
+			$result = call_user_func_array(array($col, $method), $arguments);
+		}
+		catch (Exception $e) {
+			if ($col->getSlaveOkay()) {
+				Z_Core::logError("Mongo slave query failed with '" . $e->getMessage() . "' -- retrying on primary");
+				$col->setSlaveOkay(false);
+				$result = call_user_func_array(array($col, $method), $arguments);
+			}
+			else {
+				throw ($e);
+			}
+		}
 		
 		if (!$result) {
 			return false;
