@@ -511,6 +511,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
+		/*
 		// Check Mongo
 		foreach ($hashes as $hash) {
 			$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value", true);
@@ -529,8 +530,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			$foundHashes[$hash] = $value;
 		}
+		*/
 		
-		/*
 		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)), array(), true);
 		while ($row = $cursor->getNext()) {
 			// Store in local cache and memcache
@@ -564,7 +565,6 @@ class Zotero_Items extends Zotero_DataObjects {
 				throw new Exception("Number of values doesn't match number of hashes ($numValues != $numHashes)");
 			}
 		}
-		*/
 		
 		return $foundHashes;
 	}
