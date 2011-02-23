@@ -533,14 +533,18 @@ class Zotero_Items extends Zotero_DataObjects {
 		*/
 		
 		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)), array(), true);
-		while ($row = $cursor->getNext()) {
-			// Store in local cache and memcache
-			self::$dataValuesByHash[$row['_id']] = $row['value'];
-			$key = self::getDataValueCacheKey($row['_id']);
-			Z_Core::$MC->set($key, $row['value']);
-			
-			$foundHashes[$row['_id']] = $row['value'];
+		try {
+			while ($row = $cursor->getNext()) {
+				// Store in local cache and memcache
+				self::$dataValuesByHash[$row['_id']] = $row['value'];
+				$key = self::getDataValueCacheKey($row['_id']);
+				Z_Core::$MC->set($key, $row['value']);
+				
+				$foundHashes[$row['_id']] = $row['value'];
+			}
 		}
+		// If getNext() fails, retry on primary below
+		catch (Exception $e) {}
 		
 		$numValues = sizeOf($foundHashes);
 		if ($numValues != $numHashes) {
@@ -548,7 +552,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$found = array_keys($foundHashes);
 			$missing = array_diff($hashes, $found);
 			
-			Z_Core::logError(sizeOf($missing) . " values not found on Mongo slave -- checking primary");
+			Z_Core::logError(sizeOf($missing) . "/$numHashes values not found on Mongo slave -- checking primary");
 			
 			$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $missing)));
 			while ($row = $cursor->getNext()) {
