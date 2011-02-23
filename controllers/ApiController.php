@@ -547,13 +547,20 @@ class ApiController extends Controller {
 					
 					case 'tags':
 						$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $this->scopeObjectName);
+						if (!$tagIDs) {
+							$this->e404("Tag not found");
+						}
 						
 						$itemIDs = array();
+						$title = '';
 						foreach ($tagIDs as $tagID) {
 							$tag = new Zotero_Tag;
 							$tag->libraryID = $this->objectLibraryID;
 							$tag->id = $tagID;
-							$title = "Items of Tag ‘" . $tag->name . "’";
+							// Use a real tag name, in case case differs
+							if (!$title) {
+								$title = "Items of Tag ‘" . $tag->name . "’";
+							}
 							$itemIDs = array_merge($itemIDs, $tag->getLinkedItems(true));
 						}
 						$itemIDs = array_unique($itemIDs);
