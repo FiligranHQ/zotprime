@@ -908,32 +908,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($item->isNote() || $item->isAttachment()) {
 			$noteHash = $item->getNoteHash();
 			if ($noteHash) {
-				$cacheKey = "purifiedNote_$noteHash";
+				$cacheKey = "htmlspecialcharsNote_$noteHash";
 				$note = Z_Core::$MC->get($cacheKey);
-				
 				if ($note === false) {
-					$note = $item->getNote();
-					
-					// TEMP: Clean HTML before returning
-					$c = HTMLPurifier_Config::createDefault();
-					$c->set('HTML.Doctype', 'XHTML 1.0 Transitional');
-					$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
-					$c->set('HTML.DefinitionID', 'notes');
-					$c->set('HTML.DefinitionRev', 1);
-					
-					// Don't tidy
-					$c->set('HTML.TidyLevel', 'none');
-					// Allow some things that TinyMCE allows to prevent erroneous conflicts
-					$def = $c->getHTMLDefinition(true);
-					$def->addAttribute('a', 'target', 'Enum#_blank,_self,_target,_top');
-					
-					$HTMLPurifier = new HTMLPurifier($c);
-					$note = $HTMLPurifier->purify($note);
-					$note = htmlspecialchars($note);
-					
+					$note = htmlspecialchars($item->getNote());
 					Z_Core::$MC->set($cacheKey, $note);
 				}
-				
 				$xml->addChild('note', $note);
 			}
 			else if ($item->isNote()) {
