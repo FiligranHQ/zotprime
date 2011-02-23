@@ -1058,7 +1058,7 @@ class Zotero_Sync {
 			}
 		}
 		catch (Exception $e) {
-			Z_Core::logError("WARNING: " . $e);
+			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
 		}
 		
 		set_time_limit(1800);
