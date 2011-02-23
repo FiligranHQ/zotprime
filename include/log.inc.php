@@ -43,35 +43,64 @@ class Z_Log {
 	 * Log an array of category/message pairs
 	 */
 	public static function logm($categoryMessagePairs) {
-		// Parse timestamp into date and milliseconds
-		$ts = microtime(true);
-		if (strpos($ts, '.') === false) {
-			$ts .= '.';
-		}
-		list($ts, $msec) = explode('.', $ts);
-		$date = new DateTime(date(DATE_RFC822, $ts));
-		$date->setTimezone(new DateTimeZone(Z_CONFIG::$LOG_TIMEZONE));
-		$date = $date->format('Y-m-d H:i:s') . '.' . str_pad($msec, 4, '0');
+		$scribe = Z_CONFIG::$LOG_TO_SCRIBE;
+		$cli = Z_Core::isCommandLine();
 		
-		// Get short hostname
-		$host = gethostname();
-		if (strpos($host, '.') !== false) {
-			$host = substr($host, 0, strpos($host, '.'));
+		// Scribe and CLI need additional info
+		if ($scribe || $cli) {
+			// Parse timestamp into date and milliseconds
+			$ts = microtime(true);
+			if (strpos($ts, '.') === false) {
+				$ts .= '.';
+			}
+			list($ts, $msec) = explode('.', $ts);
+			$date = new DateTime(date(DATE_RFC822, $ts));
+			$date->setTimezone(new DateTimeZone(Z_CONFIG::$LOG_TIMEZONE));
+			$date = $date->format('Y-m-d H:i:s') . '.' . str_pad($msec, 4, '0');
+			
+			// Get remote IP address
+			if (!$cli) {
+				$ipAddress = IPAddress::getIP();
+			}
+			
+			// Get server hostname
+			if ($scribe) {
+				$host = gethostname();
+				if (strpos($host, '.') !== false) {
+					$host = substr($host, 0, strpos($host, '.'));
+				}
+			}
 		}
 		
 		$messages = array();
 		foreach ($categoryMessagePairs as $pair) {
-			$messages[] = array(
-				'category' => $pair[0],
-				'message' => "$date [$host] " . $pair[1]
-			);
+			// Scribe
+			if ($scribe) {
+				$messages[] = array(
+					'category' => $pair[0],
+					'message' => "$date [$ipAddress] [$host] " . $pair[1]
+				);
+			}
+			// CLI
+			else if ($cli) {
+				$messages[] = array(
+					'category' => $pair[0],
+					'message' => $date . " " . $pair[1]
+				);
+			}
+			// Web
+			else {
+				$messages[] = array(
+					'category' => $pair[0],
+					'message' => $pair[1]
+				);
+			}
 		}
 		
 		if (Z_CONFIG::$LOG_TO_SCRIBE) {
 			self::logToScribe($messages);
 		}
 		else {
-			//self::logToStdOut($messages);
 			self::logToErrorLog($messages);
 		}
 	}

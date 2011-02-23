@@ -39,7 +39,7 @@ class Z_Core {
 	
 	
 	public static function isCommandLine() {
-		return !isset($_SERVER['SERVER_NAME']);
+		return php_sapi_name() == 'cli';
 	}
 	
 	public static function logError($summary, $message=false) {
