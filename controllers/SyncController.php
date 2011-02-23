@@ -317,11 +317,12 @@ class SyncController extends Controller {
 				}
 			}
 			catch (Exception $e) {
-				Z_Core::logError("WARNING: " . $e);
+				Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
 			}
 			
 			$numUpdated = Zotero_DataObjects::countUpdated($this->userID, $lastsync, true);
-			if ($numUpdated < 5) {
+			// If no items, or if just a few items and processing is enabled, process synchronously
+			if ($numUpdated == 0 || ($numUpdated < 5 && Z_CONFIG::$PROCESSORS_ENABLED)) {
 				$queue = false;
 			}
 			if ($queue) {

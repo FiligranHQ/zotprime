@@ -865,7 +865,14 @@ class Zotero_Sync {
 		
 		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
-		$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
+		try {
+			$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
+		}
+		// If Mongo fails, we still want to try MySQL
+		catch (Exception $e) {
+			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
+		}
+		
 		if ($xmldata) {
 			// Update the last-used timestamp
 			Z_Core::$Mongo->update(
