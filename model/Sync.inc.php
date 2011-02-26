@@ -871,6 +871,7 @@ class Zotero_Sync {
 		// If Mongo fails, we still want to try MySQL
 		catch (Exception $e) {
 			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
+			$xmldata = false;
 		}
 		
 		if ($xmldata) {
@@ -1058,7 +1059,14 @@ class Zotero_Sync {
 			}
 		}
 		catch (Exception $e) {
-			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
+			$msg = $e->getMessage();
+			if (strpos($msg, "Too many connections") !== false) {
+				$msg = "'Too many connections' from MySQL";
+			}
+			else {
+				$msg = "'$msg'";
+			}
+			Z_Core::logError("Warning: $msg getting cached download");
 		}
 		
 		set_time_limit(1800);

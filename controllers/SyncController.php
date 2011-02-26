@@ -317,7 +317,14 @@ class SyncController extends Controller {
 				}
 			}
 			catch (Exception $e) {
-				Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
+				$msg = $e->getMessage();
+				if (strpos($msg, "Too many connections") !== false) {
+					$msg = "'Too many connections' from MySQL";
+				}
+				else {
+					$msg = "'$msg'";
+				}
+				Z_Core::logError("Warning: $msg getting cached download");
 			}
 			
 			$numUpdated = Zotero_DataObjects::countUpdated($this->userID, $lastsync, true);
