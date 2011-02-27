@@ -194,7 +194,7 @@ class Zotero_Collection {
 			);
 			
 			$params = array_merge(array($collectionID), $params, $params);
-			$shardID = Zotero_Shards::getByLibraryID($this->libraryID)
+			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			
 			$sql = "INSERT INTO collections SET collectionID=?, $fields
 					ON DUPLICATE KEY UPDATE $fields";
