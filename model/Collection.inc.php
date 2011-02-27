@@ -194,10 +194,11 @@ class Zotero_Collection {
 			);
 			
 			$params = array_merge(array($collectionID), $params, $params);
+			$shardID = Zotero_Shards::getByLibraryID($this->libraryID)
 			
 			$sql = "INSERT INTO collections SET collectionID=?, $fields
 					ON DUPLICATE KEY UPDATE $fields";
-			$insertID = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($this->libraryID));
+			$insertID = Zotero_DB::query($sql, $params, $shardID);
 			if (!$this->id) {
 				if (!$insertID) {
 					throw new Exception("Collection id not available after INSERT");
@@ -205,6 +206,10 @@ class Zotero_Collection {
 				$collectionID = $insertID;
 				Zotero_Collections::cacheLibraryKeyID($this->libraryID, $key, $insertID);
 			}
+			
+			// Remove from delete log if it's there
+			$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='collection' AND `key`=?";
+			Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
 			
 			Zotero_DB::commit();
 		}

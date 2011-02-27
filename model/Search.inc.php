@@ -163,16 +163,21 @@ class Zotero_Search {
 				$timestamp,
 				$timestampMS
 			);
+			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			
 			if ($isNew) {
 				$sql = "INSERT INTO savedSearches SET searchID=?, $fields";
-				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 				Zotero_DB::queryFromStatement($stmt, array_merge(array($searchID), $params));
 				Zotero_Searches::cacheLibraryKeyID($this->libraryID, $key, $searchID);
+				
+				// Remove from delete log if it's there
+				$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='search' AND `key`=?";
+				Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
 			}
 			else {
 				$sql = "UPDATE savedSearches SET $fields WHERE searchID=?";
-				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($searchID)));
 			}
 			

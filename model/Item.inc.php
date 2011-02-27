@@ -1515,6 +1515,10 @@ class Zotero_Item {
 					
 					Z_Core::$MC->set("itemRelated_" . $itemID, $currentIDs);
 				}
+				
+				// Remove from delete log if it's there
+				$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='item' AND `key`=?";
+				Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
 			}
 			
 			//

@@ -160,16 +160,21 @@ class Zotero_Creator {
 				$timestamp,
 				$timestampMS
 			);
+			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			
 			if ($isNew) {
 				$sql = "INSERT INTO creators SET creatorID=?, $fields";
-				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 				Zotero_DB::queryFromStatement($stmt, array_merge(array($creatorID), $params));
 				Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
+				
+				// Remove from delete log if it's there
+				$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='creator' AND `key`=?";
+				Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
 			}
 			else {
 				$sql = "UPDATE creators SET $fields WHERE creatorID=?";
-				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($creatorID)));
 			}
 			
