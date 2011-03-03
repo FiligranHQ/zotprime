@@ -1577,7 +1577,26 @@ class ApiController extends Controller {
 			}
 			
 			$groups = $results['groups'];
-			$totalResults = $results['total'];
+			$totalResults = sizeOf($results['groups']);
+			
+			// Fake sorting and limiting -- we can't use SQL limit because
+			// only some groups might be accessible
+			$key = $this->queryParams['order'];
+			$dir = $this->queryParams['sort'];
+			$cmp = create_function(
+				'$a, $b',
+				'$dir = "'.$dir.'" == "asc" ? 1 : -1;
+				if ($a->'.$key.' == $b->'.$key.') {
+					return 0;
+				}
+				else {
+					return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
+			usort($groups, $cmp);
+			$groups = array_slice(
+				$groups,
+				$this->queryParams['start'],
+				$this->queryParams['limit']
+			);
 			
 			$this->responseXML = Zotero_Atom::createAtomFeed(
 				$title,

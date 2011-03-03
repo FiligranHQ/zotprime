@@ -122,21 +122,25 @@ class Zotero_Groups {
 			}
 		}
 		
-		if (!empty($params['order'])) {
-			$order = $params['order'];
-			if ($order == 'title') {
-				$order = 'name';
+		// We can't use SQL limit for with a userID
+		// because only some groups might be accessible
+		if (!$userID) {
+			if (!empty($params['order'])) {
+				$order = $params['order'];
+				if ($order == 'title') {
+					$order = 'name';
+				}
+				$sql .= "ORDER BY $order";
+				if (!empty($params['sort'])) {
+					$sql .= " " . $params['sort'] . " ";
+				}
 			}
-			$sql .= "ORDER BY $order";
-			if (!empty($params['sort'])) {
-				$sql .= " " . $params['sort'] . " ";
+			
+			if (!empty($params['limit'])) {
+				$sql .= "LIMIT ?, ?";
+				$sqlParams[] = $params['start'] ? $params['start'] : 0;
+				$sqlParams[] = $params['limit'];
 			}
-		}
-		
-		if (!empty($params['limit'])) {
-			$sql .= "LIMIT ?, ?";
-			$sqlParams[] = $params['start'] ? $params['start'] : 0;
-			$sqlParams[] = $params['limit'];
 		}
 		$ids = Zotero_DB::columnQuery($sql, $sqlParams);
 		
