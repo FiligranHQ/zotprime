@@ -1582,6 +1582,9 @@ class ApiController extends Controller {
 			// Fake sorting and limiting -- we can't use SQL limit because
 			// only some groups might be accessible
 			$key = $this->queryParams['order'];
+			if ($key == 'title') {
+				$key = 'name';
+			}
 			$dir = $this->queryParams['sort'];
 			$cmp = create_function(
 				'$a, $b',
