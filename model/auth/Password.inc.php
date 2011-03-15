@@ -28,10 +28,9 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 	public static function authenticate($data) {
 		$salt = Z_CONFIG::$AUTH_SALT;
 		
-		$databaseName = "zotero_www";
-		if (Z_ENV_TESTING_SITE) {
-			$databaseName .= "_test";
-		}
+		// TODO: config
+		$dev = Z_ENV_TESTING_SITE ? "_test" : "";
+		$databaseName = "zotero_www{$dev}";
 		
 		$username = $data['username'];
 		$password = $data['password'];
@@ -151,12 +150,12 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 				}
 			}
 		}
+		
 		if ($row) {
 			self::updateUser($row['userID'], $row['username']);
 			Z_Core::$MC->set($cacheKey, $row['userID'], 60);
 			return $row['userID'];
 		}
-		
 		return false;
 	}
 	
