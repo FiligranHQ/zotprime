@@ -65,7 +65,7 @@ class Zotero_Keys {
 	public static function generate() {
 		$tries = 5;
 		while ($tries > 0) {
-			$str = Zotero_Utilities::randomString(24);
+			$str = Zotero_Utilities::randomString(24, 'mixed');
 			$sql = "SELECT COUNT(*) FROM `keys` WHERE `key`=?";
 			if (Zotero_DB::valueQuery($sql, $str)) {
 				$tries--;
