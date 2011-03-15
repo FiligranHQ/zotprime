@@ -131,6 +131,16 @@ class Zotero_Key {
 	}*/
 	
 	
+	/**
+	 * Examples:
+	 *
+	 * $keyObj->setPermission(12345, 'library', true);
+	 * $keyObj->setPermission(12345, 'notes', true);
+	 * $keyObj->setPermission(12345, 'files', true);
+	 * $keyObj->setPermission(12345, 'write', true);
+	 * $keyObj->setPermission(0, 'group', true);
+	 * $keyObj->setPermission(0, 'write', true);
+	 */
 	public function setPermission($libraryID, $permission, $enabled) {
 		if ($this->id || $this->key) {
 			if (!$this->loaded) {
@@ -143,13 +153,16 @@ class Zotero_Key {
 		
 		$enabled = !!$enabled;
 		
-		// libraryID=0, permission='group' is a special case for all-group access
+		// libraryID=0 is a special case for all-group access
 		if ($libraryID === 0) {
-			if ($permission != 'group') {
+			// Convert 'group' to 'library'
+			if ($permission == 'group') {
+				$permission = 'library';
+			}
+			else if ($permission == 'write') {}
+			else {
 				throw new Exception("libraryID 0 is valid only with permission 'group'");
 			}
-			// Convert 'group' to 'library'
-			$permission = 'library';
 		}
 		else if ($permission == 'group') {
 			throw new Exception("'group' permission is valid only with libraryID 0");
@@ -162,6 +175,7 @@ class Zotero_Key {
 			case 'library':
 			case 'notes':
 			case 'files':
+			case 'write':
 				break;
 			
 			default:
@@ -295,6 +309,9 @@ class Zotero_Key {
 				// group="all" is stored as libraryID 0
 				if ($libraryID === 0) {
 					$access['group'] = 'all';
+					if (!empty($p['write'])) {
+						$access['write'] = 1;
+					}
 					continue;
 				}
 				
@@ -309,6 +326,9 @@ class Zotero_Key {
 						
 					case 'group':
 						$access['group'] = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+						if (!empty($p['write'])) {
+							$access['write'] = 1;
+						}
 						break;
 				}
 			}

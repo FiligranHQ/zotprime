@@ -226,18 +226,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 			Zotero_Atom::$nsZoteroAPI
 		);
 		
-		if ($content == 'html') {
-			$xml->content['type'] = 'html';
-			
-			$fullStr = "<div/>";
-			$fullXML = new SimpleXMLElement($fullStr);
-			$fullXML->addAttribute(
-				"xmlns", Zotero_Atom::$nsXHTML
-			);
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
+		if ($content == 'json') {
+			$xml->content['type'] = 'application/json';
+			$xml->content['etag'] = $collection->etag;
+			$xml->content = $collection->toJSON();
 		}
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';
@@ -253,6 +245,77 @@ class Zotero_Collections extends Zotero_DataObjects {
 		}
 		
 		return $xml;
+	}
+	
+	
+	public static function addFromJSON($json, $libraryID) {
+		self::validateJSONCollection($json);
+		
+		// TODO: lock checks
+		
+		// new item
+		$collection = new Zotero_Collection;
+		$collection->libraryID = $libraryID;
+		self::updateFromJSON($collection, $json, true);
+		
+		return $collection;
+	}
+	
+	
+	public static function updateFromJSON(Zotero_Collection $collection, $json, $isNew=false) {
+		self::validateJSONCollection($json);
+		
+		if (!$isNew) {
+			// TODO: lock checks
+		}
+		
+		$collection->name = $json->name;
+		$parentKey = $json->parent;
+		if ($parentKey) {
+			$collection->parentKey = $parentKey;
+		}
+		else {
+			$collection->parent = false;
+		}
+		$collection->save();
+	}
+	
+	
+	public static function validateJSONCollection($json) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object');
+		}
+		
+		$requiredProps = array('name', 'parent');
+		
+		foreach ($requiredProps as $prop) {
+			if (!isset($json->$prop)) {
+				throw new Exception("'$prop' property not provided", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		
+		foreach ($json as $key=>$val) {
+			switch ($key) {
+				case 'name':
+					if (!is_string($val)) {
+						throw new Exception("'name' must be a string", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (mb_strlen($val) > 255) {
+						throw new Exception("Collection name cannot be longer than 255 characters", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+					
+				case 'parent':
+					if (!is_string($val) && !empty($val)) {
+						throw new Exception("'parent' must be a collection key or FALSE (" . gettype($val) . ")", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				default:
+					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+			}
+		}
 	}
 	
 	

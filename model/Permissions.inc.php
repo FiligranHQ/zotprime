@@ -81,11 +81,6 @@ class Zotero_Permissions {
 				throw new Exception("Unsupported library type '$libraryType'");
 		}
 		
-		if (!$this->anonymous) {
-			return false;
-		}
-		
-		// For anonymous access, check privileges
 		switch ($permission) {
 			case 'library':
 				return $privacy['publishLibrary'];
@@ -99,23 +94,55 @@ class Zotero_Permissions {
 	}
 	
 	
+	/**
+	 * This should be called after canAccess()
+	 */
+	public function canWrite($libraryID) {
+		if ($this->super) {
+			return true;
+		}
+		
+		if (!$libraryID) {
+			throw new Exception('libraryID not provided');
+		}
+		
+		if (!empty($this->permissions[$libraryID]['write'])) {
+			return true;
+		}
+		
+		$libraryType = Zotero_Libraries::getType($libraryID);
+		switch ($libraryType) {
+			case 'user':
+				return false;
+			
+			case 'group':
+				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+				
+				// If key has write access to all groups, grant access if user
+				// has write access to group
+				if (!empty($this->permissions[0]['write'])) {
+					$group = Zotero_Groups::get($groupID);
+					return $group->userCanEdit($this->userID);
+				}
+				
+				return false;
+			
+			default:
+				throw new Exception("Unsupported library type '$libraryType'");
+		}
+	}
+	
+	
 	public function setPermission($libraryID, $permission, $enabled) {
 		if ($this->super) {
 			throw new Exception("Super-user permissions already set");
-		}
-		
-		// Shortcut for setting all permissions on library
-		if ($permission == 'all') {
-			$this->setPermission($libraryID, 'library', $enabled);
-			$this->setPermission($libraryID, 'notes', $enabled);
-			$this->setPermission($libraryID, 'files', $enabled);
-			return;
 		}
 		
 		switch ($permission) {
 			case 'library':
 			case 'notes':
 			case 'files':
+			case 'write':
 				break;
 			
 			default:

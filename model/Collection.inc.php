@@ -61,6 +61,9 @@ class Zotero_Collection {
 			
 			case 'parentKey':
 				return $this->getParentKey();
+				
+			case 'etag':
+				return $this->getETag();
 		}
 		
 		if (!property_exists('Zotero_Collection', '_' . $field)) {
@@ -340,15 +343,6 @@ class Zotero_Collection {
 		}
 		
 		if ($new) {
-			// DEBUG
-			if ($this->id == 1528) {
-				$sql = "INSERT INTO collectionItems (collectionID, itemID) VALUES (?, ?)";
-				foreach ($new as $itemID) {
-					Zotero_DB::query($sql, array($this->id, $itemID), $shardID);
-				}
-			}
-			else {
-			
 			$sql = "INSERT INTO collectionItems (collectionID, itemID) VALUES";
 			$q = array();
 			$params = array();
@@ -359,43 +353,62 @@ class Zotero_Collection {
 			}
 			$sql .= implode(',', $q);
 			Zotero_DB::query($sql, $params, $shardID);
-			
-			}
 		}
 		
-		$this->childItems = $new;
+		$this->childItems = array_values(array_unique($itemIDs));
+		
+		$sql = "UPDATE collections SET dateModified=?, serverDateModified=? WHERE collectionID=?";
+		$ts = Zotero_DB::getTransactionTimestamp();
+		Zotero_DB::query($sql, array($ts, $ts, $this->id), $shardID);
 		
 		Zotero_DB::commit();
 	}
 	
 	
 	public function addItem($itemID) {
-		if (!$this->exists()) {
-			trigger_error("Collection hasn't been saved", E_USER_ERROR);
-		}
-		
-		Zotero_DB::beginTransaction();
-		
 		if (!Zotero_Items::get($this->libraryID, $itemID)) {
-			Zotero_DB::rollback();
-			trigger_error("Item $itemID does not exist", E_USER_ERROR);
+			throw new Exception("Item does not exist");
 		}
 		
-		// TODO: support order index
+		if ($this->hasItem($itemID)) {
+			Z_Core::debug("Item $itemID is already a child of collection $this->id");
+			return;
+		}
 		
-		$sql = "INSERT IGNORE INTO collectionItems (collectionID, itemID) VALUES (?, ?)";
-		Zotero_DB::query($sql, array($this->id, $itemID), Zotero_Shards::getByLibraryID($this->libraryID));
-		
-		Zotero_DB::commit();
+		$this->setChildItems(array_merge($this->getChildItems(), array($itemID)));
 	}
 	
 	
 	public function addItems($itemIDs) {
-		Zotero_DB::beginTransaction();
-		foreach ($itemIDs as $itemID) {
-			$this->addItem($itemID);
+		$childItems = array_merge($this->getChildItems(), $itemIDs);
+		$this->setChildItems($childItems);
+	}
+	
+	
+	public function removeItem($itemID) {
+		if (!$this->hasItem($itemID)) {
+			Z_Core::debug("Item $itemID is not a child of collection $this->id");
+			return false;
 		}
-		Zotero_DB::commit();
+		
+		$childItems = $this->getChildItems();
+		array_splice($childItems, array_search($itemID, $childItems), 1);
+		$this->setChildItems($childItems);
+		
+		return true;
+	}
+
+	
+	
+	/**
+	 * Check if an item belongs to the collection
+	 */
+	public function hasItem($itemID) {
+		if (!$this->childItemsLoaded) {
+			$this->loadChildItems();
+		}
+		
+		return in_array($itemID, $this->childItems);
 	}
 	
 	
@@ -658,6 +671,32 @@ class Zotero_Collection {
 	}
 	
 	
+	public function toJSON($asArray=false, $prettyPrint=false) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$arr['name'] = $this->name;
+		$parentKey = $this->getParentKey();
+		$arr['parent'] = $parentKey ? $parentKey : false;
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+		if ($prettyPrint) {
+			$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
+		}
+		else {
+			$json = json_encode($arr, $mask);
+		}
+		// Until JSON_UNESCAPED_SLASHES is available
+		$json = str_replace('\\/', '/', $json);
+		return $json;
+	}
+	
+	
 	private function load() {
 		Z_Core::debug("Loading data for collection $this->_id");
 		
@@ -776,8 +815,17 @@ class Zotero_Collection {
 	}
 	
 	
+	private function getETag() {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		return md5($this->name . "_" . $this->getParent());
+	}
+	
+	
 	private function generateKey() {
-		trigger_error('Unimplemented', E_USER_ERROR);
+		return Zotero_ID::getKey();
 	}
 	
 	

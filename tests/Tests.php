@@ -33,6 +33,7 @@ class Tests extends PHPUnit_Framework_TestSuite {
 		$suite = new PHPUnit_Framework_TestSuite();
 		$suite->addTestSuite('CreatorsTests');
 		$suite->addTestSuite('DBTests');
+		$suite->addTestSuite('DateTests');
 		$suite->addTestSuite('MemcacheTests');
 		$suite->addTestSuite('MongoTests');
 		$suite->addTestSuite('TagsTests');
@@ -169,6 +170,74 @@ EOD;
 	}
 }
 
+
+class DateTests extends PHPUnit_Framework_TestCase {
+	public function test_strToDate() {
+		$patterns = array(
+			"February 28, 2011",
+			"2011-02-28",
+			"28-02-2011",
+			"Feb 28 2011",
+			"28 Feb 2011",
+		);
+		
+		foreach ($patterns as $pattern) {
+			$parts = Zotero_Date::strToDate($pattern);
+			$this->assertEquals(2, $parts['month']);
+			$this->assertEquals(2011, $parts['year']);
+			$this->assertEquals(28, $parts['day']);
+			$this->assertFalse(isset($parts['part']));
+		}
+	}
+	
+	
+	public function test_strToDate_monthYear() {
+		$patterns = array(
+			//"9/10",
+			//"09/10",
+			//"9/2010",
+			//"09/2010",
+			//"09-2010",
+			"September 2010",
+			"Sep 2010",
+			"Sep. 2010"
+		);
+		
+		foreach ($patterns as $pattern) {
+			$parts = Zotero_Date::strToDate($pattern);
+			$this->assertEquals(9, $parts['month']);
+			$this->assertEquals(2010, $parts['year']);
+			$this->assertFalse(isset($parts['day']));
+			$this->assertFalse(isset($parts['part']));
+		}
+	}
+	
+	
+	/*public function test_strToDate_BCE() {
+		$patterns = array(
+			"c380 BC/1935",
+			"2009 BC",
+			"2009 B.C.",
+			"2009 BCE",
+			"2009 B.C.E.",
+			"2009BC",
+			"2009BCE",
+			"2009B.C.",
+			"2009B.C.E.",
+			"c2009BC",
+			"c2009BCE",
+			"~2009BC",
+			"~2009BCE",
+			"-300"
+		);
+		
+		foreach ($patterns as $pattern) {
+			$parts = Zotero_Date::strToDate($pattern);
+			var_dump($parts['year']);
+			$this->assertTrue(!!preg_match("/^[0-9]+$/", $parts['year']));
+		}
+	}*/
+}
 
 
 class DBTests extends PHPUnit_Framework_TestCase {

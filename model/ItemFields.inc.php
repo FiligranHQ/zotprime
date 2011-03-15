@@ -489,7 +489,7 @@ class Zotero_ItemFields {
 		}
 		
 		if (!self::isValidForType($typeFieldID, $itemTypeID)) {
-			throw new Exception("'$typeField' is not a valid field for '$itemType'");
+			throw new Exception("'$typeField' is not a valid field for item type '$itemType'");
 		}
 		
 		// If typeField is already a base field, just return that

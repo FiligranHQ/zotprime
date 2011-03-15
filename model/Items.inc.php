@@ -28,7 +28,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	protected static $ZDO_object = 'item';
 	
 	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
-		'dateAdded', 'dateModified', 'serverDateModified',
+		'dateAdded', 'dateModified', 'serverDateModified', 'serverDateModifiedMS',
 		'numNotes', 'numAttachments');
 	private static $maxDataValueLength = 65535;
 	
@@ -205,21 +205,17 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
 		$results = array('items' => array(), 'total' => 0);
 		
-		$query = new SolrQuery();
-		
-		// Fields to return
-		$query->addField("libraryID")->addField("key");
+		$query = array();
+		$fieldsToReturn = array("_id");
 		
 		// Filter by libraryID
-		$query->addFilterQuery("libraryID:$libraryID");
-		
-		$qParts = array();
+		$query['_id'] = array('$regex' => new MongoRegex("/^$libraryID\//"));
 		
 		if ($onlyTopLevel) {
-			$qParts[] = "-sourceItem:[* TO *]";
+			$query['parent'] = array('$exists' => false);
 		}
 		if (!$includeTrashed) {
-			$qParts[] = "-deleted:1";
+			$query['deleted'] = array('$ne' => 1);
 		}
 		
 		$keys = array();
@@ -235,6 +231,13 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			else {
 				$keys = explode(',', $params['itemKey']);
+			}
+			
+			if (!$keys) {
+				return array(
+					'total' => 0,
+					'items' => array(),
+				);
 			}
 		}
 		
@@ -339,42 +342,58 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if ($keys) {
 			// Add keys to query
-			$qParts[] = "key:(" . implode(" OR ", $keys) . ")";
-		}
-		
-		$query->setQuery(implode(' AND ', $qParts));
-		
-		$query->setStart(!empty($params['start']) ? $params['start'] : 0);
-		if (!empty($params['limit'])) {
-			$query->setRows($params['limit']);
-		}
-		
-		if (!empty($params['order'])) {
-			switch ($params['order']) {
-				case 'title':
-					$order = $params['order'] . "Sort";
-					break;
-					
-				default:
-					$order = $params['order'];
+			array_walk($keys, function (&$key, $index, $prefix) {
+				$key = $prefix . $key;
+			}, $libraryID . "/");
+			
+			if ($query['_id']) {
+				$query["_id"] = array_merge($query["_id"], array('$in' => $keys));
 			}
-			$query->addSortField(
-				$order,
-				!empty($params['sort']) && $params['sort'] == 'desc'
-					? SolrQuery::ORDER_DESC : SolrQuery::ORDER_ASC
-			);
+			else {
+				$query["_id"] = array('$in' => $keys);
+			}
 		}
 		
 		// Run query
-		$response = Z_Core::$Solr->query($query);
-		$response = $response->getResponse();
+		$cursor = Z_Core::$Mongo->find("searchItems", $query, $fieldsToReturn);
 		
-		$results['total'] = $response['response']['numFound'];
+		if (!empty($params['order'])) {
+			$sort = array();
+			$dir = $params['sort'] == 'desc' ? -1 : 1;
+			
+			// TEMP: When Mongo supports advanced queries, support emptyFirst
+			// for fields other than creator
+			if (!$params['emptyFirst'] && $params['order'] == 'creator') {
+				$sort[$params['order'] . "IsEmpty"] = $dir;
+			}
+			
+			// Use a special field for sorting by title, since we need to
+			// include display/note titles
+			if ($params['order'] == 'title') {
+				$params['order'] = 'sortTitle';
+			}
+			if ($params['order'] == 'creator') {
+				$params['order'] = 'creatorSummary';
+			}
+			
+			$sort[$params['order']] = $dir;
+			
+			$cursor->sort($sort);
+		}
+		if (!empty($params['start'])) {
+			$cursor->skip($params['start']);
+		}
+		if (!empty($params['limit'])) {
+			$cursor->limit($params['limit']);
+		}
+		
+		$results['total'] = $cursor->count();
 		if ($results['total']) {
-			foreach ($response['response']['docs'] as $doc) {
-				$item = Zotero_Items::getByLibraryAndKey($doc['libraryID'], $doc['key']);
+			while ($doc = $cursor->getNext()) {
+				list($libraryID, $key) = explode('/', $doc['_id']);
+				$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
 				if (!$item) {
-					error_log("Item {$doc['libraryID']}/{$doc['key']} from Solr not found");
+					Z_Core::logError("Item $libraryID/$key from Mongo not found");
 					$results['total']--;
 					continue;
 				}
@@ -825,6 +844,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
+				case 'serverDateModifiedMS':
 				case 'numAttachments':
 				case 'numNotes':
 					continue (2);
@@ -910,14 +930,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		// Note
 		if ($item->isNote() || $item->isAttachment()) {
-			$noteHash = $item->getNoteHash();
-			if ($noteHash) {
-				$cacheKey = "htmlspecialcharsNote_$noteHash";
-				$note = Z_Core::$MC->get($cacheKey);
-				if ($note === false) {
-					$note = htmlspecialchars($item->getNote());
-					Z_Core::$MC->set($cacheKey, $note);
-				}
+			// Get htmlspecialchars'ed note
+			$note = $item->getNote(false, true);
+			if ($note !== '') {
 				$xml->addChild('note', $note);
 			}
 			else if ($item->isNote()) {
@@ -980,7 +995,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		// Strip HTML from note titles
 		if ($item->isNote()) {
 			// Clean and strip HTML, giving us an HTML-encoded plaintext string
-			$title = strip_tags($GLOBALS['HTMLPurifier']->purify($title));
+			$title = strip_tags(Zotero_Notes::sanitize($title));
 			// Unencode plaintext string
 			$title = html_entity_decode($title);
 		}
@@ -1081,7 +1096,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if ($content == 'html') {
 			$xml->content['type'] = 'xhtml';
-			$html = Zotero_Helpers::renderItemsMetadataTable($item, true);
+			$html = $item->toHTML(true);
 			$xml->content->div = '';
 			$xml->content->div['xmlns'] = Zotero_Atom::$nsXHTML;
 			$fNode = dom_import_simplexml($xml->content->div);
@@ -1102,7 +1117,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		else if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
 			$xml->content['etag'] = $item->etag;
-			$xml->content = $item->toJSON(false, $queryParams['pprint']);
+			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
 		// Not for public consumption
 		else if ($content == 'full') {
@@ -1136,33 +1151,20 @@ class Zotero_Items extends Zotero_DataObjects {
 		foreach ($json->items as $jsonItem) {
 			$item = new Zotero_Item;
 			$item->libraryID = $libraryID;
-			
-			self::updateFromJSON($item, $jsonItem, true);
-			
-			$item->save();
+			self::updateFromJSON($item, $jsonItem, true, $parentItem);
 			$keys[] = $item->key;
 		}
 		
 		Zotero_DB::commit();
 		
-		if ($keys) {
-			// Index new items
-			try {
-				Zotero_Processors::notifyProcessors('index');
-			}
-			catch (Exception $e) {
-				Z_Core::logError($e);
-			}
-		}
-		
 		return $keys;
 	}
 	
 	
-	public static function updateFromJSON(Zotero_Item $item, $json, $newItem=false) {
-		self::validateJSONItem($json, $newItem);
+	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null) {
+		self::validateJSONItem($json, $isNew, !is_null($parentItem));
 		
-		if (!$newItem) {
+		if (!$isNew) {
 			// TODO: lock checks
 		}
 		
@@ -1173,6 +1175,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				case 'deleted':
+					continue;
+				
 				case 'itemType':
 					$item->setField("itemTypeID", Zotero_ItemTypes::getID($val));
 					break;
@@ -1264,6 +1269,9 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'notes':
+					if (!$val) {
+						continue;
+					}
 					$twoStage = true;
 					break;
 				
@@ -1277,10 +1285,17 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
+		if ($parentItem) {
+			$item->setSource($parentItem->id);
+		}
+		
+		$item->deleted = !empty($json->deleted);
+		
 		// For changes that don't register as changes internally, force a dateModified update
 		if ($forceChange) {
 			$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
 		}
+		Zotero_Index::$queueingEnabled = false;
 		$item->save();
 		
 		// Additional steps that have to be performed on a saved object
@@ -1288,8 +1303,21 @@ class Zotero_Items extends Zotero_DataObjects {
 			foreach ($json as $key=>$val) {
 				switch ($key) {
 					case 'notes':
-						throw new Exception("Unimplemented");
-						exit;
+						if (!$val) {
+							continue;
+						}
+						$noteItemTypeID = Zotero_ItemTypes::getID("note");
+						
+						// Save child notes
+						foreach ($val as $note) {
+							$childItem = new Zotero_Item;
+							$childItem->libraryID = $item->libraryID;
+							$childItem->itemTypeID = $noteItemTypeID;
+							$childItem->setSource($item->id);
+							$childItem->setNote($note->note);
+							$childItem->save();
+							Zotero_Index::addItem($childItem);
+						}
 						break;
 					
 					case 'tags':
@@ -1306,27 +1334,22 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			$item->save();
 		}
-		
+		Zotero_Index::addItem($item);
+		Zotero_Index::$queueingEnabled = true;
 		Zotero_DB::commit();
-		
-		if (!$newItem) {
-			// Index new items
-			try {
-				Zotero_Processors::notifyProcessors('index');
-			}
-			catch (Exception $e) {
-				Z_Core::logError($e);
-			}
-		}
 	}
 	
 	
-	public static function validateJSONItem($json, $newItem=false) {
+	public static function validateJSONItem($json, $isNew=false, $isChild=false) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}
 		
-		if ($newItem) {
+		if (isset($json->items) && is_array($json->items)) {
+			throw new Exception("An 'items' array is not valid for item updates", Z_ERROR_INVALID_INPUT);
+		}
+		
+		if ($isNew) {
 			$requiredProps = array('itemType');
 		}
 		else {
@@ -1344,6 +1367,17 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'itemType':
 					if (!is_string($val)) {
 						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if ($isChild) {
+						switch ($val) {
+							case 'note':
+							case 'attachment':
+								break;
+							
+							default:
+								throw new Exception("Child item must be note or attachment", Z_ERROR_INVALID_INPUT);
+						}
 					}
 					
 					if (!Zotero_ItemTypes::getID($val)) {
@@ -1443,13 +1477,18 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'note':
-					if (!$item->isNote() && !$item->isAttachment()) {
-						throw new Exception("'note' property is only valid for note and attachment items", Z_ERROR_INVALID_INPUT);
+					switch ($json->itemType) {
+						case 'note':
+						case 'attachment':
+							break;
+						
+						default:
+							throw new Exception("'note' property is valid only for note and attachment items", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
 				case 'notes':
-					if (!$newItem) {
+					if (!$isNew) {
 						throw new Exception("'notes' property is valid only for new items", Z_ERROR_INVALID_INPUT);
 					}
 					
@@ -1465,6 +1504,9 @@ class Zotero_Items extends Zotero_DataObjects {
 							throw new Exception("'note' property not provided for child note", Z_ERROR_INVALID_INPUT);
 						}
 					}
+					break;
+				
+				case 'deleted':
 					break;
 				
 				default:
@@ -1490,6 +1532,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		foreach ($json as $key=>$val) {
 			if ($key != 'items') {
 				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+			}
+			if (sizeOf($val) > 50) {
+				throw new Exception("Cannot add more than 50 items at a time", Z_ERROR_INVALID_INPUT);
 			}
 		}
 	}
@@ -1526,7 +1571,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($itemRows) {
 			foreach ($itemRows as $row) {
 				if ($row['libraryID'] != $libraryID) {
-					throw new Exception("Item $itemID isn't in library $libraryID");
+					throw new Exception("Item $itemID isn't in library $libraryID", Z_ERROR_OBJECT_LIBRARY_MISMATCH);
 				}
 				
 				$itemID = $row['itemID'];

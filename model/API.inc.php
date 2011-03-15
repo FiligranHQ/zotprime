@@ -31,8 +31,10 @@ class Zotero_API {
 		'format' => "atom",
 		'order' => "dateAdded",
 		'sort' => "desc",
+		'emptyFirst' => false,
 		'start' => 0,
 		'limit' => 50,
+		'fq' => '',
 		'q' => '',
 		'pprint' => false,
 		
@@ -132,6 +134,16 @@ class Zotero_API {
 			default:
 				return 'asc';
 		}
+	}
+	
+	
+	public static function getSortEmptyFirst($field) {
+		switch ($field) {
+			case 'title':
+				return true;
+		}
+		
+		return false;
 	}
 	
 	

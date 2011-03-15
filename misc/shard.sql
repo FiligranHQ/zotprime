@@ -134,6 +134,7 @@ CREATE TABLE `itemNotes` (
   `itemID` int(10) unsigned NOT NULL,
   `sourceItemID` int(10) unsigned DEFAULT NULL,
   `note` mediumtext NOT NULL,
+  `noteSanitized` mediumtext NULL,
   `title` varchar(80) NOT NULL,
   `hash` varchar(32) NOT NULL,
   PRIMARY KEY (`itemID`),

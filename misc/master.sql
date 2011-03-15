@@ -156,7 +156,7 @@ CREATE TABLE `keyAccessLog` (
 CREATE TABLE `keyPermissions` (
   `keyID` int(10) unsigned NOT NULL,
   `libraryID` int(10) unsigned NOT NULL,
-  `permission` enum('library','notes') NOT NULL,
+  `permission` enum('library','notes','write') NOT NULL,
   `granted` tinyint(1) unsigned NOT NULL,
   PRIMARY KEY (`keyID`,`libraryID`,`permission`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

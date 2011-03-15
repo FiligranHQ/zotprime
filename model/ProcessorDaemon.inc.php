@@ -414,15 +414,15 @@ class Zotero_Index_Processor_Daemon extends Zotero_Processor_Daemon {
 	}
 	
 	protected function countQueuedProcesses() {
-		return Zotero_Solr::countQueuedProcesses();
+		return Zotero_Index::countQueuedProcesses();
 	}
 	
 	protected function getOldProcesses($host=null, $seconds=null) {
-		return Zotero_Solr::getOldProcesses($seconds);
+		return Zotero_Index::getOldProcesses($seconds);
 	}
 	
 	protected function removeProcess($id) {
-		Zotero_Solr::removeProcess($id);
+		Zotero_Index::removeProcess($id);
 	}
 }
 ?>

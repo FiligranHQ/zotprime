@@ -1,54 +1,38 @@
 <?
-class Zotero_Solr {
-	private static $commitWithin = 5000;
+class Zotero_Index {
+	public static $queueingEnabled = true;
 	
-	public static function addItem($item, $commitWithin=false) {
-		self::addItems(array($item), $commitWithin);
+	public static function addItem($item) {
+		self::addItems(array($item));
 	}
 	
 	
-	public static function addItems($items, $commitWithin=false) {
-		// TEMP
-		return;
-		
-		$docs = array();
+	public static function addItems($items) {
 		foreach ($items as $item) {
-			$docs[] = $item->toSolrDocument();
+			$doc = $item->toMongoIndexDocument();
+			$doc['ts'] = new MongoDate();
+			Z_Core::$Mongo->update("searchItems", $doc["_id"], $doc, array("upsert"=>true, "safe"=>true));
 		}
-		$updateResponse = Z_Core::$Solr->addDocuments(
-			$docs,
-			false,
-			$commitWithin === false ? self::$commitWithin : $commitWithin
-		);
 	}
 	
 	
 	public static function removeItem($libraryID, $key) {
-		// TEMP
-		return;
-		
-		$uri = self::getItemURI($libraryID, $key);
-		Z_Core::$Solr->deleteById($uri);
+		Z_Core::$Mongo->remove("searchItems", "$libraryID/$key");
 	}
 	
 	
 	public static function removeItems($pairs) {
-		// TEMP
-		return;
-		
-		$uris = array();
+		$ids = array();
 		foreach ($pairs as $pair) {
-			$uris[] = self::getItemURI($pair['libraryID'], $pair['key']);
+			$ids[] = $pair['libraryID'] . "/" . $pair['key'];
 		}
-		Z_Core::$Solr->deleteByIds($uris);
+		Z_Core::$Mongo->remove("searchItems", array("_id" => array('$in'=>$ids)));
 	}
 	
 	
 	public static function removeLibrary($libraryID) {
-		// TEMP
-		return;
-		
-		Z_Core::$Solr->deleteByQuery("libraryID:" . (int) $libraryID);
+		$re = new MongoRegex('/^' . $libraryID . '\//');
+		Z_Core::$Mongo->remove("searchItems", array("_id" => $re));
 	}
 	
 	
@@ -59,36 +43,30 @@ class Zotero_Solr {
 	}
 	
 	
-	public static function getItemURI($libraryID, $key) {
-		$uri = Zotero_Atom::getLibraryURI($libraryID) . "/items/$key";
-		return str_replace(Zotero_Atom::getBaseURI(), '', $uri);
-	}
-	
-	
 	public static function queueItem($libraryID, $key) {
 		self::queueItems(array(array($libraryID, $key)));
 	}
 	
 	
 	public static function queueItems($pairs) {
-		// TEMP
-		return;
-		
-		$sql = "INSERT IGNORE INTO solrQueue (libraryID, `key`) VALUES ";
+		if (!self::$queueingEnabled) {
+			return;
+		}
+		$sql = "INSERT IGNORE INTO indexQueue (libraryID, `key`) VALUES ";
 		Zotero_DB::bulkInsert($sql, $pairs, 100);
 	}
 	
 	
 	public static function queueLibrary($libraryID) {
-		// TEMP
-		return;
-		
-		$sql = "INSERT IGNORE INTO solrQueue (libraryID, `key`) VALUES (?,?)";
+		if (!self::$queueingEnabled) {
+			return;
+		}
+		$sql = "INSERT IGNORE INTO indexQueue (libraryID, `key`) VALUES (?,?)";
 		Zotero_DB::query($sql, array($libraryID, ''));
 	}
 	
 	
-	public static function getQueuedItems($solrProcessID, $max=100) {
+	public static function getQueuedItems($indexProcessID, $max=100) {
 		Zotero_DB::beginTransaction();
 		
 		$sql = "CREATE TEMPORARY TABLE tmpKeys (
@@ -98,16 +76,16 @@ class Zotero_Solr {
 				)";
 		Zotero_DB::query($sql);
 		
-		$sql = "INSERT INTO tmpKeys SELECT libraryID, `key` FROM solrQueue
-				WHERE solrProcessID IS NULL ORDER BY added LIMIT $max FOR UPDATE";
+		$sql = "INSERT INTO tmpKeys SELECT libraryID, `key` FROM indexQueue
+				WHERE indexProcessID IS NULL ORDER BY added LIMIT $max FOR UPDATE";
 		Zotero_DB::query($sql);
 		
 		$sql = "SELECT * FROM tmpKeys";
 		$rows = Zotero_DB::query($sql);
 		
 		if ($rows) {
-			$sql = "UPDATE tmpKeys JOIN solrQueue USING (libraryID, `key`) SET solrProcessID=?";
-			Zotero_DB::query($sql, $solrProcessID);
+			$sql = "UPDATE tmpKeys JOIN indexQueue USING (libraryID, `key`) SET indexProcessID=?";
+			Zotero_DB::query($sql, $indexProcessID);
 		}
 		else {
 			$itemIDs = array();
@@ -122,24 +100,23 @@ class Zotero_Solr {
 	}
 	
 	
-	public static function processFromQueue($solrProcessID) {
+	public static function processFromQueue($indexProcessID) {
 		// Update host field with the host processing the data
 		$addr = gethostbyname(gethostname());
 		
-		$sql = "INSERT INTO solrProcesses (solrProcessID, processorHost) VALUES (?, INET_ATON(?))";
-		Zotero_DB::query($sql, array($solrProcessID, $addr));
+		$sql = "INSERT INTO indexProcesses (indexProcessID, processorHost) VALUES (?, INET_ATON(?))";
+		Zotero_DB::query($sql, array($indexProcessID, $addr));
 		
 		$updateItems = array();
 		$deletePairs = array();
 		$deleteLibraries = array();
 		
-		$lkPairs = self::getQueuedItems($solrProcessID);
+		$lkPairs = self::getQueuedItems($indexProcessID);
 		foreach ($lkPairs as $pair) {
 			// If key not specified, update/delete entire library
 			if (!$pair['key']) {
 				if (Zotero_Libraries::exists($pair['libraryID'])) {
-					// For now, ignore existing library
-					//Z_Core::logError("");
+					throw new Exception("Unimplemented");
 					continue;
 				}
 				
@@ -169,30 +146,30 @@ class Zotero_Solr {
 		}
 		catch (Exception $e) {
 			Z_Core::logError($e);
-			self::removeProcess($solrProcessID);
+			self::removeProcess($indexProcessID);
 			return -2;
 		}
 		
-		self::removeQueuedItems($solrProcessID);
-		self::removeProcess($solrProcessID);
+		self::removeQueuedItems($indexProcessID);
+		self::removeProcess($indexProcessID);
 		return 1;
 	}
 	
 	
-	public static function removeQueuedItems($solrProcessID) {
-		$sql = "DELETE FROM solrQueue WHERE solrProcessID=?";
-		Zotero_DB::query($sql, $solrProcessID);
+	public static function removeQueuedItems($indexProcessID) {
+		$sql = "DELETE FROM indexQueue WHERE indexProcessID=?";
+		Zotero_DB::query($sql, $indexProcessID);
 	}
 	
 	
 	public static function countQueuedProcesses() {
-		$sql = "SELECT COUNT(*) FROM solrQueue";
+		$sql = "SELECT COUNT(*) FROM indexQueue";
 		return Zotero_DB::valueQuery($sql);
 	}
 	
 	
 	public static function getOldProcesses($host=null, $seconds=60) {
-		$sql = "SELECT DISTINCT solrProcessID FROM solrProcesses
+		$sql = "SELECT DISTINCT indexProcessID FROM indexProcesses
 				WHERE started < NOW() - INTERVAL ? SECOND";
 		$params = array($seconds);
 		if ($host) {
@@ -203,9 +180,9 @@ class Zotero_Solr {
 	}
 	
 	
-	public static function removeProcess($solrProcessID) {
-		$sql = "DELETE FROM solrProcesses WHERE solrProcessID=?";
-		Zotero_DB::query($sql, $solrProcessID);
+	public static function removeProcess($indexProcessID) {
+		$sql = "DELETE FROM indexProcesses WHERE indexProcessID=?";
+		Zotero_DB::query($sql, $indexProcessID);
 	}
 }
 ?>

@@ -43,6 +43,7 @@ class Zotero_Item {
 	private $sourceItem;
 	private $noteTitle = null;
 	private $noteText = null;
+	private $noteTextSanitized = null;
 	
 	private $deleted = null;
 	
@@ -489,6 +490,7 @@ class Zotero_Item {
 					case 'libraryID':
 					case 'key':
 					case 'serverDateModified':
+					case 'serverDateModifiedMS':
 						$colSQL = 'I.' . $field;
 						break;
 					
@@ -824,24 +826,20 @@ class Zotero_Item {
 		}
 		
 		if (!$loadIn) {
-			// TODO: port
-			/*
 			// Save date field as multipart date
-			if (Zotero_ItemFields::isFieldOfBase(fieldID, 'date') &&
-					!Zotero.Date.isMultipart(value)) {
-				value = Zotero.Date.strToMultipart(value);
+			if (Zotero_ItemFields::isFieldOfBase($fieldID, 'date') &&
+					!Zotero_Date::isMultipart($value)) {
+				$value = Zotero_Date::strToMultipart($value);
 			}
 			// Validate access date
-			else if (fieldID == Zotero.ItemFields.getID('accessDate')) {
-				if (value && (!Zotero.Date.isSQLDate(value) &&
-						!Zotero.Date.isSQLDateTime(value) &&
-						value != 'CURRENT_TIMESTAMP')) {
-					Z_Core::debug("Discarding invalid accessDate '" + value
-						+ "' in Item.setField()");
+			else if ($fieldID == Zotero_ItemFields::getID('accessDate')) {
+				if ($value && (!Zotero_Date::isSQLDate($value) &&
+						!Zotero_Date::isSQLDateTime($value) &&
+						$value != 'CURRENT_TIMESTAMP')) {
+					Z_Core::debug("Discarding invalid accessDate '" . $value . "'");
 					return false;
 				}
 			}
-			*/
 			
 			// If existing value, make sure it's actually changing
 			if (!$loadIn &&
@@ -1319,24 +1317,43 @@ class Zotero_Item {
 				
 				// Note
 				if ($this->isNote() || $this->changed['note']) {
-					$title = Zotero_Notes::noteToTitle($this->noteText);
+					$noteIsSanitized = false;
+					// If we don't have a sanitized note, generate one
+					if (is_null($this->noteTextSanitized)) {
+						$noteTextSanitized = Zotero_Notes::sanitize($this->noteText);
+						// But if the same as original, just use reference
+						if ($this->noteText == $noteTextSanitized) {
+							$this->noteTextSanitized =& $this->noteText;
+							$noteIsSanitized = true;
+						}
+						else {
+							$this->noteTextSanitized = $noteTextSanitized;
+						}
+					}
+					
+					// If note is sanitized already, store empty string
+					// If not, store sanitized version
+					$noteTextSanitized = $noteIsSanitized ? '' : $this->noteTextSanitized;
+					
+					$title = Zotero_Notes::noteToTitle($this->noteTextSanitized);
 					
 					$sql = "INSERT INTO itemNotes
-							(itemID, sourceItemID, note, title, hash) VALUES
-							(?,?,?,?,?)";
+							(itemID, sourceItemID, note, noteSanitized, title, hash)
+							VALUES (?,?,?,?,?,?)";
 					$parent = $this->isNote() ? $this->getSource() : null;
-					$noteText = $this->noteText ? $this->noteText : '';
-					$hash = $noteText ? md5($noteText) : '';
+					
+					$hash = $this->noteText ? md5($this->noteText) : '';
 					$bindParams = array(
 						$itemID,
 						$parent ? $parent : null,
-						$noteText,
+						$this->noteText,
+						$noteTextSanitized,
 						$title,
 						$hash
 					);
 					
 					Zotero_DB::query($sql, $bindParams, $shardID);
-					Zotero_Notes::updateNoteCache($this->libraryID, $itemID, $noteText);
+					Zotero_Notes::updateNoteCache($this->libraryID, $itemID, $this->noteText);
 					Zotero_Notes::updateHash($this->libraryID, $itemID, $hash);
 				}
 				
@@ -1759,25 +1776,43 @@ class Zotero_Item {
 				// Note or attachment note
 				//
 				if ($this->changed['note']) {
+					$noteIsSanitized = false;
+					// If we don't have a sanitized note, generate one
+					if (is_null($this->noteTextSanitized)) {
+						$noteTextSanitized = Zotero_Notes::sanitize($this->noteText);
+						// But if the same as original, just use reference
+						if ($this->noteText == $noteTextSanitized) {
+							$this->noteTextSanitized =& $this->noteText;
+							$noteIsSanitized = true;
+						}
+						else {
+							$this->noteTextSanitized = $noteTextSanitized;
+						}
+					}
+					
+					// If note is sanitized already, store empty string
+					// If not, store sanitized version
+					$noteTextSanitized = $noteIsSanitized ? '' : $this->noteTextSanitized;
+					
+					$title = Zotero_Notes::noteToTitle($this->noteTextSanitized);
+					
 					// Only record sourceItemID in itemNotes for notes
 					if ($this->isNote()) {
 						$sourceItemID = $this->getSource();
 					}
 					$sourceItemID = !empty($sourceItemID) ? $sourceItemID : null;
-					$noteText = $this->noteText ? $this->noteText : '';
-					$title = Zotero_Notes::noteToTitle($this->noteText);
-					$hash = $noteText ? md5($noteText) : '';
+					$hash = $this->noteText ? md5($this->noteText) : '';
 					$sql = "INSERT INTO itemNotes
-							(itemID, sourceItemID, note, title, hash) VALUES
-							(?,?,?,?,?) ON DUPLICATE KEY UPDATE
-							sourceItemID=?, note=?, title=?, hash=?";
+							(itemID, sourceItemID, note, noteSanitized, title, hash)
+							VALUES (?,?,?,?,?,?)
+							ON DUPLICATE KEY UPDATE sourceItemID=?, note=?, noteSanitized=?, title=?, hash=?";
 					$bindParams = array(
 						$this->id,
-						$sourceItemID, $noteText, $title, $hash,
-						$sourceItemID, $noteText, $title, $hash
+						$sourceItemID, $this->noteText, $noteTextSanitized, $title, $hash,
+						$sourceItemID, $this->noteText, $noteTextSanitized, $title, $hash
 					);
 					Zotero_DB::query($sql, $bindParams, $shardID);
-					Zotero_Notes::updateNoteCache($this->libraryID, $this->id, $noteText);
+					Zotero_Notes::updateNoteCache($this->libraryID, $this->id, $this->noteText);
 					Zotero_Notes::updateHash($this->libraryID, $this->id, $hash);
 					
 					// TODO: handle changed source?
@@ -1998,7 +2033,7 @@ class Zotero_Item {
 		Zotero_Items::reload($this->libraryID, $this->id);
 		
 		// Queue item for addition to search index
-		Zotero_Solr::queueItem($this->libraryID, $this->key);
+		Zotero_Index::queueItem($this->libraryID, $this->key);
 		
 		if ($isNew) {
 			//Zotero.Notifier.trigger('add', 'item', $this->getID());
@@ -2219,7 +2254,7 @@ class Zotero_Item {
 			$Type = 'Attachment';
 		}
 		else {
-			trigger_error("setSource() can only be called on notes and attachments", E_USER_ERROR);
+			throw new Exception("setSource() can be called only on notes and attachments");
 		}
 		
 		$this->sourceItem = $sourceItemID;
@@ -2237,7 +2272,7 @@ class Zotero_Item {
 			$Type = 'Attachment';
 		}
 		else {
-			throw new Exception("setSourceKey() can only be called on notes and attachments");
+			throw new Exception("setSourceKey() can be called only on notes and attachments");
 		}
 		
 		$oldSourceItemID = $this->getSource();
@@ -2323,7 +2358,7 @@ class Zotero_Item {
 	/**
 	* Get the text of an item note
 	**/
-	public function getNote() {
+	public function getNote($sanitized=false, $htmlspecialchars=false) {
 		if (!$this->isNote() && !$this->isAttachment()) {
 			throw new Exception("getNote() can only be called on notes and attachments");
 		}
@@ -2335,35 +2370,69 @@ class Zotero_Item {
 		// Store access time for later garbage collection
 		//$this->noteAccessTime = new Date();
 		
-		if (!is_null($this->noteText)) {
-			return $this->noteText;
+		if ($sanitized) {
+			if ($htmlspecialchars) {
+				throw new Exception('$sanitized and $htmlspecialchars cannot currently be used together');
+			}
+			
+			if (is_null($this->noteText)) {
+				$sql = "SELECT note, noteSanitized FROM itemNotes WHERE itemID=?";
+				$row = Zotero_DB::rowQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+				if (!$row) {
+					$row = array('note' => '', 'noteSanitized' => '');
+				}
+				// Empty string means the note is sanitized
+				// Null means not yet processed
+				if ($row['noteSanitized'] === '') {
+					$this->noteText = $row['note'];
+					$this->noteTextSanitized =& $this->noteText;
+				}
+				else {
+					$this->noteText = $row['note'];
+					if (!is_null($row['noteSanitized'])) {
+						$this->noteTextSanitized = $row['noteSanitized'];
+					}
+				}
+			}
+			
+			if (is_null($this->noteTextSanitized)) {
+				$sanitized = Zotero_Notes::sanitize($this->noteText);
+				// If sanitized version is the same, use reference
+				if ($this->noteText == $sanitized) {
+					$this->noteTextSanitized =& $this->noteText;
+				}
+				else {
+					$this->noteTextSanitized = $sanitized;
+				}
+			}
+			
+			return $this->noteTextSanitized;
 		}
 		
-		$note = Zotero_Notes::getCachedNote($this->libraryID, $this->id);
-		if ($note === false) {
-			$sql = "SELECT note FROM itemNotes WHERE itemID=?";
-			$note = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		if (is_null($this->noteText)) {
+			$note = Zotero_Notes::getCachedNote($this->libraryID, $this->id);
+			if ($note === false) {
+				$sql = "SELECT note FROM itemNotes WHERE itemID=?";
+				$note = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+			}
+			$this->noteText = $note ? $note : '';
 		}
 		
-		$this->noteText = $note ? $note : '';
+		if ($this->noteText !== '' && $htmlspecialchars) {
+			$noteHash = $this->getNoteHash();
+			if (!$noteHash) {
+				throw new Exception("Note hash is empty");
+			}
+			$cacheKey = "htmlspecialcharsNote_$noteHash";
+			$note = Z_Core::$MC->get($cacheKey);
+			if ($note === false) {
+				$note = htmlspecialchars($this->noteText);
+				Z_Core::$MC->set($cacheKey, $note);
+			}
+			return $note;
+		}
 		
 		return $this->noteText;
-	}
-	
-	
-	public function getNoteHash() {
-		if (!$this->isNote() && !$this->isAttachment()) {
-			trigger_error("getNoteHash() can only be called on notes and attachments", E_USER_ERROR);
-		}
-		
-		if (!$this->id) {
-			return '';
-		}
-		
-		// Store access time for later garbage collection
-		//$this->noteAccessTime = new Date();
-		
-		return Zotero_Notes::getHash($this->libraryID, $this->id);
 	}
 	
 	
@@ -2385,6 +2454,7 @@ class Zotero_Item {
 		}
 		
 		$this->noteText = $text;
+		$this->noteTextSanitized = null;
 		$this->changed['note'] = true;
 	}
 	
@@ -2832,7 +2902,230 @@ class Zotero_Item {
 	}
 	
 	
-	public function toJSON($asArray=false, $prettyPrint=false) {
+	public function toHTML($asSimpleXML=false) {
+		$html = new SimpleXMLElement('<table/>');
+		
+		/*
+		// Title
+		$tr = $html->addChild('tr');
+		$tr->addAttribute('class', 'title');
+		$tr->addChild('th', Zotero_ItemFields::getLocalizedString(false, 'title'));
+		$tr->addChild('td', htmlspecialchars($item->getDisplayTitle(true)));
+		*/
+		
+		// Item type
+		$this->addHTMLRow(
+			$html,
+			"itemType",
+			Zotero_ItemFields::getLocalizedString(false, 'itemType'),
+			Zotero_ItemTypes::getLocalizedString($this->itemTypeID)
+		);
+		
+		// Creators
+		$creators = $this->getCreators();
+		if ($creators) {
+			$displayText = '';
+			foreach ($creators as $creator) {
+				// Two fields
+				if ($creator['ref']->fieldMode == 0) {
+					$displayText = $creator['ref']->firstName . ' ' . $creator['ref']->lastName;
+				}
+				// Single field
+				else if ($creator['ref']->fieldMode == 1) {
+					$displayText = $creator['ref']->lastName;
+				}
+				else {
+					// TODO
+				}
+				
+				$this->addHTMLRow(
+					$html,
+					"creator",
+					Zotero_CreatorTypes::getLocalizedString($creator['creatorTypeID']),
+					trim($displayText)
+				);
+			}
+		}
+		
+		//$primaryFields = Zotero_Items::$primaryFields;
+		$primaryFields = array();
+		$fields = array_merge($primaryFields, $this->getUsedFields());
+		
+		foreach ($fields as $field) {
+			if (in_array($field, $primaryFields)) {
+				$fieldName = $field;
+			}
+			else {
+				$fieldName = Zotero_ItemFields::getName($field);
+			}
+			
+			// Skip certain fields
+			switch ($fieldName) {
+				case '':
+				case 'userID':
+				case 'libraryID':
+				case 'key':
+				case 'itemTypeID':
+				case 'itemID':
+				case 'title':
+				//case 'numAttachments':
+				//case 'numNotes':
+				case 'serverDateModified':
+					continue 2;
+			}
+			
+			$localizedFieldName = Zotero_ItemFields::getLocalizedString(false, $field);
+			
+			$value = $this->getField($field);
+			$value = trim($value);
+			
+			// Skip empty fields
+			if (!$value) {
+				continue;
+			}
+			
+			$fieldText = '';
+			
+			// Shorten long URLs manually until Firefox wraps at ?
+			// (like Safari) or supports the CSS3 word-wrap property
+			if (false && preg_match("'https?://'", $value)) {
+				$fieldText = $value;
+				
+				$firstSpace = strpos($value, ' ');
+				// Break up long uninterrupted string
+				if (($firstSpace === false && strlen($value) > 29) || $firstSpace > 29) {
+					$stripped = false;
+					
+					/*
+					// Strip query string for sites we know don't need it
+					for each(var re in _noQueryStringSites) {
+						if (re.test($field)){
+							var pos = $field.indexOf('?');
+							if (pos != -1) {
+								fieldText = $field.substr(0, pos);
+								stripped = true;
+							}
+							break;
+						}
+					}
+					*/
+					
+					if (!$stripped) {
+						// Add a line-break after the ? of long URLs
+						//$fieldText = str_replace($field.replace('?', "?<ZOTEROBREAK/>");
+						
+						// Strip query string variables from the end while the
+						// query string is longer than the main part
+						$pos = strpos($fieldText, '?');
+						if ($pos !== false) {
+							while ($pos < (strlen($fieldText) / 2)) {
+								$lastAmp = strrpos($fieldText, '&');
+								if ($lastAmp === false) {
+									break;
+								}
+								$fieldText = substr($fieldText, 0, $lastAmp);
+								$shortened = true;
+							}
+							// Append '&...' to the end
+							if ($shortened) {
+								 $fieldText .= "&…";
+							}
+						}
+					}
+				}
+				
+				if ($field == 'url') {
+					$linkContainer = new SimpleXMLElement("<container/>");
+					$linkContainer->a = $value;
+					$linkContainer->a['href'] = $fieldText;
+				}
+			}
+			// Remove SQL date from multipart dates
+			// (e.g. '2006-00-00 Summer 2006' becomes 'Summer 2006')
+			else if ($fieldName == 'date') {
+				$fieldText = htmlspecialchars($value);
+			}
+			// Convert dates to local format
+			else if ($fieldName == 'accessDate' || $fieldName == 'dateAdded' || $fieldName == 'dateModified') {
+				//$date = Zotero.Date.sqlToDate($field, true)
+				$date = $value;
+				//fieldText = escapeXML(date.toLocaleString());
+				$fieldText = htmlspecialchars($date);
+			}
+			else {
+				$fieldText = htmlspecialchars($value);
+			}
+			
+			if (isset($linkContainer)) {
+				$tr = $this->addHTMLRow($html, $fieldName, $localizedFieldName, "", true);
+				
+				$tdNode = dom_import_simplexml($tr->td);
+				$linkNode = dom_import_simplexml($linkContainer->a);
+				$importedNode = $tdNode->ownerDocument->importNode($linkNode, true);
+				$tdNode->appendChild($importedNode);
+				unset($linkContainer);
+			}
+			else {
+				$this->addHTMLRow($html, $fieldName, $localizedFieldName, $fieldText);
+			}
+		}
+		
+		if ($this->isNote() || $this->isAttachment()) {
+			$note = $this->getNote(true);
+			if ($note) {
+				$tr = $this->addHTMLRow($html, "note", "Note", "", true);
+				
+				try {
+					$noteXML = @new SimpleXMLElement("<td>" . $note . "</td>");
+					$trNode = dom_import_simplexml($tr);
+					$tdNode = $trNode->getElementsByTagName("td")->item(0);
+					$noteNode = dom_import_simplexml($noteXML);
+					$importedNode = $trNode->ownerDocument->importNode($noteNode, true);
+					$trNode->replaceChild($importedNode, $tdNode);
+					unset($noteXML);
+				}
+				catch (Exception $e) {
+					// Store non-HTML notes as <pre>
+					$tr->td->pre = $note;
+				}
+			}
+		}
+		
+		if ($this->isAttachment()) {
+			$this->addHTMLRow($html, "linkMode", "Link Mode", $this->attachmentLinkMode);
+			$this->addHTMLRow($html, "mimeType", "MIME Type", $this->attachmentMIMEType);
+			$this->addHTMLRow($html, "charset", "Character Set", $this->attachmentCharset);
+			
+			// TODO: get from a constant
+			/*if ($this->attachmentLinkMode != 3) {
+				$doc->addField('path', $this->attachmentPath);
+			}*/
+		}
+		
+		if ($asSimpleXML) {
+			return $html;
+		}
+		
+		return str_replace('<?xml version="1.0"?>', '', $html->asXML());
+	}
+	
+	
+	private function addHTMLRow($html, $fieldName, $displayName, $value, $includeEmpty=false) {
+		if (!$includeEmpty && ($value === '' || $value === false)) {
+			return;
+		}
+		
+		$tr = $html->addChild('tr');
+		$tr->addAttribute('class', $fieldName);
+		$th = $tr->addChild('th', $displayName);
+		$th['style'] = 'text-align: right';
+		$td = $tr->addChild('td', htmlspecialchars($value));
+		return $tr;
+	}
+	
+	
+	
+	public function toJSON($asArray=false, $prettyPrint=false, $includeEmpty=false, $unformattedFields=false) {
 		if ($this->id || $this->key) {
 			if (!$this->loaded['primaryData']) {
 				$this->loadPrimaryData(true);
@@ -2850,9 +3143,11 @@ class Zotero_Item {
 		// For regular items, show title and creators first
 		if ($regularItem) {
 			// Get 'title' or the equivalent base-mapped field
-			$titleFieldID = Zotero_ItemFields::getBaseIDFromTypeAndField($this->itemTypeID, 'title');
+			$titleFieldID = Zotero_ItemFields::getFieldIDFromTypeAndBase($this->itemTypeID, 'title');
 			$titleFieldName = Zotero_ItemFields::getName($titleFieldID);
-			$arr[$titleFieldName] = $this->itemData[$titleFieldID];
+			if ($includeEmpty || $this->itemData[$titleFieldID] !== false) {
+				$arr[$titleFieldName] = $this->itemData[$titleFieldID];
+			}
 			
 			// Creators
 			$arr['creators'] = array();
@@ -2872,24 +3167,65 @@ class Zotero_Item {
 				}
 				$arr['creators'][] = $c;
 			}
+			if (!$arr['creators'] && !$includeEmpty) {
+				unset($arr['creators']);
+			}
 		}
 		else {
 			$titleFieldID = false;
 		}
-			
+		
 		// Item metadata
-		foreach ($this->itemData as $field=>$value) {
+		$fields = array_keys($this->itemData);
+		foreach ($fields as $field) {
 			if ($field == $titleFieldID) {
 				continue;
 			}
 			
-			$arr[Zotero_ItemFields::getName($field)] =
-				$this->itemData[$field] ? $this->itemData[$field] : '';
+			if ($unformattedFields) {
+				$value = $this->itemData[$field];
+			}
+			else {
+				$value = $this->getField($field);
+			}
+			
+			if (!$includeEmpty && ($value === false || $value === "")) {
+				continue;
+			}
+			
+			$arr[Zotero_ItemFields::getName($field)] = $value ? $value : "";
 		}
 		
 		// Embedded note for notes and attachments
 		if (!$regularItem) {
-			$arr['note'] = $this->getNote();
+			// Use sanitized version
+			$arr['note'] = $this->getNote(true);
+		}
+		
+		if ($this->isAttachment()) {
+			$val = $this->attachmentLinkMode;
+			if ($includeEmpty || ($val !== false && $val !== "")) {
+				$arr['linkMode'] = $val;
+			}
+			
+			$val = $this->attachmentMIMEType;
+			if ($includeEmpty || ($val !== false && $val !== "")) {
+				$arr['mimeType'] = $val;
+			}
+			
+			$val = $this->attachmentCharset;
+			if ($includeEmpty || ($val !== false && $val !== "")) {
+				$arr['charset'] = $val;
+			}
+			
+			// TODO: get from a constant
+			/*if ($this->attachmentLinkMode != 3) {
+				$doc->addField('path', $this->attachmentPath);
+			}*/
+		}
+		
+		if ($this->getDeleted()) {
+			$arr['deleted'] = 1;
 		}
 		
 		// Tags
@@ -2921,6 +3257,58 @@ class Zotero_Item {
 		// Until JSON_UNESCAPED_SLASHES is available
 		$json = str_replace('\\/', '/', $json);
 		return $json;
+	}
+	
+	
+	public function toMongoIndexDocument() {
+		if (!$this->loaded['primaryData']) {
+			$this->loadPrimaryData(true);
+		}
+		
+		$fields = array();
+		$fields['_id'] = $this->libraryID . "/" . $this->key;
+		$fields['dateAdded'] = new MongoDate(strtotime($this->dateAdded));
+		$fields['dateModified'] = new MongoDate(strtotime($this->dateModified));
+		$fields['serverDateModified'] = strtotime($this->serverDateModified) + (float) ("0." . $this->serverDateModifiedMS);
+		if ($parent = $this->getSourceKey()) {
+			$fields['parent'] = $parent;
+		}
+		if ($this->getDeleted()) {
+			$fields['deleted'] = true;
+		}
+		
+		$creatorSummary = $this->getCreatorSummary();
+		if ($creatorSummary) {
+			$fields['creatorSummary'] = $creatorSummary;
+		}
+		// Store this annoying field until Mongo supports advanced sorting
+		$fields['creatorIsEmpty'] = !$creatorSummary;
+		
+		// Title for sorting
+		$title = $this->getDisplayTitle(true);
+		$title = $title ? $title : '';
+		// Strip HTML from note titles
+		if ($this->isNote()) {
+			// Clean and strip HTML, giving us an HTML-encoded plaintext string
+			$title = strip_tags($GLOBALS['HTMLPurifier']->purify($title));
+			// Unencode plaintext string
+			$title = html_entity_decode($title);
+		}
+		// Strip some characters
+		$sortTitle = preg_replace("/^[\[\'\"]*(.*)[\]\'\"]*$/", "$1", $title);
+		if ($sortTitle) {
+			$fields['sortTitle'] = $sortTitle;
+		}
+		
+		$itemData = $this->toJSON(true, false, false, true);
+		if (empty($itemData['note'])) {
+			unset($itemData['note']);
+		}
+		if (empty($itemData['tags'])) {
+			unset($itemData['tags']);
+		}
+		
+		return array_merge($fields, $itemData);
 	}
 	
 	
@@ -3172,6 +3560,22 @@ class Zotero_Item {
 		}
 		
 		$this->loaded['itemData'] = true;
+	}
+	
+	
+	private function getNoteHash() {
+		if (!$this->isNote() && !$this->isAttachment()) {
+			trigger_error("getNoteHash() can only be called on notes and attachments", E_USER_ERROR);
+		}
+		
+		if (!$this->id) {
+			return '';
+		}
+		
+		// Store access time for later garbage collection
+		//$this->noteAccessTime = new Date();
+		
+		return Zotero_Notes::getHash($this->libraryID, $this->id);
 	}
 	
 	

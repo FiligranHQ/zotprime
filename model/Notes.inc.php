@@ -121,6 +121,11 @@ class Zotero_Notes {
 	}
 	
 	
+	public static function sanitize($text) {
+		return $GLOBALS['HTMLPurifier']->purify($text);
+	}
+	
+	
 	/**
 	 * Return first line (or first MAX_LENGTH characters) of note content
 	 */
@@ -129,6 +134,13 @@ class Zotero_Notes {
 			return '';
 		}
 		$max = self::$MAX_TITLE_LENGTH;
+		
+		// Get a reasonable beginning to work with
+		$text = mb_substr($text, 0, $max * 5);
+		
+		// Clean and unencode
+		$text = strip_tags(self::sanitize($text));
+		$text = html_entity_decode($text);
 		
 		$t = mb_substr($text, 0, $max);
 		$ln = mb_strpos($t, "\n");

@@ -156,7 +156,7 @@ class Zotero_Index_Processor extends Zotero_Processor {
 	}
 	
 	protected function processFromQueue() {
-		return Zotero_Solr::processFromQueue($this->id);
+		return Zotero_Index::processFromQueue($this->id);
 	}
 }
 ?>

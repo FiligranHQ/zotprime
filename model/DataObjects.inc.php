@@ -479,7 +479,7 @@ class Zotero_DataObjects {
 			
 			// Queue item for deletion from search index
 			if ($type == 'item') {
-				Zotero_Solr::queueItem($libraryID, $key);
+				Zotero_Index::queueItem($libraryID, $key);
 			}
 		}
 		

@@ -132,7 +132,7 @@ class SyncController extends Controller {
 		$userID = Zotero_Users::authenticate('password', $authData);
 		if (!$userID) {
 			$userID = Zotero_Users::authenticate('http', $authData);
-			if (!$userID) {                                                                   
+			if (!$userID) {
 				// TODO: if GMU unavailable, return this
 				//$this->error(503, 'SERVICE_UNAVAILABLE', "Cannot authenticate login");
 				

@@ -34,6 +34,7 @@ class ApiController extends Controller {
 	private $method;
 	private $ifUnmodifiedSince;
 	private $body;
+	private $apiKey;
 	private $responseXML;
 	private $apiVersion;
 	private $userID; // request user
@@ -50,6 +51,7 @@ class ApiController extends Controller {
 	private $objectName;
 	private $subset;
 	private $fileMode;
+	private $httpAuth;
 	
 	private $profile = false;
 	private $profileShard = 0;
@@ -121,17 +123,20 @@ class ApiController extends Controller {
 						$this->e401('Invalid login');
 					}
 				}
+				$this->httpAuth = true;
 				$this->userID = $userID;
 				$this->permissions = new Zotero_Permissions($userID);
 				$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 				
-				// Grant user all permissions on own library
-				$this->permissions->setPermission($libraryID, 'all', true);
+				// Grant user file permissions on own library
+				$this->permissions->setPermission($libraryID, 'library', true);
+				$this->permissions->setPermission($libraryID, 'files', true);
 				
-				// Grant user permissions on allowed groups
+				// Grant user file permissions on allowed groups
 				$groups = Zotero_Groups::getAllAdvanced($userID);
 				foreach ($groups['groups'] as $group) {
-					$this->permissions->setPermission($group->libraryID, 'all', true);
+					$this->permissions->setPermission($group->libraryID, 'library', true);
+					$this->permissions->setPermission($group->libraryID, 'files', true);
 				}
 			}
 			
@@ -144,6 +149,7 @@ class ApiController extends Controller {
 			if (!$keyObj) {
 				$this->e403('Invalid key');
 			}
+			$this->apiKey = $_GET['key'];
 			$this->userID = $keyObj->userID;
 			$this->permissions = $keyObj->getPermissions();
 		}
@@ -168,11 +174,6 @@ class ApiController extends Controller {
 			$this->permissions->setAnonymous();
 		}
 		
-		// For now, allow only internal requests to non-GET/HEAD methods
-		if (!in_array($this->method, array('HEAD', 'GET', 'POST')) && $this->userID !== 0) {
-			$this->e403();
-		}
-		
 		// Get the API version
 		if (empty($_REQUEST['version'])) {
 			$this->apiVersion = $this->defaultAPIVersion;
@@ -194,6 +195,9 @@ class ApiController extends Controller {
 			}
 			else {
 				$objectUserID = (int) $extra['userID'];
+				if (!$objectUserID) {
+					$this->e400("Invalid user ID", Z_ERROR_INVALID_INPUT);
+				}
 			}
 			$this->objectUserID = $objectUserID;
 			
@@ -213,6 +217,9 @@ class ApiController extends Controller {
 		// Get object group
 		else if (!empty($extra['groupID'])) {
 			$objectGroupID = (int) $extra['groupID'];
+			if (!$objectGroupID) {
+				$this->e400("Invalid group ID", Z_ERROR_INVALID_INPUT);
+			}
 			// Make sure group exists
 			$group = Zotero_Groups::get($objectGroupID);
 			if (!$group) {
@@ -222,6 +229,17 @@ class ApiController extends Controller {
 			$this->objectLibraryID = Zotero_Groups::getLibraryIDFromGroupID($objectGroupID);
 		}
 		
+		
+		// Return 409 if target library is locked
+		switch ($this->method) {
+			case 'POST':
+			case 'PUT':
+			case 'DELETE':
+				if ($this->objectLibraryID && Zotero_Libraries::isLocked($this->objectLibraryID)) {
+					$this->e409();
+				}
+				break;
+		}
 		
 		$this->scopeObject = !empty($extra['scopeObject']) ? $extra['scopeObject'] : null;
 		$this->scopeObjectID = !empty($extra['scopeObjectID']) ? (int) $extra['scopeObjectID'] : null;
@@ -264,7 +282,7 @@ class ApiController extends Controller {
 							? (!empty($_GET['info']) ? 'info' : 'download')
 							: false;
 		
-		// Validate and import query parameters
+		// Validate query parameters and fill defaults
 		
 		// Handle multiple identical parameters in the CGI-standard way instead of
 		// PHP's foo[]=bar way
@@ -310,7 +328,7 @@ class ApiController extends Controller {
 							break;
 						
 						default:
-							continue 3;
+							throw new Exception("Invalid 'format' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
@@ -334,16 +352,24 @@ class ApiController extends Controller {
 							break;
 						
 						default:
-							continue 3;
+							throw new Exception("Invalid 'content' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
-					
+				
 				case 'order':
+					// Whether to sort empty values first
+					//
+					// Until Mongo supports more advanced sorting, a value of FALSE
+					// requires an explicit _____IsEmpty field in the Mongo document
+					$this->queryParams['emptyFirst'] = Zotero_API::getSortEmptyFirst($getParams[$key]);
+					
 					switch ($getParams[$key]) {
 						// Valid fields to sort by
 						case 'dateAdded':
 						case 'dateModified':
 						case 'title':
+						case 'date':
+						case 'creator':
 							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
 								$this->queryParams['sort'] = Zotero_API::getDefaultSort($getParams[$key]);
 							}
@@ -353,7 +379,7 @@ class ApiController extends Controller {
 							break;
 						
 						default:
-							continue 3;
+							throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 			}
@@ -369,27 +395,27 @@ class ApiController extends Controller {
 	
 	
 	public function items() {
-		if ($this->method == 'POST' || $this->method == 'PUT') {
-			if (!$this->body) {
-				$this->e400("$this->method data not provided");
-			}
+		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
+			$this->e400("$this->method data not provided");
 		}
 		
 		// TEMP
-		//$solr = !empty($_GET['solr']);
-		$solr = Z_CONFIG::$TESTING_SITE;
+		//$mongo = !empty($_GET['mongo']);
+		$mongo = Z_CONFIG::$TESTING_SITE;
 		
 		$itemIDs = array();
 		$items = array();
 		$totalResults = null;
 		
+		//
 		// Single item
+		//
 		if (($this->objectID || $this->objectKey) && !$this->subset) {
 			if ($this->fileMode) {
 				$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD'));
 			}
 			else {
-				$this->allowMethods(array('GET', 'PUT'));
+				$this->allowMethods(array('GET', 'PUT', 'DELETE'));
 			}
 			
 			// Check for general library access
@@ -461,11 +487,40 @@ class ApiController extends Controller {
 				exit;
 			}
 			
-			// Update existing item
-			if ($this->method == 'PUT') {
+			if ($this->scopeObject) {
+				switch ($this->scopeObject) {
+					// Remove item from collection
+					case 'collections':
+						$this->allowMethods(array('DELETE'));
+						
+						if (!$this->permissions->canWrite($this->objectLibraryID)) {
+							$this->e403("Write access denied");
+						}
+						
+						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
+						if (!$collection) {
+							$this->e404("Collection not found");
+						}
+						
+						if (!$collection->hasItem($item->id)) {
+							$this->e404("Item not found in collection");
+						}
+						
+						$collection->removeItem($item->id);
+						$this->e204();
+					
+					default:
+						$this->e400();
+				}
+			}
+			
+			if ($this->method == 'PUT' || $this->method == 'DELETE') {
+				if (!$this->permissions->canWrite($this->objectLibraryID)) {
+					$this->e403("Write access denied");
+				}
+				
 				// TEMP: allow skipping ETag during development
 				if (empty($_GET['skipetag'])) {
-					
 					if (empty($_SERVER['HTTP_IF_MATCH'])) {
 						$this->e400("If-Match header not provided");
 					}
@@ -477,13 +532,29 @@ class ApiController extends Controller {
 					if ($item->etag != $matches[1]) {
 						$this->e412("ETag does not match current version of item");
 					}
-					
 				}
 				
-				$obj = $this->jsonDecode($this->body);
-				Zotero_Items::updateFromJSON($item, $obj);
-				$this->queryParams['format'] = 'atom';
-				$this->queryParams['content'] = 'json';
+				// Update existing item
+				if ($this->method == 'PUT') {
+					$obj = $this->jsonDecode($this->body);
+					Zotero_Items::updateFromJSON($item, $obj);
+					$this->queryParams['format'] = 'atom';
+					$this->queryParams['content'] = 'json';
+				}
+				
+				// Delete existing item
+				else {
+					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
+					
+					try {
+						Zotero_Processors::notifyProcessors('index');
+					}
+					catch (Exception $e) {
+						Z_Core::logError($e);
+					}
+					
+					$this->e204();
+				}
 			}
 			
 			// Display item
@@ -499,28 +570,23 @@ class ApiController extends Controller {
 					exit;
 			}
 		}
+		
+		//
 		// Multiple items
+		//
 		else {
 			$this->allowMethods(array('GET', 'POST'));
 			
-			// If no access, return empty feed
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->responseXML = Zotero_Atom::createAtomFeed(
-					$this->getFeedNamePrefix() . "Items",
-					$this->uri,
-					array(),
-					0,
-					$this->queryParams,
-					$this->apiVersion
-				);
-				$this->end();
+				$this->e403();
 			}
 			
 			if ($this->scopeObject) {
-				$this->allowMethods(array('GET'));
+				$this->allowMethods(array('GET', 'POST'));
 				
 				// If id, redirect to key URL
 				if ($this->scopeObjectID) {
+					$this->allowMethods(array('GET'));
 					if (!in_array($this->scopeObject, array("collections", "tags"))) {
 						$this->e400();
 					}
@@ -541,11 +607,48 @@ class ApiController extends Controller {
 						if (!$collection) {
 							$this->e404("Collection not found");
 						}
+						
+						// Add items to collection
+						if ($this->method == 'POST') {
+							if (!$this->permissions->canWrite($this->objectLibraryID)) {
+								$this->e403("Write access denied");
+							}
+							
+							$itemKeys = explode(' ', $this->body);
+							$itemIDs = array();
+							foreach ($itemKeys as $key) {
+								try {
+									$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $key);
+								}
+								catch (Exception $e) {
+									if ($e->getCode() == Z_ERROR_OBJECT_LIBRARY_MISMATCH) {
+										$item = false;
+									}
+									else {
+										throw ($e);
+									}
+								}
+								
+								if (!$item) {
+									throw new Exception("Item '$key' not found in library", Z_ERROR_INVALID_INPUT);
+								}
+								
+								if ($item->getSource()) {
+									throw new Exception("Child items cannot be added to collections directly", Z_ERROR_INVALID_INPUT);
+								}
+								$itemIDs[] = $item->id;
+							}
+							$collection->addItems($itemIDs);
+							$this->e204();
+						}
+						
 						$title = "Items in Collection ‘" . $collection->name . "’";
 						$itemIDs = $collection->getChildItems();
 						break;
 					
 					case 'tags':
+						$this->allowMethods(array('GET'));
+						
 						$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $this->scopeObjectName);
 						if (!$tagIDs) {
 							$this->e404("Tag not found");
@@ -577,7 +680,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					if ($solr) {
+					if ($mongo) {
 						$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
 					}
 					else {
@@ -620,12 +723,21 @@ class ApiController extends Controller {
 					
 					// Create new child items
 					if ($this->method == 'POST') {
+						if (!$this->permissions->canWrite($this->objectLibraryID)) {
+							$this->e403("Write access denied");
+						}
+						
 						$obj = $this->jsonDecode($this->body);
 						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item);
 						
-						var_dump($keys);
-						//$this->e303();
-						exit;
+						$uri = Zotero_API::getItemURI($item)
+								. "/children?itemKey="
+								. urlencode(implode(",", $keys))
+								. "&content=json";
+						if ($this->apiKey) {
+							$uri .= "&key=" . $this->apiKey;
+						}
+						$this->e303($uri);
 					}
 					
 					// Display items
@@ -638,6 +750,10 @@ class ApiController extends Controller {
 				else {
 					// Create new items
 					if ($this->method == 'POST') {
+						if (!$this->permissions->canWrite($this->objectLibraryID)) {
+							$this->e403("Write access denied");
+						}
+						
 						$obj = $this->jsonDecode($this->body);
 						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID);
 						
@@ -649,12 +765,15 @@ class ApiController extends Controller {
 								. "?itemKey="
 								. urlencode(implode(",", $keys))
 								. "&content=json";
+						if ($this->apiKey) {
+							$uri .= "&key=" . $this->apiKey;
+						}
 						$this->e303($uri);
 					}
 					
 					$title = "Items";
 					// TEMP
-					if ($solr) {
+					if ($mongo) {
 						$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
 					}
 					else {
@@ -663,7 +782,7 @@ class ApiController extends Controller {
 				}
 				
 				// TEMP
-				if (!$solr) {
+				if (!$mongo) {
 					if (!empty($results)) {
 						$items = $results['items'];
 						$totalResults = $results['total'];
@@ -690,7 +809,7 @@ class ApiController extends Controller {
 			
 			if ($itemIDs) {
 				// TEMP
-				if ($solr) {
+				if ($mongo) {
 					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
 					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
 				}
@@ -722,7 +841,7 @@ class ApiController extends Controller {
 			}
 			
 			// TEMP
-			if ($solr) {
+			if ($mongo) {
 				$items = $results['items'];
 				$totalResults = $results['total'];
 			}
@@ -766,7 +885,7 @@ class ApiController extends Controller {
 	//
 	
 	public function laststoragesync() {
-		if (!$this->userID) {
+		if (!$this->httpAuth) {
 			$this->e403();
 		}
 		
@@ -787,11 +906,13 @@ class ApiController extends Controller {
 	
 	
 	public function removestoragefiles() {
-		$libraryID = Zotero_Users::getLibraryIDFromUserID($this->objectUserID);
+		if (!$this->permissions->isSuper() && !$this->httpAuth) {
+			$this->e403();
+		}
 		
 		$this->allowMethods(array('POST'));
 		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID) WHERE libraryID=?";
-		Zotero_DB::query($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
+		Zotero_DB::query($sql, $this->objectLibraryID, Zotero_Shards::getByLibraryID($this->objectLibraryID));
 		header("HTTP/1.1 204 No Content");
 		exit;
 	}
@@ -1122,12 +1243,19 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
+		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
+			$this->e400("$this->method data not provided");
+		}
+		
 		$collections = array();
 		
 		// Single collection
 		if (($this->objectID || $this->objectKey) && $this->subset != 'collections') {
+			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+			
 			// If id, redirect to key URL
 			if ($this->objectID) {
+				$this->allowMethods(array('GET'));
 				$collection = Zotero_Collections::get($this->objectLibraryID, $this->objectID);
 				if (!$collection) {
 					$this->e404("Collection not found");
@@ -1147,26 +1275,55 @@ class ApiController extends Controller {
 				$this->e403();
 			}
 			
+			if ($this->method == 'PUT' || $this->method == 'DELETE') {
+				if (!$this->permissions->canWrite($this->objectLibraryID)) {
+					$this->e403("Write access denied");
+				}
+				
+				// TEMP: allow skipping ETag during development
+				if (empty($_GET['skipetag'])) {
+					if (empty($_SERVER['HTTP_IF_MATCH'])) {
+						$this->e400("If-Match header not provided");
+					}
+					
+					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+						$this->e400("Invalid ETag in If-Match header");
+					}
+					
+					if ($collection->etag != $matches[1]) {
+						$this->e412("ETag does not match current version of collection");
+					}
+				}
+				
+				if ($this->method == 'PUT') {
+					$obj = $this->jsonDecode($this->body);
+					Zotero_Collections::updateFromJSON($collection, $obj);
+					$this->queryParams['format'] = 'atom';
+					$this->queryParams['content'] = 'json';
+				}
+				
+				// Delete
+				else {
+					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey);
+					$this->e204();
+				}
+			}
+			
 			$this->responseXML = Zotero_Collections::convertCollectionToAtom(
 				$collection, $this->queryParams['content']
 			);
 		}
 		// All collections
 		else {
-			// If library isn't public, return empty feed
+			$this->allowMethods(array('GET', 'POST'));
+			
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->responseXML = Zotero_Atom::createAtomFeed(
-					$this->getFeedNamePrefix() . "Collections",
-					$this->uri,
-					array(),
-					0,
-					$this->queryParams,
-					$this->apiVersion
-				);
-				$this->end();
+				$this->e403();
 			}
 			
 			if ($this->scopeObject) {
+				$this->allowMethods(array('GET'));
+				
 				switch ($this->scopeObject) {
 					case 'collections':
 						// If id, redirect to key URL
@@ -1190,6 +1347,22 @@ class ApiController extends Controller {
 				}
 			}
 			else {
+				// Create a collection
+				if ($this->method == 'POST') {
+					if (!$this->permissions->canWrite($this->objectLibraryID)) {
+						$this->e403("Write access denied");
+					}
+					
+					$obj = $this->jsonDecode($this->body);
+					$collection = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
+					
+					$uri = Zotero_API::getCollectionURI($collection) . "?content=json";
+					if ($this->apiKey) {
+						$uri .= "&key=" . $this->apiKey;
+					}
+					$this->e303($uri);
+				}
+				
 				$title = "Collections";
 				$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, $this->queryParams);
 				$collections = $results['collections'];
@@ -1236,17 +1409,10 @@ class ApiController extends Controller {
 	
 	
 	public function tags() {
-		// If library isn't public, return empty feed
+		$this->allowMethods(array('GET'));
+		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
-			$this->responseXML = Zotero_Atom::createAtomFeed(
-				"Tags",
-				$this->uri,
-				array(),
-				0,
-				$this->queryParams,
-				$this->apiVersion
-			);
-			$this->end();
+			$this->e403();
 		}
 		
 		$tags = array();
@@ -1366,13 +1532,12 @@ class ApiController extends Controller {
 	
 	
 	public function groups() {
+		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
+			$this->e400("$this->method data not provided");
+		}
+		
 		$groupID = $this->groupID;
 		
-		if ($this->method == 'POST' || $this->method == 'PUT') {
-			if (!$this->body) {
-				$this->e400("$this->method data not provided");
-			}
-		}
 		
 		//
 		// Add a group
@@ -1666,19 +1831,21 @@ class ApiController extends Controller {
 	
 	
 	public function groupUsers() {
+		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
+			$this->e400("$this->method data not provided");
+		}
+		
+		// For now, only allow root and user access
+		if (!$this->permissions->isSuper()) {
+			$this->e403();
+		}
+		
 		$groupID = $this->scopeObjectID;
 		$userID = $this->objectID;
 		
 		$group = Zotero_Groups::get($groupID);
 		if (!$group) {
 			$this->e404("Group $groupID does not exist");
-		}
-		
-		// TODO: move to constructor?
-		if ($this->method == 'POST' || $this->method == 'PUT') {
-			if (!$this->body) {
-				$this->e400("$this->method data not provided");
-			}
 		}
 		
 		// Add multiple users to group
@@ -1869,11 +2036,6 @@ class ApiController extends Controller {
 			exit;
 		}
 		
-		// For now, only allow root and user access
-		if (!$this->permissions->isSuper()) {
-			$this->e403();
-		}
-		
 		// Single user
 		if ($userID) {
 			$this->responseXML = $group->memberToAtom($userID);
@@ -1909,6 +2071,10 @@ class ApiController extends Controller {
 	
 	
 	public function keys() {
+		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
+			$this->e400("$this->method data not provided");
+		}
+		
 		if (!$this->permissions->isSuper()) {
 			$this->e404();
 		}
@@ -2088,6 +2254,7 @@ class ApiController extends Controller {
 				$a['library'] = (int) $access['library'];
 				$a['notes'] = (int) $access['notes'];
 			}
+			$a['write'] = isset($access['write']) ? (bool) (int) $access['write'] : false;
 			$fields['access'][] = $a;
 		}
 		return $fields;
@@ -2096,11 +2263,17 @@ class ApiController extends Controller {
 	
 	private function setKeyPermissions($keyObj, $accessElement) {
 		foreach ($accessElement as $accessField=>$accessVal) {
+			// 'write' is handled below
+			if ($accessField == 'write') {
+				continue;
+			}
+			
 			// Group library access (<access group="23456"/>)
 			if ($accessField == 'group') {
 				// Grant access to all groups
 				if ($accessVal === 0) {
 					$keyObj->setPermission(0, 'group', true);
+					$keyObj->setPermission(0, 'write', $accessElement['write']);
 				}
 				else {
 					$group = Zotero_Groups::get($accessVal);
@@ -2111,12 +2284,14 @@ class ApiController extends Controller {
 						$this->e400("User $this->id is not a member of group $group->id");
 					}
 					$keyObj->setPermission($group->libraryID, 'library', true);
+					$keyObj->setPermission($group->libraryID, 'write', $accessElement['write']);
 				}
 			}
 			// Personal library access (<access library="1" notes="0"/>)
 			else {
 				$libraryID = Zotero_Users::getLibraryIDFromUserID($this->objectUserID);
 				$keyObj->setPermission($libraryID, $accessField, $accessVal);
+				$keyObj->setPermission($libraryID, 'write', $accessElement['write']);
 			}
 		}
 	}
@@ -2127,7 +2302,7 @@ class ApiController extends Controller {
 	 */
 	public function mappings() {
 		if (!empty($_GET['locale']) && $_GET['locale'] != 'en-US') {
-			throw new Exception("Non-English locales are not yet supported");
+			$this->e400("Non-English locales are not yet supported");
 		}
 		
 		$locale = empty($_GET['locale']) ? 'en-US' : $_GET['locale'];
@@ -2226,7 +2401,7 @@ class ApiController extends Controller {
 		}
 		
 		if ($itemType == 'attachment') {
-			throw new Exception("'attachment' items cannot currently be created via the API", Z_ERROR_INVALID_INPUT);
+			$this->e400("'attachment' items cannot currently be created via the API");
 		}
 		
 		// TODO: check If-Modified-Since and return 304 if not changed
@@ -2470,6 +2645,12 @@ class ApiController extends Controller {
 		}
 		
 		$this->e500();
+	}
+	
+	
+	private function e204() {
+		header('HTTP/1.1 204 No Content');
+		die();
 	}
 	
 	

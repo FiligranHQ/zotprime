@@ -163,17 +163,6 @@ Z_Core::$MC = new Z_MemcachedClientLocal(
 	)
 );
 
-// Solr
-$parts = explode(":", Z_CONFIG::$SOLR_SERVER);
-Z_Core::$Solr = new SolrClient(
-	array(
-		'hostname' => $parts[0],
-		'login'    => "",
-		'password' => "",
-		'port'     => !empty($parts[1]) ? $parts[1] : 8983,
-	)
-);
-
 require('interfaces/IAuthenticationPlugin.inc.php');
 
 require('log.inc.php');
