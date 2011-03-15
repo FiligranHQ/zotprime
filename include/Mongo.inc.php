@@ -146,15 +146,24 @@ class Z_Mongo {
 		array_shift($arguments);
 		
 		// If query is allowed to run on slave
-		if (!empty($arguments[2])) {
-			if (!is_bool($arguments[2])) {
-				throw new Exception("slaveOkay must be a boolean");
-			}
-			$col->setSlaveOkay(true);
-			array_pop($arguments);
-		}
-		else {
-			$col->setSlaveOkay(false);
+		switch ($origMethod) {
+			case 'find':
+			case 'findOne':
+			case 'valueQuery':
+				if (!empty($arguments[2])) {
+					if (!is_bool($arguments[2])) {
+						throw new Exception("slaveOkay must be a boolean");
+					}
+					$col->setSlaveOkay(true);
+					array_pop($arguments);
+				}
+				else {
+					$col->setSlaveOkay(false);
+				}
+				break;
+			
+			default:
+				$col->setSlaveOkay(false);
 		}
 		
 		// Insert-or-ignore methods
