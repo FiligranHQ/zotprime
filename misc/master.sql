@@ -113,6 +113,27 @@ CREATE TABLE `groupUsers` (
 
 
 
+CREATE TABLE `indexProcesses` (
+  `indexProcessID` int(10) unsigned NOT NULL,
+  `processorHost` int(10) unsigned DEFAULT NULL,
+  `started` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`indexProcessID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+CREATE TABLE `indexQueue` (
+  `libraryID` int(10) unsigned NOT NULL,
+  `key` char(8) NOT NULL,
+  `added` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `indexProcessID` int(10) unsigned DEFAULT NULL,
+  PRIMARY KEY (`libraryID`,`key`),
+  KEY `added` (`added`),
+  KEY `indexProcessID` (`indexProcessID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `itemTypeCreatorTypes` (
   `itemTypeID` smallint(5) unsigned NOT NULL,
   `creatorTypeID` smallint(5) unsigned NOT NULL,
