@@ -183,6 +183,10 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * Convert an array of itemIDs for a given library into an array of keys
 	 */
 	public static function idsToKeys($libraryID, $itemIDs) {
+		if (!$itemIDs) {
+			return array();
+		}
+		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$sql = "CREATE TEMPORARY TABLE tmpIDs (itemID INTEGER UNSIGNED NOT NULL PRIMARY KEY)";

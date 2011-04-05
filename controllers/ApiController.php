@@ -795,11 +795,10 @@ class ApiController extends Controller {
 				if (!$this->subset == 'trash') {
 					$deletedItemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
 					if ($deletedItemIDs) {
-						$itemIDs = array_diff($itemIDs, $deletedItemIDs);
+						$itemIDs = array_values(array_diff($itemIDs, $deletedItemIDs));
 					}
 				}
 			}
-			
 			
 			if ($this->queryParams['format'] == 'bib') {
 				if (($itemIDs ? sizeOf($itemIDs) : $results['total']) > Zotero_API::$maxBibliographyItems) {
