@@ -68,7 +68,7 @@ class ApiController extends Controller {
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE'))) {
-			header("HTTP/1.0 501 Not Implemented");
+			header("HTTP/1.1 501 Not Implemented");
 			die("Method is not implemented");
 		}
 		
@@ -77,7 +77,7 @@ class ApiController extends Controller {
 		// depending on the client, either fail or cause a delay while the client
 		// waits for the 100 response. To make this explicit, we return an error.
 		if (!empty($_SERVER['HTTP_EXPECT'])) {
-			header("HTTP/1.0 417 Expectation Failed");
+			header("HTTP/1.1 417 Expectation Failed");
 			die("Expect header is not supported");
 		}
 		
@@ -2540,7 +2540,7 @@ class ApiController extends Controller {
 			$ifModifiedSince = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false;
 			$ifModifiedSince = strtotime($ifModifiedSince);
 			if ($ifModifiedSince >= $updated) {
-				header('HTTP/1.0 304 Not Modified');
+				header('HTTP/1.1 304 Not Modified');
 				exit;
 			}
 			
@@ -2661,26 +2661,26 @@ class ApiController extends Controller {
 	
 	
 	private function e400($message="Invalid request") {
-		header('HTTP/1.0 400 Bad Request');
+		header('HTTP/1.1 400 Bad Request');
 		die($message);
 	}
 	
 	
 	private function e401($message="Access denied") {
 		header('WWW-Authenticate: Basic realm="Zotero API"');
-		header('HTTP/1.0 401 Unauthorized');
+		header('HTTP/1.1 401 Unauthorized');
 		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e403($message="Forbidden") {
-		header('HTTP/1.0 403 Forbidden');
+		header('HTTP/1.1 403 Forbidden');
 		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e404($message="Not found") {
-		header("HTTP/1.0 404 Not Found");
+		header("HTTP/1.1 404 Not Found");
 		die(htmlspecialchars($message));
 	}
 	
@@ -2704,13 +2704,13 @@ class ApiController extends Controller {
 	
 	
 	private function e500($message="An error occurred") {
-		header("HTTP/1.0 500 Internal Server Error");
+		header("HTTP/1.1 500 Internal Server Error");
 		die(htmlspecialchars($message));
 	}
 	
 	
 	private function e503($message="Service unavailable") {
-		header("HTTP/1.0 503 Service Unavailable");
+		header("HTTP/1.1 503 Service Unavailable");
 		die(htmlspecialchars($message));
 	}
 }
