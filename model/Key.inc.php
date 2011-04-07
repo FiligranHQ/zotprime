@@ -318,7 +318,6 @@ class Zotero_Key {
 				$type = Zotero_Libraries::getType($libraryID);
 				switch ($type) {
 					case 'user':
-						$access['libraryID'] = $libraryID;
 						foreach ($p as $permission=>$granted) {
 							$access[$permission] = (int) $granted;
 						}

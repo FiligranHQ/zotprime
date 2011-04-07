@@ -402,6 +402,11 @@ class ApiController extends Controller {
 		// TEMP
 		//$mongo = !empty($_GET['mongo']);
 		$mongo = Z_CONFIG::$TESTING_SITE;
+		// For now, force Mongo mode for itemKey requests, which should come only
+		// from post-write redirections
+		if (!empty($this->queryParams['itemKey'])) {
+			$mongo = true;
+		}
 		
 		$itemIDs = array();
 		$items = array();
@@ -1346,24 +1351,34 @@ class ApiController extends Controller {
 				}
 			}
 			else {
-				// Create a collection
-				if ($this->method == 'POST') {
-					if (!$this->permissions->canWrite($this->objectLibraryID)) {
-						$this->e403("Write access denied");
+				// Top-level items
+				if ($this->subset == 'top') {
+					$this->allowMethods(array('GET'));
+					
+					$title = "Top-Level Collections";
+					$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
+				}
+				else {
+					// Create a collection
+					if ($this->method == 'POST') {
+						if (!$this->permissions->canWrite($this->objectLibraryID)) {
+							$this->e403("Write access denied");
+						}
+						
+						$obj = $this->jsonDecode($this->body);
+						$collection = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
+						
+						$uri = Zotero_API::getCollectionURI($collection) . "?content=json";
+						if ($this->apiKey) {
+							$uri .= "&key=" . $this->apiKey;
+						}
+						$this->e303($uri);
 					}
 					
-					$obj = $this->jsonDecode($this->body);
-					$collection = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
-					
-					$uri = Zotero_API::getCollectionURI($collection) . "?content=json";
-					if ($this->apiKey) {
-						$uri .= "&key=" . $this->apiKey;
-					}
-					$this->e303($uri);
+					$title = "Collections";
+					$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
 				}
 				
-				$title = "Collections";
-				$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, $this->queryParams);
 				$collections = $results['collections'];
 				$totalResults = $results['total'];
 			}
@@ -2074,10 +2089,6 @@ class ApiController extends Controller {
 			$this->e400("$this->method data not provided");
 		}
 		
-		if (!$this->permissions->isSuper()) {
-			$this->e404();
-		}
-		
 		$userID = $this->objectUserID;
 		$key = $this->objectName;
 		
@@ -2085,14 +2096,27 @@ class ApiController extends Controller {
 			// Single key
 			if ($key) {
 				$keyObj = Zotero_Keys::getByKey($key);
-				if (!$keyObj) {
-					$this->e404("Key '$key' not found");
+				if (!$keyObj || $keyObj->userID != $this->objectUserID) {
+					$this->e404("Key not found");
 				}
+				
 				$this->responseXML = $keyObj->toXML();
+				
+				// If not super-user, don't include name or recent IP addresses
+				if (!$this->permissions->isSuper()) {
+					unset($this->responseXML['dateAdded']);
+					unset($this->responseXML['lastUsed']);
+					unset($this->responseXML->name);
+					unset($this->responseXML->recentIPs);
+				}
 			}
 			
 			// All of the user's keys
 			else {
+				if (!$this->permissions->isSuper()) {
+					$this->e403();
+				}
+				
 				$keyObjs = Zotero_Keys::getUserKeys($userID);
 				$xml = new SimpleXMLElement('<keys/>');
 				$domXML = dom_import_simplexml($xml);
@@ -2110,122 +2134,129 @@ class ApiController extends Controller {
 			}
 		}
 		
-		if ($this->method == 'POST') {
-			if ($key) {
-				$this->e400("POST requests cannot end with a key (did you mean PUT?)");
+		else {
+			// Require super-user for modifications
+			if (!$this->permissions->isSuper()) {
+				$this->e403();
 			}
 			
-			try {
-				$key = @new SimpleXMLElement($this->body);
-			}
-			catch (Exception $e) {
-				$this->e400("$this->method data is not valid XML");
-			}
-			
-			if ((string) $key['key']) {
-				$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
-			}
-			
-			$fields = self::getFieldsFromKeyXML($key);
-			
-			Zotero_DB::beginTransaction();
-			
-			try {
-				$keyObj = new Zotero_Key;
-				$keyObj->userID = $userID;
-				foreach ($fields as $field=>$val) {
-					if ($field == 'access') {
-						foreach ($val as $access) {
-							$this->setKeyPermissions($keyObj, $access);
+			if ($this->method == 'POST') {
+				if ($key) {
+					$this->e400("POST requests cannot end with a key (did you mean PUT?)");
+				}
+				
+				try {
+					$key = @new SimpleXMLElement($this->body);
+				}
+				catch (Exception $e) {
+					$this->e400("$this->method data is not valid XML");
+				}
+				
+				if ((string) $key['key']) {
+					$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
+				}
+				
+				$fields = self::getFieldsFromKeyXML($key);
+				
+				Zotero_DB::beginTransaction();
+				
+				try {
+					$keyObj = new Zotero_Key;
+					$keyObj->userID = $userID;
+					foreach ($fields as $field=>$val) {
+						if ($field == 'access') {
+							foreach ($val as $access) {
+								$this->setKeyPermissions($keyObj, $access);
+							}
+						}
+						else {
+							$keyObj->$field = $val;
 						}
 					}
-					else {
-						$keyObj->$field = $val;
+					$keyObj->save();
+				}
+				catch (Exception $e) {
+					if ($e->getCode() == Z_ERROR_KEY_NAME_TOO_LONG) {
+						$this->e400($e->getMessage());
 					}
+					$this->e500($e->getMessage());
 				}
-				$keyObj->save();
+				
+				$this->responseXML = $keyObj->toXML();
+				
+				Zotero_DB::commit();
+				
+				$url = Zotero_API::getKeyURI($keyObj);
+				header("Location: " . $url, false, 201);
 			}
-			catch (Exception $e) {
-				if ($e->getCode() == Z_ERROR_KEY_NAME_TOO_LONG) {
-					$this->e400($e->getMessage());
+			
+			if ($this->method == 'PUT') {
+				if (!$key) {
+					$this->e400("PUT requests must end with a key (did you mean POST?)");
 				}
-				$this->e500($e->getMessage());
+				
+				try {
+					$keyXML = @new SimpleXMLElement($this->body);
+				}
+				catch (Exception $e) {
+					$this->e400("$this->method data is not valid XML");
+				}
+				
+				$fields = $this->getFieldsFromKeyXML($keyXML);
+				
+				// Key attribute is optional, but, if it's there, make sure it matches
+				if (isset($fields['key']) && $fields['key'] != $key) {
+					$this->e400("Key '{$fields['key']}' does not match key '$key' from URI");
+				}
+				
+				Zotero_DB::beginTransaction();
+				
+				try {
+					$keyObj = Zotero_Keys::getByKey($key);
+					if (!$keyObj) {
+						$this->e404("Key '$key' does not exist");
+					}
+					foreach ($fields as $field=>$val) {
+						if ($field == 'access') {
+							foreach ($val as $access) {
+								$this->setKeyPermissions($keyObj, $access);
+							}
+						}
+						else {
+							$keyObj->$field = $val;
+						}
+					}
+					$keyObj->save();
+				}
+				catch (Exception $e) {
+					if ($e->getCode() == Z_ERROR_KEY_NAME_TOO_LONG) {
+						$this->e400($e->getMessage());
+					}
+					$this->e500($e->getMessage());
+				}
+				
+				$this->responseXML = $keyObj->toXML();
+				
+				Zotero_DB::commit();
 			}
 			
-			$this->responseXML = $keyObj->toXML();
-			
-			Zotero_DB::commit();
-			
-			$url = Zotero_API::getKeyURI($keyObj);
-			header("Location: " . $url, false, 201);
-		}
-		
-		if ($this->method == 'PUT') {
-			if (!$key) {
-				$this->e400("PUT requests must end with a key (did you mean POST?)");
-			}
-			
-			try {
-				$keyXML = @new SimpleXMLElement($this->body);
-			}
-			catch (Exception $e) {
-				$this->e400("$this->method data is not valid XML");
-			}
-			
-			$fields = $this->getFieldsFromKeyXML($keyXML);
-			
-			// Key attribute is optional, but, if it's there, make sure it matches
-			if (isset($fields['key']) && $fields['key'] != $key) {
-				$this->e400("Key '{$fields['key']}' does not match key '$key' from URI");
-			}
-			
-			Zotero_DB::beginTransaction();
-			
-			try {
+			if ($this->method == 'DELETE') {
+				if (!$key) {
+					$this->e400("DELETE requests must end with a key");
+				}
+				
+				Zotero_DB::beginTransaction();
+				
 				$keyObj = Zotero_Keys::getByKey($key);
 				if (!$keyObj) {
 					$this->e404("Key '$key' does not exist");
 				}
-				foreach ($fields as $field=>$val) {
-					if ($field == 'access') {
-						foreach ($val as $access) {
-							$this->setKeyPermissions($keyObj, $access);
-						}
-					}
-					else {
-						$keyObj->$field = $val;
-					}
-				}
-				$keyObj->save();
+				$keyObj->erase();
+				Zotero_DB::commit();
+				
+				header("HTTP/1.1 204 No Content");
+				exit;
 			}
-			catch (Exception $e) {
-				if ($e->getCode() == Z_ERROR_KEY_NAME_TOO_LONG) {
-					$this->e400($e->getMessage());
-				}
-				$this->e500($e->getMessage());
-			}
-			
-			$this->responseXML = $keyObj->toXML();
-			
-			Zotero_DB::commit();
-		}
-		
-		if ($this->method == 'DELETE') {
-			if (!$key) {
-				$this->e400("DELETE requests must end with a key");
-			}
-			
-			Zotero_DB::beginTransaction();
-			
-			$keyObj = Zotero_Keys::getByKey($key);
-			if (!$keyObj) {
-				$this->e404("Key '$key' does not exist");
-			}
-			$keyObj->erase();
-			Zotero_DB::commit();
-			
-			header("HTTP/1.1 204 No Content");
-			exit;
 		}
 		
 		header('Content-Type: application/xml');
