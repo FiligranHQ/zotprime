@@ -54,12 +54,16 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getAllAdvanced($libraryID, $params) {
+	public static function getAllAdvanced($libraryID, $onlyTopLevel=false, $params) {
 		$results = array('collections' => array(), 'total' => 0);
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		$sql = "SELECT SQL_CALC_FOUND_ROWS collectionID FROM collections
 				WHERE libraryID=? ";
+		
+		if ($onlyTopLevel) {
+			$sql .= "AND parentCollectionID IS NULL ";
+		}
 		
 		if (!empty($params['order'])) {
 			$order = $params['order'];
