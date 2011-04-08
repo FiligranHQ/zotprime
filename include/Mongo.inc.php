@@ -154,7 +154,13 @@ class Z_Mongo {
 					if (!is_bool($arguments[2])) {
 						throw new Exception("slaveOkay must be a boolean");
 					}
-					$col->setSlaveOkay(true);
+					// Send a third of read requests to the master
+					if (Z_Core::probability(3)) {
+						$col->setSlaveOkay(false);
+					}
+					else {
+						$col->setSlaveOkay(true);
+					}
 					array_pop($arguments);
 				}
 				else {
