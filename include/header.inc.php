@@ -95,6 +95,11 @@ if (!is_writable(Z_ENV_TMP_PATH)) {
 	throw new Exception("Temp directory is not writable");
 }
 
+// Allow per-machine config overrides
+if (file_exists(Z_ENV_BASE_PATH . 'include/config/custom.inc.php')) {
+	require('config/custom.inc.php');
+}
+
 require('HTMLPurifier/HTMLPurifier.standalone.php');
 $c = HTMLPurifier_Config::createDefault();
 $c->set('HTML.Doctype', 'XHTML 1.0 Strict');
