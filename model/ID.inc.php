@@ -65,6 +65,7 @@ class Zotero_ID {
 				$id = Zotero_ID_DB_1::valueQuery("SELECT LAST_INSERT_ID()");
 			}
 			catch (Exception $e) {
+				Z_Core::logError("Error accessing ID server 1");
 				Zotero_ID_DB_2::query($sql);
 				$id = Zotero_ID_DB_2::valueQuery("SELECT LAST_INSERT_ID()");
 			}
@@ -75,6 +76,7 @@ class Zotero_ID {
 				$id = Zotero_ID_DB_2::valueQuery("SELECT LAST_INSERT_ID()");
 			}
 			catch (Exception $e) {
+				Z_Core::logError("Error accessing ID server 2");
 				Zotero_ID_DB_1::query($sql);
 				$id = Zotero_ID_DB_1::valueQuery("SELECT LAST_INSERT_ID()");
 			}

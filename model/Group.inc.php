@@ -305,7 +305,7 @@ class Zotero_Group {
 		if ($added) {
 			$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 			$sql = "DELETE FROM syncDeleteLogIDs WHERE libraryID=? AND objectType='group' AND id=?";
-			Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($this->libraryID));
+			Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($libraryID));
 		}
 		
 		// If group is locked by a sync, flag for later timestamp update
