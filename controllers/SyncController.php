@@ -576,17 +576,17 @@ class SyncController extends Controller {
 				'ipAddress' => $ipAddress
 			),
 			// Store in memcached for 10 minutes less than session timeout,
-			// since we update the DB at a minimum of every 10 minutes
+			// since we update the DB at a minimum of every 20 minutes
 			// and a memory-only session could cause FK errors
-			$this->sessionLifetime - 600
+			$this->sessionLifetime - 1200
 		);
 		
-		// Every 10 minutes, update the timestamp in the DB
+		// Every 20 minutes, update the timestamp in the DB
 		if (!Z_Core::$MC->get("syncSession_" . $sessionID . "_dbUpdated")) {
 			$sql = "UPDATE sessions SET timestamp=NOW() WHERE sessionID=?";
 			Zotero_DB::query($sql, $sessionID);
 			
-			Z_Core::$MC->set("syncSession_" . $sessionID . "_dbUpdated", true, 600);
+			Z_Core::$MC->set("syncSession_" . $sessionID . "_dbUpdated", true, 1200);
 		}
 		
 		$this->sessionID = $sessionID;
@@ -609,13 +609,13 @@ class SyncController extends Controller {
 		else if ($index < 5) {
 			$wait = 5;
 		}
-		else if ($index < 11) {
+		else if ($index < 9) {
 			$wait = 25;
 		}
-		else if ($index < 23) {
+		else if ($index < 13) {
 			$wait = 45;
 		}
-		else if ($index < 33) {
+		else if ($index < 23) {
 			$wait = 70;
 		}
 		else {
