@@ -169,7 +169,8 @@ CREATE TABLE `itemTypes` (
 CREATE TABLE `keyAccessLog` (
   `keyID` int(10) unsigned NOT NULL,
   `ipAddress` int(10) unsigned DEFAULT NULL,
-  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `keyID` (`keyID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
