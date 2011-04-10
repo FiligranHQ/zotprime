@@ -490,6 +490,9 @@ ALTER TABLE `groupUsers`
   ADD CONSTRAINT `groupUsers_ibfk_3` FOREIGN KEY (`groupID`) REFERENCES `groups` (`groupID`) ON DELETE CASCADE,
   ADD CONSTRAINT `groupUsers_ibfk_4` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE;
 
+ALTER TABLE `indexQueue`
+  ADD CONSTRAINT `indexQueue_ibfk_1` FOREIGN KEY (`indexProcessID`) REFERENCES `indexProcesses` (`indexProcessID`) ON DELETE SET NULL;
+
 ALTER TABLE `itemTypeCreatorTypes`
   ADD CONSTRAINT `itemTypeCreatorTypes_ibfk_1` FOREIGN KEY (`itemTypeID`) REFERENCES `itemTypes` (`itemTypeID`),
   ADD CONSTRAINT `itemTypeCreatorTypes_ibfk_2` FOREIGN KEY (`creatorTypeID`) REFERENCES `creatorTypes` (`creatorTypeID`);
