@@ -183,7 +183,7 @@ class Zotero_Date {
 			if (preg_match(self::$monthRE, $date['part'], $m)) {
 				// Modulo 12 in case we have multiple languages
 				$date['month'] = (array_search(ucwords(strtolower($m[2])), $months) % 12) + 1;
-				$date['part'] = $m[1] . $m[3];
+				$date['part'] = $m[1] . (isset($m[3]) ? $m[3] : '');
 				Z_Core::debug("DATE: got month (" . $date['month'] . ", " . $date['part'] . ")");
 			}
 		}
@@ -299,7 +299,7 @@ class Zotero_Date {
 		}
 		
 		$multi = (!empty($parts['year']) ? str_pad($parts['year'], 4, '0', STR_PAD_LEFT) : '0000') . '-'
-			. str_pad($parts['month'], 2, '0', STR_PAD_LEFT) . '-'
+			. (!empty($parts['month']) ? str_pad($parts['month'], 2, '0', STR_PAD_LEFT) : '00') . '-'
 			. (!empty($parts['day']) ? str_pad($parts['day'], 2, '0', STR_PAD_LEFT) : '00')
 			. ' '
 			. $str;
