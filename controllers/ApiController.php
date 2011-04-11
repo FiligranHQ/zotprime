@@ -27,6 +27,7 @@
 class ApiController extends Controller {
 	private $defaultAPIVersion = 1;
 	private $validAPIVersions = array(1);
+	private $writeTokenCacheTime = 43200; // 12 hours
 	
 	private $queryParams = array();
 	
@@ -152,6 +153,15 @@ class ApiController extends Controller {
 			$this->apiKey = $_GET['key'];
 			$this->userID = $keyObj->userID;
 			$this->permissions = $keyObj->getPermissions();
+			
+			// Check X-Zotero-Write-Token if it exists to make sure 
+			if ($this->method == 'POST' || $this->method == 'PUT') {
+				if ($cacheKey = $this->getWriteTokenCacheKey()) {
+					if (Z_Core::$MC->get($cacheKey)) {
+						$this->e412("Write token already used");
+					}
+				}
+			}
 		}
 		// No credentials provided
 		else {
@@ -542,6 +552,10 @@ class ApiController extends Controller {
 					Zotero_Items::updateFromJSON($item, $obj);
 					$this->queryParams['format'] = 'atom';
 					$this->queryParams['content'] = 'json';
+					
+					if ($cacheKey = $this->getWriteTokenCacheKey()) {
+						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+					}
 				}
 				
 				// Delete existing item
@@ -732,6 +746,10 @@ class ApiController extends Controller {
 						$obj = $this->jsonDecode($this->body);
 						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item);
 						
+						if ($cacheKey = $this->getWriteTokenCacheKey()) {
+							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+						}
+						
 						$uri = Zotero_API::getItemURI($item)
 								. "/children?itemKey="
 								. urlencode(implode(",", $keys))
@@ -761,6 +779,10 @@ class ApiController extends Controller {
 						
 						if (!$keys) {
 							throw new Exception("No items added");
+						}
+						
+						if ($cacheKey = $this->getWriteTokenCacheKey()) {
+							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
 						$uri = Zotero_API::getItemsURI($this->objectLibraryID)
@@ -1298,6 +1320,10 @@ class ApiController extends Controller {
 					Zotero_Collections::updateFromJSON($collection, $obj);
 					$this->queryParams['format'] = 'atom';
 					$this->queryParams['content'] = 'json';
+					
+					if ($cacheKey = $this->getWriteTokenCacheKey()) {
+						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+					}
 				}
 				
 				// Delete
@@ -1361,6 +1387,10 @@ class ApiController extends Controller {
 						
 						$obj = $this->jsonDecode($this->body);
 						$collection = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
+						
+						if ($cacheKey = $this->getWriteTokenCacheKey()) {
+							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+						}
 						
 						$uri = Zotero_API::getCollectionURI($collection) . "?content=json";
 						if ($this->apiKey) {
@@ -2546,6 +2576,20 @@ class ApiController extends Controller {
 			header("Allow: " . implode(", ", $methods));
 			die($message ? $message : "Method not allowed");
 		}
+	}
+	
+	
+	private function getWriteTokenCacheKey() {
+		if (empty($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN'])) {
+			return false;
+		}
+		if (strlen($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN']) < 5 || strlen($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN']) > 32) {
+			$this->e400("Write token must be 5-32 characters in length");
+		}
+		if (!$this->apiKey) {
+			$this->e400("Write token cannot be used without an API key");
+		}
+		return "writeToken_" . md5($this->apiKey . "_" . $_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN']);
 	}
 	
 	
