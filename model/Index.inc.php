@@ -89,7 +89,7 @@ class Zotero_Index {
 		}
 		// Allow batched inserts
 		if (self::$inTransaction) {
-			$pairsToCommit = array_merge($pairsToCommit, $pairs);
+			self::$pairsToCommit = array_merge(self::$pairsToCommit, $pairs);
 			return;
 		}
 		$sql = "INSERT IGNORE INTO indexQueue (libraryID, `key`) VALUES ";
