@@ -1346,7 +1346,7 @@ class Zotero_Item {
 					$bindParams = array(
 						$itemID,
 						$parent ? $parent : null,
-						$this->noteText,
+						$this->noteText ? $this->noteText : '',
 						$noteTextSanitized,
 						$title,
 						$hash
@@ -1808,8 +1808,8 @@ class Zotero_Item {
 							ON DUPLICATE KEY UPDATE sourceItemID=?, note=?, noteSanitized=?, title=?, hash=?";
 					$bindParams = array(
 						$this->id,
-						$sourceItemID, $this->noteText, $noteTextSanitized, $title, $hash,
-						$sourceItemID, $this->noteText, $noteTextSanitized, $title, $hash
+						$sourceItemID, $this->noteText ? $this->noteText : '', $noteTextSanitized, $title, $hash,
+						$sourceItemID, $this->noteText ? $this->noteText : '', $noteTextSanitized, $title, $hash
 					);
 					Zotero_DB::query($sql, $bindParams, $shardID);
 					Zotero_Notes::updateNoteCache($this->libraryID, $this->id, $this->noteText);
@@ -3043,17 +3043,17 @@ class Zotero_Item {
 			// Remove SQL date from multipart dates
 			// (e.g. '2006-00-00 Summer 2006' becomes 'Summer 2006')
 			else if ($fieldName == 'date') {
-				$fieldText = htmlspecialchars($value);
+				$fieldText = $value;
 			}
 			// Convert dates to local format
 			else if ($fieldName == 'accessDate' || $fieldName == 'dateAdded' || $fieldName == 'dateModified') {
 				//$date = Zotero.Date.sqlToDate($field, true)
 				$date = $value;
 				//fieldText = escapeXML(date.toLocaleString());
-				$fieldText = htmlspecialchars($date);
+				$fieldText = $date;
 			}
 			else {
-				$fieldText = htmlspecialchars($value);
+				$fieldText = $value;
 			}
 			
 			if (isset($linkContainer)) {
