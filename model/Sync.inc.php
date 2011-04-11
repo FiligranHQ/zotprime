@@ -426,6 +426,7 @@ class Zotero_Sync {
 		Zotero_DB::query($sql, array($started, $startedMS, $host, $row['syncUploadQueueID']));
 		
 		Zotero_DB::commit();
+		Zotero_DB::close();
 		
 		$error = false;
 		$lockError = false;
@@ -1354,6 +1355,7 @@ class Zotero_Sync {
 		
 		try {
 			Z_Core::$MC->begin();
+			Zotero_Index::begin();
 			Zotero_DB::beginTransaction();
 			
 			// Add/update creators
@@ -1634,11 +1636,9 @@ class Zotero_Sync {
 			
 			self::removeUploadProcess($processID);
 			
+			Zotero_Index::commit();
 			Zotero_DB::commit();
 			Z_Core::$MC->commit();
-			//Zotero_DB::rollback();
-			//Z_Core::$MC->rollback();
-			//throw new Exception("Abort in $timestampUnix");
 			
 			if ($profile) {
 				$shardID = Zotero_Shards::getByUserID($userID);
@@ -1650,6 +1650,7 @@ class Zotero_Sync {
 		catch (Exception $e) {
 			Z_Core::$MC->rollback();
 			Zotero_DB::rollback(true);
+			Zotero_Index::rollback();
 			self::removeUploadProcess($processID);
 			throw $e;
 		}

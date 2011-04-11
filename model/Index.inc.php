@@ -2,6 +2,9 @@
 class Zotero_Index {
 	public static $queueingEnabled = true;
 	
+	private static $inTransaction = false;
+	private static $pairsToCommit = array();
+	
 	public static function addItem($item) {
 		self::addItems(array($item));
 	}
@@ -43,6 +46,38 @@ class Zotero_Index {
 	}
 	
 	
+	/**
+	 * Start holding libraryID/key pairs for batched insert into queue table
+	 */
+	public static function begin() {
+		if (self::$inTransaction) {
+			throw new Exception("Already in a transaction");
+		}
+		self::$inTransaction = true;
+	}
+	
+	
+	/**
+	 * Batch insert libraryID/key pairs into queue table
+	 */
+	public static function commit() {
+		if (!self::$inTransaction) {
+			throw new Exception("Not in a transaction");
+		}
+		self::$inTransaction = false;
+		self::queueItems(self::$pairsToCommit);
+	}
+	
+	
+	public static function rollback() {
+		if (!self::$inTransaction) {
+			throw new Exception("Not in a transaction");
+		}
+		self::$pairsToCommit = array();
+		self::$inTransaction = false;
+	}
+	
+	
 	public static function queueItem($libraryID, $key) {
 		self::queueItems(array(array($libraryID, $key)));
 	}
@@ -50,6 +85,11 @@ class Zotero_Index {
 	
 	public static function queueItems($pairs) {
 		if (!self::$queueingEnabled) {
+			return;
+		}
+		// Allow batched inserts
+		if (self::$inTransaction) {
+			$pairsToCommit = array_merge($pairsToCommit, $pairs);
 			return;
 		}
 		$sql = "INSERT IGNORE INTO indexQueue (libraryID, `key`) VALUES ";
@@ -67,34 +107,16 @@ class Zotero_Index {
 	
 	
 	public static function getQueuedItems($indexProcessID, $max=100) {
-		Zotero_DB::beginTransaction();
+		$sql = "UPDATE indexQueue SET indexProcessID=?
+				WHERE indexProcessID IS NULL
+				ORDER BY added LIMIT $max";
+		Zotero_DB::query($sql, $indexProcessID);
 		
-		$sql = "CREATE TEMPORARY TABLE tmpKeys (
-					libraryID INT UNSIGNED NOT NULL,
-					`key` CHAR(8) NOT NULL,
-					PRIMARY KEY (libraryID, `key`)
-				)";
-		Zotero_DB::query($sql);
-		
-		$sql = "INSERT INTO tmpKeys SELECT libraryID, `key` FROM indexQueue
-				WHERE indexProcessID IS NULL ORDER BY added LIMIT $max FOR UPDATE";
-		Zotero_DB::query($sql);
-		
-		$sql = "SELECT * FROM tmpKeys";
-		$rows = Zotero_DB::query($sql);
-		
-		if ($rows) {
-			$sql = "UPDATE tmpKeys JOIN indexQueue USING (libraryID, `key`) SET indexProcessID=?";
-			Zotero_DB::query($sql, $indexProcessID);
+		$sql = "SELECT libraryID, `key` FROM indexQueue WHERE indexProcessID=?";
+		$rows = Zotero_DB::query($sql, $indexProcessID);
+		if (!$rows) {
+			$rows = array();
 		}
-		else {
-			$itemIDs = array();
-		}
-		
-		$sql = "DROP TEMPORARY TABLE tmpKeys";
-		Zotero_DB::query($sql);
-		
-		Zotero_DB::commit();
 		
 		return $rows;
 	}
