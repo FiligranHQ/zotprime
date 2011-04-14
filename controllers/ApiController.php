@@ -534,16 +534,18 @@ class ApiController extends Controller {
 					$this->e403("Write access denied");
 				}
 				
-				if (empty($_SERVER['HTTP_IF_MATCH'])) {
-					$this->e400("If-Match header not provided");
-				}
-				
-				if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-					$this->e400("Invalid ETag in If-Match header");
-				}
-				
-				if ($item->etag != $matches[1]) {
-					$this->e412("ETag does not match current version of item");
+				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
+					if (empty($_SERVER['HTTP_IF_MATCH'])) {
+						$this->e400("If-Match header not provided");
+					}
+					
+					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+						$this->e400("Invalid ETag in If-Match header");
+					}
+					
+					if ($item->etag != $matches[1]) {
+						$this->e412("ETag does not match current version of item");
+					}
 				}
 				
 				// Update existing item
@@ -1303,16 +1305,18 @@ class ApiController extends Controller {
 					$this->e403("Write access denied");
 				}
 				
-				if (empty($_SERVER['HTTP_IF_MATCH'])) {
-					$this->e400("If-Match header not provided");
-				}
-				
-				if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-					$this->e400("Invalid ETag in If-Match header");
-				}
-				
-				if ($collection->etag != $matches[1]) {
-					$this->e412("ETag does not match current version of collection");
+				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
+					if (empty($_SERVER['HTTP_IF_MATCH'])) {
+						$this->e400("If-Match header not provided");
+					}
+					
+					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+						$this->e400("Invalid ETag in If-Match header");
+					}
+					
+					if ($collection->etag != $matches[1]) {
+						$this->e412("ETag does not match current version of collection");
+					}
 				}
 				
 				if ($this->method == 'PUT') {
