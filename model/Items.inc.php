@@ -1194,6 +1194,18 @@ class Zotero_Items extends Zotero_DataObjects {
 					$orderIndex = -1;
 					
 					foreach ($val as $orderIndex=>$newCreatorData) {
+						if ((!isset($newCreatorData->name) || trim($newCreatorData->name) == "")
+								&& (!isset($newCreatorData->firstName) || trim($newCreatorData->firstName) == "")
+								&& (!isset($newCreatorData->lastName) || trim($newCreatorData->lastName) == "")) {
+							// This should never happen, because of check in validateJSONItem()
+							if (!$isNew) {
+								throw new Exception("Nameless creator in update request");
+							}
+							// On item creation, ignore creators with empty names,
+							// because that's in the item template that the API returns
+							break;
+						}
+						
 						// JSON uses 'name' and 'firstName'/'lastName',
 						// so switch to just 'firstName'/'lastName'
 						if (isset($newCreatorData->name)) {
@@ -1252,10 +1264,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					// Remove all existing creators above the current index
-					$i = max(array_keys($item->getCreators()));
-					while ($i>$orderIndex) {
-						$item->removeCreator($i);
-						$i--;
+					if (!$isNew && $indexes = array_keys($item->getCreators())) {
+						$i = max($indexes);
+						while ($i>$orderIndex) {
+							$item->removeCreator($i);
+							$i--;
+						}
 					}
 					
 					break;
@@ -1431,6 +1445,23 @@ class Zotero_Items extends Zotero_DataObjects {
 					
 					foreach ($val as $creator) {
 						$empty = true;
+						
+						if (!isset($creator->creatorType)) {
+							throw new Exception("creator object must contain 'creatorType'", Z_ERROR_INVALID_INPUT);
+						}
+						
+						if ((!isset($creator->name) || trim($creator->name) == "")
+								&& (!isset($creator->firstName) || trim($creator->firstName) == "")
+								&& (!isset($creator->lastName) || trim($creator->lastName) == "")) {
+							// On item creation, ignore single nameless creator,
+							// because that's in the item template that the API returns
+							if (sizeOf($val) == 1 && $isNew) {
+								continue;
+							}
+							else {
+								throw new Exception("creator object must contain 'firstName'/'lastName' or 'name'", Z_ERROR_INVALID_INPUT);
+							}
+						}
 						
 						foreach ($creator as $k=>$v) {
 							switch ($k) {
