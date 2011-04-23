@@ -599,6 +599,8 @@ class ApiController extends Controller {
 				$this->e403();
 			}
 			
+			$includeTrashed = false;
+			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET', 'POST'));
 				
@@ -710,6 +712,7 @@ class ApiController extends Controller {
 					
 					$title = "Deleted Items";
 					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
+					$includeTrashed = true;
 				}
 				else if ($this->subset == 'children') {
 					// If we have an id, make sure this isn't really an all-numeric key
@@ -816,16 +819,6 @@ class ApiController extends Controller {
 				}
 			}
 			
-			// Remove deleted items if not /trash
-			if ($itemIDs) {
-				if (!$this->subset == 'trash') {
-					$deletedItemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
-					if ($deletedItemIDs) {
-						$itemIDs = array_values(array_diff($itemIDs, $deletedItemIDs));
-					}
-				}
-			}
-			
 			if ($this->queryParams['format'] == 'bib') {
 				if (($itemIDs ? sizeOf($itemIDs) : $results['total']) > Zotero_API::$maxBibliographyItems) {
 					$this->e413("Cannot generate bibliography with more than " . Zotero_API::$maxBibliographyItems . " items");
@@ -836,7 +829,7 @@ class ApiController extends Controller {
 				// TEMP
 				if ($mongo) {
 					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
+					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				}
 				else {
 					$items = Zotero_Items::get($this->objectLibraryID, $itemIDs);
