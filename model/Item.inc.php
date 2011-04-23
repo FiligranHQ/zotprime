@@ -3102,6 +3102,10 @@ class Zotero_Item {
 			}*/
 		}
 		
+		if ($this->getDeleted()) {
+			$this->addHTMLRow($html, "deleted", "Deleted", "Yes");
+		}
+		
 		if ($asSimpleXML) {
 			return $html;
 		}
