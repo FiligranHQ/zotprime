@@ -246,7 +246,7 @@ class ApiController extends Controller {
 			case 'PUT':
 			case 'DELETE':
 				if ($this->objectLibraryID && Zotero_Libraries::isLocked($this->objectLibraryID)) {
-					$this->e409();
+					$this->e409("Target library is locked");
 				}
 				break;
 		}
