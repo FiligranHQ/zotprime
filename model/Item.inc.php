@@ -372,11 +372,33 @@ class Zotero_Item {
 			$title .= join('; ', $strParts);
 			$title .= ']';
 		}
-		else if ($itemTypeID == 17 && $title) { // 'case' itemTypeID
-			$reporter = $this->getField('reporter');
-			if ($reporter) {
-				// TODO: was localeJoin() in client
-				$title = $title . ' (' + $reporter + ')';
+		else if ($itemTypeID == 17) { // 'case' itemTypeID
+			if ($title) {
+				$reporter = $this->getField('reporter');
+				if ($reporter) {
+					$title = $title . ' (' . $reporter . ')';
+				}
+			}
+			else { // civil law cases have only shortTitle as case name
+				$strParts = array();
+				$caseinfo = "";
+				
+				$part = $this->getField('court');
+				if ($part) {
+					$strParts[] = $part;
+				}
+				
+				$part = Zotero_Date::multipartToSQL($this->getField('date', true, true));
+				if ($part) {
+					$strParts[] = $part;
+				}
+				
+				$creators = $this->getCreators();
+				if ($creators && $creators[0]['creatorTypeID'] === 1) {
+					$strParts[] = $creators[0]['ref']->lastName;
+				}
+				
+				$title = '[' . implode(', ', $strParts) . ']';
 			}
 		}
 		
@@ -2972,6 +2994,10 @@ class Zotero_Item {
 				//case 'numNotes':
 				case 'serverDateModified':
 					continue 2;
+			}
+			
+			if (Zotero_ItemFields::isFieldOfBase($fieldName, 'title')) {
+				continue;
 			}
 			
 			$localizedFieldName = Zotero_ItemFields::getLocalizedString(false, $field);
