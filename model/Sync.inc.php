@@ -131,6 +131,11 @@ class Zotero_Sync {
 	}
 	
 	
+	public static function countDeletedObjects($userID, $lastsync) {
+		return self::countDeletedObjectKeys($userID, $lastsync);
+	}
+	
+	
 	public static function queueDownload($userID, $sessionID, $lastsync, $version, $updatedObjects) {
 		$syncQueueID = Zotero_ID::getBigInt();
 		
@@ -1744,6 +1749,65 @@ class Zotero_Sync {
 		Zotero_DB::commit();
 		
 		return $syncProcessID;
+	}
+	
+	
+	private static function countDeletedObjectKeys($userID, $lastsync) {
+		/*
+		$sql = "SELECT version FROM version WHERE schema='syncdeletelog'";
+		$syncLogStart = Zotero_DB::valueQuery($sql);
+		if (!$syncLogStart) {
+			throw ('Sync log start time not found');
+		}
+		*/
+		
+		/*
+		// Last sync time is before start of log
+		if ($lastSyncDate && new Date($syncLogStart * 1000) > $lastSyncDate) {
+			return -1;
+		}
+		*/
+		
+		if (strpos($lastsync, '.') === false) {
+			$lastsync .= '.';
+		}
+		list($timestamp, $timestampMS) = explode(".", $lastsync);
+		
+		// Personal library
+		$shardID = Zotero_Shards::getByUserID($userID);
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		$shardLibraryIDs[$shardID] = array($libraryID);
+		
+		// Group libraries
+		$groupIDs = Zotero_Groups::getUserGroups($userID);
+		if ($groupIDs) {
+			// Separate groups into shards for querying
+			foreach ($groupIDs as $groupID) {
+				$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+				$shardID = Zotero_Shards::getByLibraryID($libraryID);
+				if (!isset($shardLibraryIDs[$shardID])) {
+					$shardLibraryIDs[$shardID] = array();
+				}
+				$shardLibraryIDs[$shardID][] = $libraryID;
+			}
+		}
+		
+		// Send query at each shard
+		$rows = array();
+		$count = 0;
+		foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
+			$sql = "SELECT COUNT(*) FROM syncDeleteLogKeys WHERE libraryID IN ("
+					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
+					. ")";
+			$params = $libraryIDs;
+			if ($timestamp) {
+				$sql .= " AND CONCAT(UNIX_TIMESTAMP(timestamp), '.', IFNULL(timestampMS, 0)) > ?";
+				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+			}
+			$count += Zotero_DB::valueQuery($sql, $params, $shardID);
+		}
+		
+		return $count;
 	}
 	
 	

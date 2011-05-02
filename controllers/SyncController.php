@@ -327,13 +327,17 @@ class SyncController extends Controller {
 				Z_Core::logError("Warning: $msg getting cached download");
 			}
 			
-			$numUpdated = Zotero_DataObjects::countUpdated($this->userID, $lastsync, true);
-			// If no items, or if just a few items and processing is enabled, process synchronously
-			if ($numUpdated == 0 || ($numUpdated < 5 && Z_CONFIG::$PROCESSORS_ENABLED)) {
+			$num = Zotero_Items::countUpdated($this->userID, $lastsync);
+			// Make sure we really have fewer than 5
+			if ($num < 5) {
+				$num += Zotero_Sync::countDeletedObjects($this->userID, $lastsync);
+			}
+			// If nothing updated, or if just a few objects and processing is enabled, process synchronously
+			if ($num == 0 || ($num < 5 && Z_CONFIG::$PROCESSORS_ENABLED)) {
 				$queue = false;
 			}
 			if ($queue) {
-				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $numUpdated);
+				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $num);
 				
 				try {
 					Zotero_Processors::notifyProcessors('download');

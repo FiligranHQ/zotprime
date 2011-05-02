@@ -327,15 +327,65 @@ class Zotero_DataObjects {
 	
 	
 	public static function countUpdated($userID, $timestamp) {
+		$table = static::field('table');
+		$id = static::field('id');
+		$type = static::field('object');
+		$types = static::field('objects');
+		
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-		$idsByLibraryID = Zotero_Items::getUpdated($libraryID, $timestamp, true);
-		if (!$idsByLibraryID) {
-			return 0;
+		
+		if (strpos($timestamp, '.') === false) {
+			$timestamp .= '.';
 		}
-		$count = 0;
-		foreach ($idsByLibraryID as $libraryID=>$ids) {
-			$count += sizeOf($ids);
+		list($timestamp, $timestampMS) = explode(".", $timestamp);
+		
+		// Personal library
+		$sql = "SELECT COUNT(*) FROM $table WHERE libraryID=? AND
+				CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?";
+		$params = array($libraryID, $timestamp . '.' . ($timestampMS ? $timestampMS : 0));
+		$count = Zotero_DB::valueQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		
+		// Group libraries
+		$groupIDs = Zotero_Groups::getUserGroups($userID);
+		if ($groupIDs) {
+			$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
+			$joinedLibraryIDs = array();
+			foreach ($joinedGroupIDs as $groupID) {
+				$joinedLibraryIDs[] = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+			}
+			
+			$shardLibraryIDs = array();
+			
+			// Separate groups into shards for querying
+			foreach ($groupIDs as $groupID) {
+				$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+				$shardID = Zotero_Shards::getByLibraryID($libraryID);
+				if (!isset($shardLibraryIDs[$shardID])) {
+					$shardLibraryIDs[$shardID] = array();
+				}
+				$shardLibraryIDs[$shardID][] = $libraryID;
+			}
+			
+			// Send query at each shard
+			foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
+				$sql = "SELECT COUNT(*) FROM $table
+						WHERE (libraryID IN
+						(" .  implode(', ', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
+				$params = $libraryIDs;
+				$sql .= " AND CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?)";
+				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
+				
+				if ($joinedLibraryIDs) {
+					$sql .= " OR libraryID IN (";
+					$params = array_merge($params, $joinedLibraryIDs);
+					$q = array_fill(0, sizeOf($joinedLibraryIDs), '?');
+					$sql .= implode(', ', $q) . ")";
+				}
+				
+				$count += Zotero_DB::valueQuery($sql, $params, $shardID);
+			}
 		}
+		
 		return $count;
 	}
 	
@@ -345,7 +395,9 @@ class Zotero_DataObjects {
 	 *
 	 * @param	int			$libraryID		Library ID
 	 * @param	string		$timestamp		Unix timestamp + decimal ms of last sync time
-	 * @return	array						An array of arrays of object ids, keyed by libraryID, or FALSE if none
+	 * @param	boolean		$includeAllUserObjects	Include objects from all user's groups
+	 * @return	array						An array of arrays of object ids, keyed by libraryID, or FALSE if none;
+	 *											if $countOnly, return number of objects per library instead
 	 */
 	public static function getUpdated($libraryID, $timestamp, $includeAllUserObjects=false) {
 		$table = static::field('table');
