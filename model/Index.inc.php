@@ -133,11 +133,17 @@ class Zotero_Index {
 		$deletePairs = array();
 		$deleteLibraries = array();
 		
+		$libraryExists = array();
+		
 		$lkPairs = self::getQueuedItems($indexProcessID);
 		foreach ($lkPairs as $pair) {
-			// If key not specified, update/delete entire library
-			if (!$pair['key']) {
-				if (Zotero_Libraries::exists($pair['libraryID'])) {
+			if (!isset($libraryExists[$pair['libraryID']])) {
+				$libraryExists[$pair['libraryID']] = Zotero_Libraries::exists($pair['libraryID']);
+			}
+			
+			// If key not specified or library doesn't exist, update/delete entire library
+			if (!$pair['key'] || !$libraryExists[$pair['libraryID']]) {
+				if ($libraryExists[$pair['libraryID']]) {
 					throw new Exception("Unimplemented");
 					continue;
 				}
