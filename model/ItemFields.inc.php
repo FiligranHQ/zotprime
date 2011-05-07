@@ -34,6 +34,8 @@ class Zotero_ItemFields {
 	private static $itemTypeBaseFieldIDCache = array();
 	private static $isValidForTypeCache = array();
 	private static $isBaseFieldCache = array();
+	private static $typeFieldIDsByBaseCache = array();
+	private static $typeFieldNamesByBaseCache = array();
 	
 	private static $localizedFields = array(
 			"itemType"			=> "Type",
@@ -514,10 +516,29 @@ class Zotero_ItemFields {
 		}
 		
 		if ($asNames) {
+			if (isset(self::$typeFieldNamesByBaseCache[$baseFieldID])) {
+				return self::$typeFieldNamesByBaseCache[$baseFieldID];
+			}
+			
+			$cacheKey = "itemTypeFieldNamesByBase_" . $baseFieldID;
+			$fieldNames = Z_Core::$MC->get($cacheKey);
+			if ($fieldNames) {
+				self::$typeFieldNamesByBaseCache[$baseFieldID] = $fieldNames;
+				return $fieldNames;
+			}
+			
 			$sql = "SELECT fieldName FROM fields WHERE fieldID IN (
 				SELECT fieldID FROM baseFieldMappings
 				WHERE baseFieldID=?)";
-			return Zotero_DB::columnQuery($sql, $baseFieldID);
+			$fieldNames = Zotero_DB::columnQuery($sql, $baseFieldID);
+			if (!$fieldNames) {
+				$fieldNames = array();
+			}
+			
+			self::$typeFieldNamesByBaseCache[$baseFieldID] = $fieldNames;
+			Z_Core::$MC->set($cacheKey, $fieldNames);
+			
+			return $fieldNames;
 		}
 		
 		// TEMP
@@ -525,8 +546,27 @@ class Zotero_ItemFields {
 			return array(96,52,100,10008);
 		}
 		
+		if (isset(self::$typeFieldIDsByBaseCache[$baseFieldID])) {
+			return self::$typeFieldIDsByBaseCache[$baseFieldID];
+		}
+		
+		$cacheKey = "itemTypeFieldIDsByBase_" . $baseFieldID;
+		$fieldIDs = Z_Core::$MC->get($cacheKey);
+		if ($fieldIDs) {
+			self::$typeFieldIDsByBaseCache[$baseFieldID] = $fieldIDs;
+			return $fieldIDs;
+		}
+		
 		$sql = "SELECT DISTINCT fieldID FROM baseFieldMappings WHERE baseFieldID=?";
-		return Zotero_DB::columnQuery($sql, $baseFieldID);
+		$fieldIDs = Zotero_DB::columnQuery($sql, $baseFieldID);
+		if (!$fieldIDs) {
+			$fieldIDs = array();
+		}
+		
+		self::$typeFieldIDsByBaseCache[$baseFieldID] = $fieldIDs;
+		Z_Core::$MC->set($cacheKey, $fieldIDs);
+		
+		return $fieldIDs;
 	}
 	
 	
