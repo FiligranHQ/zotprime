@@ -906,8 +906,8 @@ class Zotero_Sync {
 	public static function cacheDownload($userID, $lastsync, $xmldata) {
 		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
-		// Save data <4MB to Mongo
-		if (strlen($xmldata) < 4000000) {
+		// Save data <16MB (less 1KB for good measure) to Mongo
+		if (strlen($xmldata) < 16773120) {
 			$doc = array(
 				"_id" => $key,
 				"userID" => $userID,
