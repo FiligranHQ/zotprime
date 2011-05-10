@@ -1159,6 +1159,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			$keys[] = $item->key;
 		}
 		
+		// Mark library as updated
+		$timestampSQL = Zotero_DB::getTransactionTimestamp();
+		$timestampMS = Zotero_DB::getTransactionTimestampMS();
+		Zotero_Libraries::updateTimestamp(array($libraryID), $timestampSQL, $timestampMS);
+		
 		Zotero_DB::commit();
 		
 		return $keys;
@@ -1354,6 +1359,14 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		Zotero_Index::addItem($item);
 		Zotero_Index::$queueingEnabled = true;
+		
+		// Mark library as updated
+		if (!$isNew) {
+			$timestampSQL = Zotero_DB::getTransactionTimestamp();
+			$timestampMS = Zotero_DB::getTransactionTimestampMS();
+			Zotero_Libraries::updateTimestamp(array($item->libraryID), $timestampSQL, $timestampMS);
+		}
+		
 		Zotero_DB::commit();
 	}
 	

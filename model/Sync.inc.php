@@ -59,21 +59,6 @@ class Zotero_Sync {
 		return $xml;
 	}
 	
-	/**
-	 * Get a key to represent the current state of all of a user's libraries
-	 */
-	public static function getUpdateKey($userID) {
-		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
-		$parts = array();
-		foreach ($libraryIDs as $libraryID) {
-			$sql = "SELECT CONCAT(UNIX_TIMESTAMP(lastUpdated), '.', IFNULL(lastUpdatedMS, 0))
-					FROM libraries WHERE libraryID=?";
-			$timestamp = Zotero_DB::valueQuery($sql, $libraryID);
-			$parts[] = $libraryID . ':' . $timestamp;
-		}
-		return md5(implode(',', $parts));
-	}
-	
 	
 	/**
 	 * Check if any of a user's libraries are queued for writing
@@ -869,7 +854,7 @@ class Zotero_Sync {
 		
 		$lastsync = implode('.', self::getTimestampParts($lastsync));
 		
-		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
+		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
 		try {
 			$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
@@ -904,7 +889,7 @@ class Zotero_Sync {
 	
 	
 	public static function cacheDownload($userID, $lastsync, $xmldata) {
-		$key = md5(self::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
+		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
 		// Save data <16MB (less 4KB for good measure) to Mongo
 		if (strlen($xmldata) < 16773120) {
@@ -1103,7 +1088,7 @@ class Zotero_Sync {
 			
 			$doc->documentElement->setAttribute('userID', $userID);
 			$doc->documentElement->setAttribute('defaultLibraryID', $userLibraryID);
-			$doc->documentElement->setAttribute('updateKey', self::getUpdateKey($userID));
+			$doc->documentElement->setAttribute('updateKey', Zotero_Users::getUpdateKey($userID));
 			
 			foreach (Zotero_DataObjects::$objectTypes as $syncObject) {
 				$Name = $syncObject['singular']; // 'Item'
@@ -1631,13 +1616,8 @@ class Zotero_Sync {
 			$timestampUnix = Zotero_DB::getTransactionTimestampUnix();
 			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			
-			// Update timestamps on affected libraries
-			$sql = "UPDATE libraries SET lastUpdated=?, lastUpdatedMS=? WHERE libraryID IN ("
-					. implode(',', array_fill(0, sizeOf($affectedLibraries), '?')) . ")";
-			Zotero_DB::query(
-				$sql,
-				array_merge(array($timestampSQL, $timestampMS), $affectedLibraries)
-			);
+			// Mark library as updated
+			Zotero_Libraries::updateTimestamp($affectedLibraries, $timestampSQL, $timestampMS);
 			
 			self::removeUploadProcess($processID);
 			

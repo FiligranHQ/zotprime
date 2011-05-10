@@ -118,6 +118,16 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function updateTimestamp($libraryIDs, $timestampSQL, $timestampMS) {
+		$sql = "UPDATE libraries SET lastUpdated=?, lastUpdatedMS=? WHERE libraryID IN "
+				. "(" . implode(',', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
+		Zotero_DB::query(
+			$sql,
+			array_merge(array($timestampSQL, $timestampMS), $libraryIDs)
+		);
+	}
+	
+	
 	/**
 	 * Delete data from memcached
 	 */

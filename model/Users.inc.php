@@ -224,6 +224,22 @@ class Zotero_Users {
 	}
 	
 	
+	/**
+	 * Get a key to represent the current state of all of a user's libraries
+	 */
+	public static function getUpdateKey($userID) {
+		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		$parts = array();
+		foreach ($libraryIDs as $libraryID) {
+			$sql = "SELECT CONCAT(UNIX_TIMESTAMP(lastUpdated), '.', IFNULL(lastUpdatedMS, 0))
+					FROM libraries WHERE libraryID=?";
+			$timestamp = Zotero_DB::valueQuery($sql, $libraryID);
+			$parts[] = $libraryID . ':' . $timestamp;
+		}
+		return md5(implode(',', $parts));
+	}
+	
+	
 	public static function getLastStorageSync($userID) {
 		$lastModified = false;
 		

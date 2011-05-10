@@ -407,7 +407,7 @@ class SyncController extends Controller {
 			$this->error(400, 'INVALID_UPLOAD_DATA', 'Update key not provided');
 		}
 		
-		if ($_REQUEST['updateKey'] != Zotero_Sync::getUpdateKey($this->userID)) {
+		if ($_REQUEST['updateKey'] != Zotero_Users::getUpdateKey($this->userID)) {
 			$this->e409("Server data has changed since last retrieval");
 		}
 		
