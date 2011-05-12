@@ -704,7 +704,7 @@ class Zotero_Group {
 		}
 		
 		// Queue library for deletion from search index
-		Zotero_Solr::queueLibrary($this->libraryID);
+		Zotero_Index::queueLibrary($this->libraryID);
 		
 		Zotero_DB::commit();
 		
