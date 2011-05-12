@@ -256,9 +256,10 @@ class Z_MemcachedClientLocal {
 		$this->queueValues = array();
 	}
 	
-	public function rollback($allowExisting=false) {
-		if (!$allowExisting && !$this->queuing) {
-			throw new Exception("Memcache wasn't queuing");
+	public function rollback() {
+		if (!$this->queuing) {
+			Z_Core::debug('Transaction not open in Z_MemcachedClientLocal::rollback()');
+			return;
 		}
 		
 		if (!$this->queue) {

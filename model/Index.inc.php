@@ -71,7 +71,8 @@ class Zotero_Index {
 	
 	public static function rollback() {
 		if (!self::$inTransaction) {
-			throw new Exception("Not in a transaction");
+			Z_Core::debug('Transaction not open in Zotero_Index::rollback()');
+			return;
 		}
 		self::$pairsToCommit = array();
 		self::$inTransaction = false;

@@ -204,7 +204,8 @@ class Zotero_DB {
 		}
 		
 		if ($instance->transactionLevel == 0) {
-			throw new Exception("Transaction not open");
+			Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
+			return;
 		}
 		
 		if ($instance->transactionLevel > 1) {
