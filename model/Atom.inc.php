@@ -256,5 +256,21 @@ class Zotero_Atom {
 		
 		return $xml;
 	}
+	
+	
+	public static function addHTMLRow($html, $fieldName, $displayName, $value, $includeEmpty=false) {
+		if (!$includeEmpty && ($value === '' || $value === false)) {
+			return;
+		}
+		
+		$tr = $html->addChild('tr');
+		if ($fieldName) {
+			$tr->addAttribute('class', $fieldName);
+		}
+		$th = $tr->addChild('th', $displayName);
+		$th['style'] = 'text-align: right';
+		$td = $tr->addChild('td', htmlspecialchars($value));
+		return $tr;
+	}
 }
 ?>

@@ -717,6 +717,117 @@ class Zotero_Group {
 	 *
 	 * @return	SimpleXMLElement				Group data as SimpleXML element
 	 */
+	public function toHTML() {
+		if (($this->id || $this->libraryID) && !$this->loaded) {
+			$this->load();
+		}
+		
+		$html = new SimpleXMLElement("<table/>");
+		
+		$tr = Zotero_Atom::addHTMLRow(
+			$html,
+			'owner',
+			"Owner",
+			"",
+			true
+		);
+		$tr->td->a = Zotero_Users::getUsername($this->ownerUserID);
+		$tr->td->a['href'] = Zotero_URI::getUserURI($this->ownerUserID);
+		
+		Zotero_Atom::addHTMLRow($html, '', "Type", preg_replace('/([a-z])([A-Z])/', '$1 $2', $this->type));
+		
+		Zotero_Atom::addHTMLRow($html, '', "Description", $this->description);
+		Zotero_Atom::addHTMLRow($html, '', "URL", $this->url);
+		
+		Zotero_Atom::addHTMLRow($html, '', "Group Library", $this->libraryEnabled ? "Yes" : "No");
+		
+		if ($this->libraryEnabled) {
+			Zotero_Atom::addHTMLRow($html, '', "Library Reading", ucwords($this->libraryReading));
+			Zotero_Atom::addHTMLRow($html, '', "Library Editing", ucwords($this->libraryEditing));
+			Zotero_Atom::addHTMLRow($html, '', "File Editing", ucwords($this->fileEditing));
+		}
+		
+		$admins = $this->getAdmins();
+		if ($admins) {
+			$tr = Zotero_Atom::addHTMLRow($html, '', "Admins", '', true);
+			$ul = $tr->td->addChild('ul');
+			foreach ($admins as $admin) {
+				$li = $ul->addChild('li');
+				$li->a = Zotero_Users::getUsername($admin);
+				$li->a['href'] = Zotero_URI::getUserURI($admin);
+			}
+		}
+		
+		return $html;
+	}
+	
+	
+	/**
+	 * Converts group to a JSON object
+	 */
+	public function toJSON($asArray=false, $prettyPrint=false, $includeEmpty=false) {
+		if (($this->id || $this->libraryID) && !$this->loaded) {
+			$this->load();
+		}
+		
+		$arr = array();
+		$arr['name'] = $this->name;
+		$arr['owner'] = $this->ownerUserID;
+		$arr['type'] = $this->type;
+		
+		if ($this->description || $includeEmpty) {
+			$arr['description'] = $this->description;
+		}
+		
+		if ($this->url || $includeEmpty) {
+			$arr['url'] = $this->url;
+		}
+		if ($this->hasImage) {
+			$arr['hasImage'] = 1;
+		}
+		
+		if ($this->libraryEnabled) {
+			$arr['libraryEnabled'] = 1;
+			$arr['libraryEditing'] = $this->libraryEditing;
+			$arr['libraryReading'] = $this->libraryReading;
+			$arr['fileEditing'] = $this->fileEditing;
+		}
+		else {
+			$arr['libraryEnabled'] = 0;
+		}
+		
+		$admins = $this->getAdmins();
+		if ($admins) {
+			$arr['admins'] = $admins;
+		}
+		
+		$members = $this->getMembers();
+		if ($members) {
+			$arr['members'] = $members;
+		}
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+		if ($prettyPrint) {
+			$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
+		}
+		else {
+			$json = json_encode($arr, $mask);
+		}
+		// Until JSON_UNESCAPED_SLASHES is available
+		$json = str_replace('\\/', '/', $json);
+		return $json;
+	}
+	
+	
+	/**
+	 * Converts group to a SimpleXMLElement item
+	 *
+	 * @return	SimpleXMLElement				Group data as SimpleXML element
+	 */
 	public function toXML($userID=false) {
 		if (($this->id || $this->libraryID) && !$this->loaded) {
 			$this->load();
@@ -784,7 +895,7 @@ class Zotero_Group {
 	}
 	
 	
-	public function toAtom($content='none', $apiVersion=null) {
+	public function toAtom($content='none', $queryParams, $apiVersion=null) {
 		if (!$this->loaded) {
 			$this->load();
 		}
@@ -826,16 +937,17 @@ class Zotero_Group {
 		
 		if ($content == 'html') {
 			$xml->content['type'] = 'html';
-			
-			$fullStr = "<div/>";
-			$fullXML = new SimpleXMLElement($fullStr);
-			$fullXML->addAttribute(
-				"xmlns", Zotero_Atom::$nsXHTML
-			);
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
+			$htmlXML = $this->toHTML();
+			$xml->content->div = '';
+			$xml->content->div['xmlns'] = Zotero_Atom::$nsXHTML;
+			$fNode = dom_import_simplexml($xml->content->div);
+			$subNode = dom_import_simplexml($htmlXML);
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
+		}
+		else if ($content == 'json') {
+			$xml->content['type'] = 'application/json';
+			$xml->content = $this->toJSON(false, $queryParams['pprint'], true);
 		}
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';

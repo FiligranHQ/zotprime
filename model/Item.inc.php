@@ -2936,7 +2936,7 @@ class Zotero_Item {
 		*/
 		
 		// Item type
-		$this->addHTMLRow(
+		Zotero_Atom::addHTMLRow(
 			$html,
 			"itemType",
 			Zotero_ItemFields::getLocalizedString(false, 'itemType'),
@@ -2960,7 +2960,7 @@ class Zotero_Item {
 					// TODO
 				}
 				
-				$this->addHTMLRow(
+				Zotero_Atom::addHTMLRow(
 					$html,
 					"creator",
 					Zotero_CreatorTypes::getLocalizedString($creator['creatorTypeID']),
@@ -3083,7 +3083,7 @@ class Zotero_Item {
 			}
 			
 			if (isset($linkContainer)) {
-				$tr = $this->addHTMLRow($html, $fieldName, $localizedFieldName, "", true);
+				$tr = Zotero_Atom::addHTMLRow($html, $fieldName, $localizedFieldName, "", true);
 				
 				$tdNode = dom_import_simplexml($tr->td);
 				$linkNode = dom_import_simplexml($linkContainer->a);
@@ -3092,14 +3092,14 @@ class Zotero_Item {
 				unset($linkContainer);
 			}
 			else {
-				$this->addHTMLRow($html, $fieldName, $localizedFieldName, $fieldText);
+				Zotero_Atom::addHTMLRow($html, $fieldName, $localizedFieldName, $fieldText);
 			}
 		}
 		
 		if ($this->isNote() || $this->isAttachment()) {
 			$note = $this->getNote(true);
 			if ($note) {
-				$tr = $this->addHTMLRow($html, "note", "Note", "", true);
+				$tr = Zotero_Atom::addHTMLRow($html, "note", "Note", "", true);
 				
 				try {
 					$noteXML = @new SimpleXMLElement("<td>" . $note . "</td>");
@@ -3118,9 +3118,9 @@ class Zotero_Item {
 		}
 		
 		if ($this->isAttachment()) {
-			$this->addHTMLRow($html, "linkMode", "Link Mode", $this->attachmentLinkMode);
-			$this->addHTMLRow($html, "mimeType", "MIME Type", $this->attachmentMIMEType);
-			$this->addHTMLRow($html, "charset", "Character Set", $this->attachmentCharset);
+			Zotero_Atom::addHTMLRow($html, "linkMode", "Link Mode", $this->attachmentLinkMode);
+			Zotero_Atom::addHTMLRow($html, "mimeType", "MIME Type", $this->attachmentMIMEType);
+			Zotero_Atom::addHTMLRow($html, "charset", "Character Set", $this->attachmentCharset);
 			
 			// TODO: get from a constant
 			/*if ($this->attachmentLinkMode != 3) {
@@ -3129,7 +3129,7 @@ class Zotero_Item {
 		}
 		
 		if ($this->getDeleted()) {
-			$this->addHTMLRow($html, "deleted", "Deleted", "Yes");
+			Zotero_Atom::addHTMLRow($html, "deleted", "Deleted", "Yes");
 		}
 		
 		if ($asSimpleXML) {
@@ -3138,21 +3138,6 @@ class Zotero_Item {
 		
 		return str_replace('<?xml version="1.0"?>', '', $html->asXML());
 	}
-	
-	
-	private function addHTMLRow($html, $fieldName, $displayName, $value, $includeEmpty=false) {
-		if (!$includeEmpty && ($value === '' || $value === false)) {
-			return;
-		}
-		
-		$tr = $html->addChild('tr');
-		$tr->addAttribute('class', $fieldName);
-		$th = $tr->addChild('th', $displayName);
-		$th['style'] = 'text-align: right';
-		$td = $tr->addChild('td', htmlspecialchars($value));
-		return $tr;
-	}
-	
 	
 	
 	public function toJSON($asArray=false, $prettyPrint=false, $includeEmpty=false, $unformattedFields=false) {
