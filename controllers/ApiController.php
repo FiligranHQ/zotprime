@@ -2681,6 +2681,12 @@ class ApiController extends Controller {
 		switch ($e->getCode()) {
 			case Z_ERROR_INVALID_INPUT:
 			case Z_ERROR_CITESERVER_INVALID_STYLE:
+				$msg = $e->getMessage();
+				error_log($msg);
+				$this->e400(htmlspecialchars($msg));
+				break;
+			
+			// 404?
 			case Z_ERROR_TAG_NOT_FOUND:
 				$this->e400(htmlspecialchars($e->getMessage()));
 		}
