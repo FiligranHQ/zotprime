@@ -355,7 +355,7 @@ class Zotero_Sync {
 	
 	public static function processUploadFromQueue($syncProcessID) {
 		if (Z_Core::probability(30)) {
-			$sql = "DELETE FROM syncProcesses WHERE started < (NOW() - INTERVAL 45 MINUTE)";
+			$sql = "DELETE FROM syncProcesses WHERE started < (NOW() - INTERVAL 180 MINUTE)";
 			$row = Zotero_DB::query($sql);
 		}
 		
@@ -409,7 +409,7 @@ class Zotero_Sync {
 		
 		$startedTimestamp = microtime(true);
 		if (strpos($startedTimestamp, '.') === false) {
-			$startedTimestamp .= '.';
+			$startedTimestamp .= '.0';
 		}
 		list($started, $startedMS) = explode('.', $startedTimestamp);
 		$sql = "UPDATE syncUploadQueue SET started=FROM_UNIXTIME(?), startedMS=?, processorHost=INET_ATON(?) WHERE syncUploadQueueID=?";
@@ -417,6 +417,13 @@ class Zotero_Sync {
 		
 		Zotero_DB::commit();
 		Zotero_DB::close();
+		
+		$processData = array(
+			"syncUploadQueueID" => $row['syncUploadQueueID'],
+			"userID" => $row['userID'],
+			"dataLength" => $row['dataLength']
+		);
+		Z_Core::$MC->set("syncUploadProcess_" . $syncProcessID, $processData, 86400);
 		
 		$error = false;
 		$lockError = false;
@@ -732,7 +739,7 @@ class Zotero_Sync {
 							$affected = Zotero_DB::query(
 								$sql,
 								array($timestamp, $timestampMS, $userLibraryID, $groupID),
-								Zotero_Shards::getByLibraryID($this->libraryID)
+								Zotero_Shards::getByLibraryID($userLibraryID)
 							);
 							break;
 						
@@ -853,7 +860,6 @@ class Zotero_Sync {
 		}
 		
 		$lastsync = implode('.', self::getTimestampParts($lastsync));
-		
 		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
 		try {
@@ -889,6 +895,7 @@ class Zotero_Sync {
 	
 	
 	public static function cacheDownload($userID, $lastsync, $xmldata) {
+		$lastsync = implode('.', self::getTimestampParts($lastsync));
 		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
 		// Save data <16MB (less 4KB for good measure) to Mongo
@@ -1290,7 +1297,7 @@ class Zotero_Sync {
 		}
 		$processID = self::addUploadProcess($userID, $affectedLibraries, $syncQueueID, $syncProcessID);
 		
-		set_time_limit(1800);
+		set_time_limit(5400);
 		
 		$profile = false;
 		if ($profile) {
