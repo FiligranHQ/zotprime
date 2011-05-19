@@ -186,6 +186,22 @@ class Zotero_Users {
 	}
 	
 	
+	/**
+	 * Get a key to represent the current state of all of a user's libraries
+	 */
+	public static function getUpdateKey($userID) {
+		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		$parts = array();
+		foreach ($libraryIDs as $libraryID) {
+			$sql = "SELECT CONCAT(UNIX_TIMESTAMP(lastUpdated), '.', IFNULL(lastUpdatedMS, 0))
+					FROM libraries WHERE libraryID=?";
+			$timestamp = Zotero_DB::valueQuery($sql, $libraryID);
+			$parts[] = $libraryID . ':' . $timestamp;
+		}
+		return md5(implode(',', $parts));
+	}
+	
+	
 	public static function getEarliestDataTimestamp($userID) {
 		$earliest = false;
 		
@@ -224,22 +240,6 @@ class Zotero_Users {
 	}
 	
 	
-	/**
-	 * Get a key to represent the current state of all of a user's libraries
-	 */
-	public static function getUpdateKey($userID) {
-		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
-		$parts = array();
-		foreach ($libraryIDs as $libraryID) {
-			$sql = "SELECT CONCAT(UNIX_TIMESTAMP(lastUpdated), '.', IFNULL(lastUpdatedMS, 0))
-					FROM libraries WHERE libraryID=?";
-			$timestamp = Zotero_DB::valueQuery($sql, $libraryID);
-			$parts[] = $libraryID . ':' . $timestamp;
-		}
-		return md5(implode(',', $parts));
-	}
-	
-	
 	public static function getLastStorageSync($userID) {
 		$lastModified = false;
 		
@@ -260,6 +260,71 @@ class Zotero_Users {
 		}
 		
 		return $lastModified;
+	}
+	
+	
+	public static function isValidUser($userID) {
+		if (!$userID) {
+			throw new Exception("Invalid user");
+		}
+		
+		$cacheKey = "validUser_" . $userID;
+		$valid = Z_Core::$MC->get($cacheKey);
+		if ($valid) {
+			return true;
+		}
+		
+		$valid = !!self::getValidUsers(array($userID));
+		
+		if ($valid) {
+			Z_Core::$MC->set($cacheKey, 1, 10);
+		}
+		
+		return $valid;
+	}
+	
+	
+	public static function getValidUsers($userIDs) {
+		if (!$userIDs) {
+			return array();
+		}
+		
+		$invalid = array();
+		
+		// Get any of these users that are known to be invalid
+		$sql = "SELECT UserID FROM LUM_User WHERE RoleID=2 AND UserID IN ("
+			. implode(', ', array_fill(0, sizeOf($userIDs), '?'))
+			. ")";
+		
+		try {
+			if (Z_Core::probability(2)) {
+				try {
+					$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
+				}
+				catch (Exception $e) {
+					$invalid = Zotero_WWW_DB_2::columnQuery($sql, $userIDs);
+				}
+			}
+			else {
+				try {
+					$invalid = Zotero_WWW_DB_2::columnQuery($sql, $userIDs);
+				}
+				catch (Exception $e) {
+					$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
+				}
+			}
+		}
+		catch (Exception $e) {
+			Z_Core::logError("WARNING: " . $e);
+			
+			// If not available, assume valid
+		}
+		
+		if ($invalid) {
+			$userIDs = array_diff($userIDs, $invalid);
+		}
+		
+		return $userIDs;
 	}
 	
 	
@@ -317,9 +382,12 @@ class Zotero_Users {
 		if (!$xml) {
 			throw new Exception("User $userID not found", Z_ERROR_USER_NOT_FOUND);
 		}
-		$xml = @new SimpleXMLElement($xml);
-		if (!$xml) {
-			throw new Exception("Invalid XML for user $userID");
+		try {
+			$xml = @new SimpleXMLElement($xml);
+		}
+		catch (Exception $e) {
+			Z_Core::logError($e);
+			throw new Exception("Invalid XML for user", Z_ERROR_USER_NOT_FOUND);
 		}
 		self::$userXMLHash[$userID] = $xml;
 		return $xml;
@@ -336,9 +404,13 @@ class Zotero_Users {
 		if (!$xml) {
 			throw new Exception("User '$username' not found", Z_ERROR_USER_NOT_FOUND);
 		}
-		$xml = @new SimpleXMLElement($xml);
-		if (!$xml) {
-			throw new Exception("Invalid XML for user $username");
+		
+		try {
+			$xml = @new SimpleXMLElement($xml);
+		}
+		catch (Exception $e) {
+			Z_Core::logError($e);
+			throw new Exception("Invalid XML for user", Z_ERROR_USER_NOT_FOUND);
 		}
 		$userID = self::getUserIDFromAPIXML($xml);
 		self::$userXMLHash[$userID] = $xml;

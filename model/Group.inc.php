@@ -250,6 +250,9 @@ class Zotero_Group {
 		if (!$ids) {
 			return array();
 		}
+		
+		$ids = Zotero_Users::getValidUsers($ids);
+		
 		return $ids;
 	}
 	

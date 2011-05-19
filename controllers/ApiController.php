@@ -216,12 +216,25 @@ class ApiController extends Controller {
 			}
 			catch (Exception $e) {
 				if ($e->getCode() == Z_ERROR_USER_NOT_FOUND) {
-					Zotero_Users::addFromAPI($objectUserID);
+					try {
+						Zotero_Users::addFromAPI($objectUserID);
+					}
+					catch (Exception $e) {
+						if ($e->getCode() == Z_ERROR_USER_NOT_FOUND) {
+							$this->e404();
+						}
+						throw ($e);
+					}
 					$this->objectLibraryID = Zotero_Users::getLibraryIDFromUserID($objectUserID);
 				}
 				else {
 					throw ($e);
 				}
+			}
+			
+			// Make sure user isn't banned
+			if (!Zotero_Users::isValidUser($objectUserID)) {
+				$this->e404();
 			}
 		}
 		// Get object group
@@ -233,6 +246,10 @@ class ApiController extends Controller {
 			// Make sure group exists
 			$group = Zotero_Groups::get($objectGroupID);
 			if (!$group) {
+				$this->e404();
+			}
+			// Don't show groups owned by banned users
+			if (!Zotero_Users::isValidUser($group->ownerUserID)) {
 				$this->e404();
 			}
 			$this->objectGroupID = $objectGroupID;
