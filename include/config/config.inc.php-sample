@@ -22,22 +22,20 @@ class Z_CONFIG {
 	
 	public static $MEMCACHED_ENABLED = true;
 	public static $MEMCACHED_SERVERS = array(
-		'192.168.1.1:11211:2', '192.168.1.2:11211:1'
+		'memcached1.localdomain:11211:2', 'memcached2.localdomain:11211:1'
 	);
 	public static $MEMCACHED_SERVER_NAME_PREFIX_MAP = array(
 		'api.example.com' => 'sync.example.com'
 	);
 	
 	public static $MONGO_SERVERS = array(
-		'192.168.1.1:27017', '192.168.1.2:27017'
+		'mongo1.localdomain:27017', 'mongo2.localdomain:27017'
 	);
 	public static $MONGO_DB = "";
 	public static $MONGO_SAFE_NUM = 2;
 	
-	public static $SOLR_SERVER = "192.168.1.1:8983";
-	
 	public static $CITE_SERVERS = array(
-		"192.168.1.1:8080", "192.168.1.2:8080"
+		"citeserver1.localdomain:8080", "citeserver2.localdomain:8080"
 	);
 	
 	public static $LOG_TO_SCRIBE = false;
