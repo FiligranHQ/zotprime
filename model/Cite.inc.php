@@ -96,7 +96,7 @@ class Zotero_Cite {
 		$maxOffset = (int) $bib[0]->maxoffset;
 		$entrySpacing = (int) $bib[0]->entryspacing;
 		$lineSpacing = (int) $bib[0]->linespacing;
-		$hangingIndent = (int) $bib[0]->hangingindent;
+		$hangingIndent = !empty($bib[0]->hangingindent) ? (int) $bib[0]->hangingindent : 0;
 		$secondFieldAlign = !empty($bib[0]->$sfa); // 'flush' and 'margin' are the same for HTML
 		
 		$xml = new SimpleXMLElement($html);
