@@ -27,7 +27,7 @@
 class Zotero_Groups {
 	private static $groups = array();
 	
-	public static function get($groupID) {
+	public static function get($groupID, $skipExistsCheck=false) {
 		if (!$groupID) {
 			throw new Exception('$groupID not set');
 		}
@@ -43,7 +43,7 @@ class Zotero_Groups {
 		
 		$group = new Zotero_Group;
 		$group->id = $groupID;
-		if (!$group->exists()) {
+		if (!$skipExistsCheck && !$group->exists()) {
 			return false;
 		}
 		
@@ -57,11 +57,12 @@ class Zotero_Groups {
 	public static function getAllAdvanced($userID=false, $params=array()) {
 		$results = array('groups' => array(), 'total' => 0);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS groupID FROM groups ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS G.groupID, GUO.userID AS ownerUserID FROM groups G
+				JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
 		$sqlParams = array();
 		
 		if ($userID) {
-			$sql .= "JOIN groupUsers USING (groupID) WHERE userID=? ";
+			$sql .= "JOIN groupUsers GUA ON (G.groupID=GUA.groupID) WHERE GUA.userID=? ";
 			$sqlParams[] = $userID;
 		}
 		else {
@@ -122,37 +123,31 @@ class Zotero_Groups {
 			}
 		}
 		
-		// We can't use SQL limit for with a userID
-		// because only some groups might be accessible
-		if (!$userID) {
-			if (!empty($params['order'])) {
-				$order = $params['order'];
-				if ($order == 'title') {
-					$order = 'name';
-				}
-				$sql .= "ORDER BY $order";
-				if (!empty($params['sort'])) {
-					$sql .= " " . $params['sort'] . " ";
-				}
-			}
-			
-			if (!empty($params['limit'])) {
-				$sql .= "LIMIT ?, ?";
-				$sqlParams[] = $params['start'] ? $params['start'] : 0;
-				$sqlParams[] = $params['limit'];
-			}
-		}
-		$ids = Zotero_DB::columnQuery($sql, $sqlParams);
+		$rows = Zotero_DB::query($sql, $sqlParams);
 		
-		if ($ids) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+		if ($rows) {
+			// Include only groups with valid owners
+			$owners = array();
+			foreach ($rows as $row) {
+				$owners[] = $row['ownerUserID'];
+			}
+			$owners = Zotero_Users::getValidUsers($owners);
+			$ids = array();
+			foreach ($rows as $row) {
+				// Skip banned users
+				if (!in_array($row['ownerUserID'], $owners)) {
+					continue;
+				}
+				$ids[] = $row['groupID'];
+			}
 			
 			$groups = array();
 			foreach ($ids as $id) {
-				$group = Zotero_Groups::get($id);
+				$group = Zotero_Groups::get($id, true);
 				$groups[] = $group;
 			}
 			$results['groups'] = $groups;
+			$results['total'] = sizeOf($ids);
 		}
 		
 		return $results;

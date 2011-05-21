@@ -1780,7 +1780,7 @@ class ApiController extends Controller {
 					case Z_ERROR_INVALID_GROUP_TYPE:
 						$this->e400($e->getMessage());
 				}
-				$this->e500($e->getMessage());
+				throw ($e);
 			}
 			
 			// Remove groups that can't be accessed
