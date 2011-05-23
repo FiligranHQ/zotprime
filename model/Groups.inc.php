@@ -231,7 +231,7 @@ class Zotero_Groups {
 		}
 		
 		if (!$groups) {
-			return array('groups' => array(), 'total' => 0);
+			return array('groups' => array(), 'totalResults' => 0);
 		}
 		
 		// Fake limiting -- we can't just use SQL limit because
