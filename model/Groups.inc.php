@@ -54,79 +54,119 @@ class Zotero_Groups {
 	
 	
 	
-	public static function getAllAdvanced($userID=false, $params=array()) {
-		$results = array('groups' => array(), 'total' => 0);
+	public static function getAllAdvanced($userID=false, $params=array(), $permissions=null) {
+		$buffer = 20;
+		$maxTimes = 3;
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS G.groupID, GUO.userID AS ownerUserID FROM groups G
-				JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
-		$sqlParams = array();
+		$groups = array();
+		$start = $params['start'] ? $params['start'] : 0;
+		$limit = !empty($params['limit']) ? $params['limit'] + $buffer : false;
+		$totalResults = null;
 		
-		if ($userID) {
-			$sql .= "JOIN groupUsers GUA ON (G.groupID=GUA.groupID) WHERE GUA.userID=? ";
-			$sqlParams[] = $userID;
-		}
-		else {
-			$sql .= "WHERE 1 ";
-		}
-		
-		if (!empty($params['q'])) {
-			if (!is_array($params['q'])) {
-				$params['q'] = array($params['q']);
+		$times = 0;
+		while (true) {
+			if ($times > 0) {
+				Z_Core::logError('Getting more groups in Zotero_Groups::getAllAdvanced()');
 			}
-			foreach ($params['q'] as $q) {
-				$field = explode(":", $q);
-				if (sizeOf($field) == 2) {
-					switch ($field[0]) {
-						case 'slug':
-							break;
+			
+			$sql = "SELECT SQL_CALC_FOUND_ROWS G.groupID, GUO.userID AS ownerUserID FROM groups G
+					JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
+			$sqlParams = array();
+			
+			if ($userID) {
+				$sql .= "JOIN groupUsers GUA ON (G.groupID=GUA.groupID) WHERE GUA.userID=? ";
+				$sqlParams[] = $userID;
+			}
+			else {
+				$sql .= "WHERE 1 ";
+			}
+			
+			if (!empty($params['q'])) {
+				if (!is_array($params['q'])) {
+					$params['q'] = array($params['q']);
+				}
+				foreach ($params['q'] as $q) {
+					$field = explode(":", $q);
+					if (sizeOf($field) == 2) {
+						switch ($field[0]) {
+							case 'slug':
+								break;
+							
+							default:
+								throw new Exception("Cannot search by group field '{$field[0]}'", Z_ERROR_INVALID_GROUP_TYPE);
+						}
 						
-						default:
-							throw new Exception("Cannot search by group field '{$field[0]}'", Z_ERROR_INVALID_GROUP_TYPE);
+						$sql .= "AND " . $field[0];
+						// If first character is '-', negate
+						$sql .= ($field[0][0] == '-' ? '!' : '');
+						$sql .= "=? ";
+						$sqlParams[] = $field[1];
 					}
-					
-					$sql .= "AND " . $field[0];
-					// If first character is '-', negate
-					$sql .= ($field[0][0] == '-' ? '!' : '');
-					$sql .= "=? ";
-					$sqlParams[] = $field[1];
-				}
-				else {
-					$sql .= "AND name LIKE ? ";
-					$sqlParams[] = "%$q%";
+					else {
+						$sql .= "AND name LIKE ? ";
+						$sqlParams[] = "%$q%";
+					}
 				}
 			}
-		}
-		
-		if (!empty($params['fq'])) {
-			if (!is_array($params['fq'])) {
-				$params['fq'] = array($params['fq']);
-			}
-			foreach ($params['fq'] as $fq) {
-				$facet = explode(":", $fq);
-				if (sizeOf($facet) == 2 && preg_match('/-?GroupType/', $facet[0])) {
-					switch ($facet[1]) {
-						case 'PublicOpen':
-						case 'PublicClosed':
-						case 'Private':
-							break;
+			
+			if (!empty($params['fq'])) {
+				if (!is_array($params['fq'])) {
+					$params['fq'] = array($params['fq']);
+				}
+				foreach ($params['fq'] as $fq) {
+					$facet = explode(":", $fq);
+					if (sizeOf($facet) == 2 && preg_match('/-?GroupType/', $facet[0])) {
+						switch ($facet[1]) {
+							case 'PublicOpen':
+							case 'PublicClosed':
+							case 'Private':
+								break;
+							
+							default:
+								throw new Exception("Invalid group type '{$facet[1]}'", Z_ERROR_INVALID_GROUP_TYPE);
+						}
 						
-						default:
-							throw new Exception("Invalid group type '{$facet[1]}'", Z_ERROR_INVALID_GROUP_TYPE);
+						$sql .= "AND type";
+						// If first character is '-', negate
+						$sql .= ($facet[0][0] == '-' ? '!' : '');
+						$sql .= "=? ";
+						$sqlParams[] = $facet[1];
 					}
-					
-					$sql .= "AND type";
-					// If first character is '-', negate
-					$sql .= ($facet[0][0] == '-' ? '!' : '');
-					$sql .= "=? ";
-					$sqlParams[] = $facet[1];
 				}
 			}
-		}
-		
-		$rows = Zotero_DB::query($sql, $sqlParams);
-		
-		if ($rows) {
-			// Include only groups with valid owners
+			
+			if (!empty($params['order'])) {
+				$order = $params['order'];
+				if ($order == 'title') {
+					$order = 'name';
+				}
+				$sql .= "ORDER BY $order";
+				if (!empty($params['sort'])) {
+					$sql .= " " . $params['sort'] . " ";
+				}
+			}
+			
+			// Set limit higher than the actual limit, in case some groups are
+			// removed during access checks
+			//
+			// Actual limiting is done below
+			if ($limit) {
+				$sql .= "LIMIT ?, ?";
+				$sqlParams[] = $start;
+				$sqlParams[] = $limit;
+			}
+			
+			$rows = Zotero_DB::query($sql, $sqlParams);
+			if (!$rows) {
+				break;
+			}
+			
+			if (!$totalResults) {
+				$foundRows = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+				$totalResults = $foundRows;
+			}
+			
+			// Include only groups with non-banned owners
 			$owners = array();
 			foreach ($rows as $row) {
 				$owners[] = $row['ownerUserID'];
@@ -134,22 +174,75 @@ class Zotero_Groups {
 			$owners = Zotero_Users::getValidUsers($owners);
 			$ids = array();
 			foreach ($rows as $row) {
-				// Skip banned users
 				if (!in_array($row['ownerUserID'], $owners)) {
+					$totalResults--;
 					continue;
 				}
 				$ids[] = $row['groupID'];
 			}
 			
-			$groups = array();
+			$batchStartPos = sizeOf($groups);
+			
 			foreach ($ids as $id) {
 				$group = Zotero_Groups::get($id, true);
 				$groups[] = $group;
 			}
-			$results['groups'] = $groups;
-			$results['total'] = sizeOf($ids);
+			
+			// Remove groups that can't be accessed
+			if ($permissions) {
+				for ($i=$batchStartPos; $i<sizeOf($groups); $i++) {
+					$libraryID = (int) $groups[$i]->libraryID; // TEMP: casting shouldn't be necessary
+					if (!$permissions->canAccess($libraryID)) {
+						array_splice($groups, $i, 1);
+						$i--;
+						$totalResults--;
+					}
+				}
+			}
+			
+			$times++;
+			if ($times == $maxTimes) {
+				Z_Core::logError('Too many queries in Zotero_Groups::getAllAdvanced()');
+				break;
+			}
+			
+			if (empty($params['limit'])) {
+				break;
+			}
+			
+			// If we have enough groups to fill the limit, stop
+			if (sizeOf($groups) > $params['limit']) {
+				break;
+			}
+			
+			// If there no more rows, stop
+			if ($start + sizeOf($rows) == $foundRows) {
+				break;
+			}
+			
+			// This shouldn't happen
+			if ($start + sizeOf($rows) > $foundRows) {
+				Z_Core::logError('More rows than $foundRows in Zotero_Groups::getAllAdvanced()');
+			}
+			
+			$start = $start + sizeOf($rows);
+			// Get number we still need plus the buffer or all remaining, whichever is lower
+			$limit = min($params['limit'] - sizeOf($groups) + $buffer, $foundRows - $start);
 		}
 		
+		if (!$groups) {
+			return array('groups' => array(), 'total' => 0);
+		}
+		
+		// Fake limiting -- we can't just use SQL limit because
+		// some groups might be inaccessible
+		$groups = array_slice(
+			$groups,
+			0,
+			$params['limit']
+		);
+		
+		$results = array('groups' => $groups, 'totalResults' => $totalResults);
 		return $results;
 	}
 	

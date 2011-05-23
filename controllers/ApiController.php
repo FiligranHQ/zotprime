@@ -1773,7 +1773,7 @@ class ApiController extends Controller {
 			}
 			
 			try {
-				$results = Zotero_Groups::getAllAdvanced($this->objectUserID, $this->queryParams);
+				$results = Zotero_Groups::getAllAdvanced($this->objectUserID, $this->queryParams, $this->permissions);
 			}
 			catch (Exception $e) {
 				switch ($e->getCode()) {
@@ -1783,40 +1783,8 @@ class ApiController extends Controller {
 				throw ($e);
 			}
 			
-			// Remove groups that can't be accessed
-			for ($i=0; $i<sizeOf($results['groups']); $i++) {
-				$libraryID = (int) $results['groups'][$i]->libraryID;
-				if (!$this->permissions->canAccess($libraryID)) {
-					array_splice($results['groups'], $i, 1);
-					$results['total']--;
-					$i--;
-				}
-			}
-			
 			$groups = $results['groups'];
-			$totalResults = sizeOf($results['groups']);
-			
-			// Fake sorting and limiting -- we can't use SQL limit because
-			// only some groups might be accessible
-			$key = $this->queryParams['order'];
-			if ($key == 'title') {
-				$key = 'name';
-			}
-			$dir = $this->queryParams['sort'];
-			$cmp = create_function(
-				'$a, $b',
-				'$dir = "'.$dir.'" == "asc" ? 1 : -1;
-				if ($a->'.$key.' == $b->'.$key.') {
-					return 0;
-				}
-				else {
-					return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
-			usort($groups, $cmp);
-			$groups = array_slice(
-				$groups,
-				$this->queryParams['start'],
-				$this->queryParams['limit']
-			);
+			$totalResults = $results['totalResults'];
 			
 			$this->responseXML = Zotero_Atom::createAtomFeed(
 				$title,
