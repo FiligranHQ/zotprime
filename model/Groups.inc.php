@@ -59,7 +59,7 @@ class Zotero_Groups {
 		$maxTimes = 3;
 		
 		$groups = array();
-		$start = $params['start'] ? $params['start'] : 0;
+		$start = !empty($params['start']) ? $params['start'] : 0;
 		$limit = !empty($params['limit']) ? $params['limit'] + $buffer : false;
 		$totalResults = null;
 		
@@ -236,11 +236,13 @@ class Zotero_Groups {
 		
 		// Fake limiting -- we can't just use SQL limit because
 		// some groups might be inaccessible
-		$groups = array_slice(
-			$groups,
-			0,
-			$params['limit']
-		);
+		if (!empty($params['limit'])) {
+			$groups = array_slice(
+				$groups,
+				0,
+				$params['limit']
+			);
+		}
 		
 		$results = array('groups' => $groups, 'totalResults' => $totalResults);
 		return $results;
