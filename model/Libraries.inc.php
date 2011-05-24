@@ -25,6 +25,8 @@
 */
 
 class Zotero_Libraries {
+	private static $libraryTypeCache = array();
+	
 	public static function add($type, $shardID) {
 		if (!$shardID) {
 			throw new Exception('$shardID not provided');
@@ -70,9 +72,14 @@ class Zotero_Libraries {
 			throw new Exception("Library not provided");
 		}
 		
+		if (isset(self::$libraryTypeCache[$libraryID])) {
+			return self::$libraryTypeCache[$libraryID];
+		}
+		
 		$cacheKey = 'libraryType_' . $libraryID;
 		$libraryType = Z_Core::$MC->get($cacheKey);
 		if ($libraryType) {
+			self::$libraryTypeCache[$libraryID] = $libraryType;
 			return $libraryType;
 		}
 		$sql = "SELECT libraryType FROM libraries WHERE libraryID=?";
@@ -80,7 +87,10 @@ class Zotero_Libraries {
 		if (!$libraryType) {
 			trigger_error("Library $libraryID does not exist", E_USER_ERROR);
 		}
+		
+		self::$libraryTypeCache[$libraryID] = $libraryType;
 		Z_Core::$MC->set($cacheKey, $libraryType);
+		
 		return $libraryType;
 	}
 	
