@@ -262,10 +262,9 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams = array();
 			
 			if ($tagSets) {
-				$positives = array();
-				$negatives = array();
-				
 				foreach ($tagSets as $set) {
+					$positives = array();
+					$negatives = array();
 					$tagIDs = array();
 					
 					foreach ($set['values'] as $tag) {
@@ -284,44 +283,44 @@ class Zotero_Items extends Zotero_DataObjects {
 					else {
 						$positives = array_merge($positives, $tagIDs);
 					}
-				}
-				
-				if ($positives) {
-					$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
-							WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
-					$sqlParams = array_merge($sqlParams, $positives);
-				}
-				
-				if ($negatives) {
-					$sql .= "AND itemID NOT IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
-							WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
-					$sqlParams = array_merge($sqlParams, $negatives);
+					
+					if ($positives) {
+						$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
+								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
+						$sqlParams = array_merge($sqlParams, $positives);
+					}
+					
+					if ($negatives) {
+						$sql .= "AND itemID NOT IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
+								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
+						$sqlParams = array_merge($sqlParams, $negatives);
+					}
 				}
 			}
 			
 			if ($tagTypeSets) {
-				$positives = array();
-				$negatives = array();
-				
 				foreach ($tagTypeSets as $set) {
+					$positives = array();
+					$negatives = array();
+					
 					if ($set['negation']) {
 						$negatives = array_merge($negatives, $set['values']);
 					}
 					else {
 						$positives = array_merge($positives, $set['values']);
 					}
-				}
-				
-				if ($positives) {
-					$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
-							WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
-					$sqlParams = array_merge($sqlParams, $positives);
-				}
-				
-				if ($negatives) {
-					$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
-							WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
-					$sqlParams = array_merge($sqlParams, $negatives);
+					
+					if ($positives) {
+						$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
+								WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
+						$sqlParams = array_merge($sqlParams, $positives);
+					}
+					
+					if ($negatives) {
+						$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
+								WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
+						$sqlParams = array_merge($sqlParams, $negatives);
+					}
 				}
 			}
 			

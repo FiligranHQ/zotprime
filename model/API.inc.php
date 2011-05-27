@@ -155,7 +155,6 @@ class Zotero_API {
 		$vals = is_array($params[$param]) ? $params[$param] : array($params[$param]);
 		
 		$sets = array();
-		
 		foreach ($vals as $val) {
 			$val = trim($val);
 			if ($val === '') {
@@ -175,7 +174,7 @@ class Zotero_API {
 			}
 			
 			// Separate into boolean OR parts
-			$parts = preg_split("/\s+||\s+/", $val);
+			$parts = preg_split("/\s+\|\|\s+/", $val);
 			
 			$val = array(
 				'negation' => $negation,
