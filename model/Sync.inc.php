@@ -266,6 +266,7 @@ class Zotero_Sync {
 		}
 		catch (Exception $e) {
 			$error = true;
+			$code = $e->getCode();
 			$msg = $e->getMessage();
 		}
 		
@@ -306,6 +307,7 @@ class Zotero_Sync {
 				|| strpos($msg, "Can't connect to MySQL server") !==false
 				|| strpos($msg, "MongoCursorTimeoutException") !== false
 				|| strpos($msg, "cursor timed out") !== false
+				|| $code == Z_ERROR_SHARD_UNAVAILABLE
 		) {
 			Z_Core::logError($e);
 			$sql = "UPDATE syncDownloadQueue SET started=NULL, tries=tries+1 WHERE syncDownloadQueueID=?";
@@ -356,19 +358,19 @@ class Zotero_Sync {
 	public static function processUploadFromQueue($syncProcessID) {
 		if (Z_Core::probability(30)) {
 			$sql = "DELETE FROM syncProcesses WHERE started < (NOW() - INTERVAL 180 MINUTE)";
-			$row = Zotero_DB::query($sql);
+			Zotero_DB::query($sql);
 		}
 		
 		if (Z_Core::probability(30)) {
 			$sql = "UPDATE syncUploadQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck!=1 AND
 						started < (NOW() - INTERVAL 12 MINUTE) AND finished IS NULL AND dataLength<250000";
-			$row = Zotero_DB::rowQuery($sql);
+			Zotero_DB::query($sql);
 		}
 		
 		if (Z_Core::probability(30)) {
 			$sql = "UPDATE syncUploadQueue SET tries=0 WHERE started IS NULL AND
 					tries>=5 AND finished IS NULL";
-			$row = Zotero_DB::rowQuery($sql);
+			Zotero_DB::query($sql);
 		}
 		
 		Zotero_DB::beginTransaction();
@@ -435,6 +437,7 @@ class Zotero_Sync {
 		
 		catch (Exception $e) {
 			$error = true;
+			$code = $e->getCode();
 			$msg = $e->getMessage();
 		}
 		
@@ -495,6 +498,8 @@ class Zotero_Sync {
 				|| strpos($msg, "Can't connect to MySQL server") !==false
 				|| strpos($msg, "MongoCursorTimeoutException") !== false
 				|| strpos($msg, "cursor timed out") !== false
+				|| $code == Z_ERROR_SHARD_READ_ONLY
+				|| $code == Z_ERROR_SHARD_UNAVAILABLE
 		) {
 			Z_Core::logError($e);
 			$sql = "UPDATE syncUploadQueue SET started=NULL, tries=tries+1 WHERE syncUploadQueueID=?";
@@ -570,9 +575,9 @@ class Zotero_Sync {
 		Zotero_DB::beginTransaction();
 		
 		if (Z_Core::probability(30)) {
-			$sql = "UPDATE syncUploadQueue SET started=NULL WHERE started IS NOT NULL AND errorCheck=1 AND
-						started < (NOW() - INTERVAL 12 MINUTE) AND finished IS NULL AND dataLength<250000";
-			$row = Zotero_DB::rowQuery($sql);
+			$sql = "UPDATE syncUploadQueue SET started=NULL, errorCheck=0 WHERE started IS NOT NULL AND errorCheck=1 AND
+						started < (NOW() - INTERVAL 15 MINUTE) AND finished IS NULL";
+			Zotero_DB::query($sql);
 		}
 		
 		// Get a queued process that hasn't been error-checked and is large enough to warrant it
@@ -656,6 +661,9 @@ class Zotero_Sync {
 				)
 			);
 			
+			$sql = "DELETE FROM syncUploadQueueLocks WHERE syncUploadQueueID=?";
+			Zotero_DB::query($sql, $row['syncUploadQueueID']);
+			
 			self::removeUploadProcess($syncProcessID);
 			
 			Zotero_DB::commit();
@@ -709,7 +717,7 @@ class Zotero_Sync {
 							$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 							$affected = Zotero_DB::query(
 								$sql,
-								array($timestamp, $timestampMS, $userLibraryID, $groupID),
+								array($timestamp, $timestampMS, $userLibraryID, $entry['ids']),
 								Zotero_Shards::getByLibraryID($userLibraryID)
 							);
 							break;
@@ -759,7 +767,7 @@ class Zotero_Sync {
 						. "{$entry['objectType']}/"
 						. "{$entry['ids']}/"
 						. "{$entry['action']}"
-						. "didn't change any rows"
+						. " didn't change any rows"
 				);
 			}
 		}
