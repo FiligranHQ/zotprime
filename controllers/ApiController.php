@@ -2357,7 +2357,7 @@ class ApiController extends Controller {
 			
 			// Notes and attachments don't have creators
 			if ($itemType == 'note' || $itemType == 'attachment') {
-				echo "{[]}";
+				echo "[]";
 				exit;
 			}
 		}
