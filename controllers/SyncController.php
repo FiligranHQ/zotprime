@@ -37,7 +37,7 @@ class SyncController extends Controller {
 	private $responseXML = null;
 	
 	private $profile = false;
-	private $profileShard = 3;
+	private $profileShard = 0;
 	
 	
 	public function __get($field) {
@@ -203,7 +203,7 @@ class SyncController extends Controller {
 		
 		$lastsync = false;
 		if (is_numeric($_REQUEST['lastsync'])) {
-			$lastsync = $_REQUEST['lastsync'];
+			$lastsync = (int) $_REQUEST['lastsync'];
 		}
 		else {
 			$this->error(400, 'INVALID_LAST_SYNC_TIME', 'Last sync time is invalid');
@@ -238,24 +238,7 @@ class SyncController extends Controller {
 			$result = Zotero_Sync::getSessionDownloadResult($this->sessionID);
 		}
 		catch (Exception $e) {
-			$this->clearWaitTime($this->sessionID);
-			unset($this->responseXML->updated);
-			
-			if (Z_ENV_TESTING_SITE) {
-				throw ($e);
-			}
-			else {
-				$id = substr(md5(uniqid(rand(), true)), 0, 10);
-				$str = date("D M j G:i:s T Y") . "\n";
-				$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
-				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-					$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
-				}
-				$str .= "Error: " . $e;
-				$str .= $doc->saveXML();
-				file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
-				$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
-			}
+			$this->handleUpdatedError($e);
 		}
 		
 		// XML response
@@ -327,15 +310,20 @@ class SyncController extends Controller {
 				Z_Core::logError("Warning: $msg getting cached download");
 			}
 			
-			$num = Zotero_Items::countUpdated($this->userID, $lastsync);
-			// Make sure we really have fewer than 5
-			if ($num < 5) {
-				$num += Zotero_Sync::countDeletedObjects($this->userID, $lastsync);
+			try {
+				$num = Zotero_Items::countUpdated($this->userID, $lastsync, 5);
 			}
+			catch (Exception $e) {
+				// We can get a MySQL lock timeout here if the upload starts
+				// after the write lock check above but before we get here
+				$this->handleUpdatedError($e);
+			}
+			
 			// If nothing updated, or if just a few objects and processing is enabled, process synchronously
 			if ($num == 0 || ($num < 5 && Z_CONFIG::$PROCESSORS_ENABLED)) {
 				$queue = false;
 			}
+			$queue = false;
 			if ($queue) {
 				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $num);
 				
@@ -355,23 +343,7 @@ class SyncController extends Controller {
 					$this->responseXML = simplexml_import_dom($doc);
 				}
 				catch (Exception $e) {
-					unset($this->responseXML->updated);
-					
-					if (Z_ENV_TESTING_SITE) {
-						throw ($e);
-					}
-					else {
-						$id = substr(md5(uniqid(rand(), true)), 0, 10);
-						$str = date("D M j G:i:s T Y") . "\n";
-						$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
-						if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-							$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
-						}
-						$str .= "Error: " . $e;
-						$str .= $doc->saveXML();
-						file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
-						$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
-					}
+					$this->handleUpdatedError($e);
 				}
 			}
 			
@@ -401,6 +373,7 @@ class SyncController extends Controller {
 			$this->end();
 		}
 		Zotero_DB::commit();
+		
 		$this->clearWaitTime($this->sessionID);
 		
 		if (empty($_REQUEST['updateKey'])) {
@@ -479,7 +452,7 @@ class SyncController extends Controller {
 			}
 		}
 		catch (Exception $e) {
-			$this->handleSyncError($e, $xmldata);
+			$this->handleUploadError($e, $xmldata);
 		}
 	}
 	
@@ -503,7 +476,7 @@ class SyncController extends Controller {
 		}
 		
 		if (is_array($result)) {
-			$this->handleSyncError($result['exception'], $result['xmldata']);
+			$this->handleUploadError($result['exception'], $result['xmldata']);
 		}
 		
 		throw new Exception("Unexpected session result $result");
@@ -643,7 +616,40 @@ class SyncController extends Controller {
 	}
 	
 	
-	private function handleSyncError(Exception $e, $xmldata) {
+	private function handleUpdatedError(Exception $e) {
+		unset($this->responseXML->updated);
+		
+		$msg = $e->getMessage();
+		
+		if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
+				|| strpos($msg, "MySQL error: Deadlock found when trying to get lock; try restarting transaction") !== false
+				|| strpos($msg, "Too many connections") !== false) {
+			Z_Core::logError("WARNING: " . $msg);
+			$locked = $this->responseXML->addChild('locked');
+			$locked['wait'] = $this->getWaitTime($this->sessionID);
+			$this->end();
+		}
+		
+		if (Z_ENV_TESTING_SITE) {
+			throw ($e);
+		}
+		else {
+			$id = substr(md5(uniqid(rand(), true)), 0, 10);
+			$str = date("D M j G:i:s T Y") . "\n";
+			$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
+			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
+			}
+			$str .= "Error: " . $e;
+			$str .= $doc->saveXML();
+			file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
+			$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
+		}
+
+	}
+	
+	
+	private function handleUploadError(Exception $e, $xmldata) {
 		$msg = $e->getMessage();
 		if ($msg[0] == '=') {
 			$msg = substr($msg, 1);

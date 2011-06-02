@@ -144,21 +144,19 @@ class Zotero_Creator {
 			$creatorDataHash = Zotero_Creators::getDataHash($this, true);
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = isset($this->changed['dateModified']) ? $this->dateModified : $timestamp;
 			
 			$fields = "creatorDataHash=?, libraryID=?, `key`=?, dateAdded=?,
-						dateModified=?, serverDateModified=?, serverDateModifiedMS=?";
+						dateModified=?, serverDateModified=?";
 			$params = array(
 				$creatorDataHash,
 				$this->libraryID,
 				$key,
 				$dateAdded,
 				$dateModified,
-				$timestamp,
-				$timestampMS
+				$timestamp
 			);
 			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			

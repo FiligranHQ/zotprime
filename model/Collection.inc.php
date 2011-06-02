@@ -182,9 +182,8 @@ class Zotero_Collection {
 			}
 			
 			$fields = "collectionName=?, parentCollectionID=?, libraryID=?, `key`=?,
-						dateAdded=?, dateModified=?, serverDateModified=?, serverDateModifiedMS=?";
+						dateAdded=?, dateModified=?, serverDateModified=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			$params = array(
 				$this->name,
 				$parent,
@@ -192,8 +191,7 @@ class Zotero_Collection {
 				$key,
 				$this->dateAdded ? $this->dateAdded : $timestamp,
 				$this->dateModified ? $this->dateModified : $timestamp,
-				$timestamp,
-				$timestampMS
+				$timestamp
 			);
 			
 			$params = array_merge(array($collectionID), $params, $params);

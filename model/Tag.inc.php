@@ -164,9 +164,8 @@ class Zotero_Tag {
 			$key = $this->key ? $this->key : $this->generateKey();
 			
 			$fields = "name=?, `type`=?, dateAdded=?, dateModified=?,
-				libraryID=?, `key`=?, serverDateModified=?, serverDateModifiedMS=?";
+				libraryID=?, `key`=?, serverDateModified=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			$params = array(
 				$this->name,
 				$this->type ? $this->type : 0,
@@ -174,8 +173,7 @@ class Zotero_Tag {
 				$this->dateModified ? $this->dateModified : $timestamp,
 				$this->libraryID,
 				$key,
-				$timestamp,
-				$timestampMS
+				$timestamp
 			);
 			
 			try {

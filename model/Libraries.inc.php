@@ -117,24 +117,76 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function getUserLibraryUpdateTimes($userID) {
+		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
+		$sql = "SELECT libraryID, UNIX_TIMESTAMP(lastUpdated) AS lastUpdated FROM libraries
+				WHERE libraryID IN ("
+				. implode(',', array_fill(0, sizeOf($libraryIDs), '?'))
+				. ") LOCK IN SHARE MODE";
+		$rows = Zotero_DB::query($sql, $libraryIDs);
+		$updateTimes = array();
+		foreach ($rows as $row) {
+			$updateTimes[$row['libraryID']] = $row['lastUpdated'];
+		}
+		return $updateTimes;
+	}
+	
+	
+	public static function updateTimestamps($libraryIDs) {
+		if (is_scalar($libraryIDs)) {
+			if (!is_numeric($libraryIDs)) {
+				throw new Exception("Invalid library ID");
+			}
+			$libraryIDs = array($libraryIDs);
+		}
+			
+		Zotero_DB::beginTransaction();
+		
+		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID IN "
+				. "(" . implode(',', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
+		Zotero_DB::query($sql, $libraryIDs);
+		
+		$sql = "SELECT UNIX_TIMESTAMP(lastUpdated) FROM libraries WHERE libraryID=?";
+		$timestamp = Zotero_DB::valueQuery($sql, $libraryIDs[0]);
+		
+		Zotero_DB::commit();
+		
+		return $timestamp;
+	}
+	
+	
+	public static function setTimestampLock($libraryIDs, $timestamp) {
+		$fail = false;
+		
+		for ($i=0, $len=sizeOf($libraryIDs); $i<$len; $i++) {
+			$libraryID = $libraryIDs[$i];
+			if (!Z_Core::$MC->add("libraryTimestampLock_" . $libraryID . "_" . $timestamp, 1, 60)) {
+				$fail = true;
+				break;
+			}
+		}
+		
+		if ($fail) {
+			if ($i > 0) {
+				for ($j=$i-1; $j>=0; $j--) {
+					$libraryID = $libraryIDs[$i];
+					Z_Core::$MC->delete("libraryTimestampLock_" . $libraryID . "_" . $timestamp);
+				}
+			}
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
 	public static function isLocked($libraryID) {
 		$sql = "SELECT COUNT(*) FROM syncUploadQueueLocks WHERE libraryID=?";
-		$locked = Zotero_DB::valueQuery($sql, $libraryID);
-		if ($locked) {
+		if (Zotero_DB::valueQuery($sql, $libraryID)) {
 			return true;
 		}
 		$sql = "SELECT COUNT(*) FROM syncProcessLocks WHERE libraryID=?";
 		return !!Zotero_DB::valueQuery($sql, $libraryID);
-	}
-	
-	
-	public static function updateTimestamp($libraryIDs, $timestampSQL, $timestampMS) {
-		$sql = "UPDATE libraries SET lastUpdated=?, lastUpdatedMS=? WHERE libraryID IN "
-				. "(" . implode(',', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
-		Zotero_DB::query(
-			$sql,
-			array_merge(array($timestampSQL, $timestampMS), $libraryIDs)
-		);
 	}
 	
 	

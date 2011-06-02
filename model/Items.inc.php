@@ -28,7 +28,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	protected static $ZDO_object = 'item';
 	
 	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
-		'dateAdded', 'dateModified', 'serverDateModified', 'serverDateModifiedMS',
+		'dateAdded', 'dateModified', 'serverDateModified',
 		'numNotes', 'numAttachments');
 	private static $maxDataValueLength = 65535;
 	
@@ -847,7 +847,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
-				case 'serverDateModifiedMS':
 				case 'numAttachments':
 				case 'numNotes':
 					continue (2);
@@ -1151,17 +1150,16 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		Zotero_DB::beginTransaction();
 		
+		// Mark library as updated
+		$timestamp = Zotero_Libraries::updateTimestamps($libraryID);
+		Zotero_DB::registerTransactionTimestamp($timestamp);
+		
 		foreach ($json->items as $jsonItem) {
 			$item = new Zotero_Item;
 			$item->libraryID = $libraryID;
 			self::updateFromJSON($item, $jsonItem, true, $parentItem);
 			$keys[] = $item->key;
 		}
-		
-		// Mark library as updated
-		$timestampSQL = Zotero_DB::getTransactionTimestamp();
-		$timestampMS = Zotero_DB::getTransactionTimestampMS();
-		Zotero_Libraries::updateTimestamp(array($libraryID), $timestampSQL, $timestampMS);
 		
 		Zotero_DB::commit();
 		
@@ -1177,6 +1175,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		Zotero_DB::beginTransaction();
+		
+		// Mark library as updated
+		if (!$isNew) {
+			$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
+			Zotero_DB::registerTransactionTimestamp($timestamp);
+		}
 		
 		$forceChange = false;
 		$twoStage = false;
@@ -1358,13 +1362,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		Zotero_Index::addItem($item);
 		Zotero_Index::$queueingEnabled = true;
-		
-		// Mark library as updated
-		if (!$isNew) {
-			$timestampSQL = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
-			Zotero_Libraries::updateTimestamp(array($item->libraryID), $timestampSQL, $timestampMS);
-		}
 		
 		Zotero_DB::commit();
 	}

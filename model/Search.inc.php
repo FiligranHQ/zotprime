@@ -151,17 +151,15 @@ class Zotero_Search {
 			$key = $this->key ? $this->key : $this->generateKey();
 			
 			$fields = "searchName=?, libraryID=?, `key`=?, dateAdded=?, dateModified=?,
-						serverDateModified=?, serverDateModifiedMS=?";
+						serverDateModified=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			$params = array(
 				$this->name,
 				$this->libraryID,
 				$key,
 				$this->dateAdded ? $this->dateAdded : $timestamp,
 				$this->dateModified ? $this->dateModified : $timestamp,
-				$timestamp,
-				$timestampMS
+				$timestamp
 			);
 			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			

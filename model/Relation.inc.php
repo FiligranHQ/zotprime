@@ -31,7 +31,6 @@ class Zotero_Relation {
 	private $predicate;
 	private $object;
 	private $serverDateModified;
-	private $serverDateModifiedMS;
 	
 	private $loaded;
 	
@@ -122,18 +121,16 @@ class Zotero_Relation {
 			Z_Core::debug("Saving relation $relationID");
 			
 			$sql = "INSERT INTO relations
-					(relationID, libraryID, subject, predicate, object, serverDateModified, serverDateModifiedMS)
+					(relationID, libraryID, subject, predicate, object, serverDateModified)
 					VALUES (?, ?, ?, ?, ?, ?, ?)";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
 			$params = array(
 				$relationID,
 				$this->libraryID,
 				$this->subject,
 				$this->predicate,
 				$this->object,
-				$timestamp,
-				$timestampMS
+				$timestamp
 			);
 			$insertID = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($this->libraryID));
 			if (!$this->id) {
@@ -192,6 +189,10 @@ class Zotero_Relation {
 		}
 		
 		foreach ($data as $key=>$val) {
+			// TEMP
+			if ($key == 'serverDateModifiedMS') {
+				continue;
+			}
 			if ($key == 'relationID') {
 				$this->id = $val;
 				continue;

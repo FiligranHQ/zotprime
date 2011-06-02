@@ -142,13 +142,11 @@ class Zotero_DB {
 			Z_Core::debug("Transaction in progress -- nesting level increased to $instance->transactionLevel");
 			return -1;
 		}
-		Z_Core::debug("Starting transaction");
 		
-		// Generate a fixed timestamp for the entire transaction
-		$time = microtime(true);
-		$instance->transactionTimestamp = gmdate('Y-m-d H:i:s', (int) $time);
-		$instance->transactionTimestampMS = (int) substr(strrchr($time, "."), 1);
-		$instance->transactionTimestampUnix = (int) $time;
+		$instance->transactionTimestamp = null;
+		$instance->transactionTimestampUnix = null;
+		
+		Z_Core::debug("Starting transaction");
 	}
 	
 	
@@ -228,28 +226,44 @@ class Zotero_DB {
 	
 	public static function getTransactionTimestamp() {
 		$instance = self::getInstance();
+		
 		if ($instance->transactionLevel == 0) {
 			throw new Exception("Transaction not open");
 		}
+		
+		if (empty($instance->transactionTimestamp)) {
+			$instance->transactionTimestamp = Zotero_DB::valueQuery("SELECT NOW()");
+		}
+		
 		return $instance->transactionTimestamp;
-	}
-	
-	
-	public static function getTransactionTimestampMS() {
-		$instance = self::getInstance();
-		if ($instance->transactionLevel == 0) {
-			throw new Exception("Transaction not open");
-		}
-		return $instance->transactionTimestampMS;
 	}
 	
 	
 	public static function getTransactionTimestampUnix() {
 		$instance = self::getInstance();
+		
 		if ($instance->transactionLevel == 0) {
 			throw new Exception("Transaction not open");
 		}
+		
+		if (empty($instance->transactionTimestamp)) {
+			$ts = self::getTransactionTimestamp();
+			$instance->transactionTimestampUnix = strtotime($ts);
+		}
+		
 		return $instance->transactionTimestampUnix;
+	}
+	
+	
+	public static function registerTransactionTimestamp($unixTimestamp) {
+		$instance = self::getInstance();
+		
+		if (!empty($instance->transactionTimestamp)) {
+			throw new Exception("Transaction timestamp already set");
+		}
+		
+		$instance->transactionTimestamp = date("Y-m-d H:i:s", $unixTimestamp);
+		$instance->transactionTimestampUnix = $unixTimestamp;
 	}
 	
 	

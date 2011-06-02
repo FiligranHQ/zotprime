@@ -32,7 +32,6 @@ class Zotero_Item {
 	private $dateAdded;
 	private $dateModified;
 	private $serverDateModified;
-	private $serverDateModifiedMS;
 	private $numNotes;
 	private $numAttachments;
 	
@@ -512,7 +511,6 @@ class Zotero_Item {
 					case 'libraryID':
 					case 'key':
 					case 'serverDateModified':
-					case 'serverDateModifiedMS':
 						$colSQL = 'I.' . $field;
 						break;
 					
@@ -1146,11 +1144,9 @@ class Zotero_Item {
 					'key',
 					'dateAdded',
 					'dateModified',
-					'serverDateModified',
-					'serverDateModifiedMS'
+					'serverDateModified'
 				);
 				$timestamp = Zotero_DB::getTransactionTimestamp();
-				$timestampMS = Zotero_DB::getTransactionTimestampMS();
 				$sqlValues = array(
 					$itemID,
 					$this->itemTypeID,
@@ -1158,8 +1154,7 @@ class Zotero_Item {
 					$key,
 					$this->dateAdded ? $this->dateAdded : $timestamp,
 					$this->dateModified ? $this->dateModified : $timestamp,
-					$timestamp,
-					$timestampMS
+					$timestamp
 				);
 				
 				//
@@ -1182,7 +1177,6 @@ class Zotero_Item {
 					Zotero_Items::cacheLibraryKeyID($this->libraryID, $key, $insertID);
 					
 					$this->serverDateModified = $timestamp;
-					$this->serverDateModifiedMS = $timestampMS;
 				}
 				
 				// Group item data
@@ -1575,7 +1569,6 @@ class Zotero_Item {
 				$sqlValues = array();
 				
 				$timestamp = Zotero_DB::getTransactionTimestamp();
-				$timestampMS = Zotero_DB::getTransactionTimestampMS();
 				
 				$updateFields = array(
 					'itemTypeID',
@@ -1596,18 +1589,16 @@ class Zotero_Item {
 					}
 				}
 				
-				$sql .= "serverDateModified=?, serverDateModifiedMS=? WHERE itemID=?";
+				$sql .= "serverDateModified=? WHERE itemID=?";
 				array_push(
 					$sqlValues,
 					$timestamp,
-					$timestampMS,
 					$this->id
 				);
 				
 				Zotero_DB::query($sql, $sqlValues, $shardID);
 				
 				$this->serverDateModified = $timestamp;
-				$this->serverDateModifiedMS = $timestampMS;
 				
 				// Group item data
 				if (Zotero_Libraries::getType($this->libraryID) == 'group' && $userID) {
@@ -3284,7 +3275,7 @@ class Zotero_Item {
 		$fields['_id'] = $this->libraryID . "/" . $this->key;
 		$fields['dateAdded'] = new MongoDate(strtotime($this->dateAdded));
 		$fields['dateModified'] = new MongoDate(strtotime($this->dateModified));
-		$fields['serverDateModified'] = strtotime($this->serverDateModified) + (float) ("0." . $this->serverDateModifiedMS);
+		$fields['serverDateModified'] = strtotime($this->serverDateModified);
 		if ($parent = $this->getSourceKey()) {
 			$fields['parent'] = $parent;
 		}
@@ -3755,7 +3746,7 @@ class Zotero_Item {
 			$this->loadPrimaryData();
 		}
 		
-		return md5($this->serverDateModified . '.' . $this->serverDateModifiedMS);
+		return $this->serverDateModified;
 	}
 	
 	

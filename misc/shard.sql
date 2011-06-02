@@ -48,7 +48,7 @@ CREATE TABLE `collections` (
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
+  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`collectionID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
   KEY `parentCollection` (`libraryID`,`parentCollectionID`),
@@ -65,7 +65,7 @@ CREATE TABLE `creators` (
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
+  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`creatorID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
   KEY `hash` (`libraryID`,`creatorDataHash`(5))
@@ -160,7 +160,7 @@ CREATE TABLE `items` (
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
+  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`itemID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
   KEY `itemTypeID` (`itemTypeID`)
@@ -184,7 +184,7 @@ CREATE TABLE `relations` (
   `predicate` varchar(255) NOT NULL,
   `object` varchar(255) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
+  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`relationID`),
   UNIQUE KEY `uniqueRelations` (`libraryID`,`subject`,`predicate`,`object`),
   KEY `object` (`libraryID`,`object`)
@@ -213,7 +213,7 @@ CREATE TABLE `savedSearches` (
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
+  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`searchID`),
   UNIQUE KEY `key` (`libraryID`,`key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -243,7 +243,7 @@ CREATE TABLE `syncDeleteLogIDs` (
   `objectType` enum('group') NOT NULL,
   `id` int(10) unsigned NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `timestampMS` smallint(4) unsigned NOT NULL DEFAULT '0',
+  `timestampMS` smallint(4) unsigned NOT NULL DEFAULT '0' DEFAULT '0',
   PRIMARY KEY (`libraryID`,`objectType`,`id`),
   KEY `libraryID` (`libraryID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -255,7 +255,7 @@ CREATE TABLE `syncDeleteLogKeys` (
   `objectType` enum('collection','creator','item','search','tag') NOT NULL,
   `key` char(8) NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `timestampMS` smallint(4) unsigned NOT NULL,
+  `timestampMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`libraryID`,`objectType`,`key`),
   KEY `objectType` (`objectType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -271,7 +271,7 @@ CREATE TABLE `tags` (
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL,
+  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`tagID`),
   UNIQUE KEY `uniqueTags` (`libraryID`,`name`,`type`),
   UNIQUE KEY `key` (`libraryID`,`key`)

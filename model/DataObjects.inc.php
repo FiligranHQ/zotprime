@@ -326,154 +326,124 @@ class Zotero_DataObjects {
 	}
 	
 	
-	public static function countUpdated($userID, $timestamp) {
+	public static function countUpdated($userID, $timestamp, $deletedCheckLimit=false) {
 		$table = static::field('table');
 		$id = static::field('id');
 		$type = static::field('object');
 		$types = static::field('objects');
 		
-		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		// First, see what libraries we actually need to check
 		
-		if (strpos($timestamp, '.') === false) {
-			$timestamp .= '.';
-		}
-		list($timestamp, $timestampMS) = explode(".", $timestamp);
+		Zotero_DB::beginTransaction();
 		
-		// Personal library
-		$sql = "SELECT COUNT(*) FROM $table WHERE libraryID=? AND
-				CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?";
-		$params = array($libraryID, $timestamp . '.' . ($timestampMS ? $timestampMS : 0));
-		$count = Zotero_DB::valueQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
-		
-		// Group libraries
-		$groupIDs = Zotero_Groups::getUserGroups($userID);
-		if ($groupIDs) {
-			$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
-			$joinedLibraryIDs = array();
-			foreach ($joinedGroupIDs as $groupID) {
-				$joinedLibraryIDs[] = Zotero_Groups::getLibraryIDFromGroupID($groupID);
-			}
-			
-			$shardLibraryIDs = array();
-			
-			// Separate groups into shards for querying
-			foreach ($groupIDs as $groupID) {
-				$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
-				$shardID = Zotero_Shards::getByLibraryID($libraryID);
-				if (!isset($shardLibraryIDs[$shardID])) {
-					$shardLibraryIDs[$shardID] = array();
-				}
-				$shardLibraryIDs[$shardID][] = $libraryID;
-			}
-			
-			// Send query at each shard
-			foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
-				$sql = "SELECT COUNT(*) FROM $table
-						WHERE (libraryID IN
-						(" .  implode(', ', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
-				$params = $libraryIDs;
-				$sql .= " AND CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?)";
-				$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
-				
-				if ($joinedLibraryIDs) {
-					$sql .= " OR libraryID IN (";
-					$params = array_merge($params, $joinedLibraryIDs);
-					$q = array_fill(0, sizeOf($joinedLibraryIDs), '?');
-					$sql .= implode(', ', $q) . ")";
-				}
-				
-				$count += Zotero_DB::valueQuery($sql, $params, $shardID);
+		// All libraries with update times >= $timestamp
+		$updateTimes = Zotero_Libraries::getUserLibraryUpdateTimes($userID);
+		$updatedLibraryIDs = array();
+		foreach ($updateTimes as $libraryID=>$lastUpdated) {
+			if ($lastUpdated >= $timestamp) {
+				$updatedLibraryIDs[] = $libraryID;
 			}
 		}
+		
+		$count = self::getUpdated($userID, $timestamp, $updatedLibraryIDs, true);
+		
+		// Make sure we really have fewer than 5
+		if ($deletedCheckLimit < 5) {
+			$count += Zotero_Sync::countDeletedObjectKeys($userID, $timestamp, $updatedLibraryIDs);
+		}
+		
+		Zotero_DB::commit();
 		
 		return $count;
 	}
 	
 	
 	/**
-	 * Returns user's object ids updated since |timestamp|, keyed by libraryID
+	 * Returns user's object ids updated since |timestamp|, keyed by libraryID,
+	 * or count of all updated items if $countOnly is true
 	 *
-	 * @param	int			$libraryID		Library ID
-	 * @param	string		$timestamp		Unix timestamp + decimal ms of last sync time
-	 * @param	boolean		$includeAllUserObjects	Include objects from all user's groups
-	 * @return	array						An array of arrays of object ids, keyed by libraryID, or FALSE if none;
-	 *											if $countOnly, return number of objects per library instead
+	 * @param	int			$libraryID			User ID
+	 * @param	string		$timestamp			Unix timestamp of last sync time
+	 * @param	array		$updatedLibraryIDs	Libraries with updated data
+	 * @return	array|int
 	 */
-	public static function getUpdated($libraryID, $timestamp, $includeAllUserObjects=false) {
+	public static function getUpdated($userID, $timestamp, $updatedLibraryIDs, $countOnly=false) {
 		$table = static::field('table');
 		$id = static::field('id');
 		$type = static::field('object');
 		$types = static::field('objects');
 		
-		if (strpos($timestamp, '.') === false) {
-			$timestamp .= '.';
-		}
-		list($timestamp, $timestampMS) = explode(".", $timestamp);
-		
-		
-		$updatedByLibraryID = array();
-		
-		// Personal library
-		$sql = "SELECT $id FROM $table WHERE libraryID=? AND
-				CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?";
-		$params = array($libraryID, $timestamp . '.' . ($timestampMS ? $timestampMS : 0));
-		$ids = Zotero_DB::columnQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
-		if ($ids) {
-			$updatedByLibraryID[$libraryID] = $ids;
+		// All joined groups have to be checked
+		$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
+		$joinedLibraryIDs = array();
+		foreach ($joinedGroupIDs as $groupID) {
+			$joinedLibraryIDs[] = Zotero_Groups::getLibraryIDFromGroupID($groupID);
 		}
 		
-		// Group libraries
-		if ($includeAllUserObjects) {
-			$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
-			$groupIDs = Zotero_Groups::getUserGroups($userID);
+		// Separate libraries into shards for querying
+		$libraryIDs = array_unique(array_merge($joinedLibraryIDs, $updatedLibraryIDs));
+		$shardLibraryIDs = array();
+		foreach ($libraryIDs as $libraryID) {
+			$shardID = Zotero_Shards::getByLibraryID($libraryID);
+			if (!isset($shardLibraryIDs[$shardID])) {
+				$shardLibraryIDs[$shardID] = array(
+					'updated' => array(),
+					'joined' => array()
+				);
+			}
+			if (in_array($libraryID, $joinedLibraryIDs)) {
+				$shardLibraryIDs[$shardID]['joined'][] = $libraryID;
+			}
+			else {
+				$shardLibraryIDs[$shardID]['updated'][] = $libraryID;
+			}
+		}
+		
+		if ($countOnly) {
+			$count = 0;
+			$fieldList = "COUNT(*)";
+		}
+		else {
+			$updatedByLibraryID = array();
+			$fieldList = "libraryID, $id AS id";
+		}
+		
+		// Send query at each shard
+		foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
+			$sql = "SELECT $fieldList FROM $table WHERE ";
+			if ($libraryIDs['updated']) {
+				$sql .= "(libraryID IN (" .  implode(', ', array_fill(0, sizeOf($libraryIDs['updated']), '?')) . ")";
+				$params = $libraryIDs['updated'];
+				$sql .= " AND serverDateModified >= FROM_UNIXTIME(?))";
+				$params[] = $timestamp;
+			}
 			
-			if ($groupIDs) {
-				$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
-				$joinedLibraryIDs = array();
-				foreach ($joinedGroupIDs as $groupID) {
-					$joinedLibraryIDs[] = Zotero_Groups::getLibraryIDFromGroupID($groupID);
+			if ($libraryIDs['joined']) {
+				if ($libraryIDs['updated']) {
+					$sql .= " OR ";
 				}
-				
-				$shardLibraryIDs = array();
-				
-				// Separate groups into shards for querying
-				foreach ($groupIDs as $groupID) {
-					$libraryID = Zotero_Groups::getLibraryIDFromGroupID($groupID);
-					$shardID = Zotero_Shards::getByLibraryID($libraryID);
-					if (!isset($shardLibraryIDs[$shardID])) {
-						$shardLibraryIDs[$shardID] = array();
-					}
-					$shardLibraryIDs[$shardID][] = $libraryID;
+				else {
+					$params = array();
 				}
-				
-				// Send query at each shard
-				foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
-					$sql = "SELECT libraryID, $id AS id FROM $table
-							WHERE (libraryID IN
-							(" .  implode(', ', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
-					$params = $libraryIDs;
-					$sql .= " AND CONCAT(UNIX_TIMESTAMP(serverDateModified), '.', IFNULL(serverDateModifiedMS, 0)) > ?)";
-					$params[] = $timestamp . '.' . ($timestampMS ? $timestampMS : 0);
-					
-					if ($joinedLibraryIDs) {
-						$sql .= " OR libraryID IN (";
-						$params = array_merge($params, $joinedLibraryIDs);
-						$q = array_fill(0, sizeOf($joinedLibraryIDs), '?');
-						$sql .= implode(', ', $q) . ")";
-					}
-					
-					$rows = Zotero_DB::query($sql, $params, $shardID);
-					if ($rows) {
-						// Separate ids by libraryID
-						foreach ($rows as $row) {
-							$updatedByLibraryID[$row['libraryID']][] = $row['id'];
-						}
+				$sql .= "libraryID IN (" . implode(', ', array_fill(0, sizeOf($libraryIDs['joined']), '?')) . ")";
+				$params = array_merge($params, $libraryIDs['joined']);
+			}
+			
+			if ($countOnly) {
+				$count += Zotero_DB::valueQuery($sql, $params, $shardID);
+			}
+			else {
+				$rows = Zotero_DB::query($sql, $params, $shardID);
+				if ($rows) {
+					// Separate ids by libraryID
+					foreach ($rows as $row) {
+						$updatedByLibraryID[$row['libraryID']][] = $row['id'];
 					}
 				}
 			}
 		}
 		
-		return $updatedByLibraryID;
+		return $countOnly ? $count : $updatedByLibraryID;
 	}
 	
 	
@@ -520,13 +490,10 @@ class Zotero_DataObjects {
 		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
 		
 		if ($deleted) {
-			$sql = "INSERT INTO syncDeleteLogKeys (libraryID, objectType, `key`, timestamp, timestampMS)
-						VALUES (?, '$type', ?, ?, ?) ON DUPLICATE KEY UPDATE timestamp=?, timestampMS=?";
+			$sql = "INSERT INTO syncDeleteLogKeys (libraryID, objectType, `key`, timestamp)
+						VALUES (?, '$type', ?, ?) ON DUPLICATE KEY UPDATE timestamp=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$timestampMS = Zotero_DB::getTransactionTimestampMS();
-			$params = array(
-				$libraryID, $key, $timestamp, $timestampMS, $timestamp, $timestampMS
-			);
+			$params = array($libraryID, $key, $timestamp, $timestamp);
 			Zotero_DB::query($sql, $params, $shardID);
 			
 			// Queue item for deletion from search index
