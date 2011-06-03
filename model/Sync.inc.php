@@ -217,7 +217,7 @@ class Zotero_Sync {
 		// Get a queued process
 		$smallestFirst = Z_CONFIG::$SYNC_DOWNLOAD_SMALLEST_FIRST;
 		$sql = "SELECT syncDownloadQueueID, SDQ.userID,
-				lastsync, version, added, objects, ipAddress
+				UNIX_TIMESTAMP(lastsync) AS lastsync, version, added, objects, ipAddress
 				FROM syncDownloadQueue SDQ JOIN sessions USING (sessionID)
 				WHERE started IS NULL ORDER BY tries > 4, ";
 		if ($smallestFirst) {
@@ -929,7 +929,8 @@ class Zotero_Sync {
 		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
 		// Save data <16MB (less 4KB for good measure) to Mongo
-		if (strlen($xmldata) < 16773120) {
+		//if (strlen($xmldata) < 16773120) {
+		if (strlen($xmldata) < 4000000) {
 			$doc = array(
 				"_id" => $key,
 				"userID" => $userID,
