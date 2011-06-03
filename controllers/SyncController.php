@@ -323,7 +323,7 @@ class SyncController extends Controller {
 			if ($num == 0 || ($num < 5 && Z_CONFIG::$PROCESSORS_ENABLED)) {
 				$queue = false;
 			}
-			$queue = false;
+			
 			if ($queue) {
 				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $num);
 				
