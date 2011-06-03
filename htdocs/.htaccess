@@ -7,7 +7,7 @@ php_value auto_append_file "footer.inc.php"
 
 php_value memory_limit 500M
 
-php_value xdebug.show_local_vars 1
+#php_value xdebug.show_local_vars 1
 #php_value xdebug.profiler_enable 1
 #php_value xdebug.profiler_enable_trigger 1
 #php_value xdebug.profiler_output_dir /tmp/xdebug
