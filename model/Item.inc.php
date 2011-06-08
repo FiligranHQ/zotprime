@@ -3746,7 +3746,7 @@ class Zotero_Item {
 			$this->loadPrimaryData();
 		}
 		
-		return $this->serverDateModified;
+		return md5($this->serverDateModified);
 	}
 	
 	
