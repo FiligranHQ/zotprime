@@ -245,6 +245,17 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
+		// Search on title and creators
+		if (!empty($params['q'])) {
+			$re = array('$regex' => new MongoRegex("/" . $params['q'] . "/i"));
+			$query['$or'] = array(
+				array('title' => $re),
+				array('creators.firstName' => $re),
+				array('creators.lastName' => $re),
+				array('creators.name' => $re)
+			);
+		}
+		
 		// Tags
 		//
 		// ?tag=foo
@@ -255,9 +266,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		// ?tag=foo&tagType=0
 		// ?tag=foo bar || bar&tagType=0
 		$tagSets = Zotero_API::getSearchParamValues($params, 'tag');
-		$tagTypeSets = Zotero_API::getSearchParamValues($params, 'tagType');
 		
-		if ($tagSets || $tagTypeSets) {
+		if ($tagSets) {
 			$sql = "SELECT items.key FROM items WHERE 1 ";
 			$sqlParams = array();
 			
@@ -293,32 +303,6 @@ class Zotero_Items extends Zotero_DataObjects {
 					if ($negatives) {
 						$sql .= "AND itemID NOT IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
 								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
-						$sqlParams = array_merge($sqlParams, $negatives);
-					}
-				}
-			}
-			
-			if ($tagTypeSets) {
-				foreach ($tagTypeSets as $set) {
-					$positives = array();
-					$negatives = array();
-					
-					if ($set['negation']) {
-						$negatives = array_merge($negatives, $set['values']);
-					}
-					else {
-						$positives = array_merge($positives, $set['values']);
-					}
-					
-					if ($positives) {
-						$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
-								WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
-						$sqlParams = array_merge($sqlParams, $positives);
-					}
-					
-					if ($negatives) {
-						$sql .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID) JOIN tags USING (tagID)
-								WHERE `type` IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
 						$sqlParams = array_merge($sqlParams, $negatives);
 					}
 				}

@@ -3307,6 +3307,7 @@ class Zotero_Item {
 		}
 		
 		$itemData = $this->toJSON(true, false, false, true);
+		
 		if (empty($itemData['note'])) {
 			unset($itemData['note']);
 		}
@@ -3314,7 +3315,68 @@ class Zotero_Item {
 			unset($itemData['tags']);
 		}
 		
-		return array_merge($fields, $itemData);
+		$doc = array_merge($fields, $itemData);
+		
+		/*
+		
+		Not doing full-text search for now, since, among other things, splitting
+		on whitespace and doing left-bound searches wouldn't work for Asian languages,
+		and in general left-bound searches would require better filtering
+		
+		// Generate keywords array
+		$keywords = array();
+		foreach ($doc as $key=>$val) {
+			switch ($key) {
+				case '_id':
+				case 'dateAdded':
+				case 'dateModified':
+				case 'serverDateModified':
+				case 'deleted':
+				case 'creatorSummary':
+				case 'creatorIsEmpty':
+				case 'sortTitle':
+				case 'itemType':
+				case 'parent':
+				case 'linkMode':
+				case 'mimeType':
+				case 'charset':
+				case 'ts':
+					continue 2;
+			}
+			
+			if ($key == "creators") {
+				// Turn creator into string that can be separated
+				$creators = array();
+				foreach ($val as $creator) {
+					$creators[] = !empty($creator['name']) ? $creator['name'] : $creator['firstName'] . ' ' . $creator['lastName'];
+				}
+				$val = implode(" ", $creators);
+			}
+			else if ($key == "note") {
+				$val = strip_tags(Zotero_Notes::sanitize($val));
+				// Unencode plaintext string
+				$val = html_entity_decode($val);
+			}
+			else if ($key == "tags") {
+				$tags = array();
+				foreach ($val as $tag) {
+					$tags[] = $tag['tag'];
+				}
+				$val = implode(" ", $tags);
+			}
+			
+			$words = preg_split('/\s+/', trim($val));
+			foreach ($words as $word) {
+				// Skip one-letter words
+				if (strlen($word) == 1 && preg_match('/^[\x{20}-\x{FF}]/u', $word)) {
+					continue;
+				}
+				$keywords[] = strtolower($word);
+			}
+		}
+		$doc['keywords'] = array_values(array_unique($keywords));*/
+		
+		return $doc;
 	}
 	
 	
