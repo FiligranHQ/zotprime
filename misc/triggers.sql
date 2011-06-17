@@ -28,18 +28,7 @@ CREATE TRIGGER fki_collectionItems
   BEFORE INSERT ON collectionItems
   FOR EACH ROW BEGIN
     -- collectionItems libraryID
-    IF (
-    (
-        (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID)
-    ) THEN
+    IF (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM collectionItems;
     END IF;
     
@@ -58,18 +47,7 @@ DROP TRIGGER IF EXISTS fku_collectionItems;//
 CREATE TRIGGER fku_collectionItems
   BEFORE UPDATE ON collectionItems
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID)
-    ) THEN
+    IF (SELECT libraryID FROM collections WHERE collectionID = NEW.collectionID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM collectionItems;
     END IF;
     
@@ -87,18 +65,7 @@ CREATE TRIGGER fki_itemAttachments
   BEFORE INSERT ON itemAttachments
   FOR EACH ROW BEGIN
     -- itemAttachments libraryID
-    IF (NEW.sourceItemID IS NOT NULL) AND (
-    (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID)
-    ) THEN
+    IF NEW.sourceItemID IS NOT NULL AND (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemAttachments;
     END IF;
     
@@ -122,18 +89,7 @@ DROP TRIGGER IF EXISTS fku_itemAttachments_libraryID;//
 CREATE TRIGGER fku_itemAttachments_libraryID
   BEFORE UPDATE ON itemAttachments
   FOR EACH ROW BEGIN
-    IF (NEW.sourceItemID IS NOT NULL) AND (
-    (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID)
-    ) THEN
+    IF NEW.sourceItemID IS NOT NULL AND (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemAttachments;
     END IF;
     
@@ -154,18 +110,7 @@ DROP TRIGGER IF EXISTS fki_itemCreators_libraryID;//
 CREATE TRIGGER fki_itemCreators_libraryID
   BEFORE INSERT ON itemCreators
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID)
-    ) THEN
+    IF (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemCreators;
     END IF;
   END;//
@@ -174,18 +119,7 @@ DROP TRIGGER IF EXISTS fku_itemCreators_libraryID;//
 CREATE TRIGGER fku_itemCreators_libraryID
   BEFORE UPDATE ON itemCreators
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID)
-    ) THEN
+    IF (SELECT libraryID FROM creators WHERE creatorID = NEW.creatorID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemCreators;
     END IF;
   END;//
@@ -196,18 +130,7 @@ CREATE TRIGGER fki_itemNotes
   BEFORE INSERT ON itemNotes
   FOR EACH ROW BEGIN
     -- itemNotes libraryID
-    IF (NEW.sourceItemID IS NOT NULL) AND (
-    (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID)
-    ) THEN
+    IF NEW.sourceItemID IS NOT NULL AND (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemNotes;
     END IF;
     
@@ -231,18 +154,7 @@ DROP TRIGGER IF EXISTS fku_itemNotes_libraryID;//
 CREATE TRIGGER fku_itemNotes_libraryID
   BEFORE UPDATE ON itemNotes
   FOR EACH ROW BEGIN
-    IF (NEW.sourceItemID IS NOT NULL) AND (
-    (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID)
-    ) THEN
+    IF NEW.sourceItemID IS NOT NULL AND (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.sourceItemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemNotes;
     END IF;
     
@@ -263,18 +175,7 @@ DROP TRIGGER IF EXISTS fki_itemRelated_libraryID;//
 CREATE TRIGGER fki_itemRelated_libraryID
   BEFORE INSERT ON itemRelated
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID)
-    ) THEN
+    IF (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemRelated;
     END IF;
   END;//
@@ -283,18 +184,7 @@ DROP TRIGGER IF EXISTS fku_itemRelated_libraryID;//
 CREATE TRIGGER fku_itemRelated_libraryID
   BEFORE UPDATE ON itemRelated
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID)
-    ) THEN
+    IF (SELECT libraryID FROM items WHERE itemID = NEW.itemID) != (SELECT libraryID FROM items WHERE itemID = NEW.linkedItemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemRelated;
     END IF;
   END;//
@@ -305,18 +195,7 @@ DROP TRIGGER IF EXISTS fki_itemTags_libraryID;//
 CREATE TRIGGER fki_itemTags_libraryID
   BEFORE INSERT ON itemTags
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID)
-    ) THEN
+    IF (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemTags;
     END IF;
   END;//
@@ -325,18 +204,7 @@ DROP TRIGGER IF EXISTS fku_itemTags_libraryID;//
 CREATE TRIGGER fku_itemTags_libraryID
   BEFORE UPDATE ON itemTags
   FOR EACH ROW BEGIN
-    IF (
-    (
-        (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) IS NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NOT NULL
-    ) OR (
-        (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) IS NOT NULL
-            AND
-        (SELECT libraryID FROM items WHERE itemID = NEW.itemID) IS NULL
-    ) OR
-        (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID)
-    ) THEN
+    IF (SELECT libraryID FROM tags WHERE tagID = NEW.tagID) != (SELECT libraryID FROM items WHERE itemID = NEW.itemID) THEN
     SELECT libraryIDs_do_not_match INTO @failure FROM itemTags;
     END IF;
   END;//
