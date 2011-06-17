@@ -122,9 +122,7 @@ class Zotero_Notes {
 	
 	
 	public static function sanitize($text) {
-		$text = $GLOBALS['HTMLPurifier']->purify($text);
-		$text = str_replace("<p> </p>", "<p>&nbsp;</p>", $text);
-		return $text;
+		return $GLOBALS['HTMLPurifier']->purify($text);
 	}
 	
 	
