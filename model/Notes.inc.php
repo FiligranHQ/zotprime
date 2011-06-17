@@ -139,7 +139,9 @@ class Zotero_Notes {
 		$text = mb_substr($text, 0, $max * 5);
 		
 		// Clean and unencode
-		$text = strip_tags(self::sanitize($text));
+		$text = self::sanitize($text);
+		$text = preg_replace("/<\/p>[\s]*<p>/", "</p>\n<p>", $text);
+		$text = strip_tags($text);
 		$text = html_entity_decode($text);
 		
 		$t = mb_substr($text, 0, $max);
