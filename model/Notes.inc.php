@@ -25,7 +25,7 @@
 */
 
 class Zotero_Notes {
-	public static $MAX_TITLE_LENGTH = 80;
+	public static $MAX_TITLE_LENGTH = 79;
 	
 	private static $noteCache = array();
 	private static $hashCache = array();
