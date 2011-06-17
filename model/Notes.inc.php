@@ -145,9 +145,15 @@ class Zotero_Notes {
 		$text = html_entity_decode($text);
 		
 		$t = mb_substr($text, 0, $max);
+		$truncated = $max < mb_strlen($text);
 		$ln = mb_strpos($t, "\n");
 		if ($ln !== false && $ln < $max) {
 			$t = mb_substr($t, 0, $ln);
+			$truncated = true;
+		}
+		// Add an ellipsis if truncated
+		if ($truncated) {
+			$t .= "…";
 		}
 		return $t;
 	}
