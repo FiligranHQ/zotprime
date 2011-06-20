@@ -978,13 +978,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$title = $item->getDisplayTitle(true);
 		$title = $title ? $title : '[Untitled]';
-		// Strip HTML from note titles
-		if ($item->isNote()) {
-			// Clean and strip HTML, giving us an HTML-encoded plaintext string
-			$title = strip_tags(Zotero_Notes::sanitize($title));
-			// Unencode plaintext string
-			$title = html_entity_decode($title);
-		}
 		$xml->title = $title;
 		
 		$author = $xml->addChild('author');

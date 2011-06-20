@@ -128,6 +128,8 @@ class Zotero_Notes {
 	
 	/**
 	 * Return first line (or first MAX_LENGTH characters) of note content
+	 *
+	 * input should be sanitized already
 	 */
 	public static function noteToTitle($text) {
 		if (!$text) {
@@ -139,7 +141,6 @@ class Zotero_Notes {
 		$text = mb_substr($text, 0, $max * 5);
 		
 		// Clean and unencode
-		$text = self::sanitize($text);
 		$text = preg_replace("/<\/p>[\s]*<p>/", "</p>\n<p>", $text);
 		$text = strip_tags($text);
 		$text = html_entity_decode($text);

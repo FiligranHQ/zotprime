@@ -2408,6 +2408,7 @@ class Zotero_Item {
 				}
 			}
 			
+			// DEBUG: Shouldn't be necessary anymore
 			if (is_null($this->noteTextSanitized)) {
 				$sanitized = Zotero_Notes::sanitize($this->noteText);
 				// If sanitized version is the same, use reference
@@ -3295,10 +3296,8 @@ class Zotero_Item {
 		$title = $title ? $title : '';
 		// Strip HTML from note titles
 		if ($this->isNote()) {
-			// Clean and strip HTML, giving us an HTML-encoded plaintext string
-			$title = strip_tags($GLOBALS['HTMLPurifier']->purify($title));
-			// Unencode plaintext string
-			$title = html_entity_decode($title);
+			// Notes don't get titles automatically
+			$fields['title'] = $title;
 		}
 		// Strip some characters
 		$sortTitle = preg_replace("/^[\[\'\"]*(.*)[\]\'\"]*$/", "$1", $title);
