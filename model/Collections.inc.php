@@ -232,6 +232,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
+			$xml->content->addAttribute(
+				'zapi:etag',
+				$collection->etag,
+				Zotero_Atom::$nsZoteroAPI
+			);
+			// TODO: remove non-namespaced attribute
 			$xml->content['etag'] = $collection->etag;
 			$xml->content = $collection->toJSON();
 		}

@@ -1095,6 +1095,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		else if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
+			$xml->content->addAttribute(
+				'zapi:etag',
+				$item->etag,
+				Zotero_Atom::$nsZoteroAPI
+			);
+			// TODO: remove non-namespaced attribute
 			$xml->content['etag'] = $item->etag;
 			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
