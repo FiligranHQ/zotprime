@@ -334,11 +334,11 @@ class Zotero_Creators extends Zotero_DataObjects {
 */	
 	
 	public static function cache(Zotero_Creator $creator) {
-		if (isset($creatorsByID[$creator->id])) {
+		if (isset(self::$creatorsByID[$creator->id])) {
 			error_log("Creator $creator->id is already cached");
 		}
 		
-		$creatorsByID[$creator->id] = $creator;
+		self::$creatorsByID[$creator->id] = $creator;
 	}
 	
 	

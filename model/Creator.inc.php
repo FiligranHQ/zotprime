@@ -45,7 +45,30 @@ class Zotero_Creator {
 		if ($numArgs) {
 			throw new Exception("Constructor doesn't take any parameters");
 		}
+		
+		$this->init();
 	}	
+	
+	
+	private function init() {
+		$this->creatorDataHash = false;
+		$this->loaded = false;
+		
+		$this->changed = array();
+		$props = array(
+			'firstName',
+			'lastName',
+			'shortName',
+			'fieldMode',
+			'birthYear',
+			'dateAdded',
+			'dateModified'
+		);
+		foreach ($props as $prop) {
+			$this->changed[$prop] = array();
+		}
+	}
+	
 	
 	public function __get($field) {
 		if (($this->id || $this->key) && !$this->loaded) {
@@ -107,7 +130,7 @@ class Zotero_Creator {
 	
 	
 	public function hasChanged() {
-		return $this->changed;
+		return !!$this->changed;
 	}
 	
 	
@@ -127,7 +150,7 @@ class Zotero_Creator {
 			throw new Exception('First name must be empty in single-field mode');
 		}
 		
-		if (!$this->changed) {
+		if (!$this->hasChanged()) {
 			Z_Core::debug("Creator $this->id has not changed");
 			return false;
 		}
@@ -146,7 +169,7 @@ class Zotero_Creator {
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
-			$dateModified = isset($this->changed['dateModified']) ? $this->dateModified : $timestamp;
+			$dateModified = $this->changed['dateModified'] ? $this->dateModified : $timestamp;
 			
 			$fields = "creatorDataHash=?, libraryID=?, `key`=?, dateAdded=?,
 						dateModified=?, serverDateModified=?";
@@ -209,15 +232,15 @@ class Zotero_Creator {
 		if (!$this->key) {
 			$this->key = $key;
 		}
-		if (!$this->creatorDataHash) {
-			$this->creatorDataHash = $creatorDataHash;
-		}
+		
+		$this->init();
+		$this->creatorDataHash = $creatorDataHash;
 		
 		if ($isNew) {
 			Zotero_Creators::cache($this);
 		}
 		
-		// TODO: reload
+		// TODO: invalidate memcache?
 		
 		return $this->id;
 	}
