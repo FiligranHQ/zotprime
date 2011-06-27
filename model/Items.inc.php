@@ -1127,8 +1127,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null) {
 		self::validateJSONItems($json, true);
 		
-		// TODO: lock checks
-		
 		$keys = array();
 		
 		Zotero_DB::beginTransaction();
@@ -1153,10 +1151,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null) {
 		self::validateJSONItem($json, $isNew, !is_null($parentItem));
 		
-		if (!$isNew) {
-			// TODO: lock checks
-		}
-		
 		Zotero_DB::beginTransaction();
 		
 		// Mark library as updated
@@ -1168,15 +1162,17 @@ class Zotero_Items extends Zotero_DataObjects {
 		$forceChange = false;
 		$twoStage = false;
 		
+		// Set itemType first
+		$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
+		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				case 'itemType':
+					continue;
+				
 				case 'deleted':
 					continue;
 				
-				case 'itemType':
-					$item->setField("itemTypeID", Zotero_ItemTypes::getID($val));
-					break;
-					
 				case 'creators':
 					if (!$val && !$item->numCreators()) {
 						continue 2;
