@@ -113,16 +113,7 @@ class ApiController extends Controller {
 					array('username' => $username, 'password' => $password)
 				);
 				if (!$userID) {
-					// TODO: if GMU unavailable, return this
-					//$this->e503("The sync server is currently unavailable. Please try again in a few minutes.");
-					
-					$userID = Zotero_Users::authenticate(
-						'http',
-						array('username' => $username, 'password' => $password)
-					);
-					if (!$userID) {
-						$this->e401('Invalid login');
-					}
+					$this->e401('Invalid login');
 				}
 				$this->httpAuth = true;
 				$this->userID = $userID;

@@ -66,16 +66,6 @@ class Zotero_API {
 	}
 	
 	
-	public static function getUserURI($userID) {
-		return self::getBaseWWWURI() . "users/$userID";
-	}
-	
-	
-	public static function getUserURIFromUsername($username) {
-		return self::getBaseWWWURI() . "users/" . Zotero_Utilities::slugify($username);
-	}
-	
-	
 	public static function getCollectionURI(Zotero_Collection $collection) {
 		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
 	}
@@ -190,18 +180,6 @@ class Zotero_API {
 	
 	private static function getBaseURI() {
 		return Z_CONFIG::$API_BASE_URI;
-	}
-	
-	// TEMP
-	private static function getBaseWWWURI() {
-		if (!empty(Z_CONFIG::$API_BASE_URI_WWW)) {
-			$baseURI = Z_CONFIG::$API_BASE_URI_WWW;
-		}
-		else {
-			$baseURI = Z_CONFIG::$API_BASE_URI;
-		}
-		
-		return preg_replace('/(https?:\/\/)/', "$1" . Z_CONFIG::$API_SUPER_USERNAME . ":" . Z_CONFIG::$API_SUPER_PASSWORD . "@", $baseURI);
 	}
 }
 ?>

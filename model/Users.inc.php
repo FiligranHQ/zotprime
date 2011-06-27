@@ -140,21 +140,19 @@ class Zotero_Users {
 	}
 	
 	
-	public static function addFromAPI($userID) {
+	public static function addFromWWW($userID) {
 		if (self::exists($userID)) {
 			throw new Exception("User $userID already exists");
 		}
 		// Throws an error if user not found
-		$userData = self::getXMLFromAPI($userID);
-		$username = self::getUsernameFromAPIXML($userData);
+		$username = self::getUsernameFromWWW($userID);
 		self::add($userID, $username);
 	}
 	
 	
 	public static function updateFromAPI($userID) {
 		// Throws an error if user not found
-		$userData = self::getXMLFromAPI($userID);
-		$username = self::getUsernameFromAPIXML($userData);
+		$username = self::getUsernameFromWWW($userID);
 		self::updateUsername($userID, $username);
 	}
 	
@@ -175,14 +173,6 @@ class Zotero_Users {
 	public static function updateUsername($userID, $username) {
 		$sql = "UPDATE users SET username=? WHERE userID=?";
 		return Zotero_DB::query($sql, array($username, $userID));
-	}
-	
-	
-	public static function updateUsernameFromAPI($username) {
-		$xml = self::getXMLFromAPIByUsername($username);
-		$userID = self::getUserIDFromAPIXML($xml);
-		self::updateUsername($userID, $username);
-		return $userID;
 	}
 	
 	
@@ -376,68 +366,13 @@ class Zotero_Users {
 	}
 	
 	
-	private static function getXMLFromAPI($userID) {
-		if (Z_ENV_DEV_SITE) {
-			throw new Exception("External requests disabled on dev site");
-		}
-		
-		if (isset(self::$userXMLHash[$userID])) {
-			return self::$userXMLHash[$userID];
-		}
-		
-		$url = Zotero_API::getUserURI($userID);
-		$xml = @file_get_contents($url);
-		if (!$xml) {
+	private static function getUsernameFromWWW($userID) {
+		$sql = "SELECT username FROM users WHERE userID=?";
+		$username = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+		if (!$username) {
 			throw new Exception("User $userID not found", Z_ERROR_USER_NOT_FOUND);
 		}
-		try {
-			$xml = @new SimpleXMLElement($xml);
-		}
-		catch (Exception $e) {
-			Z_Core::logError($e);
-			throw new Exception("Invalid XML for user", Z_ERROR_USER_NOT_FOUND);
-		}
-		self::$userXMLHash[$userID] = $xml;
-		return $xml;
-	}
-	
-	
-	private static function getXMLFromAPIByUsername($username) {
-		if (Z_ENV_DEV_SITE) {
-			throw new Exception("External requests disabled on dev site");
-		}
-		
-		$url = Zotero_API::getUserURIFromUsername($username);
-		$xml = @file_get_contents($url);
-		if (!$xml) {
-			throw new Exception("User '$username' not found", Z_ERROR_USER_NOT_FOUND);
-		}
-		
-		try {
-			$xml = @new SimpleXMLElement($xml);
-		}
-		catch (Exception $e) {
-			Z_Core::logError($e);
-			throw new Exception("Invalid XML for user", Z_ERROR_USER_NOT_FOUND);
-		}
-		$userID = self::getUserIDFromAPIXML($xml);
-		self::$userXMLHash[$userID] = $xml;
-		return $xml;
-	}
-	
-	
-	private static function getUsernameFromAPIXML($xml) {
-		return (string) $xml->title;
-	}
-	
-	
-	private static function getUserIDFromAPIXML($xml) {
-		$url = (string) $xml->id;
-		$userID = substr(strrchr($url, '/'), 1);
-		if (!is_numeric($userID)) {
-			throw new Exception("Error parsing userID from XML");
-		}
-		return (int) $userID;
+		return $username;
 	}
 }
 ?>

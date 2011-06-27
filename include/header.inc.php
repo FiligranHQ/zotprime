@@ -73,12 +73,41 @@ if (Z_Core::isCommandLine()) {
 	}
 	
 	$_SERVER['DOCUMENT_ROOT'] = Z_CONFIG::$CLI_DOCUMENT_ROOT;
-	$_SERVER['SERVER_NAME'] = Z_CONFIG::$CLI_SERVER_NAME;
-	$_SERVER['SERVER_PORT'] = Z_CONFIG::$CLI_SERVER_PORT;
+	$_SERVER['SERVER_NAME'] = Z_CONFIG::$SYNC_DOMAIN;
+	$_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'];
 	$_SERVER['REQUEST_URI'] = "/";
-	$_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] . ":" . $_SERVER['SERVER_PORT'];
 }
 else {
+	// Allow a URI pattern to reproxy the request via Perlbal
+	if (!empty(Z_CONFIG::$REPROXY_MAP)) {
+		foreach (Z_CONFIG::$REPROXY_MAP as $prefix=>$servers) {
+			if (preg_match("'$prefix'", $_SERVER['REQUEST_URI'])) {
+				foreach ($servers as &$server) {
+					$server .= $_SERVER['REQUEST_URI'];
+				}
+				header("X-REPROXY-URL: " . implode(" ", $servers));
+				exit;
+			}
+		}
+	}
+	
+	// Allow a URI prefix to override the domain
+	// e.g., to treat zotero.org/api/users as api.zotero.org/users
+	if (!empty(Z_CONFIG::$URI_PREFIX_DOMAIN_MAP)) {
+		foreach (Z_CONFIG::$URI_PREFIX_DOMAIN_MAP as $prefix=>$domain) {
+			if (preg_match("%^$prefix(.*)%", $_SERVER['REQUEST_URI'], $matches)) {
+				$_SERVER['SERVER_NAME'] = $domain;
+				$_SERVER['HTTP_HOST'] = $domain;
+				// Make sure there's a leading slash
+				if (substr($matches[1], 0, 1) != '/') {
+					$matches[1] = '/' . $matches[1];
+				}
+				$_SERVER['REQUEST_URI'] = $matches[1];
+				break;
+			}
+		}
+	}
+	
 	// Turn on output buffering
 	ob_start();
 }
@@ -154,14 +183,8 @@ Z_Core::$Mongo = new Z_Mongo(
 
 // Memcached
 require('Memcached.inc.php');
-if (isset(Z_CONFIG::$MEMCACHED_SERVER_NAME_PREFIX_MAP[$_SERVER['SERVER_NAME']])) {
-	$prefix = Z_CONFIG::$MEMCACHED_SERVER_NAME_PREFIX_MAP[$_SERVER['SERVER_NAME']];
-}
-else {
-	$prefix = $_SERVER['SERVER_NAME'];
-}
 Z_Core::$MC = new Z_MemcachedClientLocal(
-	$prefix,
+	Z_CONFIG::$SYNC_DOMAIN,
 	array(
 		'disabled' => !Z_CONFIG::$MEMCACHED_ENABLED,
 		'servers' => Z_CONFIG::$MEMCACHED_SERVERS

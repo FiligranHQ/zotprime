@@ -197,32 +197,17 @@ class Zotero_Permissions {
 			$this->userPrivacy[$userID] = $privacy;
 			return $privacy;
 		}
-		// TODO: centralize base URL
-		else {
-			// TEMP
-			if (!empty(Z_CONFIG::$API_BASE_URI_WWW)) {
-				$url = Z_CONFIG::$API_BASE_URI_WWW;
-			}
-			else {
-				$url = Z_CONFIG::$API_BASE_URI;
-			}
-			
-			$url .= "users/$userID";
+		
+		$sql = "SELECT metaKey, metaValue FROM users_meta WHERE userID=? AND metaKey LIKE 'privacy_%'";
+		$rows = Zotero_WWW_DB_1::query($sql, $userID);
+		
+		$privacy = array(
+			'publishLibrary' => false,
+			'publishNotes' => false
+		);
+		foreach ($rows as $row) {
+			$privacy[substr($row['metaKey'], 8)] = (bool) (int) $row['metaValue'];
 		}
-		
-		$xml = file_get_contents($url);
-		if (!$xml) {
-			error_log($url);
-			trigger_error("User $userID doesn't exist", E_USER_ERROR);
-		}
-		
-		$xml = new SimpleXMLElement($xml);
-		
-		$zapiContent = $xml->content->children(Zotero_Atom::$nsZoteroAPI);
-		$privacy = array();
-		$privacy['publishLibrary'] = (bool) (int) $zapiContent->privacy->publishLibrary;
-		$privacy['publishNotes'] = (bool) (int) $zapiContent->privacy->publishNotes;
-		
 		$this->userPrivacy[$userID] = $privacy;
 		
 		return $privacy;

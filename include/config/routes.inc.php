@@ -6,9 +6,12 @@ $router->keywords = array('controller', 'action');
 // Add custom routes here
 // Set controller to 404 to block access to an action via a particular URL
 
-
+// Sync
+if ($_SERVER['HTTP_HOST'] == Z_CONFIG::$SYNC_DOMAIN) {
+	$router->connect('/:action/*', array('controller' => 'Sync'));
+}
 // API
-if ($_SERVER['HTTP_HOST'] == preg_replace('/https?:\/\/(.+)\//', '$1', Z_CONFIG::$API_BASE_URI)) {
+else {
 	$router->connect('/', array('controller' => 'Api', 'action' => 'noop', 'extra' => array('allowHTTP' => true)));
 	
 	// Groups
@@ -67,10 +70,6 @@ if ($_SERVER['HTTP_HOST'] == preg_replace('/https?:\/\/(.+)\//', '$1', Z_CONFIG:
 	$router->connect('/items/new', array('controller' => 'Api', 'action' => 'newItem'));
 	
 	$router->connect('/test/setup', array('controller' => 'Api', 'action' => 'testSetup'));
-}
-// Sync
-else {
-	$router->connect('/:action/*', array('controller' => 'Sync'));
 }
 
 //echo "<pre>";var_dump($router->parse(Z_ENV_SELF));echo "</pre>";

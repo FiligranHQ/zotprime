@@ -131,16 +131,10 @@ class SyncController extends Controller {
 		
 		$userID = Zotero_Users::authenticate('password', $authData);
 		if (!$userID) {
-			$userID = Zotero_Users::authenticate('http', $authData);
-			if (!$userID) {
-				// TODO: if GMU unavailable, return this
-				//$this->error(503, 'SERVICE_UNAVAILABLE', "Cannot authenticate login");
-				
-				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION']) && $_SERVER['HTTP_X_ZOTERO_VERSION'] == "2.0b6") {
-					die ("Username/password not accepted");
-				}
-				$this->error(403, 'INVALID_LOGIN', "Username/password not accepted");
+			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION']) && $_SERVER['HTTP_X_ZOTERO_VERSION'] == "2.0b6") {
+				die ("Username/password not accepted");
 			}
+			$this->error(403, 'INVALID_LOGIN', "Username/password not accepted");
 		}
 		
 		$sessionID = md5($userID . uniqid(rand(), true) . $password);
