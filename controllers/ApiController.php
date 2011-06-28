@@ -388,6 +388,16 @@ class ApiController extends Controller {
 						case 'title':
 						case 'date':
 						case 'creator':
+						case 'numItems':
+							// numItems is valid only for tags requests
+							switch ($getParams[$key]) {
+								case 'numItems':
+									if ($action != 'tags') {
+										throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+							}
+							
 							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
 								$this->queryParams['sort'] = Zotero_API::getDefaultSort($getParams[$key]);
 							}

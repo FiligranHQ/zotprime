@@ -104,7 +104,11 @@ class Zotero_Tags extends Zotero_DataObjects {
 	public static function getAllAdvanced($libraryID, $params) {
 		$results = array('objects' => array(), 'total' => 0);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags WHERE libraryID=? ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags ";
+		if (!empty($params['order']) && $params['order'] == 'numItems') {
+			$sql .= " LEFT JOIN itemTags USING (tagID)";
+		}
+		$sql .= "WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
 		
 		if (!empty($params['q'])) {
@@ -147,6 +151,9 @@ class Zotero_Tags extends Zotero_DataObjects {
 			if ($order == 'title') {
 				// Force a case-insensitive sort
 				$sql .= "ORDER BY name COLLATE utf8_unicode_ci ";
+			}
+			else if ($order == 'numItems') {
+				$sql .= "GROUP BY tags.tagID ORDER BY COUNT(tags.tagID)";
 			}
 			else {
 				$sql .= "ORDER BY $order ";
