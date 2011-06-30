@@ -321,6 +321,13 @@ class Zotero_Items extends Zotero_DataObjects {
 			// Combine with passed keys
 			if ($keys) {
 				$keys = array_intersect($keys, $tagKeys);
+				// None of the tag matches match the passed keys
+				if (!$keys) {
+					return array(
+						'total' => 0,
+						'items' => array(),
+					);
+				}
 			}
 			else {
 				$keys = $tagKeys;
