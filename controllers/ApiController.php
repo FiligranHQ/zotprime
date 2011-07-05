@@ -253,10 +253,17 @@ class ApiController extends Controller {
 			case 'POST':
 			case 'PUT':
 			case 'DELETE':
-				if ($this->objectLibraryID && Zotero_Libraries::isLocked($this->objectLibraryID)) {
-					$this->e409("Target library is locked");
+				switch ($action) {
+					// Library lock doesn't matter for some admin requests
+					case 'storageadmin':
+						break;
+					
+					default:
+						if ($this->objectLibraryID && Zotero_Libraries::isLocked($this->objectLibraryID)) {
+							$this->e409("Target library is locked");
+						}
+						break;
 				}
-				break;
 		}
 		
 		$this->scopeObject = !empty($extra['scopeObject']) ? $extra['scopeObject'] : null;
