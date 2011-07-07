@@ -1563,8 +1563,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			if ($key != 'items') {
 				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 			}
-			if (sizeOf($val) > 50) {
-				throw new Exception("Cannot add more than 50 items at a time", Z_ERROR_INVALID_INPUT);
+			if (sizeOf($val) > Zotero_API::$maxWriteItems) {
+				throw new Exception("Cannot add more than " . Zotero_API::$maxWriteItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
 			}
 		}
 	}

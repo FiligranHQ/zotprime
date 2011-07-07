@@ -2679,6 +2679,12 @@ class ApiController extends Controller {
 				$this->e400(htmlspecialchars($msg));
 				break;
 			
+			case Z_ERROR_UPLOAD_TOO_LARGE:
+				$msg = $e->getMessage();
+				error_log($msg);
+				$this->e413(htmlspecialchars($msg));
+				break;
+			
 			// 404?
 			case Z_ERROR_TAG_NOT_FOUND:
 				$this->e400(htmlspecialchars($e->getMessage()));
