@@ -26,6 +26,7 @@
 
 class Zotero_API {
 	public static $maxBibliographyItems = 150;
+	public static $maxWriteItems = 50;
 	
 	private static $defaultQueryParams = array(
 		'format' => "atom",
