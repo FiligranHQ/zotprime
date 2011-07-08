@@ -7,6 +7,10 @@ class Zotero_Cite {
 	 * Generate JSON for items and send to citeproc-js web service
 	 */
 	public static function getBibliographyFromCiteServer($items, $style='chicago-note-bibliography', $css='inline') {
+		if (!is_string($style) || !preg_match('/^[a-zA-Z0-9\-]+$/', $style)) {
+			throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+		}
+		
 		$cslItems = array();
 		foreach ($items as $item) {
 			$cslItems[] = $item->toCSLItem();
@@ -17,10 +21,6 @@ class Zotero_Cite {
 		);
 		
 		$json = json_encode($json);
-		
-		if (!is_string($style) || !preg_match('/^[a-zA-Z0-9\-]+$/', $style)) {
-			throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
-		}
 		
 		$servers = Z_CONFIG::$CITE_SERVERS;
 		// Try servers in a random order

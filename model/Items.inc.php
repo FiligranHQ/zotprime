@@ -1111,6 +1111,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$xml->content['etag'] = $item->etag;
 			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
+		
 		// Not for public consumption
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';
@@ -1122,6 +1123,12 @@ class Zotero_Items extends Zotero_DataObjects {
 			$subNode = dom_import_simplexml($fullXML);
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
+		}
+		
+		else if (in_array($content, Zotero_Translate::$exportFormats)) {
+			$export = Zotero_Translate::getExportFromTranslateServer(array($item), $content);
+			$xml->content['type'] = $export['mimeType'];
+			$xml->content = $export['body'];
 		}
 		
 		return $xml;

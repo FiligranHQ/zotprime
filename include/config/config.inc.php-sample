@@ -32,6 +32,10 @@ class Z_CONFIG {
 	public static $MONGO_DB = "";
 	public static $MONGO_SAFE_NUM = 2;
 	
+	public static $TRANSLATE_SERVERS = array(
+		"translator1.localdomain:1969"
+	);
+	
 	public static $CITE_SERVERS = array(
 		"citeserver1.localdomain:8080", "citeserver2.localdomain:8080"
 	);

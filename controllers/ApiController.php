@@ -353,6 +353,9 @@ class ApiController extends Controller {
 							break;
 						
 						default:
+							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
+								break;
+							}
 							throw new Exception("Invalid 'format' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
@@ -377,6 +380,9 @@ class ApiController extends Controller {
 							break;
 						
 						default:
+							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
+								break;
+							}
 							throw new Exception("Invalid 'content' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
@@ -611,6 +617,16 @@ class ApiController extends Controller {
 				case 'bib':
 					echo Zotero_Cite::getBibliographyFromCiteServer(array($item), $this->queryParams['style'], $this->queryParams['css']);
 					exit;
+				
+				default:
+					if (in_array($this->queryParams['format'], Zotero_Translate::$exportFormats)) {
+						$export = Zotero_Translate::getExportFromTranslateServer(array($item), $this->queryParams['format']);
+						header("Content-Type: " . $export['mimeType']);
+						echo $export['body'];
+						exit;
+					}
+					
+					throw new Exception("Invalid format");
 			}
 		}
 		
@@ -915,6 +931,13 @@ class ApiController extends Controller {
 					exit;
 				
 				default:
+					if (in_array($this->queryParams['format'], Zotero_Translate::$exportFormats)) {
+						$export = Zotero_Translate::getExportFromTranslateServer($items, $this->queryParams['format']);
+						header("Content-Type: " . $export['mimeType']);
+						echo $export['body'];
+						exit;
+					}
+					
 					throw new Exception("Invalid format");
 			}
 		}
