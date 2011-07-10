@@ -552,7 +552,15 @@ class ApiController extends Controller {
 							$this->e404("Item not found in collection");
 						}
 						
+						Zotero_DB::beginTransaction();
+						
+						$timestamp = Zotero_Libraries::updateTimestamps($this->objectLibraryID);
+						Zotero_DB::registerTransactionTimestamp($timestamp);
+						
 						$collection->removeItem($item->id);
+						
+						Zotero_DB::commit();
+						
 						$this->e204();
 					
 					default:
@@ -593,7 +601,7 @@ class ApiController extends Controller {
 				
 				// Delete existing item
 				else {
-					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
+					Zotero_Items::delete($this->objectLibraryID, $this->objectKey, true);
 					
 					try {
 						Zotero_Processors::notifyProcessors('index');
@@ -675,6 +683,11 @@ class ApiController extends Controller {
 								$this->e403("Write access denied");
 							}
 							
+							Zotero_DB::beginTransaction();
+							
+							$timestamp = Zotero_Libraries::updateTimestamps($this->objectLibraryID);
+							Zotero_DB::registerTransactionTimestamp($timestamp);
+							
 							$itemKeys = explode(' ', $this->body);
 							$itemIDs = array();
 							foreach ($itemKeys as $key) {
@@ -700,6 +713,9 @@ class ApiController extends Controller {
 								$itemIDs[] = $item->id;
 							}
 							$collection->addItems($itemIDs);
+							
+							Zotero_DB::commit();
+							
 							$this->e204();
 						}
 						
@@ -1373,7 +1389,7 @@ class ApiController extends Controller {
 				
 				// Delete
 				else {
-					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey);
+					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey, true);
 					$this->e204();
 				}
 			}

@@ -261,9 +261,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 	public static function addFromJSON($json, $libraryID) {
 		self::validateJSONCollection($json);
 		
-		// TODO: lock checks
-		
-		// new item
 		$collection = new Zotero_Collection;
 		$collection->libraryID = $libraryID;
 		self::updateFromJSON($collection, $json, true);
@@ -275,9 +272,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Collection $collection, $json, $isNew=false) {
 		self::validateJSONCollection($json);
 		
-		if (!$isNew) {
-			// TODO: lock checks
-		}
+		Zotero_DB::beginTransaction();
+		
+		$timestamp = Zotero_Libraries::updateTimestamps($collection->libraryID);
+		Zotero_DB::registerTransactionTimestamp($timestamp);
 		
 		$collection->name = $json->name;
 		$parentKey = $json->parent;
@@ -288,6 +286,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$collection->parent = false;
 		}
 		$collection->save();
+		
+		Zotero_DB::commit();
 	}
 	
 	
