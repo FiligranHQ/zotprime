@@ -618,7 +618,7 @@ class ApiController extends Controller {
 			switch ($this->queryParams['format']) {
 				case 'atom':
 					$this->responseXML = Zotero_Items::convertItemToAtom(
-						$item, $this->queryParams, $this->apiVersion
+						$item, $this->queryParams, $this->apiVersion, $this->permissions
 					);
 					break;
 			
@@ -938,7 +938,8 @@ class ApiController extends Controller {
 						$items,
 						$totalResults,
 						$this->queryParams,
-						$this->apiVersion
+						$this->apiVersion,
+						$this->permissions
 					);
 					break;
 				
@@ -1499,7 +1500,8 @@ class ApiController extends Controller {
 				$collections,
 				$totalResults,
 				$this->queryParams,
-				$this->apiVersion
+				$this->apiVersion,
+				$this->permissions
 			);
 		}
 		
@@ -1623,6 +1625,7 @@ class ApiController extends Controller {
 			$totalResults,
 			$this->queryParams,
 			$this->apiVersion,
+			$this->permissions,
 			$fixedValues
 		);
 		
@@ -1839,7 +1842,8 @@ class ApiController extends Controller {
 				$groups,
 				$totalResults,
 				$this->queryParams,
-				$this->apiVersion
+				$this->apiVersion,
+				$this->permissions
 			);
 		}
 		
@@ -1973,7 +1977,8 @@ class ApiController extends Controller {
 				$entries,
 				null,
 				$this->queryParams,
-				$this->apiVersion
+				$this->apiVersion,
+				$this->permissions
 			);
 			
 			Zotero_DB::commit();
@@ -2065,7 +2070,8 @@ class ApiController extends Controller {
 				$entries,
 				null,
 				$this->queryParams,
-				$this->apiVersion
+				$this->apiVersion,
+				$this->permissions
 			);
 			
 			Zotero_DB::commit();
@@ -2129,7 +2135,8 @@ class ApiController extends Controller {
 			$entries,
 			$totalResults,
 			$this->queryParams,
-			$this->apiVersion
+			$this->apiVersion,
+			$this->permissions
 		);
 		
 		$this->end();

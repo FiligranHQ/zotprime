@@ -2855,7 +2855,7 @@ class Zotero_Item {
 				$newTags[$i]->type = 0;
 			}
 			
-			$name = $newTags[$i]->tag; // 'tag', not 'name', since that's what JSON uses
+			$name = trim($newTags[$i]->tag); // 'tag', not 'name', since that's what JSON uses
 			$type = $newTags[$i]->type;
 			
 			foreach ($existingTags as $tag) {
@@ -2907,12 +2907,6 @@ class Zotero_Item {
 		Zotero_DB::commit();
 		
 		return $toAdd || $toRemove;
-	}
-	
-	
-	
-	public function toAtom($content='none', $apiVersion=null) {
-		return Zotero_Items::convertItemToAtom($this, $content, $apiVersion);
 	}
 	
 	

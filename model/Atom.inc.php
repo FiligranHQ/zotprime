@@ -78,7 +78,7 @@ class Zotero_Atom {
 		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
 	
-	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $apiVersion=null, $fixedValues=array()) {
+	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $apiVersion=null, $permissions=null, $fixedValues=array()) {
 		if ($queryParams) {
 			$nonDefaultParams = Zotero_API::getNonDefaultQueryParams($queryParams);
 		}
@@ -219,7 +219,7 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Item) {
-				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $apiVersion);
+				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $apiVersion, $permissions);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Search) {

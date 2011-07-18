@@ -976,7 +976,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null) {
+	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions) {
 		$content = $queryParams['content'];
 		$style = $queryParams['style'];
 		
@@ -1040,18 +1040,20 @@ class Zotero_Items extends Zotero_DataObjects {
 		$link['type'] = 'text/html';
 		$link['href'] = Zotero_URI::getItemURI($item);
 		
-		// If stored in ZFS, get file request link
-		$details = Zotero_S3::getDownloadDetails($item);
-		if ($details) {
-			$link = $xml->addChild('link');
-			$link['rel'] = 'enclosure';
-			$type = $item->attachmentMIMEType;
-			if ($type) {
-				$link['type'] = $type;
+		// If appropriate permissions and the file is stored in ZFS, get file request link
+		if ($permissions && $permissions->canAccess($item->libraryID, 'files')) {
+			$details = Zotero_S3::getDownloadDetails($item);
+			if ($details) {
+				$link = $xml->addChild('link');
+				$link['rel'] = 'enclosure';
+				$type = $item->attachmentMIMEType;
+				if ($type) {
+					$link['type'] = $type;
+				}
+				$link['href'] = $details['url'];
+				$link['title'] = $details['filename'];
+				$link['length'] = $details['size'];
 			}
-			$link['href'] = $details['url'];
-			$link['title'] = $details['filename'];
-			$link['length'] = $details['size'];
 		}
 		
 		$xml->addChild('zapi:key', $item->key, Zotero_Atom::$nsZoteroAPI);
