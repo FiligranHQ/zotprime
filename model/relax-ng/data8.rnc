@@ -207,11 +207,7 @@ start =
 		element relations {
 			element relation {
 				libraryID?,
-				attribute hash {
-					xsd:string {
-						pattern = "[1234567890ABCDEF]{32}"
-					}
-				}
+				attribute key {md5Pattern }
 			}+
 		}?
 	}?

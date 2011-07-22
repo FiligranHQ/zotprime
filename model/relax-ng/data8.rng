@@ -486,10 +486,8 @@
                     <optional>
                       <ref name="libraryID"/>
                     </optional>
-                    <attribute name="hash">
-                      <data type="string">
-                        <param name="pattern">[1234567890ABCDEF]{32}</param>
-                      </data>
+                    <attribute name="key">
+                      <ref name="md5Pattern"/>
                     </attribute>
                   </element>
                 </oneOrMore>

@@ -110,13 +110,19 @@ class Zotero_DataObjects {
 		if (!$libraryID || !is_numeric($libraryID)) {
 			throw new Exception("libraryID '$libraryID' must be a positive integer");
 		}
-		if (!preg_match('/[A-Z0-9]{8}/', $key)) {
-			throw new Exception("Invalid key '$key'");
-		}
 		
 		$table = static::field('table');
 		$id = static::field('id');
 		$type = static::field('object');
+		
+		if ($type == 'relation') {
+			if (!preg_match('/[a-f0-9]{32}/', $key)) {
+				throw new Exception("Invalid key '$key'");
+			}
+		}
+		else if (!preg_match('/[A-Z0-9]{8}/', $key)) {
+			throw new Exception("Invalid key '$key'");
+		}
 		
 		if (!isset(self::$idCache[$type])) {
 			self::$idCache[$type] = array();
@@ -134,7 +140,12 @@ class Zotero_DataObjects {
 				self::$idCacheIsFromMemcached[$type][$libraryID] = true;
 			}
 			else {
-				$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
+				if ($type == 'relation') {
+					$sql = "SELECT $id AS id, MD5(CONCAT(subject, '_', predicate, '_', object)) AS `key` FROM $table WHERE libraryID=?";
+				}
+				else {
+					$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
+				}
 				$rows = Zotero_DB::query($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 				
 				if (!$rows) {
@@ -489,8 +500,15 @@ class Zotero_DataObjects {
 			}
 		}
 		
-		$sql = "DELETE FROM $table WHERE libraryID=? AND `key`=?";
-		$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
+		if ($type == 'relation') {
+			// TODO: add key column to relations to speed this up
+			$sql = "DELETE FROM $table WHERE libraryID=? AND MD5(CONCAT(subject, '_', predicate, '_', object))=?";
+			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
+		}
+		else {
+			$sql = "DELETE FROM $table WHERE libraryID=? AND `key`=?";
+			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
+		}
 		
 		unset(self::$idCache[$type][$libraryID][$key]);
 		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);

@@ -116,6 +116,8 @@ class Zotero_Relation {
 		Zotero_DB::beginTransaction();
 		
 		try {
+			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+			
 			$relationID = $this->id ? $this->id : Zotero_ID::get('relations');
 			
 			Z_Core::debug("Saving relation $relationID");
@@ -132,13 +134,19 @@ class Zotero_Relation {
 				$this->object,
 				$timestamp
 			);
-			$insertID = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($this->libraryID));
+			$insertID = Zotero_DB::query($sql, $params, $shardID);
 			if (!$this->id) {
 				if (!$insertID) {
 					throw new Exception("Relation id not available after INSERT");
 				}
 				$this->id = $insertID;
 			}
+			
+			// Remove from delete log if it's there
+			$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='relation' AND `key`=?";
+			Zotero_DB::query(
+				$sql, array($this->libraryID, $this->getKey()), $shardID
+			);
 			
 			Zotero_DB::commit();
 		}
@@ -199,6 +207,11 @@ class Zotero_Relation {
 			}
 			$this->$key = $val;
 		}
+	}
+	
+	
+	private function getKey() {
+		return md5($this->subject . "_" . $this->predicate . "_" . $this->object);
 	}
 }
 ?>

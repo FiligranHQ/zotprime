@@ -1669,6 +1669,11 @@ class Zotero_Sync {
 				if ($xml->deleted->tags) {
 					Zotero_Tags::deleteFromXML($xml->deleted->tags);
 				}
+				
+				// Delete tags
+				if ($xml->deleted->relations) {
+					Zotero_Relations::deleteFromXML($xml->deleted->relations);
+				}
 			}
 			
 			self::removeUploadProcess($processID);
