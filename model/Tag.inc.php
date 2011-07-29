@@ -37,13 +37,34 @@ class Zotero_Tag {
 	private $changed;
 	private $previousData;
 	
-	private $linkedItemsLoaded;
+	private $linkedItemsLoaded = false;
 	private $linkedItems = array();
 	
 	public function __construct() {
 		$numArgs = func_num_args();
 		if ($numArgs) {
 			throw new Exception("Constructor doesn't take any parameters");
+		}
+		
+		$this->init();
+	}
+	
+	
+	private function init() {
+		$this->loaded = false;
+		
+		$this->previousData = array();
+		$this->linkedItemsLoaded = false;
+		
+		$this->changed = array();
+		$props = array(
+			'name',
+			'type',
+			'dateAdded',
+			'dateModified'
+		);
+		foreach ($props as $prop) {
+			$this->changed[$prop] = false;
 		}
 	}
 	
@@ -308,6 +329,8 @@ class Zotero_Tag {
 		if (!$this->key) {
 			$this->key = $key;
 		}
+		
+		$this->init();
 		
 		if ($isNew) {
 			Zotero_Tags::cache($this);

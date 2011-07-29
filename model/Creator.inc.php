@@ -65,7 +65,7 @@ class Zotero_Creator {
 			'dateModified'
 		);
 		foreach ($props as $prop) {
-			$this->changed[$prop] = array();
+			$this->changed[$prop] = false;
 		}
 	}
 	
