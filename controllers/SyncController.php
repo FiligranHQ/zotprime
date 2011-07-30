@@ -687,8 +687,15 @@ class SyncController extends Controller {
 				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 					$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 				}
-				$str .= $e . "\n\n";
-				$str .= $xmldata;
+				$str .= $e;
+				switch ($e->getCode()) {
+					// Don't log uploaded data for some errors
+					case Z_ERROR_TAG_TOO_LONG:
+						break;
+					
+					default:
+						$str .= "\n\n" . $xmldata;
+				}
 				file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
 			}
 		}
