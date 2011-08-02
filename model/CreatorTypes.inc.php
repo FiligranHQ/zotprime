@@ -28,6 +28,8 @@ class Zotero_CreatorTypes {
 	private static $typeIDs = array();
 	private static $typeNames = array();
 	private static $primaryIDCache = array();
+	private static $creatorTypesByItemType = array();
+	private static $isValidForItemType = array();
 	
 	private static $localizedStrings = array(
 		"author"				=> "Author",
@@ -119,12 +121,20 @@ class Zotero_CreatorTypes {
 	
 	
 	public static function getTypesForItemType($itemTypeID, $locale=false) {
+		if (isset(self::$creatorTypesByItemType[$itemTypeID])) {
+			return self::$creatorTypesByItemType[$itemTypeID];
+		}
+		
 		$sql = "SELECT creatorTypeID AS id, creatorTypeName AS name
 			FROM itemTypeCreatorTypes NATURAL JOIN creatorTypes
 			WHERE itemTypeID=? ORDER BY primaryField=1 DESC";
 		$rows = Zotero_DB::query($sql, $itemTypeID);
+		if (!$rows) {
+			$rows = array();
+		}
 		
 		if (!$locale) {
+			self::$creatorTypesByItemType[$itemTypeID] = $rows;
 			return $rows;
 		}
 		
@@ -140,14 +150,31 @@ class Zotero_CreatorTypes {
 		
 		array_unshift($rows, $primary);
 		
+		self::$creatorTypesByItemType[$itemTypeID] = $rows;
+		
 		return $rows;
 	}
 	
 	
 	public static function isValidForItemType($creatorTypeID, $itemTypeID) {
-		$sql = "SELECT COUNT(*) FROM itemTypeCreatorTypes
-			WHERE itemTypeID=? AND creatorTypeID=?";
-		return !!Zotero_DB::valueQuery($sql, array($itemTypeID, $creatorTypeID));
+		if (isset(self::$isValidForItemType[$itemTypeID][$creatorTypeID])) {
+			return self::$isValidForItemType[$itemTypeID][$creatorTypeID];
+		}
+		
+		$valid = false;
+		$types = self::getTypesForItemType($itemTypeID);
+		foreach ($types as $type) {
+			if ($type['id'] == $creatorTypeID) {
+				$valid = true;
+				break;
+			}
+		}
+		
+		if (!isset(self::$isValidForItemType[$itemTypeID])) {
+			self::$isValidForItemType[$itemTypeID] = array();
+		}
+		self::$isValidForItemType[$itemTypeID][$creatorTypeID] = $valid;
+		return $valid;
 	}
 	
 	

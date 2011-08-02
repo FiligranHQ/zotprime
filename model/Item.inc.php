@@ -2127,6 +2127,10 @@ class Zotero_Item {
 			return false;
 		}
 		
+		if (!Zotero_CreatorTypes::isValidForItemType($creatorTypeID, $this->itemTypeID)) {
+			throw new Exception("Invalid creator type for item type ($creatorTypeID, " . $this->itemTypeID . ")");
+		}
+		
 		$this->creators[$orderIndex]['ref'] = $creator;
 		$this->creators[$orderIndex]['creatorTypeID'] = $creatorTypeID;
 		$this->changed['creators'][$orderIndex] = true;
