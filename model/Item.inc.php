@@ -2118,6 +2118,14 @@ class Zotero_Item {
 			throw new Exception("Creator library IDs don't match");
 		}
 		
+		// If creatorTypeID isn't valid for this type, use the primary type
+		if (!Zotero_CreatorTypes::isValidForItemType($creatorTypeID, $this->itemTypeID)) {
+			$msg = "Invalid creator type $creatorTypeID for item type " . $this->itemTypeID
+					. " -- changing to primary creator";
+			Z_Core::debug($msg);
+			$creatorTypeID = Zotero_CreatorTypes::getPrimaryIDForType($this->itemTypeID);
+		}
+		
 		// If creator already exists at this position, cancel
 		if (isset($this->creators[$orderIndex])
 				&& $this->creators[$orderIndex]['ref']->id == $creator->id
@@ -2125,10 +2133,6 @@ class Zotero_Item {
 				&& !$creator->hasChanged()) {
 			Z_Core::debug("Creator in position $orderIndex hasn't changed", 4);
 			return false;
-		}
-		
-		if (!Zotero_CreatorTypes::isValidForItemType($creatorTypeID, $this->itemTypeID)) {
-			throw new Exception("Invalid creator type for item type ($creatorTypeID, " . $this->itemTypeID . ")");
 		}
 		
 		$this->creators[$orderIndex]['ref'] = $creator;

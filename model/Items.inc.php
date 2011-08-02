@@ -976,7 +976,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions) {
+	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions=null) {
 		$content = $queryParams['content'];
 		$style = $queryParams['style'];
 		
@@ -1070,9 +1070,16 @@ class Zotero_Items extends Zotero_DataObjects {
 			);
 		}
 		if (!$parent && $item->isRegularItem()) {
+			if ($permissions && !$permissions->canAccess($item->libraryID, 'notes')) {
+				$numChildren = $item->numAttachments();
+			}
+			else {
+				$numChildren = $item->numChildren();
+			}
+			
 			$xml->addChild(
 				'zapi:numChildren',
-				$item->numChildren(),
+				$numChildren,
 				Zotero_Atom::$nsZoteroAPI
 			);
 		}
@@ -1470,8 +1477,13 @@ class Zotero_Items extends Zotero_DataObjects {
 						foreach ($creator as $k=>$v) {
 							switch ($k) {
 								case 'creatorType':
-									if (!Zotero_CreatorTypes::getID($v)) {
+									$creatorTypeID = Zotero_CreatorTypes::getID($v);
+									if (!$creatorTypeID) {
 										throw new Exception("'$v' is not a valid creator type", Z_ERROR_INVALID_INPUT);
+									}
+									$itemTypeID = Zotero_ItemTypes::getID($json->itemType);
+									if (!Zotero_CreatorTypes::isValidForItemType($creatorTypeID, $itemTypeID)) {
+										throw new Exception("'$v' is not a valid creator type for item type '" . $json->itemType . "'", Z_ERROR_INVALID_INPUT);
 									}
 									break;
 								
