@@ -53,6 +53,134 @@ class Zotero_API {
 	);
 	
 	
+	/**
+	 * Parse query string into parameters, validating and filling in defaults
+	 */
+	public static function parseQueryParams($queryString) {
+		// Handle multiple identical parameters in the CGI-standard way instead of
+		// PHP's foo[]=bar way
+		$getParams = Zotero_URL::proper_parse_str($queryString);
+		$queryParams = array();
+		
+		foreach (self::getDefaultQueryParams() as $key=>$val) {
+			// Don't overwrite sort if already derived from 'order'
+			if ($key == 'sort' && !empty($queryParams['sort'])) {
+				continue;
+			}
+			
+			// Fill defaults
+			$queryParams[$key] = $val;
+			
+			// Set an arbitrary limit in bib mode, above which we'll return an
+			// error below, since sorting and limiting doesn't make sense for
+			// bibliographies sorted by citeproc-js
+			if (isset($getParams['format']) && $getParams['format'] == 'bib') {
+				switch ($key) {
+					case 'limit':
+						// Use +1 here, since test elsewhere uses just $maxBibliographyItems
+						$queryParams['limit'] = Zotero_API::$maxBibliographyItems + 1;
+						break;
+					
+					// Use defaults
+					case 'order':
+					case 'sort':
+					case 'start':
+					case 'content':
+						continue 2;
+				}
+			}
+			
+			if (!isset($getParams[$key])) {
+				continue;
+			}
+			
+			switch ($key) {
+				case 'format':
+					switch ($getParams[$key]) {
+						case 'atom':
+						case 'bib':
+							break;
+						
+						default:
+							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
+								break;
+							}
+							throw new Exception("Invalid 'format' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'start':
+				case 'limit':
+					// Enforce max on 'limit'
+					// TODO: move to Zotero_API
+					if ($key == 'limit' && (int) $getParams[$key] > 100) {
+						$getParams[$key] = 100;
+					}
+					$queryParams[$key] = (int) $getParams[$key];
+					continue 2;
+				
+				case 'content':
+					switch ($getParams[$key]) {
+						case 'none':
+						case 'html':
+						case 'bib':
+						case 'json':
+						case 'full':
+							break;
+						
+						default:
+							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
+								break;
+							}
+							throw new Exception("Invalid 'content' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'order':
+					// Whether to sort empty values first
+					//
+					// Until Mongo supports more advanced sorting, a value of FALSE
+					// requires an explicit _____IsEmpty field in the Mongo document
+					$queryParams['emptyFirst'] = Zotero_API::getSortEmptyFirst($getParams[$key]);
+					
+					switch ($getParams[$key]) {
+						// Valid fields to sort by
+						case 'dateAdded':
+						case 'dateModified':
+						case 'title':
+						case 'date':
+						case 'creator':
+						case 'numItems':
+							// numItems is valid only for tags requests
+							switch ($getParams[$key]) {
+								case 'numItems':
+									if ($action != 'tags') {
+										throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+							}
+							
+							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
+								$queryParams['sort'] = Zotero_API::getDefaultSort($getParams[$key]);
+							}
+							else {
+								$queryParams['sort'] = $getParams['sort'];
+							}
+							break;
+						
+						default:
+							throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+			}
+			
+			$queryParams[$key] = $getParams[$key];
+		}
+		
+		return $queryParams;
+	}
+	
+	
 	public static function getLibraryURI($libraryID) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {

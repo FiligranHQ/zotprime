@@ -297,7 +297,7 @@ class Zotero_Group {
 		Zotero_DB::beginTransaction();
 		
 		if (!Zotero_Users::exists($userID)) {
-			Zotero_Users::addFromAPI($userID);
+			Zotero_Users::addFromWWW($userID);
 		}
 		
 		$sql = "INSERT IGNORE INTO groupUsers (groupID, userID, role, joined)
@@ -630,7 +630,7 @@ class Zotero_Group {
 			
 			// Make sure new owner exists in DB
 			if (!Zotero_Users::exists($this->ownerUserID)) {
-				Zotero_Users::addFromAPI($this->ownerUserID);
+				Zotero_Users::addFromWWW($this->ownerUserID);
 			}
 			
 			// Add new owner to group

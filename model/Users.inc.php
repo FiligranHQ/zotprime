@@ -85,12 +85,11 @@ class Zotero_Users {
 		$sql = "SELECT username FROM users WHERE userID=?";
 		$username = Zotero_DB::valueQuery($sql, $userID);
 		if (!$username && !$skipAutoAdd) {
-			// TODO: get from replicated table first
 			if (!self::exists($userID)) {
-				self::addFromAPI($userID);
+				self::addFromWWW($userID);
 			}
 			else {
-				self::updateFromAPI($userID);
+				self::updateFromWWW($userID);
 			}
 			$sql = "SELECT username FROM users WHERE userID=?";
 			$username = Zotero_DB::valueQuery($sql, $userID);
@@ -150,7 +149,7 @@ class Zotero_Users {
 	}
 	
 	
-	public static function updateFromAPI($userID) {
+	public static function updateFromWWW($userID) {
 		// Throws an error if user not found
 		$username = self::getUsernameFromWWW($userID);
 		self::updateUsername($userID, $username);

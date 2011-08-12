@@ -1147,7 +1147,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	/**
 	 * Create new items from a decoded JSON object
 	 */
-	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null) {
+	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null, $userID=null) {
 		self::validateJSONItems($json, true);
 		
 		$keys = array();
@@ -1161,7 +1161,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		foreach ($json->items as $jsonItem) {
 			$item = new Zotero_Item;
 			$item->libraryID = $libraryID;
-			self::updateFromJSON($item, $jsonItem, true, $parentItem);
+			self::updateFromJSON($item, $jsonItem, true, $parentItem, $userID);
 			$keys[] = $item->key;
 		}
 		
@@ -1171,7 +1171,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null) {
+	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null, $userID=null) {
 		self::validateJSONItem($json, $isNew, !is_null($parentItem));
 		
 		Zotero_DB::beginTransaction();
@@ -1324,7 +1324,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
 		}
 		Zotero_Index::$queueingEnabled = false;
-		$item->save();
+		$item->save($userID);
 		
 		// Additional steps that have to be performed on a saved object
 		if ($twoStage) {
@@ -1360,7 +1360,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			if ($forceChange) {
 				$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
 			}
-			$item->save();
+			$item->save($userID);
 		}
 		Zotero_Index::addItem($item);
 		Zotero_Index::$queueingEnabled = true;

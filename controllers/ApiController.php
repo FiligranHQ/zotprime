@@ -37,6 +37,7 @@ class ApiController extends Controller {
 	private $body;
 	private $apiKey;
 	private $responseXML;
+	private $responseCode;
 	private $apiVersion;
 	private $userID; // request user
 	private $permissions;
@@ -208,7 +209,7 @@ class ApiController extends Controller {
 			catch (Exception $e) {
 				if ($e->getCode() == Z_ERROR_USER_NOT_FOUND) {
 					try {
-						Zotero_Users::addFromAPI($objectUserID);
+						Zotero_Users::addFromWWW($objectUserID);
 					}
 					catch (Exception $e) {
 						if ($e->getCode() == Z_ERROR_USER_NOT_FOUND) {
@@ -307,126 +308,7 @@ class ApiController extends Controller {
 							? (!empty($_GET['info']) ? 'info' : 'download')
 							: false;
 		
-		// Validate query parameters and fill defaults
-		
-		// Handle multiple identical parameters in the CGI-standard way instead of
-		// PHP's foo[]=bar way
-		$getParams = Zotero_URL::proper_parse_str($_SERVER['QUERY_STRING']);
-		
-		foreach (Zotero_API::getDefaultQueryParams() as $key=>$val) {
-			// Don't overwrite sort if already derived from 'order'
-			if ($key == 'sort' && !empty($this->queryParams['sort'])) {
-				continue;
-			}
-			
-			// Fill defaults
-			$this->queryParams[$key] = $val;
-			
-			// Set an arbitrary limit in bib mode, above which we'll return an
-			// error below, since sorting and limiting doesn't make sense for
-			// bibliographies sorted by citeproc-js
-			if (isset($getParams['format']) && $getParams['format'] == 'bib') {
-				switch ($key) {
-					case 'limit':
-						// Use +1 here, since test elsewhere uses just $maxBibliographyItems
-						$this->queryParams['limit'] = Zotero_API::$maxBibliographyItems + 1;
-						break;
-					
-					// Use defaults
-					case 'order':
-					case 'sort':
-					case 'start':
-					case 'content':
-						continue 2;
-				}
-			}
-			
-			if (!isset($getParams[$key])) {
-				continue;
-			}
-			
-			switch ($key) {
-				case 'format':
-					switch ($getParams[$key]) {
-						case 'atom':
-						case 'bib':
-							break;
-						
-						default:
-							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
-								break;
-							}
-							throw new Exception("Invalid 'format' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
-					}
-					break;
-				
-				case 'start':
-				case 'limit':
-					// Enforce max on 'limit'
-					// TODO: move to Zotero_API
-					if ($key == 'limit' && (int) $getParams[$key] > 100) {
-						$getParams[$key] = 100;
-					}
-					$this->queryParams[$key] = (int) $getParams[$key];
-					continue 2;
-				
-				case 'content':
-					switch ($getParams[$key]) {
-						case 'none':
-						case 'html':
-						case 'bib':
-						case 'json':
-						case 'full':
-							break;
-						
-						default:
-							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
-								break;
-							}
-							throw new Exception("Invalid 'content' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
-					}
-					break;
-				
-				case 'order':
-					// Whether to sort empty values first
-					//
-					// Until Mongo supports more advanced sorting, a value of FALSE
-					// requires an explicit _____IsEmpty field in the Mongo document
-					$this->queryParams['emptyFirst'] = Zotero_API::getSortEmptyFirst($getParams[$key]);
-					
-					switch ($getParams[$key]) {
-						// Valid fields to sort by
-						case 'dateAdded':
-						case 'dateModified':
-						case 'title':
-						case 'date':
-						case 'creator':
-						case 'numItems':
-							// numItems is valid only for tags requests
-							switch ($getParams[$key]) {
-								case 'numItems':
-									if ($action != 'tags') {
-										throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
-									}
-									break;
-							}
-							
-							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
-								$this->queryParams['sort'] = Zotero_API::getDefaultSort($getParams[$key]);
-							}
-							else {
-								$this->queryParams['sort'] = $getParams['sort'];
-							}
-							break;
-						
-						default:
-							throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
-					}
-					break;
-			}
-			
-			$this->queryParams[$key] = $getParams[$key];
-		}
+		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING']);
 	}
 	
 	
@@ -590,7 +472,7 @@ class ApiController extends Controller {
 				// Update existing item
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Items::updateFromJSON($item, $obj);
+					Zotero_Items::updateFromJSON($item, $obj, false, null, $this->userID);
 					$this->queryParams['format'] = 'atom';
 					$this->queryParams['content'] = 'json';
 					
@@ -806,20 +688,25 @@ class ApiController extends Controller {
 						}
 						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item);
+						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item, $this->userID);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						$uri = Zotero_API::getItemURI($item)
-								. "/children?itemKey="
+						$uri = Zotero_API::getItemURI($item) . "/children";
+						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
 								. "&content=json";
 						if ($this->apiKey) {
-							$uri .= "&key=" . $this->apiKey;
+							$queryString .= "&key=" . $this->apiKey;
 						}
-						$this->e303($uri);
+						$uri .= "?" . $queryString;
+						
+						$this->responseCode = 201;
+						$this->queryParams = Zotero_API::parseQueryParams($queryString);
+						// TEMP
+						$mongo = true;
 					}
 					
 					// Display items
@@ -837,7 +724,7 @@ class ApiController extends Controller {
 						}
 						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID);
+						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, null, $this->userID);
 						
 						if (!$keys) {
 							throw new Exception("No items added");
@@ -847,14 +734,19 @@ class ApiController extends Controller {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						$uri = Zotero_API::getItemsURI($this->objectLibraryID)
-								. "?itemKey="
+						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
+						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
 								. "&content=json";
 						if ($this->apiKey) {
-							$uri .= "&key=" . $this->apiKey;
+							$queryString .= "&key=" . $this->apiKey;
 						}
-						$this->e303($uri);
+						$uri .= "?" . $queryString;
+						
+						$this->responseCode = 201;
+						$this->queryParams = Zotero_API::parseQueryParams($queryString);
+						// TEMP
+						$mongo = true;
 					}
 					
 					$title = "Items";
@@ -1454,11 +1346,14 @@ class ApiController extends Controller {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						$uri = Zotero_API::getCollectionURI($collection) . "?content=json";
+						$uri = Zotero_API::getCollectionURI($collection);
+						$queryString = "content=json";
 						if ($this->apiKey) {
-							$uri .= "&key=" . $this->apiKey;
+							$queryString .= "&key=" . $this->apiKey;
 						}
-						$this->e303($uri);
+						$uri .= "?" . $queryString;
+						
+						$this->queryParams = Zotero_API::parseQueryParams($queryString);
 					}
 					
 					$title = "Collections";
@@ -2629,7 +2524,7 @@ class ApiController extends Controller {
 	}
 	
 	
-	private function end($responseCode=200) {
+	private function end() {
 		if (!($this->responseXML instanceof SimpleXMLElement)) {
 			throw new Exception("Response XML not provided");
 		}
@@ -2638,19 +2533,31 @@ class ApiController extends Controller {
 			Zotero_DB::profileEnd($this->profileShard);
 		}
 		
-		$updated = (string) $this->responseXML->updated;
-		if ($updated) {
-			$updated = strtotime($updated);
-			
-			$ifModifiedSince = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false;
-			$ifModifiedSince = strtotime($ifModifiedSince);
-			if ($ifModifiedSince >= $updated) {
-				header('HTTP/1.1 304 Not Modified');
-				exit;
+		if ($this->responseCode) {
+			switch ($this->responseCode) {
+				case 201:
+					header("HTTP/1.1 201 Created");
+					break;
+				
+				default:
+					throw new Exception("Unsupported response code");
 			}
-			
-			$lastModified = substr(date('r', $updated), 0, -5) . "GMT";
-			header("Last-Modified: $lastModified");
+		}
+		else {
+			$updated = (string) $this->responseXML->updated;
+			if ($updated) {
+				$updated = strtotime($updated);
+				
+				$ifModifiedSince = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false;
+				$ifModifiedSince = strtotime($ifModifiedSince);
+				if ($ifModifiedSince >= $updated) {
+					header('HTTP/1.1 304 Not Modified');
+					exit;
+				}
+				
+				$lastModified = substr(date('r', $updated), 0, -5) . "GMT";
+				header("Last-Modified: $lastModified");
+			}
 		}
 		
 		$xmlstr = $this->responseXML->asXML();
@@ -2684,7 +2591,8 @@ class ApiController extends Controller {
 		
 		echo $xmlstr;
 		
-		Z_Core::exitClean();
+		echo ob_get_clean();
+		exit;
 	}
 	
 	
@@ -2766,13 +2674,6 @@ class ApiController extends Controller {
 	
 	private function e204() {
 		header('HTTP/1.1 204 No Content');
-		die();
-	}
-	
-	
-	private function e303($url) {
-		header('HTTP/1.1 303 See Other');
-		header("Location: $url");
 		die();
 	}
 	

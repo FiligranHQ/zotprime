@@ -230,6 +230,8 @@ class Zotero_Groups {
 			$limit = min($params['limit'] - sizeOf($groups) + $buffer, $foundRows - $start);
 		}
 		
+		// TODO: generate previous start value
+		
 		if (!$groups) {
 			return array('groups' => array(), 'totalResults' => 0);
 		}
