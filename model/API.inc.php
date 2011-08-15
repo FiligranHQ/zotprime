@@ -111,10 +111,15 @@ class Zotero_API {
 				
 				case 'start':
 				case 'limit':
-					// Enforce max on 'limit'
-					// TODO: move to Zotero_API
-					if ($key == 'limit' && (int) $getParams[$key] > 100) {
-						$getParams[$key] = 100;
+					if ($key == 'limit') {
+						// Enforce max on 'limit'
+						if ((int) $getParams[$key] > 100) {
+							$getParams[$key] = 100;
+						}
+						// Use default if 0 or invalid
+						else if ((int) $getParams[$key] == 0) {
+							continue 2;
+						}
 					}
 					$queryParams[$key] = (int) $getParams[$key];
 					continue 2;
