@@ -105,55 +105,190 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getAllAdvanced($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
+	public static function searchMySQL($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
 		$results = array('items' => array(), 'total' => 0);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS A.itemID FROM items A ";
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
-		if ($onlyTopLevel) {
-			$sql .= "LEFT JOIN itemNotes B USING (itemID)
-						LEFT JOIN itemAttachments C ON (C.itemID=A.itemID) ";
-		}
-		if (!$includeTrashed) {
-			$sql .= " LEFT JOIN deletedItems D ON (D.itemID=A.itemID) ";
-		}
-		
-		$sql .= "WHERE A.libraryID=? ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS I.itemID FROM items I ";
 		$sqlParams = array($libraryID);
 		
+		if ($onlyTopLevel || (!empty($params['order']) && $params['order'] == 'title')) {
+			$sql .= "LEFT JOIN itemNotes INo USING (itemID) ";
+		}
 		if ($onlyTopLevel) {
-			$sql .= "AND B.sourceItemID IS NULL AND C.sourceItemID IS NULL ";
+			$sql .= "LEFT JOIN itemAttachments IA ON (IA.itemID=I.itemID) ";
 		}
 		if (!$includeTrashed) {
-			$sql .= " AND D.itemID IS NULL ";
+			$sql .= " LEFT JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
 		}
 		
-		if (!empty($params['fq'])) {
-			if (!is_array($params['fq'])) {
-				$params['fq'] = array($params['fq']);
+		$sql .= "WHERE I.libraryID=? ";
+		
+		if ($onlyTopLevel) {
+			$sql .= "AND INo.sourceItemID IS NULL AND IA.sourceItemID IS NULL ";
+		}
+		if (!$includeTrashed) {
+			$sql .= " AND DI.itemID IS NULL ";
+		}
+		
+		$keys = array();
+		
+		// Pass a list of keys, for when the initial search is done via SQL
+		if (!empty($params['dbkeys'])) {
+			$keys = $params['dbkeys'];
+		}
+		
+		if (!empty($params['itemKey'])) {
+			if ($keys) {
+				$keys = array_intersect($keys, explode(',', $params['itemKey']));
 			}
-			foreach ($params['fq'] as $fq) {
-				$facet = explode(":", $fq);
-				if (sizeOf($facet) == 2 && preg_match('/-?Tag/', $facet[0])) {
-					$tagIDs = Zotero_Tags::getIDs($libraryID, $facet[1]);
-					if (!$tagIDs) {
-						throw new Exception("Tag '{$facet[1]}' not found", Z_ERROR_TAG_NOT_FOUND);
+			else {
+				$keys = explode(',', $params['itemKey']);
+			}
+			
+			if (!$keys) {
+				return array(
+					'total' => 0,
+					'items' => array(),
+				);
+			}
+		}
+		
+		// Search on title and creators
+		/*
+		if (!empty($params['q'])) {
+			$re = array('$regex' => new MongoRegex("/" . $params['q'] . "/i"));
+			$query['$or'] = array(
+				array('title' => $re),
+				array('creators.firstName' => $re),
+				array('creators.lastName' => $re),
+				array('creators.name' => $re)
+			);
+		}
+		*/
+		
+		// Tags
+		//
+		// ?tag=foo
+		// ?tag=foo bar // phrase
+		// ?tag=-foo // negation
+		// ?tag=\-foo // literal hyphen (only for first character)
+		// ?tag=foo&tag=bar // AND
+		// ?tag=foo&tagType=0
+		// ?tag=foo bar || bar&tagType=0
+		$tagSets = Zotero_API::getSearchParamValues($params, 'tag');
+		
+		if ($tagSets) {
+			$sql2 = "SELECT items.key FROM items WHERE 1 ";
+			$sqlParams2 = array();
+			
+			if ($tagSets) {
+				foreach ($tagSets as $set) {
+					$positives = array();
+					$negatives = array();
+					$tagIDs = array();
+					
+					foreach ($set['values'] as $tag) {
+						$ids = Zotero_Tags::getIDs($libraryID, $tag);
+						if (!$ids) {
+							$ids = array(0);
+						}
+						$tagIDs = array_merge($tagIDs, $ids);
 					}
 					
-					$sql .= "AND A.itemID ";
-					// If first character is '-', negate
-					$sql .= ($facet[0][0] == '-' ? 'NOT ' : '');
-					$sql .= "IN (SELECT itemID FROM itemTags WHERE tagID IN (";
-					$func = create_function('', "return '?';");
-					$sql .= implode(',', array_map($func, $tagIDs)) . ")) ";
-					$sqlParams = array_merge($sqlParams, $tagIDs);
+					$tagIDs = array_unique($tagIDs);
+					
+					if ($set['negation']) {
+						$negatives = array_merge($negatives, $tagIDs);
+					}
+					else {
+						$positives = array_merge($positives, $tagIDs);
+					}
+					
+					if ($positives) {
+						$sql2 .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
+								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
+						$sqlParams2 = array_merge($sqlParams2, $positives);
+					}
+					
+					if ($negatives) {
+						$sql2 .= "AND itemID NOT IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
+								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
+						$sqlParams2 = array_merge($sqlParams2, $negatives);
+					}
 				}
 			}
+			
+			$tagKeys = Zotero_DB::columnQuery($sql2, $sqlParams2, $shardID);
+			
+			// No matches
+			if (!$tagKeys) {
+				return array(
+					'total' => 0,
+					'items' => array(),
+				);
+			}
+			
+			// Combine with passed keys
+			if ($keys) {
+				$keys = array_intersect($keys, $tagKeys);
+				// None of the tag matches match the passed keys
+				if (!$keys) {
+					return array(
+						'total' => 0,
+						'items' => array(),
+					);
+				}
+			}
+			else {
+				$keys = $tagKeys;
+			}
+		}
+		
+		if ($keys) {
+			$sql .= "AND `key` IN ("
+					. implode(', ', array_fill(0, sizeOf($keys), '?'))
+					. ")";
+			$sqlParams = array_merge($sqlParams, $keys);
 		}
 		
 		$sql .= "ORDER BY ";
 		if (!empty($params['order'])) {
-			$sql .= $params['order'];
+			/*
+			if (!$params['emptyFirst'] && $params['order'] == 'creator') {
+				$sort[$params['order'] . "IsEmpty"] = $dir;
+			}
+			*/
+			
+			
+			switch ($params['order']) {
+				case 'dateAdded':
+				case 'dateModified':
+					$sql .= $params['order'];
+					break;
+				
+				case 'title':
+					$sql .= "(CASE "
+						. "WHEN I.itemTypeID=1 THEN INo.title"
+						. " ELSE (SELECT value FROM itemData WHERE itemID=I.itemID AND fieldID IN (110,111,112,113)) "
+						. " END)";
+					break;
+				
+				case 'creator':
+					// TODO
+					break;
+				
+				default:
+					$fieldID = Zotero_ItemFields::getID($params['order']);
+					if (!$fieldID) {
+						throw new Exception("Invalid order field '" . $params['order'] . "'");
+					}
+					$sql .= "(SELECT value FROM itemData WHERE itemID=I.itemID AND fieldID=?)";
+					$sqlParams[] = $fieldID;
+			}
+			
+			
 			if (!empty($params['sort'])) {
 				$sql .= " " . $params['sort'];
 			}
@@ -167,7 +302,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams[] = $params['limit'];
 		}
 		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		$itemIDs = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
 		if ($itemIDs) {
@@ -206,7 +340,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
+	public static function searchMongo($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
 		$results = array('items' => array(), 'total' => 0);
 		
 		$query = array();
@@ -465,18 +599,20 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getDataValue($hash) {
+	public static function getDataValue($hash, $skipCache=false) {
 		// Check local cache
 		if (isset(self::$dataValuesByHash[$hash])) {
 			return self::$dataValuesByHash[$hash];
 		}
 		
 		// Check memcache
-		$key = self::getDataValueCacheKey($hash);
-		$value = Z_Core::$MC->get($key);
-		if ($value !== false) {
-			self::$dataValuesByHash[$hash] = $value;
-			return $value;
+		if (!$skipCache) {
+			$key = self::getDataValueCacheKey($hash);
+			$value = Z_Core::$MC->get($key);
+			if ($value !== false) {
+				self::$dataValuesByHash[$hash] = $value;
+				return $value;
+			}
 		}
 		
 		$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value");
@@ -486,7 +622,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		// Store in local cache and memcache
 		self::$dataValuesByHash[$hash] = $value;
-		Z_Core::$MC->set($key, $value);
+		if (!$skipCache) {
+			Z_Core::$MC->set($key, $value);
+		}
 		
 		return $value;
 	}

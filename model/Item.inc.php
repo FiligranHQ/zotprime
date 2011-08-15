@@ -1225,10 +1225,10 @@ class Zotero_Item {
 						}
 						
 						if ($insertCounter < $maxInsertGroups) {
-							$insertSQL .= "(?,?,?),";
+							$insertSQL .= "(?,?,?,?),";
 							$insertParams = array_merge(
 								$insertParams,
-								array($itemID, $fieldID, $hash)
+								array($itemID, $fieldID, $hash, $value)
 							);
 						}
 						
@@ -1655,9 +1655,9 @@ class Zotero_Item {
 						}
 						
 						if ($replaceCounter < $maxReplaceGroups) {
-							$replaceSQL .= "(?,?,?),";
+							$replaceSQL .= "(?,?,?,?),";
 							$replaceParams = array_merge($replaceParams,
-								array($this->id, $fieldID, $hash)
+								array($this->id, $fieldID, $hash, $value)
 							);
 						}
 						

@@ -324,7 +324,8 @@ class ApiController extends Controller {
 		
 		// TEMP
 		//$mongo = !empty($_GET['mongo']);
-		$mongo = Z_CONFIG::$TESTING_SITE;
+		//$mongo = Z_CONFIG::$TESTING_SITE;
+		$mongo = false;
 		// For now, force Mongo mode for itemKey requests, which should come only
 		// from post-write redirections
 		if (!empty($this->queryParams['itemKey'])) {
@@ -640,10 +641,10 @@ class ApiController extends Controller {
 					
 					$title = "Top-Level Items";
 					if ($mongo) {
-						$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
+						$results = Zotero_Items::searchMongo($this->objectLibraryID, true, $this->queryParams);
 					}
 					else {
-						$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
+						$results = Zotero_Items::searchMySQL($this->objectLibraryID, true, $this->queryParams);
 					}
 				}
 				else if ($this->subset == 'trash') {
@@ -752,10 +753,10 @@ class ApiController extends Controller {
 					$title = "Items";
 					// TEMP
 					if ($mongo) {
-						$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
+						$results = Zotero_Items::searchMongo($this->objectLibraryID, false, $this->queryParams);
 					}
 					else {
-						$results = Zotero_Items::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
+						$results = Zotero_Items::searchMySQL($this->objectLibraryID, false, $this->queryParams);
 					}
 				}
 				
@@ -778,7 +779,7 @@ class ApiController extends Controller {
 				// TEMP
 				if ($mongo) {
 					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
+					$results = Zotero_Items::searchMongo($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				}
 				else {
 					$items = Zotero_Items::get($this->objectLibraryID, $itemIDs);

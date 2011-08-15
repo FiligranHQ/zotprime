@@ -171,10 +171,13 @@ class Zotero_Creator {
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->changed['dateModified'] ? $this->dateModified : $timestamp;
 			
-			$fields = "creatorDataHash=?, libraryID=?, `key`=?, dateAdded=?,
-						dateModified=?, serverDateModified=?";
+			$fields = "creatorDataHash=?, firstName=?, lastName=?, fieldMode=?,
+						libraryID=?, `key`=?, dateAdded=?, dateModified=?, serverDateModified=?";
 			$params = array(
 				$creatorDataHash,
+				$this->firstName,
+				$this->lastName,
+				$this->fieldMode,
 				$this->libraryID,
 				$key,
 				$dateAdded,
