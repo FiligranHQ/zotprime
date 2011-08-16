@@ -73,8 +73,9 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   UNION
 					   SELECT userID, username FROM $databaseName.users
 					   WHERE email = ? AND password = ?
+					   ORDER BY username = ? DESC
 					   LIMIT 1";
-			$params = array($username, $passwordMd5, $username, $passwordMd5);
+			$params = array($username, $passwordMd5, $username, $passwordMd5, $username);
 			if (Z_Core::probability(2)) {
 				try {
 					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
@@ -131,8 +132,9 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   UNION
 					   SELECT userID, username FROM $databaseName.users
 					   WHERE email = ? AND password = ?
+					   ORDER BY username = ? DESC
 					   LIMIT 1";
-			$params = array($username, $passwordMd5, $username, $passwordSha1);
+			$params = array($username, $passwordMd5, $username, $passwordSha1, $username);
 			if (Z_Core::probability(2)) {
 				try {
 					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
