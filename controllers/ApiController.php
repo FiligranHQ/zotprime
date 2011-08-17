@@ -782,36 +782,18 @@ class ApiController extends Controller {
 					$results = Zotero_Items::searchMongo($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				}
 				else {
-					$items = Zotero_Items::get($this->objectLibraryID, $itemIDs);
-					
-					// Fake sorting and limiting
-					$totalResults = sizeOf($items);
-					$key = $this->queryParams['order'];
-					$dir = $this->queryParams['sort'];
-					$cmp = create_function(
-						'$a, $b',
-						'$dir = "'.$dir.'" == "asc" ? 1 : -1;
-						if ($a->'.$key.' == $b->'.$key.') {
-							return 0;
-						}
-						else {
-							return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
-					usort($items, $cmp);
-					$items = array_slice(
-						$items,
-						$this->queryParams['start'],
-						$this->queryParams['limit']
-					);
+					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
+					$results = Zotero_Items::searchMySQL($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				}
+				
+				$items = $results['items'];
+				$totalResults = $results['total'];
 			}
 			else if (!isset($results)) {
 				$results = array('items' => array(), 'total' => 0);
-			}
-			
-			// TEMP
-			if ($mongo) {
-				$items = $results['items'];
-				$totalResults = $results['total'];
+				
+				$items = array();
+				$totalResults = 0;
 			}
 			
 			// Remove notes if not user and not public
