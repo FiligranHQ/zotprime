@@ -69,6 +69,12 @@ class Zotero_Permissions {
 				// has read access to group
 				if (!empty($this->permissions[0]['library'])) {
 					$group = Zotero_Groups::get($groupID);
+					
+					// Only members have file access
+					if ($permission == 'files') {
+						return !!$group->getUserRole($this->userID);
+					}
+					
 					if ($group->userCanRead($this->userID)) {
 						return true;
 					}
