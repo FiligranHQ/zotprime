@@ -210,27 +210,4 @@ CREATE TRIGGER fku_itemTags_libraryID
   END;//
 
 
--- Group items can't be in trash
-DROP TRIGGER IF EXISTS fki_deletedItems_libraryID;//
-CREATE TRIGGER fki_deletedItems_libraryID
-  BEFORE INSERT ON deletedItems
-  FOR EACH ROW BEGIN
-    IF (
-        SELECT COUNT(*) FROM items JOIN shardLibraries USING (libraryID) WHERE itemID=NEW.itemID AND libraryType='user'
-    )=0 THEN
-    SELECT deleted_item_must_belong_to_user_library INTO @failure FROM deletedItems;
-    END IF;
-  END;//
-
-DROP TRIGGER IF EXISTS fku_deletedItems_libraryID;//
-CREATE TRIGGER fku_deletedItems_libraryID
-  BEFORE UPDATE ON deletedItems
-  FOR EACH ROW BEGIN
-    IF (
-        SELECT COUNT(*) FROM items JOIN shardLibraries USING (libraryID) WHERE itemID=NEW.itemID AND libraryType='user'
-    )=0 THEN
-    SELECT deleted_item_must_belong_to_user_library INTO @failure FROM deletedItems;
-    END IF;
-  END;//
-
 delimiter ;

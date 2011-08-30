@@ -1014,12 +1014,6 @@ class Zotero_Item {
 			return;
 		}
 		
-		// TEMP: deleted="1" is being sent for some group items
-		if ($val && Zotero_Libraries::getType($this->libraryID) == 'group') {
-			Z_Core::logError("Deleted flag set for group library item -- ignoring");
-			return;
-		}
-		
 		if (!$this->changed['deleted']) {
 			$this->changed['deleted'] = true;
 		}
