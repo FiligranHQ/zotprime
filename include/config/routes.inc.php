@@ -35,6 +35,7 @@ else {
 	
 	// All deleted items
 	$router->connect('/users/:userID/items/trash', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'trash')));
+	$router->connect('/groups/:groupID/items/trash', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'trash')));
 	
 	// Subcollections, single and multiple
 	$router->connect('/users/:userID/collections/:scopeObjectKey/collections/:key', array('controller' => 'Api', 'action' => 'collections', 'extra' => array('scopeObject' => 'collections')));
