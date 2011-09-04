@@ -635,7 +635,7 @@ class SyncController extends Controller {
 				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 			}
 			$str .= "Error: " . $e;
-			$str .= $doc->saveXML();
+			$str .= $this->responseXML->saveXML();
 			file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
 			$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
 		}
@@ -755,6 +755,11 @@ class SyncController extends Controller {
 			case Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND:
 				$this->error(400, 'WRONG_LIBRARY_TAG_ITEM',
 					"Error processing uploaded data (Report ID: $id)");
+				break;
+			
+			case Z_ERROR_SHARD_READ_ONLY:
+			case Z_ERROR_SHARD_UNAVAILABLE:
+				$this->error(503, 'SERVER_ERROR', Z_CONFIG::$MAINTENANCE_MESSAGE);
 				break;
 		}
 		
