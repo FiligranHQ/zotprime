@@ -1351,47 +1351,6 @@ class Zotero_Sync {
 		}
 		
 		try {
-			// Add creator values
-			if ($xml->creators) {
-				$domSXE = dom_import_simplexml($xml->creators);
-				$doc = new DOMDocument();
-				$domSXE = $doc->importNode($domSXE, true);
-				$domSXE = $doc->appendChild($domSXE);
-				
-				$valueObjs = Zotero_Creators::getDataValuesFromXML($doc);
-				Zotero_Creators::bulkInsertDataValues($valueObjs);
-			}
-			
-			// Add item values
-			if ($xml->items) {
-				$domSXE = dom_import_simplexml($xml->items);
-				$doc = new DOMDocument();
-				$domSXE = $doc->importNode($domSXE, true);
-				$domSXE = $doc->appendChild($domSXE);
-				
-				$node = Zotero_Items::getLongDataValueFromXML($doc);
-				if ($node) {
-					$fieldName = $node->getAttribute('name');
-					$fieldName = Zotero_ItemFields::getLocalizedString(null, $fieldName);
-					if ($fieldName) {
-						$start = "'$fieldName' field";
-					}
-					else {
-						$start = "Field";
-					}
-					throw new Exception("=$start value '" . mb_substr($node->nodeValue, 0, 50) . "...' too long");
-				}
-				
-				$values = Zotero_Items::getDataValuesFromXML($doc);
-				Zotero_Items::bulkInsertDataValues($values);
-			}
-		}
-		catch (Exception $e) {
-			self::removeUploadProcess($processID);
-			throw $e;
-		}
-		
-		try {
 			Z_Core::$MC->begin();
 			Zotero_DB::beginTransaction();
 			
