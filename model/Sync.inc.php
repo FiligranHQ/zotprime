@@ -854,71 +854,45 @@ class Zotero_Sync {
 		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
 		try {
-			$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
+			$sql = "SELECT xmldata FROM syncDownloadCache WHERE hash=?";
+			$xmldata = Zotero_Cache_DB::valueQuery($sql, $key);
 		}
-		// If Mongo fails, we still want to try MySQL
 		catch (Exception $e) {
 			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
-			$xmldata = false;
 		}
 		
 		if ($xmldata) {
-			// Update the last-used timestamp
-			Z_Core::$Mongo->update(
-				"syncDownloadCache",
-				array("_id" => $key), array('$set' => array("lastUsed" => new MongoDate()))
-			);
-		}
-		else {
-			$sql = "SELECT xmldata FROM syncDownloadCache WHERE hash=?";
-			$xmldata = Zotero_Cache_DB::valueQuery($sql, $key);
-			if ($xmldata) {
+			try {
 				// Update the last-used timestamp
 				$sql = "UPDATE syncDownloadCache SET lastUsed=NOW() WHERE hash=?";
 				Zotero_Cache_DB::query($sql, $key);
 			}
-			
-			// Close cache db to avoid sleeping thread
-			// TEMP conditional
-			if ($xmldata) {
-				Zotero_Cache_DB::close();
+			catch (Exception $e) {
+				Z_Core::logError("Warning: '" . $e->getMessage() . "' updating cached download");
 			}
 		}
 		
+		// Close cache db to avoid sleeping thread
+		Zotero_Cache_DB::close();
 		
-		// TEMP -- try with decimals
+		// If MySQL fails, try Mongo
 		if (!$xmldata) {
-			$lastsync = implode('.', self::getTimestampParts($lastsync));
-			$key = md5(Zotero_Users::getUpdateKey($userID, true) . "_" . $lastsync . "_" . self::$cacheVersion);
-			
 			try {
 				$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
 			}
-			// If Mongo fails, we still want to try MySQL
 			catch (Exception $e) {
 				Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
 				$xmldata = false;
 			}
 			
 			if ($xmldata) {
-				// Update the last-used timestamp
-				Z_Core::$Mongo->update(
-					"syncDownloadCache",
-					array("_id" => $key), array('$set' => array("lastUsed" => new MongoDate()))
-				);
-			}
-			else {
-				$sql = "SELECT xmldata FROM syncDownloadCache WHERE hash=?";
-				$xmldata = Zotero_Cache_DB::valueQuery($sql, $key);
-				if ($xmldata) {
-					// Update the last-used timestamp
-					$sql = "UPDATE syncDownloadCache SET lastUsed=NOW() WHERE hash=?";
-					Zotero_Cache_DB::query($sql, $key);
+				try {
+					self::cacheDownload($userID, $lastsync, $xmldata);
+				}
+				catch (Exception $e) {
+					Z_Core::logError("Warning: '" . $e->getMessage() . "' updating cached download in MySQL");
 				}
 			}
-			
-			// Close cache db to avoid sleeping thread
-			Zotero_Cache_DB::close();
 		}
 		
 		return $xmldata;
@@ -928,23 +902,8 @@ class Zotero_Sync {
 	public static function cacheDownload($userID, $lastsync, $xmldata) {
 		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
 		
-		// Save data <16MB (less 4KB for good measure) to Mongo
-		//if (strlen($xmldata) < 16773120) {
-		if (strlen($xmldata) < 4000000) {
-			$doc = array(
-				"_id" => $key,
-				"userID" => $userID,
-				"lastsync" => $lastsync,
-				"xmldata" => $xmldata,
-				"lastUsed" => new MongoDate()
-			);
-			Z_Core::$Mongo->insert("syncDownloadCache", $doc);
-		}
-		// And everything else to MySQL
-		else {
-			$sql = "INSERT IGNORE INTO syncDownloadCache (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
-			Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
-		}
+		$sql = "INSERT IGNORE INTO syncDownloadCache (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
+		Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
 	}
 	
 	
