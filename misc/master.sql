@@ -275,7 +275,7 @@ CREATE TABLE `solrQueue` (
 
 CREATE TABLE `storageAccounts` (
   `userID` int(10) unsigned NOT NULL,
-  `quota` smallint(5) unsigned NOT NULL,
+  `quota` mediumint(8) unsigned NOT NULL,
   `expiration` timestamp NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`userID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
