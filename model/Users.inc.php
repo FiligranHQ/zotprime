@@ -267,21 +267,38 @@ class Zotero_Users {
 		
 		$cacheKey = "validUser_" . $userID;
 		$valid = Z_Core::$MC->get($cacheKey);
-		if ($valid) {
+		if ($valid === 1) {
 			return true;
 		}
-		
-		$valid = !!self::getValidUsers(array($userID));
-		
-		if ($valid) {
-			Z_Core::$MC->set($cacheKey, 1, 10);
+		else if ($valid === 0) {
+			return false;
 		}
+		
+		$valid = !!self::getValidUsersDB(array($userID));
+		
+		Z_Core::$MC->set($cacheKey, $valid ? 1 : 0, 3600);
 		
 		return $valid;
 	}
 	
 	
 	public static function getValidUsers($userIDs) {
+		if (!$userIDs) {
+			return array();
+		}
+		
+		$newUserIDs = array();
+		foreach ($userIDs as $id) {
+			if (Zotero_Users::isValidUser($id)) {
+				$newUserIDs[] = $id;
+			}
+		}
+		
+		return $newUserIDs;
+	}
+	
+	
+	public static function getValidUsersDB($userIDs) {
 		if (!$userIDs) {
 			return array();
 		}
@@ -294,22 +311,8 @@ class Zotero_Users {
 			. ")";
 		
 		try {
-			if (Z_Core::probability(2)) {
-				try {
-					$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
-				}
-				catch (Exception $e) {
-					$invalid = Zotero_WWW_DB_2::columnQuery($sql, $userIDs);
-				}
-			}
-			else {
-				try {
-					$invalid = Zotero_WWW_DB_2::columnQuery($sql, $userIDs);
-				}
-				catch (Exception $e) {
-					$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
-				}
-			}
+			$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
+			Zotero_WWW_DB_1::close();
 		}
 		catch (Exception $e) {
 			Z_Core::logError("WARNING: " . $e);
