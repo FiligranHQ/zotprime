@@ -1868,7 +1868,7 @@ class Zotero_Item {
 					}
 					
 					$sql .= " WHERE itemID=?";
-					$params[] = $itemID;
+					$params[] = $this->id;
 					
 					Zotero_DB::query($sql, $params, $shardID);
 				}
