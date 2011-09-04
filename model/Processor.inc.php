@@ -147,16 +147,4 @@ class Zotero_Error_Processor extends Zotero_Processor {
 		Zotero_Processors::notifyProcessor($this->mode, $signal, $this->addr, $this->port);
 	}
 }
-
-class Zotero_Index_Processor extends Zotero_Processor {
-	protected $mode = 'index';
-	
-	public function __construct() {
-		$this->port = Z_CONFIG::$PROCESSOR_PORT_INDEX;
-	}
-	
-	protected function processFromQueue() {
-		return Zotero_Index::processFromQueue($this->id);
-	}
-}
 ?>

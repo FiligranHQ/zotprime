@@ -25,6 +25,8 @@
 */
 
 class Zotero_Creators extends Zotero_DataObjects {
+	public static $creatorSummarySortLength = 50;
+	
 	protected static $ZDO_object = 'creator';
 	
 	private static $fields = array(
@@ -169,8 +171,8 @@ class Zotero_Creators extends Zotero_DataObjects {
 	
 	
 	public static function getPrimaryDataSQL() {
-		return "SELECT creatorID AS id, libraryID, `key`, dateAdded, dateModified, creatorDataHash
-				FROM creators WHERE ";
+		return "SELECT creatorID AS id, libraryID, `key`, dateAdded, dateModified,
+				firstName, lastName, fieldMode FROM creators WHERE ";
 	}
 	
 	

@@ -399,30 +399,4 @@ class Zotero_Error_Processor_Daemon extends Zotero_Processor_Daemon {
 		Zotero_Sync::purgeErrorProcess($id);
 	}
 }
-
-
-class Zotero_Index_Processor_Daemon extends Zotero_Processor_Daemon {
-	protected $mode = 'index';
-	
-	public function __construct($config=array()) {
-		$this->port = Z_CONFIG::$PROCESSOR_PORT_INDEX;
-		parent::__construct($config);
-	}
-	
-	public function log($msg) {
-		Z_Log::log(Z_CONFIG::$PROCESSOR_LOG_TARGET_INDEX, $msg);
-	}
-	
-	protected function countQueuedProcesses() {
-		return Zotero_Index::countQueuedProcesses();
-	}
-	
-	protected function getOldProcesses($host=null, $seconds=null) {
-		return Zotero_Index::getOldProcesses($seconds);
-	}
-	
-	protected function removeProcess($id) {
-		Zotero_Index::removeProcess($id);
-	}
-}
 ?>

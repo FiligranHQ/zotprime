@@ -60,7 +60,10 @@ CREATE TABLE `collections` (
 CREATE TABLE `creators` (
   `creatorID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
-  `creatorDataHash` char(32) CHARACTER SET ascii NOT NULL,
+  `creatorDataHash` char(32) CHARACTER SET ascii DEFAULT NULL,
+  `firstName` varchar(255) DEFAULT NULL,
+  `lastName` varchar(255) DEFAULT NULL,
+  `fieldMode` tinyint(1) unsigned DEFAULT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
@@ -123,7 +126,8 @@ CREATE TABLE `itemCreators` (
 CREATE TABLE `itemData` (
   `itemID` int(10) unsigned NOT NULL,
   `fieldID` smallint(5) unsigned NOT NULL,
-  `itemDataValueHash` char(32) CHARACTER SET ascii NOT NULL,
+  `itemDataValueHash` char(32) CHARACTER SET ascii DEFAULT NULL,
+  `value` text,
   PRIMARY KEY (`itemID`,`fieldID`),
   KEY `fieldID` (`fieldID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

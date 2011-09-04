@@ -299,7 +299,7 @@ class Zotero_DataObjects {
 		}
 		
 		$found = 0;
-		$expected = 6; // number of values below
+		$expected = 8; // number of values below
 		
 		foreach ($row as $key=>$val) {
 			switch ($key) {
@@ -308,7 +308,9 @@ class Zotero_DataObjects {
 				case 'key':
 				case 'dateAdded':
 				case 'dateModified':
-				case 'creatorDataHash':
+				case 'firstName':
+				case 'lastName':
+				case 'fieldMode':
 					$found++;
 					break;
 				
@@ -519,11 +521,6 @@ class Zotero_DataObjects {
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$params = array($libraryID, $key, $timestamp, $timestamp);
 			Zotero_DB::query($sql, $params, $shardID);
-			
-			// Queue item for deletion from search index
-			if ($type == 'item') {
-				Zotero_Index::queueItem($libraryID, $key);
-			}
 		}
 		
 		Zotero_DB::commit();

@@ -28,7 +28,6 @@ class Zotero_Creator {
 	private $id;
 	private $libraryID;
 	private $key;
-	private $creatorDataHash;
 	private $firstName = '';
 	private $lastName = '';
 	private $shortName = '';
@@ -51,7 +50,6 @@ class Zotero_Creator {
 	
 	
 	private function init() {
-		$this->creatorDataHash = false;
 		$this->loaded = false;
 		
 		$this->changed = array();
@@ -164,17 +162,15 @@ class Zotero_Creator {
 			Z_Core::debug("Saving creator $this->id");
 			
 			$key = $this->key ? $this->key : $this->generateKey();
-			$creatorDataHash = Zotero_Creators::getDataHash($this, true);
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->changed['dateModified'] ? $this->dateModified : $timestamp;
 			
-			$fields = "creatorDataHash=?, firstName=?, lastName=?, fieldMode=?,
+			$fields = "firstName=?, lastName=?, fieldMode=?,
 						libraryID=?, `key`=?, dateAdded=?, dateModified=?, serverDateModified=?";
 			$params = array(
-				$creatorDataHash,
 				$this->firstName,
 				$this->lastName,
 				$this->fieldMode,
@@ -219,7 +215,9 @@ class Zotero_Creator {
 					'key' => $key,
 					'dateAdded' => $dateAdded,
 					'dateModified' => $dateModified,
-					'creatorDataHash' => $creatorDataHash
+					'firstName' => $this->firstName,
+					'lastName' => $this->lastName,
+					'fieldMode' => $this->fieldMode
 				)
 			);
 		}
@@ -237,7 +235,6 @@ class Zotero_Creator {
 		}
 		
 		$this->init();
-		$this->creatorDataHash = $creatorDataHash;
 		
 		if ($isNew) {
 			Zotero_Creators::cache($this);
@@ -291,11 +288,6 @@ class Zotero_Creator {
 		}
 		
 		foreach ($row as $key=>$val) {
-			$this->$key = $val;
-		}
-		
-		$data = Zotero_Creators::getData($row['creatorDataHash']);
-		foreach ($data as $key=>$val) {
 			$this->$key = $val;
 		}
 	}

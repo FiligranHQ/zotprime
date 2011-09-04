@@ -219,6 +219,7 @@ class Zotero_Item {
 			
 			return $this->$field;
 		}
+		
 		if ($this->isNote()) {
 			switch ($field) {
 				case 'title':
@@ -1184,15 +1185,15 @@ class Zotero_Item {
 				//
 				if ($this->changed['itemData']) {
 					// Use manual bound parameters to speed things up
-					$origInsertSQL = "INSERT INTO itemData VALUES ";
+					$origInsertSQL = "INSERT INTO itemData (itemID, fieldID, value) VALUES ";
 					$insertSQL = $origInsertSQL;
 					$insertParams = array();
 					$insertCounter = 0;
 					$maxInsertGroups = 40;
 					
-					$fieldIDs = array_keys($this->changed['itemData']);
+					$max = Zotero_Items::$maxDataValueLength;
 					
-					$lastFieldID = $fieldIDs[sizeOf($fieldIDs) - 1];
+					$fieldIDs = array_keys($this->changed['itemData']);
 					
 					foreach ($fieldIDs as $fieldID) {
 						$value = $this->getField($fieldID, true, false, true);
@@ -1202,27 +1203,20 @@ class Zotero_Item {
 							$value = Zotero_DB::getTransactionTimestamp();
 						}
 						
-						try {
-							$last = $fieldID == $lastFieldID;
-							$hash = Zotero_Items::getDataValueHash($value, true, $last);
-						}
-						catch (Exception $e) {
-							$msg = $e->getMessage();
-							if (strpos($msg, "Data too long for column 'value'") !== false) {
-								$fieldName = Zotero_ItemFields::getLocalizedString(
-									$this->itemTypeID, $fieldID
-								);
-								throw new Exception("=$fieldName field " .
-									 "'" . substr($value, 0, 50) . "...' too long");
-							}
-							throw ($e);
+						// Check length
+						if (strlen($value) > $max) {
+							$fieldName = Zotero_ItemFields::getLocalizedString(
+								$this->itemTypeID, $fieldID
+							);
+							throw new Exception("=$fieldName field " .
+								 "'" . substr($value, 0, 50) . "...' too long");
 						}
 						
 						if ($insertCounter < $maxInsertGroups) {
-							$insertSQL .= "(?,?,?,?),";
+							$insertSQL .= "(?,?,?),";
 							$insertParams = array_merge(
 								$insertParams,
-								array($itemID, $fieldID, $hash, $value)
+								array($itemID, $fieldID, $value)
 							);
 						}
 						
@@ -1252,7 +1246,6 @@ class Zotero_Item {
 					}
 					Z_Core::$MC->set("itemUsedFieldNames_" . $itemID, $names);
 				}
-				
 				
 				//
 				// Creators
@@ -1403,6 +1396,11 @@ class Zotero_Item {
 					Zotero_DB::query($sql, $bindParams, $shardID);
 				}
 				
+				// Sort fields
+				$sortTitle = Zotero_Items::getSortTitle($this->getDisplayTitle(true));
+				$creatorSummary = $this->isRegularItem() ? substr($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
+				$sql = "INSERT INTO itemSortFields (itemID, sortTitle, creatorSummary) VALUES (?, ?, ?)";
+				Zotero_DB::query($sql, array($itemID, $sortTitle, $creatorSummary), $shardID);
 				
 				//
 				// Source item id
@@ -1608,15 +1606,15 @@ class Zotero_Item {
 				if ($this->changed['itemData']) {
 					$del = array();
 					
-					$origReplaceSQL = "REPLACE INTO itemData VALUES ";
+					$origReplaceSQL = "REPLACE INTO itemData (itemID, fieldID, value) VALUES ";
 					$replaceSQL = $origReplaceSQL;
 					$replaceParams = array();
 					$replaceCounter = 0;
 					$maxReplaceGroups = 40;
 					
-					$fieldIDs = array_keys($this->changed['itemData']);
+					$max = Zotero_Items::$maxDataValueLength;
 					
-					$lastFieldID = $fieldIDs[sizeOf($fieldIDs) - 1];
+					$fieldIDs = array_keys($this->changed['itemData']);
 					
 					foreach ($fieldIDs as $fieldID) {
 						$value = $this->getField($fieldID, true, false, true);
@@ -1632,24 +1630,17 @@ class Zotero_Item {
 							$value = Zotero_DB::getTransactionTimestamp();
 						}
 						
-						try {
-							$last = $fieldID == $lastFieldID;
-							$hash = Zotero_Items::getDataValueHash($value, true, $last);
-						}
-						catch (Exception $e) {
-							$msg = $e->getMessage();
-							if (strpos($msg, "Data too long for column 'value'") !== false) {
-								$fieldName = Zotero_ItemFields::getLocalizedString(
-									$this->itemTypeID, $fieldID
-								);
-								throw new Exception("=$fieldName field " .
-									 "'" . substr($value, 0, 50) . "...' too long");
-							}
-							throw ($e);
+						// Check length
+						if (strlen($value) > $max) {
+							$fieldName = Zotero_ItemFields::getLocalizedString(
+								$this->itemTypeID, $fieldID
+							);
+							throw new Exception("=$fieldName field " .
+								 "'" . substr($value, 0, 50) . "...' too long");
 						}
 						
 						if ($replaceCounter < $maxReplaceGroups) {
-							$replaceSQL .= "(?,?,?,?),";
+							$replaceSQL .= "(?,?,?),";
 							$replaceParams = array_merge($replaceParams,
 								array($this->id, $fieldID, $hash, $value)
 							);
@@ -1861,6 +1852,28 @@ class Zotero_Item {
 					Zotero_DB::query($sql, $bindParams, $shardID);
 				}
 				
+				
+				// Sort fields
+				if (!empty($this->changed['primaryData']['itemTypeID']) || $this->changed['itemData'] || $this->changed['creators']) {
+					$sql = "UPDATE itemSortFields SET sortTitle=?";
+					$params = array();
+					
+					$sortTitle = Zotero_Items::getSortTitle($this->getDisplayTitle(true));
+					$params[] = $sortTitle;
+					
+					if ($this->changed['creators']) {
+						$creatorSummary = $this->isRegularItem() ? substr($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
+						$sql .= ", creatorSummary=?";
+						$params[] = $creatorSummary;
+					}
+					
+					$sql .= " WHERE itemID=?";
+					$params[] = $itemID;
+					
+					Zotero_DB::query($sql, $params, $shardID);
+				}
+				
+				
 				//
 				// Source item id
 				//
@@ -2038,9 +2051,6 @@ class Zotero_Item {
 		
 		// TODO: invalidate memcache
 		Zotero_Items::reload($this->libraryID, $this->id);
-		
-		// Queue item for addition to search index
-		Zotero_Index::queueItem($this->libraryID, $this->key);
 		
 		if ($isNew) {
 			//Zotero.Notifier.trigger('add', 'item', $this->getID());
@@ -3263,118 +3273,6 @@ class Zotero_Item {
 	}
 	
 	
-	public function toMongoIndexDocument() {
-		if (!$this->loaded['primaryData']) {
-			$this->loadPrimaryData(true);
-		}
-		
-		$fields = array();
-		$fields['_id'] = $this->libraryID . "/" . $this->key;
-		$fields['dateAdded'] = new MongoDate(strtotime($this->dateAdded));
-		$fields['dateModified'] = new MongoDate(strtotime($this->dateModified));
-		$fields['serverDateModified'] = strtotime($this->serverDateModified);
-		if ($parent = $this->getSourceKey()) {
-			$fields['parent'] = $parent;
-		}
-		if ($this->getDeleted()) {
-			$fields['deleted'] = true;
-		}
-		
-		$creatorSummary = $this->getCreatorSummary();
-		if ($creatorSummary) {
-			$fields['creatorSummary'] = $creatorSummary;
-		}
-		// Store this annoying field until Mongo supports advanced sorting
-		$fields['creatorIsEmpty'] = !$creatorSummary;
-		
-		// Title for sorting
-		$title = $this->getDisplayTitle(true);
-		$title = $title ? $title : '';
-		// Strip HTML from note titles
-		if ($this->isNote()) {
-			// Notes don't get titles automatically
-			$fields['title'] = $title;
-		}
-		// Strip some characters
-		$sortTitle = preg_replace("/^[\[\'\"]*(.*)[\]\'\"]*$/", "$1", $title);
-		if ($sortTitle) {
-			$fields['sortTitle'] = $sortTitle;
-		}
-		
-		$itemData = $this->toJSON(true, false, false, true);
-		
-		if (empty($itemData['note'])) {
-			unset($itemData['note']);
-		}
-		if (empty($itemData['tags'])) {
-			unset($itemData['tags']);
-		}
-		
-		$doc = array_merge($fields, $itemData);
-		
-		/*
-		
-		Not doing full-text search for now, since, among other things, splitting
-		on whitespace and doing left-bound searches wouldn't work for Asian languages,
-		and in general left-bound searches would require better filtering
-		
-		// Generate keywords array
-		$keywords = array();
-		foreach ($doc as $key=>$val) {
-			switch ($key) {
-				case '_id':
-				case 'dateAdded':
-				case 'dateModified':
-				case 'serverDateModified':
-				case 'deleted':
-				case 'creatorSummary':
-				case 'creatorIsEmpty':
-				case 'sortTitle':
-				case 'itemType':
-				case 'parent':
-				case 'linkMode':
-				case 'mimeType':
-				case 'charset':
-				case 'ts':
-					continue 2;
-			}
-			
-			if ($key == "creators") {
-				// Turn creator into string that can be separated
-				$creators = array();
-				foreach ($val as $creator) {
-					$creators[] = !empty($creator['name']) ? $creator['name'] : $creator['firstName'] . ' ' . $creator['lastName'];
-				}
-				$val = implode(" ", $creators);
-			}
-			else if ($key == "note") {
-				$val = strip_tags(Zotero_Notes::sanitize($val));
-				// Unencode plaintext string
-				$val = html_entity_decode($val);
-			}
-			else if ($key == "tags") {
-				$tags = array();
-				foreach ($val as $tag) {
-					$tags[] = $tag['tag'];
-				}
-				$val = implode(" ", $tags);
-			}
-			
-			$words = preg_split('/\s+/', trim($val));
-			foreach ($words as $word) {
-				// Skip one-letter words
-				if (strlen($word) == 1 && preg_match('/^[\x{20}-\x{FF}]/u', $word)) {
-					continue;
-				}
-				$keywords[] = strtolower($word);
-			}
-		}
-		$doc['keywords'] = array_values(array_unique($keywords));*/
-		
-		return $doc;
-	}
-	
-	
 	public function toSolrDocument() {
 		$doc = new SolrInputDocument();
 		
@@ -3591,25 +3489,15 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$sql = "SELECT fieldID, itemDataValueHash AS hash FROM itemData WHERE itemID=?";
+		$sql = "SELECT fieldID, value FROM itemData WHERE itemID=?";
 		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		$fields = Zotero_DB::queryFromStatement($stmt, $this->id);
 		
 		$itemTypeFields = Zotero_ItemFields::getItemTypeFields($this->itemTypeID);
 		
 		if ($fields) {
-			$hashes = array();
-			foreach($fields as $field) {
-				$hashes[] = $field['hash'];
-			}
-			
-			$values = Zotero_Items::getDataValues($hashes);
-			
 			foreach ($fields as $field) {
-				if (!isset($values[$field['hash']])) {
-					throw new Exception("Item data value for hash '{$field['hash']}' not found");
-				}
-				$this->setField($field['fieldID'], $values[$field['hash']], true, true);
+				$this->setField($field['fieldID'], $field['value'], true, true);
 			}
 		}
 		

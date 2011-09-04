@@ -56,7 +56,10 @@ class ApiController extends Controller {
 	private $httpAuth;
 	
 	private $profile = false;
-	private $profileShard = 0;
+	private $profileShard = 1;
+	private $startTime = false;
+	private $timeLogged = false;
+	private $timeLogThreshold = 5;
 	
 	
 	public function __construct($action, $settings, $extra) {
@@ -67,6 +70,7 @@ class ApiController extends Controller {
 		set_exception_handler(array($this, 'handleException'));
 		require_once('../model/Error.inc.php');
 		
+		$this->startTime = microtime(true);
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE'))) {
@@ -320,16 +324,6 @@ class ApiController extends Controller {
 	public function items() {
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
-		}
-		
-		// TEMP
-		//$mongo = !empty($_GET['mongo']);
-		//$mongo = Z_CONFIG::$TESTING_SITE;
-		$mongo = false;
-		// For now, force Mongo mode for itemKey requests, which should come only
-		// from post-write redirections
-		if (!empty($this->queryParams['itemKey'])) {
-			$mongo = true;
 		}
 		
 		$itemIDs = array();
@@ -640,12 +634,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					if ($mongo) {
-						$results = Zotero_Items::searchMongo($this->objectLibraryID, true, $this->queryParams);
-					}
-					else {
-						$results = Zotero_Items::searchMySQL($this->objectLibraryID, true, $this->queryParams);
-					}
+					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
 				}
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
@@ -706,8 +695,6 @@ class ApiController extends Controller {
 						
 						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString);
-						// TEMP
-						$mongo = true;
 					}
 					
 					// Display items
@@ -746,26 +733,15 @@ class ApiController extends Controller {
 						
 						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString);
-						// TEMP
-						$mongo = true;
 					}
 					
 					$title = "Items";
-					// TEMP
-					if ($mongo) {
-						$results = Zotero_Items::searchMongo($this->objectLibraryID, false, $this->queryParams);
-					}
-					else {
-						$results = Zotero_Items::searchMySQL($this->objectLibraryID, false, $this->queryParams);
-					}
+					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
 				}
 				
-				// TEMP
-				if (!$mongo) {
-					if (!empty($results)) {
-						$items = $results['items'];
-						$totalResults = $results['total'];
-					}
+				if (!empty($results)) {
+					$items = $results['items'];
+					$totalResults = $results['total'];
 				}
 			}
 			
@@ -776,15 +752,8 @@ class ApiController extends Controller {
 			}
 			
 			if ($itemIDs) {
-				// TEMP
-				if ($mongo) {
-					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
-					$results = Zotero_Items::searchMongo($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
-				}
-				else {
-					$this->queryParams['dbkeys'] = Zotero_Items::idsToKeys($this->objectLibraryID, $itemIDs);
-					$results = Zotero_Items::searchMySQL($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
-				}
+				$this->queryParams['itemIDs'] = $itemIDs;
+				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				
 				$items = $results['items'];
 				$totalResults = $results['total'];
@@ -2574,8 +2543,30 @@ class ApiController extends Controller {
 		
 		echo $xmlstr;
 		
+		$this->logRequestTime();
 		echo ob_get_clean();
 		exit;
+	}
+	
+	
+	private function currentRequestTime() {
+		return microtime(true) - $this->startTime;
+	}
+	
+	
+	private function logRequestTime($point=false) {
+		if ($this->timeLogged) {
+			return;
+		}
+		$time = $this->currentRequestTime();
+		if ($time > $this->timeLogThreshold) {
+			$this->timeLogged = true;
+			error_log(
+				"Slow API request " . ($point ? " at point " . $point : "") . ": "
+				. $time . " sec for "
+				. $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI']
+			);
+		}
 	}
 	
 	

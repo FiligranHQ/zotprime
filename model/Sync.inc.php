@@ -1393,7 +1393,6 @@ class Zotero_Sync {
 		
 		try {
 			Z_Core::$MC->begin();
-			Zotero_Index::begin();
 			Zotero_DB::beginTransaction();
 			
 			// Mark libraries as updated
@@ -1427,7 +1426,6 @@ class Zotero_Sync {
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
 						$creatorObj->save();
 						$addedLibraryIDs[] = $creatorObj->libraryID;
-						$addedCreatorDataHashes[] = $creatorObj->creatorDataHash;
 					}
 				}
 				catch (Exception $e) {
@@ -1447,25 +1445,6 @@ class Zotero_Sync {
 					$sql = "SELECT COUNT(*) FROM shardLibraries WHERE libraryID=?";
 					if (!Zotero_DB::valueQuery($sql, $addedLibraryID, $shardID)) {
 						throw new Exception("libraryID inserted into `creators` not found in `shardLibraries` ($addedLibraryID, $shardID)");
-					}
-				}
-				
-				// creatorDataHash
-				// 
-				// Check Mongo in chunks to avoid cursor timeouts
-				$chunks = array_chunk(array_unique($addedCreatorDataHashes), 50);
-				foreach ($chunks as $chunk) {
-					$cursor = Z_Core::$Mongo->find("creatorData", array("_id" => array('$in' => $chunk)), array("_id"));
-					$hashes = array();
-					while ($cursor->hasNext()) {
-						$arr = $cursor->getNext();
-						$hashes[] = $arr['_id'];
-					}
-					$added = sizeOf($chunk);
-					$count = sizeOf($hashes);
-					if ($count != $added) {
-						$missing = array_diff($chunk, $hashes);
-						throw new Exception("creatorDataHashes inserted into `creators` not found in `creatorData` (" . implode(",", $missing) . ") $added $count");
 					}
 				}
 			}
@@ -1678,7 +1657,6 @@ class Zotero_Sync {
 			
 			self::removeUploadProcess($processID);
 			
-			Zotero_Index::commit();
 			Zotero_DB::commit();
 			Z_Core::$MC->commit();
 			
@@ -1694,7 +1672,6 @@ class Zotero_Sync {
 		catch (Exception $e) {
 			Z_Core::$MC->rollback();
 			Zotero_DB::rollback(true);
-			Zotero_Index::rollback();
 			self::removeUploadProcess($processID);
 			throw $e;
 		}
