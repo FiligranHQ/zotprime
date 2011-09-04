@@ -1398,7 +1398,7 @@ class Zotero_Item {
 				
 				// Sort fields
 				$sortTitle = Zotero_Items::getSortTitle($this->getDisplayTitle(true));
-				$creatorSummary = $this->isRegularItem() ? substr($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
+				$creatorSummary = $this->isRegularItem() ? mb_strcut($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
 				$sql = "INSERT INTO itemSortFields (itemID, sortTitle, creatorSummary) VALUES (?, ?, ?)";
 				Zotero_DB::query($sql, array($itemID, $sortTitle, $creatorSummary), $shardID);
 				
@@ -1862,7 +1862,7 @@ class Zotero_Item {
 					$params[] = $sortTitle;
 					
 					if ($this->changed['creators']) {
-						$creatorSummary = $this->isRegularItem() ? substr($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
+						$creatorSummary = mb_strcut($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength);
 						$sql .= ", creatorSummary=?";
 						$params[] = $creatorSummary;
 					}
