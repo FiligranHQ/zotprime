@@ -33,7 +33,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	private static $maxDataValueLength = 65535;
 	
 	private static $itemsByID = array();
-	private static $dataValuesByHash = array();
 	
 	
 	public static function get($libraryID, $itemIDs) {
@@ -413,213 +412,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		self::loadItems($libraryID, $itemIDs);
-	}
-	
-	
-	public static function getDataValueHash($value, $create=false, $safe=true) {
-		// For now, at least, simulate what MySQL used to throw
-		if (mb_strlen($value) > 65536) {
-			throw new Exception("Data too long for column 'value'");
-		}
-		
-		$hash = self::getHash($value);
-		
-		if (!$create) {
-			return $hash;
-		}
-		
-		// Check local cache
-		if (isset(self::$dataValuesByHash[$hash])) {
-			return $hash;
-		}
-		
-		// Check memcache
-		$key = self::getDataValueCacheKey($hash);
-		if (Z_Core::$MC->get($key)) {
-			self::$dataValuesByHash[$hash] = $value;
-			return $hash;
-		}
-		
-		if (!Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "_id")) {
-			$doc = array(
-				"_id" => $hash,
-				"value" => $value
-			);
-			if ($safe) {
-				Z_Core::$Mongo->insertSafe("itemDataValues", $doc);
-			}
-			else {
-				Z_Core::$Mongo->insert("itemDataValues", $doc);
-			}
-		}
-		
-		// Store in local cache and memcache
-		self::$dataValuesByHash[$hash] = $value;
-		Z_Core::$MC->set($key, $value);
-		
-		return $hash;
-	}
-	
-	
-	public static function getDataValue($hash, $skipCache=false) {
-		// Check local cache
-		if (isset(self::$dataValuesByHash[$hash])) {
-			return self::$dataValuesByHash[$hash];
-		}
-		
-		// Check memcache
-		if (!$skipCache) {
-			$key = self::getDataValueCacheKey($hash);
-			$value = Z_Core::$MC->get($key);
-			if ($value !== false) {
-				self::$dataValuesByHash[$hash] = $value;
-				return $value;
-			}
-		}
-		
-		$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value");
-		if ($value === false) {
-			return false;
-		}
-		
-		// Store in local cache and memcache
-		self::$dataValuesByHash[$hash] = $value;
-		if (!$skipCache) {
-			Z_Core::$MC->set($key, $value);
-		}
-		
-		return $value;
-	}
-	
-	
-	public static function getDataValues($hashes) {
-		$foundHashes = array();
-		$cacheKeys = array();
-		
-		$hashes = array_values(array_unique($hashes));
-		$numHashes = sizeOf($hashes);
-		
-		for ($i=0; $i<sizeOf($hashes); $i++) {
-			$hash = $hashes[$i];
-			// Check local cache
-			if (isset(self::$dataValuesByHash[$hash])) {
-				$foundHashes[$hash] = self::$dataValuesByHash[$hash];
-				array_splice($hashes, $i, 1);
-				$i--;
-				continue;
-			}
-			
-			// If not found, get memcache key
-			$cacheKeys[] = self::getDataValueCacheKey($hash);
-		}
-		
-		// Check memcache
-		$values = Z_Core::$MC->get($cacheKeys);
-		if ($values) {
-			foreach ($values as $key=>$val) {
-				$hash = substr($key, -32); // pull out hash
-				$foundHashes[$hash] = $val;
-				self::$dataValuesByHash[$hash] = $val;
-				array_splice($hashes, array_search($hash, $hashes), 1);
-			}
-		}
-		
-		/*
-		// Check Mongo
-		foreach ($hashes as $hash) {
-			$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value", true);
-			// If value not found on slave, try primary
-			if ($value === false) {
-				$value = Z_Core::$Mongo->valueQuery("itemDataValues", $hash, "value");
-			}
-			if ($value === false) {
-				throw new Exception("Value not found ($hash)");
-			}
-			
-			// Store in local cache and memcache
-			self::$dataValuesByHash[$hash] = $value;
-			$key = self::getDataValueCacheKey($hash);
-			Z_Core::$MC->set($key, $value);
-			
-			$foundHashes[$hash] = $value;
-		}
-		*/
-		
-		$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $hashes)), array(), true);
-		try {
-			while ($row = $cursor->getNext()) {
-				// Store in local cache and memcache
-				self::$dataValuesByHash[$row['_id']] = $row['value'];
-				$key = self::getDataValueCacheKey($row['_id']);
-				Z_Core::$MC->set($key, $row['value']);
-				
-				$foundHashes[$row['_id']] = $row['value'];
-			}
-		}
-		// If getNext() fails, retry on primary below
-		catch (Exception $e) {}
-		
-		$numValues = sizeOf($foundHashes);
-		if ($numValues != $numHashes) {
-			// Get any missing values from the primary
-			$found = array_keys($foundHashes);
-			$missing = array_diff($hashes, $found);
-			
-			Z_Core::logError(sizeOf($missing) . "/$numHashes values not found on Mongo slave -- checking primary");
-			
-			$cursor = Z_Core::$Mongo->find("itemDataValues", array('_id' => array('$in' => $missing)));
-			while ($row = $cursor->getNext()) {
-				// Store in local cache and memcache
-				self::$dataValuesByHash[$row['_id']] = $row['value'];
-				$key = self::getDataValueCacheKey($row['_id']);
-				Z_Core::$MC->set($key, $row['value']);
-				
-				$foundHashes[$row['_id']] = $row['value'];
-			}
-			
-			$numValues = sizeOf($foundHashes);
-			if ($numValues != $numHashes) {
-				throw new Exception("Number of values doesn't match number of hashes ($numValues != $numHashes)");
-			}
-		}
-		
-		return $foundHashes;
-	}
-	
-	
-	public static function bulkInsertDataValues($values) {
-		$docs = array();
-		
-		foreach ($values as $value) {
-			// Length check is done by Zotero_Items::getLongDataValueFromXML()
-			// in Zotero_Sync::processUploadInternal()
-			
-			$hash = self::getHash($value);
-			$key = self::getDataValueCacheKey($hash);
-			if (Z_Core::$MC->get($key)) {
-				self::$dataValuesByHash[$hash] = $value;
-			}
-			else {
-				$docs[] = array(
-					"_id" => $hash,
-					"value" => $value
-				);
-			}
-		}
-		
-		if (!$docs) {
-			return;
-		}
-		
-		// Insert into MongoDB
-		Z_Core::$Mongo->batchInsertIgnoreSafe("itemDataValues", $docs);
-		
-		// Cache data values locally and in memcache
-		foreach ($docs as $doc) {
-			self::$dataValuesByHash[$doc["_id"]] = $doc["value"];
-			$key = self::getDataValueCacheKey($doc["_id"]);
-			Z_Core::$MC->add($key, $doc["value"]);
-		}
 	}
 	
 	
@@ -1260,8 +1052,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						}
 						
 						// Look for an equivalent creator in this library
-						$hash = Zotero_Creators::getDataHash($newCreator, true);
-						$candidates = Zotero_Creators::getCreatorsWithData($item->libraryID, $hash, true);
+						$candidates = Zotero_Creators::getCreatorsWithData($item->libraryID, $newCreator, true);
 						if ($candidates) {
 							$c = Zotero_Creators::get($item->libraryID, $candidates[0]);
 							$item->setCreator($orderIndex, $c, $newCreatorTypeID);
@@ -1661,15 +1452,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			return '';
 		}
 		return mb_substr(preg_replace('/^[\[\(\{\-"\'“‘]([^\]\)\}\-"\'”’]*)[\]\)\}\-"\'”’]?$/u', '$1', $title), 0, Zotero_Notes::$MAX_TITLE_LENGTH);
-	}
-	
-	
-	public static function getDataValueCacheKey($hash) {
-		return 'itemDataValue_' . $hash;
-	}
-	
-	private static function getHash($value) {
-		return md5($value);
 	}
 }
 ?>

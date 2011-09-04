@@ -36,7 +36,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 	private static $maxLastNameLength = 255;
 	
 	private static $creatorsByID = array();
-	private static $dataByHash = array();
 	private static $primaryDataByCreatorID = array();
 	private static $primaryDataByLibraryAndKey = array();
 	
@@ -69,103 +68,27 @@ class Zotero_Creators extends Zotero_DataObjects {
 		self::$creatorsByID[$creatorID] = $creator;
 		return self::$creatorsByID[$creatorID];
 	}
-
 	
 	
-	/**
-	 * @param	Zotero_Creator	$creator	Zotero Creator object
-	 */
-	public static function getDataHash(Zotero_Creator $creator, $create=false) {
-		if ($creator->firstName === ''  && $creator->lastName === '') {
-			trigger_error("First or last name must be provided", E_USER_ERROR);
-		}
-		
-		if (!is_int($creator->fieldMode)) {
-			trigger_error("Field mode must be an integer", E_USER_ERROR);
-		}
-		
-		// For now, at least, simulate what MySQL used to throw
-		if (mb_strlen($creator->firstName) > 255) {
-			throw new Exception("=First name '" . mb_substr($creator->firstName, 0, 50) . "…' too long");
-		}
-		if (mb_strlen($creator->lastName) > 255) {
-			throw new Exception("=Last name '" . mb_substr($creator->lastName, 0, 50) . "…' too long");
-		}
-		
-		$hash = self::getHash($creator);
-		$key = self::getCreatorDataCacheKey($hash);
-		
-		// Check local cache
-		if (isset(self::$dataByHash[$hash])) {
-			return $hash;
-		}
-		
-		// Check memcache
-		$data = Z_Core::$MC->get($key);
-		if ($data) {
-			self::$dataByHash[$hash] = $data;
-			return $hash;
-		}
-		
-		$doc = Z_Core::$Mongo->findOne("creatorData", $hash);
-		if (!$doc) {
-			$doc = array(
-				"_id" => $hash,
-				"firstName" => $creator->firstName,
-				"lastName" => $creator->lastName,
-				"fieldMode" => $creator->fieldMode
-			);
-			Z_Core::$Mongo->insertSafe("creatorData", $doc);
-		}
-		
-		// Store in local cache and memcache
-		unset($doc['_id']);
-		self::$dataByHash[$hash] = $doc;
-		Z_Core::$MC->set($key, $doc);
-		
-		return $hash;
-	}
-	
-	
-	public static function getData($hash) {
-		if (!$hash) {
-			throw new Exception("Creator data hash not provided");
-		}
-		
-		if (isset(self::$dataByHash[$hash])) {
-			return self::$dataByHash[$hash];
-		}
-		
-		$key = self::getCreatorDataCacheKey($hash);
-		$data = Z_Core::$MC->get($key);
-		if ($data) {
-			return $data;
-		}
-		
-		$data = Z_Core::$Mongo->findOne("creatorData", $hash);
-		if (!$data) {
-			return false;
-		}
-		
-		// Cache data
-		unset($data["_id"]);
-		self::$dataByHash[$hash] = $data;
-		Z_Core::$MC->set($key, $data);
-		
-		return $data;
-	}
-	
-	
-	public static function getCreatorsWithData($libraryID, $hash, $sortByItemCountDesc=false) {
+	public static function getCreatorsWithData($libraryID, $creator, $sortByItemCountDesc=false) {
 		$sql = "SELECT creatorID FROM creators ";
 		if ($sortByItemCountDesc) {
 			$sql .= "LEFT JOIN itemCreators USING (creatorID) ";
 		}
-		$sql .= "WHERE libraryID=? AND creatorDataHash=?";
+		$sql .= "WHERE libraryID=? AND firstName=? AND lastName=? AND fieldMode=?";
 		if ($sortByItemCountDesc) {
 			$sql .= " ORDER BY IFNULL(COUNT(*), 0) DESC";
 		}
-		$ids = Zotero_DB::columnQuery($sql, array($libraryID, $hash), Zotero_Shards::getByLibraryID($libraryID));
+		$ids = Zotero_DB::columnQuery(
+			$sql,
+			array(
+				$libraryID,
+				$creator->firstName,
+				$creator->lastName,
+				$creator->fieldMode
+			),
+			Zotero_Shards::getByLibraryID($libraryID)
+		);
 		return $ids;
 	}
 	
@@ -173,61 +96,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 	public static function getPrimaryDataSQL() {
 		return "SELECT creatorID AS id, libraryID, `key`, dateAdded, dateModified,
 				firstName, lastName, fieldMode FROM creators WHERE ";
-	}
-	
-	
-	public static function bulkInsertDataValues($valueObjs) {
-		$docs = array();
-		foreach ($valueObjs as $obj) {
-			if (mb_strlen($obj->firstName) > 255) {
-				throw new Exception("=First name '" . mb_substr($obj->firstName, 0, 50) . "…' too long");
-			}
-			if (mb_strlen($obj->lastName) > 255) {
-				if ($obj->fieldMode == 1) {
-					throw new Exception("=Last name '" . mb_substr($obj->lastName, 0, 50) . "…' too long");
-				}
-				else {
-					throw new Exception("=Name '" . mb_substr($obj->lastName, 0, 50) . "…' too long");
-				}
-			}
-			
-			$hash = self::getHash($obj);
-			
-			if (isset(self::$dataByHash[$hash])) {
-				continue;
-			}
-			
-			$key = self::getCreatorDataCacheKey($hash);
-			$data = Z_Core::$MC->get($key);
-			if ($data) {
-				self::$dataByHash[$hash] = $data;
-				continue;
-			}
-			
-			$doc = array(
-				"_id" => $hash,
-				"firstName" => $obj->firstName,
-				"lastName" => $obj->lastName,
-				"fieldMode" => $obj->fieldMode
-			);
-			$docs[] = $doc;
-		}
-		
-		if (!$docs) {
-			return;
-		}
-		
-		// Insert into MongoDB
-		Z_Core::$Mongo->batchInsertIgnoreSafe("creatorData", $docs);
-		
-		// Cache data values locally and in memcache
-		foreach ($docs as &$doc) {
-			$hash = $doc["_id"];
-			unset($doc["_id"]);
-			self::$dataByHash[$hash] = $doc;
-			$key = self::getCreatorDataCacheKey($hash);
-			Z_Core::$MC->add($key, $doc);
-		}
 	}
 	
 	
@@ -400,28 +268,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 		$dataObj->birthYear = $birthYear ? $birthYear->nodeValue : null;
 		
 		return $dataObj;
-	}
-	
-	
-	public static function getCreatorDataCacheKey($hash) {
-		return 'creatorData_' . $hash;
-	}
-	
-	
-	private static function getHash($fields) {
-		$hashFields = array();
-		foreach (self::$fields as $field) {
-			// Array
-			if (is_array($fields)) {
-				$val = $fields[$field];
-			}
-			// Object
-			else {
-				$val = $fields->$field;
-			}
-			$hashFields[] = is_null($val) ? "" : $val;
-		}
-		return md5(join('_', $hashFields));
 	}
 }
 ?>

@@ -156,6 +156,17 @@ CREATE TABLE `itemRelated` (
 
 
 
+CREATE TABLE `itemSortFields` (
+  `itemID` int(10) unsigned NOT NULL,
+  `sortTitle` varchar(79) DEFAULT NULL,
+  `creatorSummary` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`itemID`),
+  KEY `sortTitle` (`sortTitle`),
+  KEY `creatorSummary` (`creatorSummary`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `items` (
   `itemID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
@@ -317,6 +328,9 @@ ALTER TABLE `itemNotes`
 ALTER TABLE `itemRelated`
   ADD CONSTRAINT `itemRelated_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
   ADD CONSTRAINT `itemRelated_ibfk_2` FOREIGN KEY (`linkedItemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
+
+ALTER TABLE `itemSortFields`
+  ADD CONSTRAINT `itemSortFields_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `items`
   ADD CONSTRAINT `items_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
