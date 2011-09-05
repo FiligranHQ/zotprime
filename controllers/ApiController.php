@@ -1375,7 +1375,7 @@ class ApiController extends Controller {
 				$this->e404();
 			}
 			
-			$title = "Tags matching ‘$name’";
+			$title = "Tags matching ‘" . $name . "’";
 		}
 		// All tags
 		else {
@@ -2634,8 +2634,9 @@ class ApiController extends Controller {
 		error_log($str);
 		
 		switch ($e->getCode()) {
+			case Z_ERROR_SHARD_READ_ONLY:
 			case Z_ERROR_SHARD_UNAVAILABLE:
-				$this->e503();
+				$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
 		}
 		
 		if (Z_ENV_TESTING_SITE) {

@@ -1642,7 +1642,7 @@ class Zotero_Item {
 						if ($replaceCounter < $maxReplaceGroups) {
 							$replaceSQL .= "(?,?,?),";
 							$replaceParams = array_merge($replaceParams,
-								array($this->id, $fieldID, $hash, $value)
+								array($this->id, $fieldID, $value)
 							);
 						}
 						

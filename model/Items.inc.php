@@ -30,7 +30,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
 		'dateAdded', 'dateModified', 'serverDateModified',
 		'numNotes', 'numAttachments');
-	private static $maxDataValueLength = 65535;
+	public static $maxDataValueLength = 65535;
 	
 	private static $itemsByID = array();
 	
@@ -1451,7 +1451,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		if (!$title) {
 			return '';
 		}
-		return mb_substr(preg_replace('/^[\[\(\{\-"\'“‘]([^\]\)\}\-"\'”’]*)[\]\)\}\-"\'”’]?$/u', '$1', $title), 0, Zotero_Notes::$MAX_TITLE_LENGTH);
+		return mb_substr(preg_replace('/^[\[\(\{\-"\'“‘ ]*([^\]\)\}\-"\'”’]*)[\]\)\}\-"\'”’ ]*?$/u', '$1', $title), 0, Zotero_Notes::$MAX_TITLE_LENGTH);
 	}
 }
 ?>
