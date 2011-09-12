@@ -1158,7 +1158,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	public static function validateJSONItem($json, $isNew=false, $isChild=false) {
 		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object');
+			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
 		}
 		
 		if (isset($json->items) && is_array($json->items)) {
@@ -1364,7 +1364,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	public static function validateJSONItems($json) {
 		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object');
+			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
 		}
 		
 		foreach ($json as $key=>$val) {
