@@ -63,8 +63,9 @@ class Zotero_API {
 		$queryParams = array();
 		
 		foreach (self::getDefaultQueryParams() as $key=>$val) {
-			// Don't overwrite sort if already derived from 'order'
-			if ($key == 'sort' && !empty($queryParams['sort'])) {
+			// Don't overwrite 'sort' or 'emptyFirst' if already derived from 'order'
+			if (($key == 'sort' && !empty($queryParams['sort']))
+				|| ($key == 'emptyFirst' && !empty($queryParams['emptyFirst']))) {
 				continue;
 			}
 			
@@ -143,19 +144,33 @@ class Zotero_API {
 				
 				case 'order':
 					// Whether to sort empty values first
-					//
-					// Until Mongo supports more advanced sorting, a value of FALSE
-					// requires an explicit _____IsEmpty field in the Mongo document
 					$queryParams['emptyFirst'] = Zotero_API::getSortEmptyFirst($getParams[$key]);
 					
 					switch ($getParams[$key]) {
 						// Valid fields to sort by
+						//
+						// Allow all fields available in client
 						case 'dateAdded':
 						case 'dateModified':
 						case 'title':
-						case 'date':
 						case 'creator':
+						case 'type':
+						case 'date':
+						case 'publisher':
+						case 'publication':
+						case 'journalAbbrevation':
+						case 'language':
+						case 'accessDate':
+						case 'libraryCatalog':
+						case 'callNumber':
+						case 'rights':
+						case 'dateAdded':
+						case 'dateModified':
+						//case 'numChildren':
+						
+						case 'addedBy':
 						case 'numItems':
+							
 							// numItems is valid only for tags requests
 							switch ($getParams[$key]) {
 								case 'numItems':
@@ -166,7 +181,7 @@ class Zotero_API {
 							}
 							
 							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
-								$queryParams['sort'] = Zotero_API::getDefaultSort($getParams[$key]);
+								$queryParams['sort'] = self::getDefaultSort($getParams[$key]);
 							}
 							else {
 								$queryParams['sort'] = $getParams['sort'];
@@ -175,6 +190,14 @@ class Zotero_API {
 						
 						default:
 							throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				// If sort and no order
+				case 'sort':
+					if (!isset($getParams['order']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
+						$queryParams['sort'] = self::getDefaultSort($getParams[$key]);
+						continue 2;
 					}
 					break;
 			}
@@ -264,6 +287,7 @@ class Zotero_API {
 	public static function getSortEmptyFirst($field) {
 		switch ($field) {
 			case 'title':
+			case 'date':
 				return true;
 		}
 		

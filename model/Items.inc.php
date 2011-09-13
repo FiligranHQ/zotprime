@@ -130,7 +130,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				Zotero_ItemFields::getTypeFieldsFromBase('title')
 			);
 			
-			$sql .= "LEFT JOIN itemData ID ON (ID.itemID=I.itemID AND fieldID IN ("
+			$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND fieldID IN ("
 				. implode(',', $titleFieldIDs) . ")) ";
 			
 			$sql .= "LEFT JOIN itemCreators IC ON (IC.itemID=I.itemID)
@@ -151,6 +151,15 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'creator':
 					$sql .= "LEFT JOIN itemSortFields ISF ON (ISF.itemID=I.itemID) ";
 					break;
+				
+				case 'date':
+					$dateFieldIDs = array_merge(
+						array(Zotero_ItemFields::getID('date')),
+						Zotero_ItemFields::getTypeFieldsFromBase('date')
+					);
+					
+					$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND fieldID IN ("
+						. implode(',', $dateFieldIDs) . ")) ";
 				
 				case 'addedBy':
 					$isGroup = Zotero_Libraries::getType($libraryID) == 'group';
@@ -215,7 +224,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		if (!empty($params['q'])) {
 			$sql .= "AND (";
 			
-			$sql .= "value LIKE ? ";
+			$sql .= "IDT.value LIKE ? ";
 			$sqlParams[] = '%' . $params['q'] . '%';
 			
 			$sql .= "OR title LIKE ? ";
@@ -339,6 +348,11 @@ class Zotero_Items extends Zotero_DataObjects {
 					$orderSQL = "ISF.creatorSummary";
 					break;
 				
+				// TODO: generic base field mapping-aware sorting
+				case 'date':
+					$orderSQL = "IDD.value";
+					break;
+				
 				case 'addedBy':
 					if ($isGroup) {
 						$orderSQL = "TCBU.username";
@@ -360,19 +374,23 @@ class Zotero_Items extends Zotero_DataObjects {
 					$sqlParams[] = $fieldID;
 			}
 			
+			if (!empty($params['sort'])) {
+				$dir = " " . $params['sort'];
+			}
+			else {
+				$dir = "ASC";
+			}
+			
+			
 			if (!$params['emptyFirst']) {
-				$sql .= "IFNULL($orderSQL, '') = '', ";
+				$sql .= "IFNULL($orderSQL, '') = '' $dir, ";
 			}
 			
 			$sql .= $orderSQL;
 			
-			if (!empty($params['sort'])) {
-				$sql .= " " . $params['sort'];
-			}
-			$sql .= ", ";
+			$sql .= " $dir, ";
 		}
 		$sql .= "I.itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
-		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
@@ -855,11 +873,23 @@ class Zotero_Items extends Zotero_DataObjects {
 			Zotero_Atom::$nsZoteroAPI
 		);
 		if ($item->isRegularItem()) {
-			$xml->addChild(
-				'zapi:creatorSummary',
-				htmlspecialchars($item->creatorSummary),
-				Zotero_Atom::$nsZoteroAPI
-			);
+			$val = $item->creatorSummary;
+			if ($val !== '') {
+				$xml->addChild(
+					'zapi:creatorSummary',
+					htmlspecialchars($val),
+					Zotero_Atom::$nsZoteroAPI
+				);
+			}
+			
+			$val = substr($item->getField('date', true, true, true), 0, 4);
+			if ($val !== '' && $val !== '0000') {
+				$xml->addChild(
+					'zapi:year',
+					$val,
+					Zotero_Atom::$nsZoteroAPI
+				);
+			}
 		}
 		if (!$parent && $item->isRegularItem()) {
 			if ($permissions && !$permissions->canAccess($item->libraryID, 'notes')) {
