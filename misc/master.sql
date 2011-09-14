@@ -113,27 +113,6 @@ CREATE TABLE `groupUsers` (
 
 
 
-CREATE TABLE `indexProcesses` (
-  `indexProcessID` int(10) unsigned NOT NULL,
-  `processorHost` int(10) unsigned DEFAULT NULL,
-  `started` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`indexProcessID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
-CREATE TABLE `indexQueue` (
-  `libraryID` int(10) unsigned NOT NULL,
-  `key` char(8) NOT NULL,
-  `added` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `indexProcessID` int(10) unsigned DEFAULT NULL,
-  PRIMARY KEY (`libraryID`,`key`),
-  KEY `added` (`added`),
-  KEY `indexProcessID` (`indexProcessID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
 CREATE TABLE `itemTypeCreatorTypes` (
   `itemTypeID` smallint(5) unsigned NOT NULL,
   `creatorTypeID` smallint(5) unsigned NOT NULL,
@@ -490,9 +469,6 @@ ALTER TABLE `groupUsers`
   ADD CONSTRAINT `groupUsers_ibfk_2` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE,
   ADD CONSTRAINT `groupUsers_ibfk_3` FOREIGN KEY (`groupID`) REFERENCES `groups` (`groupID`) ON DELETE CASCADE,
   ADD CONSTRAINT `groupUsers_ibfk_4` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE;
-
-ALTER TABLE `indexQueue`
-  ADD CONSTRAINT `indexQueue_ibfk_1` FOREIGN KEY (`indexProcessID`) REFERENCES `indexProcesses` (`indexProcessID`) ON DELETE SET NULL;
 
 ALTER TABLE `itemTypeCreatorTypes`
   ADD CONSTRAINT `itemTypeCreatorTypes_ibfk_1` FOREIGN KEY (`itemTypeID`) REFERENCES `itemTypes` (`itemTypeID`),
