@@ -121,22 +121,25 @@ class Zotero_Items extends Zotero_DataObjects {
 			$keys = explode(',', $params['itemKey']);
 		}
 		
+		$titleSort = !empty($params['order']) && $params['order'] == 'title';
+		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT I.itemID FROM items I ";
 		$sqlParams = array($libraryID);
 		
-		if (!empty($params['q'])) {
+		if (!empty($params['q']) || $titleSort) {
 			$titleFieldIDs = array_merge(
 				array(Zotero_ItemFields::getID('title')),
 				Zotero_ItemFields::getTypeFieldsFromBase('title')
 			);
-			
 			$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND fieldID IN ("
 				. implode(',', $titleFieldIDs) . ")) ";
-			
+		}
+		
+		if (!empty($params['q'])) {
 			$sql .= "LEFT JOIN itemCreators IC ON (IC.itemID=I.itemID)
 					LEFT JOIN creators C ON (C.creatorID=IC.creatorID) ";
 		}
-		if ($onlyTopLevel || !empty($params['q'])) {
+		if ($onlyTopLevel || !empty($params['q']) || $titleSort) {
 			$sql .= "LEFT JOIN itemNotes INo ON (INo.itemID=I.itemID) ";
 		}
 		if ($onlyTopLevel) {
@@ -341,7 +344,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'title':
-					$orderSQL = "ISF.sortTitle";
+					$orderSQL = "IFNULL(COALESCE(sortTitle, INo.title, IDT.value), '')";
 					break;
 				
 				case 'creator':
