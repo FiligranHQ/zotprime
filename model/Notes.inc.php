@@ -145,10 +145,10 @@ class Zotero_Notes {
 		$text = strip_tags($text);
 		$text = html_entity_decode($text);
 		
-		$t = mb_substr($text, 0, $max);
+		$t = mb_strcut($text, 0, $max);
 		$ln = mb_strpos($t, "\n");
 		if ($ln !== false && $ln < $max) {
-			$t = mb_substr($t, 0, $ln);
+			$t = mb_strcut($t, 0, $ln);
 		}
 		return $t;
 	}
