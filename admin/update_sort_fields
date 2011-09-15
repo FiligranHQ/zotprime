@@ -1,0 +1,120 @@
+#!/usr/bin/php
+<?
+set_include_path("../include");
+require("header.inc.php");
+
+if (empty($argv[1])) {
+	die("shardHostID not provided\n");
+}
+
+$startShardID = empty($argv[2]) ? 0 : $argv[2];
+$startItemID = empty($argv[3]) ? 0 : $argv[3];
+
+$dryrun = false;
+$overwrite = true;
+
+$first = true;
+$shardIDs = Zotero_DB::columnQuery("SELECT shardID FROM shards S JOIN shardHosts SH USING (shardHostID) WHERE SH.shardHostID=? AND S.state='up' AND SH.state='up' AND shardID>=? ORDER BY shardID", array($argv[1], $startShardID));
+
+foreach ($shardIDs as $shardID) {
+	echo "Shard: $shardID\n";
+	
+	$i = 0;
+	if ($first && $startItemID) {
+		$lastItemID = $startItemID - 1;
+		$first = false;
+	}
+	else {
+		$lastItemID = 0;
+	}
+	$totalRows = 0;
+	
+	while (true) {
+		$sql = "SELECT I.itemID, I.libraryID, I.key, itemTypeID,
+				CASE WHEN itemTypeID=1 THEN title ELSE value END AS title
+				FROM items I ";
+		if (!$overwrite) {
+			$sql .= "LEFT JOIN itemSortFields ISF USING (itemID) ";
+		}
+		$sql .= "LEFT JOIN itemData ID ON (ID.itemID=I.itemID AND fieldID BETWEEN 110 AND 113)
+				LEFT JOIN itemNotes INo ON (INo.itemID=I.itemID)
+				WHERE ";
+		if (!$overwrite) {
+			$sql .= "ISF.itemID IS NULL AND ";
+		}
+		$sql .= "I.itemID>? ORDER BY I.itemID LIMIT 150";
+		$rows = Zotero_DB::query($sql, array($lastItemID), $shardID);
+		if (!$rows) {
+			break;
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		foreach ($rows as $row) {
+			// No creators or dates for item notes or attachments
+			if ($row['itemTypeID'] == 1 || $row['itemTypeID'] == 14) {
+				$sortTitle = Zotero_Items::getSortTitle($row['title']);
+				if (mb_substr($sortTitle, 0, 5) == mb_substr($row['title'], 0, 5)) {
+					$sortTitle = null;
+				}
+				$creatorSummary = '';
+				
+				if ($dryrun) {
+					var_dump('---------');
+					var_dump($row['itemID']);
+					if ($sortTitle) {
+						var_dump($row['title']);
+					}
+					var_dump($sortTitle);
+					var_dump($creatorSummary);
+				}
+				else {
+					$sql = "INSERT INTO itemSortFields (itemID, sortTitle, creatorSummary) VALUES (?, ?, ?)
+							ON DUPLICATE KEY UPDATE sortTitle=?, creatorSummary=?";
+					Zotero_DB::query($sql, array($row['itemID'], $sortTitle, $creatorSummary, $sortTitle, $creatorSummary), $shardID);
+				}
+			}
+			else {
+				$item = Zotero_Items::getByLibraryAndKey($row['libraryID'], $row['key']);
+				if (!$item) {
+					throw new Exception("Item {$row['libraryID']}/{$row['key']} not found");
+				}
+				
+				$sortTitle = Zotero_Items::getSortTitle($item->getDisplayTitle(true));
+				if (mb_substr($sortTitle, 0, 5) == mb_substr($item->getField('title', false, true), 0, 5)) {
+					$sortTitle = null;
+				}
+				$creatorSummary = $item->isRegularItem() ? mb_strcut($item->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
+				
+				if ($dryrun) {
+					var_dump('========');
+					var_dump($row['itemID']);
+					if ($sortTitle) {
+						var_dump($item->getDisplayTitle(true));
+					}
+					var_dump($sortTitle);
+					var_dump($creatorSummary);
+				}
+				else {
+					$sql = "INSERT INTO itemSortFields (itemID, sortTitle, creatorSummary) VALUES (?, ?, ?)
+							ON DUPLICATE KEY UPDATE sortTitle=?, creatorSummary=?";
+					Zotero_DB::query($sql, array($row['itemID'], $sortTitle, $creatorSummary, $sortTitle, $creatorSummary), $shardID);
+				}
+			}
+			
+			if ($i != 0 && $i % 1500 == 0) {
+				echo "................\n";
+			}
+			
+			$i++;
+			$totalRows++;
+		}
+		
+		$lastItemID = $row['itemID'];
+		
+		Zotero_DB::commit();
+		
+		echo "Updated $totalRows itemSortFields rows on shard $shardID at $lastItemID\n";
+	}
+}
+?>
