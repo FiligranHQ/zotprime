@@ -37,12 +37,12 @@ class Zotero_Shards {
 			return self::$shardInfo[$shardID];
 		}
 		
-		//$cacheKey = 'shardInfo_' . $shardID;
-		//$shardInfo = Z_Core::$MC->get($cacheKey);
-		//if ($shardInfo) {
-		//	self::$shardInfo[$shardID] = $shardInfo;
-		//	return $shardInfo;
-		//}
+		$cacheKey = 'shardInfo_' . $shardID;
+		$shardInfo = Z_Core::$MC->get($cacheKey);
+		if ($shardInfo) {
+			self::$shardInfo[$shardID] = $shardInfo;
+			return $shardInfo;
+		}
 		
 		$sql = "SELECT address, port, username, password, db,
 				CASE
@@ -58,7 +58,7 @@ class Zotero_Shards {
 		}
 		
 		self::$shardInfo[$shardID] = $shardInfo;
-		//Z_Core::$MC->set($cacheKey, $shardInfo);
+		Z_Core::$MC->set($cacheKey, $shardInfo, 60);
 		
 		return $shardInfo;
 	}
@@ -93,7 +93,7 @@ class Zotero_Shards {
 		}
 		
 		self::$libraryShards[$libraryID] = $shardID;
-		Z_Core::$MC->set($cacheKey, $shardID);
+		Z_Core::$MC->set($cacheKey, $shardID, 86400);
 		
 		return $shardID;
 	}
@@ -136,6 +136,8 @@ class Zotero_Shards {
 			throw new Exception("Library $libraryID is already on shard $newShardID");
 		}
 		
+		unset(self::$libraryShards[$libraryID]);
+		
 		$cacheKey = 'libraryShard_' . $libraryID;
 		Z_Core::$MC->delete($cacheKey);
 		
@@ -146,6 +148,18 @@ class Zotero_Shards {
 	
 	public static function moveLibrary($libraryID, $newShardID) {
 		$currentShardID = self::getByLibraryID($libraryID);
+		
+		self::copyLibrary($libraryID, $newShardID);
+		
+		self::setShard($libraryID, $newShardID);
+		
+		self::deleteLibrary($libraryID, $currentShardID);
+	}
+	
+	
+	public static function copyLibrary($libraryID, $newShardID) {
+		$currentShardID = self::getByLibraryID($libraryID);
+		
 		if ($currentShardID == $newShardID) {
 			throw new Exception("Library $libraryID is already on shard $newShardID");
 		}
@@ -182,6 +196,7 @@ class Zotero_Shards {
 			'itemData',
 			'itemNotes',
 			'itemRelated',
+			'itemSortFields',
 			'itemTags',
 			'savedSearchConditions',
 			'storageFileItems',
@@ -220,6 +235,7 @@ class Zotero_Shards {
 				case 'itemData':
 				case 'itemNotes':
 				case 'itemRelated':
+				case 'itemSortFields':
 				case 'itemTags':
 				case 'storageFileItems':
 					$sql = "SELECT T.* FROM $table T JOIN items USING (itemID) WHERE libraryID=?";
@@ -257,10 +273,6 @@ class Zotero_Shards {
 			self::deleteLibrary($libraryID, $newShardID);
 			throw new Exception("Aborted due to library lock");
 		}
-		
-		self::setShard($libraryID, $newShardID);
-		
-		self::deleteLibrary($libraryID, $currentShardID);
 	}
 	
 	
@@ -289,26 +301,8 @@ class Zotero_Shards {
 	
 	
 	private static function deleteLibrary($libraryID, $shardID) {
-		Zotero_DB::beginTransaction();
-		
-		$tables = array(
-			'collections',
-			'creators',
-			'items',
-			'relations',
-			'savedSearches',
-			'shardLibraries',
-			'tags',
-			'syncDeleteLogIDs',
-			'syncDeleteLogKeys'
-		);
-		
-		foreach ($tables as $table) {
-			$sql = "DELETE FROM $table WHERE libraryID=?";
-			Zotero_DB::query($sql, $libraryID, $shardID);
-		}
-		
-		Zotero_DB::commit();
+		$sql = "DELETE FROM shardLibraries WHERE libraryID=?";
+		Zotero_DB::query($sql, $libraryID, $shardID);
 	}
 }
 ?>
