@@ -26,12 +26,6 @@ class Z_CONFIG {
 		'memcached1.localdomain:11211:2', 'memcached2.localdomain:11211:1'
 	);
 	
-	public static $MONGO_SERVERS = array(
-		'mongo1.localdomain:27017', 'mongo2.localdomain:27017'
-	);
-	public static $MONGO_DB = "";
-	public static $MONGO_SAFE_NUM = 2;
-	
 	public static $TRANSLATE_SERVERS = array(
 		"translator1.localdomain:1969"
 	);

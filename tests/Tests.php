@@ -35,16 +35,13 @@ class Tests extends PHPUnit_Framework_TestSuite {
 		$suite->addTestSuite('DBTests');
 		$suite->addTestSuite('DateTests');
 		$suite->addTestSuite('MemcacheTests');
-		$suite->addTestSuite('MongoTests');
 		$suite->addTestSuite('TagsTests');
 		//$suite->addTestSuite('UsersTests');
 		return $suite;
 	}
 	
 	protected function setUp() {}
-	protected function tearDown() {
-		Z_Core::$Mongo->resetTestTable();
-	}
+	protected function tearDown() {}
 }
 
 
@@ -601,166 +598,6 @@ EOD;
 		$doc->loadXML($xml);
 		$tag = Zotero_Tags::getLongDataValueFromXML($doc);
 		$this->assertEquals($longTag, $tag);
-	}
-}
-
-
-
-class MongoTests extends PHPUnit_Framework_TestCase {
-	public function testInsertFindRemove() {
-		Z_Core::$Mongo->resetTestTable();
-		
-		$value = "Blah blah føo\nbar test tést";
-		$hash = md5($value);
-		
-		// Insert
-		$doc = array(
-			"_id" => $hash,
-			"value" => $value
-		);
-		Z_Core::$Mongo->insertSafe("test", $doc);
-		$this->assertEquals($hash, $doc['_id']);
-		// valueQuery
-		$retValue = Z_Core::$Mongo->valueQuery("test", array("_id"=>$hash), "value");
-		$this->assertEquals($value, $retValue);
-		// valueQuery also accepts id as direct parameter
-		$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
-		$this->assertEquals($value, $retValue);
-		// findOne
-		$retArray = Z_Core::$Mongo->findOne("test", array("_id"=>$hash), array("value"));
-		$this->assertEquals(2, sizeOf($retArray)); // _id is always returned
-		$this->assertEquals($value, $retArray["value"]);
-		// findOne with direct _id
-		$retArray = Z_Core::$Mongo->findOne("test", $hash, array("value"));
-		$this->assertEquals(2, sizeOf($retArray)); // _id is always returned
-		$this->assertEquals($value, $retArray["value"]);
-		
-		// Remove
-		Z_Core::$Mongo->remove("test", $hash);
-		$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
-		$this->assertFalse($retValue);
-	}
-	
-	
-	public function testBatchInsertSafe() {
-		Z_Core::$Mongo->resetTestTable();
-		
-		$values = array("Foo", "foo", "Foobar", "Øoooø", "foo bar\nfoo bar");
-		$docs = array();
-		foreach ($values as $value) {
-			$docs[] = array(
-				"_id" => md5($value),
-				"value" => $value
-			);
-		}
-		
-		Z_Core::$Mongo->batchInsertSafe("test", $docs);
-		
-		for ($i=0; $i<sizeOf($docs); $i++) {
-			$hash = md5($values[$i]);
-			$this->assertEquals($hash, $docs[$i]['_id']);
-			$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
-			$this->assertEquals($values[$i], $retValue);
-		}
-		
-		Z_Core::$Mongo->resetTestTable();
-		
-		// Test a duplicate key failure to make sure we're really "safe"
-		$values = array("føo", "føo", "bar");
-		$docs = array();
-		foreach ($values as $value) {
-			$docs[] = array(
-				"_id" => md5($value),
-				"value" => $value
-			);
-		}
-		
-		try {
-			Z_Core::$Mongo->batchInsertSafe("test", $docs);
-		}
-		catch (MongoCursorException $e) {
-			$this->assertNotEquals(false, strpos($e->getMessage(), 'E11000 duplicate key error index'));
-			$retValue = Z_Core::$Mongo->valueQuery("test", md5("føo"), "value");
-			$this->assertEquals("føo", $retValue);
-			$retValue = Z_Core::$Mongo->valueQuery("test", md5("bar"), "value");
-			$this->assertFalse($retValue);
-		}
-	}
-	
-	
-	public function testBatchInsertIgnore() {
-		Z_Core::$Mongo->resetTestTable();
-		
-		$values = array("føo", "føo", "foobar", "bar", "føo", "foobar", "barfoo", "barboo", "bar");
-		
-		$docs = array();
-		foreach ($values as $value) {
-			$docs[] = array(
-				"_id" => md5($value),
-				"value" => $value
-			);
-		}
-		
-		Z_Core::$Mongo->batchInsertIgnoreSafe("test", $docs);
-		
-		for ($i=0; $i<sizeOf($docs); $i++) {
-			$hash = md5($values[$i]);
-			$this->assertEquals($hash, $docs[$i]['_id']);
-			$retValue = Z_Core::$Mongo->valueQuery("test", $hash, "value");
-			$this->assertEquals($values[$i], $retValue);
-		}
-	}
-	
-	
-	public function testRemoveAll() {
-		Z_Core::$Mongo->resetTestTable();
-		
-		// Insert some values and make sure they're there
-		$values = array("a", "b", "c", "d");
-		$docs = array();
-		foreach ($values as $value) {
-			$docs[] = array(
-				"_id" => md5($value),
-				"value" => $value
-			);
-		}
-		Z_Core::$Mongo->batchInsertIgnoreSafe("test", $docs);
-		
-		$cursor = Z_Core::$Mongo->find("test", array("value" => array('$in' => $values)), array("_id"));
-		$hashes = iterator_to_array($cursor);
-		$this->assertEquals(sizeOf($values), sizeOf($hashes));
-		
-		// Remove all
-		Z_Core::$Mongo->removeAll("test");
-		
-		$cursor = Z_Core::$Mongo->find("test", array("value" => array('$in' => $values)), array("_id"));
-		$hashes = iterator_to_array($cursor);
-		$this->assertEquals(0, sizeOf($hashes));
-	}
-	
-	
-	public function testSlaveRead() {
-		Z_Core::$Mongo->resetTestTable();
-		
-		$value = "Foobar";
-		$hash = md5($value);
-		
-		$doc = array(
-			"_id" => $hash,
-			"value" => $value
-		);
-		Z_Core::$Mongo->insertSafe("test", $doc);
-		
-		$cursor = Z_Core::$Mongo->find("test", array("_id"=>$hash), array());
-		$cursor->getNext();
-		$info = $cursor->info();
-		$primary = $info['server'];
-		
-		// Slave request should use a different server
-		$cursor = Z_Core::$Mongo->find("test", array("_id"=>$hash), array(), true);
-		$cursor->getNext();
-		$info = $cursor->info();
-		$this->assertNotEquals($primary, $info['server']);
 	}
 }
 

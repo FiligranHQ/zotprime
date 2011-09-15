@@ -21,10 +21,6 @@ foreach ($shards as $shardID) {
 	Zotero_DB::query("DELETE FROM shardLibraries WHERE libraryID>3", false, $shardID);
 }
 
-// TODO: clear MongoDB values
-Z_Core::$Mongo->removeAll("creatorData");
-Z_Core::$Mongo->removeAll("itemDataValues");
-
 // Sample data for user 1
 $itemObj = new Zotero_Item();
 $itemObj->setField('libraryID', 1);

@@ -297,8 +297,6 @@ class Zotero_Sync {
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
 				|| strpos($msg, "Too many connections") !== false
 				|| strpos($msg, "Can't connect to MySQL server") !==false
-				|| strpos($msg, "MongoCursorTimeoutException") !== false
-				|| strpos($msg, "cursor timed out") !== false
 				|| $code == Z_ERROR_SHARD_UNAVAILABLE
 		) {
 			Z_Core::logError($e);
@@ -481,8 +479,6 @@ class Zotero_Sync {
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
 				|| strpos($msg, "Too many connections") !== false
 				|| strpos($msg, "Can't connect to MySQL server") !==false
-				|| strpos($msg, "MongoCursorTimeoutException") !== false
-				|| strpos($msg, "cursor timed out") !== false
 				|| $code == Z_ERROR_LIBRARY_TIMESTAMP_ALREADY_USED
 				|| $code == Z_ERROR_SHARD_READ_ONLY
 				|| $code == Z_ERROR_SHARD_UNAVAILABLE
@@ -859,6 +855,7 @@ class Zotero_Sync {
 		}
 		catch (Exception $e) {
 			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
+			$xmldata = false;
 		}
 		
 		if ($xmldata) {
@@ -874,26 +871,6 @@ class Zotero_Sync {
 		
 		// Close cache db to avoid sleeping thread
 		Zotero_Cache_DB::close();
-		
-		// If MySQL fails, try Mongo
-		if (!$xmldata) {
-			try {
-				$xmldata = Z_Core::$Mongo->valueQuery("syncDownloadCache", $key, "xmldata", true);
-			}
-			catch (Exception $e) {
-				Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
-				$xmldata = false;
-			}
-			
-			if ($xmldata) {
-				try {
-					self::cacheDownload($userID, $lastsync, $xmldata);
-				}
-				catch (Exception $e) {
-					Z_Core::logError("Warning: '" . $e->getMessage() . "' updating cached download in MySQL");
-				}
-			}
-		}
 		
 		return $xmldata;
 	}
@@ -1271,7 +1248,7 @@ class Zotero_Sync {
 			throw new Exception(self::$validationError . "\n\nXML:\n\n" .  $doc->saveXML());
 		}
 		
-		// Cache response in Mongo if response isn't empty
+		// Cache response if response isn't empty
 		try {
 			if ($doc->documentElement->firstChild->hasChildNodes()) {
 				self::cacheDownload($userID, $lastsync, $doc->saveXML());

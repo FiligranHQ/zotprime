@@ -67,6 +67,14 @@ spl_autoload_register('zotero_autoload');
 // Read in configuration variables
 require('config/config.inc.php');
 
+if (!empty($_SERVER['REMOTE_ADDR']) && ($_SERVER['REMOTE_ADDR'] == "24.90.153.36")) {
+	//Z_CONFIG::$API_ENABLED = true;
+	//Z_CONFIG::$SYNC_ENABLED = true;
+	Z_CONFIG::$MEMCACHED_ENABLED = false;
+	$load = sys_getloadavg();
+	error_log("Loading with " . $load[0]);
+}
+
 if (Z_Core::isCommandLine()) {
 	if (empty(Z_CONFIG::$CLI_DOCUMENT_ROOT)) {
 		throw new Exception ("CLI defaults not set");
@@ -168,18 +176,6 @@ require('DB.inc.php');
 require('IPAddress.inc.php');
 require('Shards.inc.php');
 require('config/dbconnect.inc.php');
-
-// Mongo
-require('Mongo.inc.php');
-Z_Core::$Mongo = new Z_Mongo(
-	"mongodb://" . implode(',', Z_CONFIG::$MONGO_SERVERS),
-	array(
-		"connect" => false,
-		"persist" => "",
-		"replicaSet" => true
-	),
-	Z_CONFIG::$MONGO_DB
-);
 
 // Memcached
 require('Memcached.inc.php');

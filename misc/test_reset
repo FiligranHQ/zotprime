@@ -146,7 +146,4 @@ $ID2 zoterotest_ids < ids.sql
 # auto-increment-offset = 2
 
 
-mongo zoterotest --eval 'db.dropDatabase()'
-mongo zoterotest mongo_schema.js
-
 ./test_setup

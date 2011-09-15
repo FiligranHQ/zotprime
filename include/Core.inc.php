@@ -25,7 +25,6 @@
 */
 
 class Z_Core {
-	public static $Mongo = null; // Mongo
 	public static $MC = null; // Memcached
 	public static $Solr = null; // Solr
 	public static $debug = false;
