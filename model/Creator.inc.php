@@ -182,20 +182,39 @@ class Zotero_Creator {
 			);
 			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			
-			if ($isNew) {
-				$sql = "INSERT INTO creators SET creatorID=?, $fields";
-				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
-				Zotero_DB::queryFromStatement($stmt, array_merge(array($creatorID), $params));
-				Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
-				
-				// Remove from delete log if it's there
-				$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='creator' AND `key`=?";
-				Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+			try {
+				if ($isNew) {
+					$sql = "INSERT INTO creators SET creatorID=?, $fields";
+					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
+					Zotero_DB::queryFromStatement($stmt, array_merge(array($creatorID), $params));
+					Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
+					
+					// Remove from delete log if it's there
+					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='creator' AND `key`=?";
+					Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+				}
+				else {
+					$sql = "UPDATE creators SET $fields WHERE creatorID=?";
+					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
+					Zotero_DB::queryFromStatement($stmt, array_merge($params, array($creatorID)));
+				}
 			}
-			else {
-				$sql = "UPDATE creators SET $fields WHERE creatorID=?";
-				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
-				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($creatorID)));
+			catch (Exception $e) {
+				if (strpos($e->getMessage(), " too long") !== false) {
+					if (strlen($this->firstName) > 255) {
+						throw new Exception("=First name '" . mb_substr($this->firstName, 0, 50) . "…' too long");
+					}
+					if (strlen($this->lastName) > 255) {
+						if ($this->fieldMode == 1) {
+							throw new Exception("=Last name '" . mb_substr($this->lastName, 0, 50) . "…' too long");
+						}
+						else {
+							throw new Exception("=Name '" . mb_substr($this->lastName, 0, 50) . "…' too long");
+						}
+					}
+				}
+				
+				throw ($e);
 			}
 			
 			// The client updates the mod time of associated items here, but
