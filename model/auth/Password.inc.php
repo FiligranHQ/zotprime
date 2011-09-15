@@ -49,21 +49,12 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 			$sql = "SELECT userID, username FROM $databaseName.users
 					   WHERE username = ? AND password = ? LIMIT 1";
 			$params = array($username, $passwordMd5);
-			if (Z_Core::probability(2)) {
-				try {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
+			try {
+				$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
 			}
-			else {
-				try {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
+			catch (Exception $e) {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
 			}
 		}
 		else {
@@ -76,21 +67,12 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   ORDER BY username = ? DESC
 					   LIMIT 1";
 			$params = array($username, $passwordMd5, $username, $passwordMd5, $username);
-			if (Z_Core::probability(2)) {
-				try {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
+			try {
+				$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
 			}
-			else {
-				try {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
+			catch (Exception $e) {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
 			}
 		}
 		
@@ -108,21 +90,12 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   WHERE username = ? AND password = ?
 					   LIMIT 1";
 			$params = array($username, $passwordSha1);
-			if (Z_Core::probability(2)) {
-				try {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
+			try {
+				$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
 			}
-			else {
-				try {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
+			catch (Exception $e) {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
 			}
 		}
 		else {
@@ -135,21 +108,12 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 					   ORDER BY username = ? DESC
 					   LIMIT 1";
 			$params = array($username, $passwordMd5, $username, $passwordSha1, $username);
-			if (Z_Core::probability(2)) {
-				try {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
+			try {
+				$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
 			}
-			else {
-				try {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
+			catch (Exception $e) {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
 			}
 		}
 		

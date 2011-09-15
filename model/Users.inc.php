@@ -276,7 +276,7 @@ class Zotero_Users {
 		
 		$valid = !!self::getValidUsersDB(array($userID));
 		
-		Z_Core::$MC->set($cacheKey, $valid ? 1 : 0, 3600);
+		Z_Core::$MC->set($cacheKey, $valid ? 1 : 0, 86400);
 		
 		return $valid;
 	}
@@ -311,13 +311,20 @@ class Zotero_Users {
 			. ")";
 		
 		try {
-			$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
-			Zotero_WWW_DB_1::close();
+			$invalid = Zotero_WWW_DB_2::columnQuery($sql, $userIDs);
+			Zotero_WWW_DB_2::close();
 		}
 		catch (Exception $e) {
-			Z_Core::logError("WARNING: " . $e);
-			
-			// If not available, assume valid
+			try {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$invalid = Zotero_WWW_DB_1::columnQuery($sql, $userIDs);
+				Zotero_WWW_DB_1::close();
+			}
+			catch (Exception $e2) {
+				Z_Core::logError("WARNING: " . $e2);
+				
+				// If not available, assume valid
+			}
 		}
 		
 		if ($invalid) {
@@ -370,7 +377,13 @@ class Zotero_Users {
 	
 	private static function getUsernameFromWWW($userID) {
 		$sql = "SELECT username FROM users WHERE userID=?";
-		$username = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+		try {
+			$username = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+		}
+		catch (Exception $e) {
+			Z_Core::logError("WARNING: $e -- retrying on primary");
+			$username = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+		}
 		if (!$username) {
 			throw new Exception("User $userID not found", Z_ERROR_USER_NOT_FOUND);
 		}
