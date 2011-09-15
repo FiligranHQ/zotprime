@@ -344,7 +344,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'title':
-					$orderSQL = "IFNULL(COALESCE(sortTitle, INo.title, IDT.value), '')";
+					$orderSQL = "IFNULL(COALESCE(sortTitle, IDT.value, INo.title), '')";
 					break;
 				
 				case 'creator':
