@@ -66,20 +66,23 @@ class Zotero_Tags extends Zotero_DataObjects {
 	
 	
 	/*
-	 * Returns array of all tagIDs for this tag (of all types)
+	 * Returns tagID for this tag
 	 */
-	public static function getID($libraryID, $name, $type) {
+	public static function getID($libraryID, $name, $type, $caseInsensitive=false) {
 		if (!$libraryID) {
 			throw new Exception("Library ID not provided");
 		}
 		
 		$name = trim($name);
-		//$lcname = strtolower($name);
 		$type = (int) $type;
 		
 		// TODO: cache
 		
-		$sql = "SELECT tagID FROM tags WHERE name=? AND type=? AND libraryID=?";
+		$sql = "SELECT tagID FROM tags WHERE name";
+		if ($caseInsensitive) {
+			$sql .= " COLLATE utf8_general_ci ";
+		}
+		$sql .= "=? AND type=? AND libraryID=?";
 		$params = array($name, $type, $libraryID);
 		$tagID = Zotero_DB::valueQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		

@@ -2875,7 +2875,8 @@ class Zotero_Item {
 			$type = $newTags[$i]->type;
 			
 			foreach ($existingTags as $tag) {
-				if ($tag->name == $name && $tag->type == $type) {
+				// Do a case-insensitive comparison, to match the client
+				if (strtolower($tag->name) == strtolower($name) && $tag->type == $type) {
 					continue 2;
 				}
 			}
@@ -2889,7 +2890,7 @@ class Zotero_Item {
 			$type = $existingTags[$i]->type;
 			
 			foreach ($newTags as $tag) {
-				if ($tag->tag == $name && $tag->type == $type) {
+				if (strtolower($tag->tag) == strtolower($name) && $tag->type == $type) {
 					continue 2;
 				}
 			}
@@ -2901,7 +2902,7 @@ class Zotero_Item {
 			$name = $tag->tag;
 			$type = $tag->type;
 			
-			$tagID = Zotero_Tags::getID($this->libraryID, $name, $type);
+			$tagID = Zotero_Tags::getID($this->libraryID, $name, $type, true);
 			if (!$tagID) {
 				$tag = new Zotero_Tag;
 				$tag->libraryID = $this->libraryID;
