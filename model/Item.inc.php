@@ -1398,6 +1398,9 @@ class Zotero_Item {
 				
 				// Sort fields
 				$sortTitle = Zotero_Items::getSortTitle($this->getDisplayTitle(true));
+				if (mb_substr($sortTitle, 0, 5) == mb_substr($this->getField('title', false, true), 0, 5)) {
+					$sortTitle = null;
+				}
 				$creatorSummary = $this->isRegularItem() ? mb_strcut($this->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
 				$sql = "INSERT INTO itemSortFields (itemID, sortTitle, creatorSummary) VALUES (?, ?, ?)";
 				Zotero_DB::query($sql, array($itemID, $sortTitle, $creatorSummary), $shardID);
@@ -1852,13 +1855,15 @@ class Zotero_Item {
 					Zotero_DB::query($sql, $bindParams, $shardID);
 				}
 				
-				
 				// Sort fields
 				if (!empty($this->changed['primaryData']['itemTypeID']) || $this->changed['itemData'] || $this->changed['creators']) {
 					$sql = "UPDATE itemSortFields SET sortTitle=?";
 					$params = array();
 					
 					$sortTitle = Zotero_Items::getSortTitle($this->getDisplayTitle(true));
+					if (mb_substr($sortTitle, 0, 5) == mb_substr($this->getField('title', false, true), 0, 5)) {
+						$sortTitle = null;
+					}
 					$params[] = $sortTitle;
 					
 					if ($this->changed['creators']) {
@@ -1872,7 +1877,6 @@ class Zotero_Item {
 					
 					Zotero_DB::query($sql, $params, $shardID);
 				}
-				
 				
 				//
 				// Source item id
