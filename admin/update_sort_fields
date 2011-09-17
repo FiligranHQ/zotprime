@@ -51,7 +51,7 @@ foreach ($shardIDs as $shardID) {
 		Zotero_DB::beginTransaction();
 		
 		foreach ($rows as $row) {
-			// No creators or dates for item notes or attachments
+			// No creators for item notes or attachments
 			if ($row['itemTypeID'] == 1 || $row['itemTypeID'] == 14) {
 				$sortTitle = Zotero_Items::getSortTitle($row['title']);
 				if (mb_substr($sortTitle, 0, 5) == mb_substr($row['title'], 0, 5)) {
