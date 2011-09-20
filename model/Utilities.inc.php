@@ -80,7 +80,8 @@ class Zotero_Utilities {
 	
 	
 	public static function isPosInt($val) {
-		return preg_match('/^[0-9]+$/', $val);
+		// From http://us.php.net/manual/en/function.is-int.php#93560
+		return ctype_digit((string) $val);
 	}
 	
 	
