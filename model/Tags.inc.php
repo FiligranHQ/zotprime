@@ -190,6 +190,12 @@ class Zotero_Tags extends Zotero_DataObjects {
 	}
 	
 	
+	public static function getPrimaryDataSQL() {
+		return "SELECT tagID AS id, libraryID, `key`, name, type, dateAdded, dateModified
+				FROM tags WHERE ";
+	}
+	
+	
 	public static function cache(Zotero_Tag $tag) {
 		if (isset($tagsByID[$tag->id])) {
 			error_log("Tag $tag->id is already cached");

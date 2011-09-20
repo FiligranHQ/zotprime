@@ -41,6 +41,8 @@ class Zotero_DataObjects {
 	protected static $ZDO_id = '';
 	protected static $ZDO_table = '';
 	
+	private static $cacheVersion = 1;
+	
 	private static $idCache = array();
 	private static $idCacheIsFromMemcached = array();
 	private static $primaryDataByID = array();
@@ -134,12 +136,9 @@ class Zotero_DataObjects {
 			self::$idCache[$type][$libraryID] = array();
 			self::$idCacheIsFromMemcached[$type][$libraryID] = false;
 			
-			$ids = Z_Core::$MC->get($type . 'IDsByKey_' . $libraryID);
-			if ($ids) {
-				self::$idCache[$type][$libraryID] = $ids;
-				self::$idCacheIsFromMemcached[$type][$libraryID] = true;
-			}
-			else {
+			$cacheKey = $type . 'IDsByKey_' . $libraryID . "_" . str_replace(" ", "_", Zotero_Libraries::getTimestamp($libraryID, true));
+			$ids = Z_Core::$MC->get($cacheKey);
+			if ($ids === false) {
 				if ($type == 'relation') {
 					$sql = "SELECT $id AS id, MD5(CONCAT(subject, '_', predicate, '_', object)) AS `key` FROM $table WHERE libraryID=?";
 				}
@@ -156,8 +155,13 @@ class Zotero_DataObjects {
 					self::$idCache[$type][$libraryID][$row['key']] = $row['id'];
 				}
 				
-				// TODO: remove expiration time
-				Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
+				Z_Core::debug("Caching $cacheKey");
+				Z_Core::$MC->set($cacheKey, self::$idCache[$type][$libraryID]);
+			}
+			else {
+				Z_Core::debug("Retrieved " . $cacheKey);
+				self::$idCache[$type][$libraryID] = $ids;
+				self::$idCacheIsFromMemcached[$type][$libraryID] = true;
 			}
 		}
 		
@@ -268,11 +272,21 @@ class Zotero_DataObjects {
 		self::$primaryDataByKey[$type][$libraryID] = array();
 		self::$primaryDataByID[$type][$libraryID] = array();
 		
-		$className = "Zotero_" . ucwords($types);
-		$sql = call_user_func(array($className, 'getPrimaryDataSQL')) . "libraryID=?";
-		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		$rows = Zotero_DB::query($sql, $libraryID, $shardID);
+		$cacheKey = $type . "Data_" . $libraryID . "_" . str_replace(" ", "_", Zotero_Libraries::getTimestamp($libraryID, true)) . "_" . self::$cacheVersion;
+		$rows = Z_Core::$MC->get($cacheKey);
+		if ($rows === false) {
+			$className = "Zotero_" . ucwords($types);
+			$sql = call_user_func(array($className, 'getPrimaryDataSQL')) . "libraryID=?";
+			
+			$shardID = Zotero_Shards::getByLibraryID($libraryID);
+			$rows = Zotero_DB::query($sql, $libraryID, $shardID);
+			
+			Z_Core::debug("Caching $cacheKey");
+			Z_Core::$MC->set($cacheKey, $rows ? $rows : array());
+		}
+		else {
+			Z_Core::debug("Retrieved " . $cacheKey);
+		}
 		
 		if (!$rows) {
 			return;

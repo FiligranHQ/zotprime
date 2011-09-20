@@ -31,6 +31,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		'dateAdded', 'dateModified', 'serverDateModified',
 		'numNotes', 'numAttachments');
 	public static $maxDataValueLength = 65535;
+	public static $cacheVersion = 1;
 	
 	private static $itemsByID = array();
 	

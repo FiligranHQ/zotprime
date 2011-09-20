@@ -417,10 +417,8 @@ class Zotero_Item {
 			return array();
 		}
 		
-		$cacheKey = ($asNames ? "itemUsedFieldNames" : "itemUsedFieldIDs") . '_' . $this->id;
-		
+		$cacheKey = $this->getCacheKey($asNames ? "itemUsedFieldNames" : "itemUsedFieldIDs");
 		$fields = Z_Core::$MC->get($cacheKey);
-		$fields = false;
 		if ($fields !== false) {
 			return $fields;
 		}
@@ -911,12 +909,18 @@ class Zotero_Item {
 	}
 	
 	
-	public function getCreatorSummary() {
+	private function getCreatorSummary() {
 		if ($this->creatorSummary !== null) {
 			return $this->creatorSummary;
 		}
 		
-		// TODO: memcache
+		$cacheVersion = 1;
+		$cacheKey = $this->getCacheKey("creatorSummary_$cacheVersion");
+		$creatorSummary = Z_Core::$MC->get($cacheKey);
+		if ($creatorSummary !== false) {
+			$this->creatorSummary = $creatorSummary;
+			return $creatorSummary;
+		}
 		
 		$itemTypeID = $this->getField('itemTypeID');
 		$creators = $this->getCreators();
@@ -933,6 +937,7 @@ class Zotero_Item {
 		$localizedAnd = " and ";
 		$etAl = " et al.";
 		
+		$creatorSummary = '';
 		foreach ($creatorTypeIDsToTry as $creatorTypeID) {
 			$loc = array();
 			foreach ($creators as $orderIndex=>$creator) {
@@ -964,12 +969,13 @@ class Zotero_Item {
 					break;
 			}
 			
-			$this->creatorSummary = $creatorSummary;
-			return $this->creatorSummary;
+			break;
 		}
 		
-		$this->creatorSummary = '';
-		return '';
+		Z_Core::$MC->set($cacheKey, $creatorSummary);
+		
+		$this->creatorSummary = $creatorSummary;
+		return $creatorSummary;
 	}
 	
 	
@@ -983,25 +989,21 @@ class Zotero_Item {
 		}
 		
 		if (!is_numeric($this->id)) {
-			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
+			throw new Exception("Invalid itemID");
 		}
 		
-		$cacheKey = "itemIsDeleted_" . $this->id;
+		$cacheKey = $this->getCacheKey("itemIsDeleted");
 		$deleted = Z_Core::$MC->get($cacheKey);
-		$deleted = false;
-		if ($deleted !== false) {
-			$deleted = !!$deleted;
-			$this->deleted = $deleted;
-			return $deleted;
+		if ($deleted === false) {
+			$sql = "SELECT COUNT(*) FROM deletedItems WHERE itemID=?";
+			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+			$deleted = !!Zotero_DB::valueQueryFromStatement($stmt, $this->id);
+			
+			// Memcache returns false for empty keys, so use integer
+			Z_Core::$MC->set($cacheKey, $deleted ? 1 : 0);
 		}
 		
-		$sql = "SELECT COUNT(*) FROM deletedItems WHERE itemID=?";
-		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
-		$deleted = !!Zotero_DB::valueQueryFromStatement($stmt, $this->id);
 		$this->deleted = $deleted;
-		
-		// Memcache returns false for empty keys, so use integers
-		Z_Core::$MC->set($cacheKey, $deleted ? 1 : 0);
 		
 		return $deleted;
 	}
@@ -1237,14 +1239,6 @@ class Zotero_Item {
 						$stmt = Zotero_DB::getStatement($insertSQL, true, $shardID);
 						Zotero_DB::queryFromStatement($stmt, $insertParams);
 					}
-					
-					// Update memcached with used fields
-					Z_Core::$MC->set("itemUsedFieldIDs_" . $itemID, $fieldIDs);
-					$names = array();
-					foreach ($fieldIDs as $fieldID) {
-						$names[] = Zotero_ItemFields::getName($fieldID);
-					}
-					Z_Core::$MC->set("itemUsedFieldNames_" . $itemID, $names);
 				}
 				
 				//
@@ -1295,12 +1289,6 @@ class Zotero_Item {
 						$sql = $sql . implode(',', $placeholders);
 						Zotero_DB::query($sql, $sqlValues, $shardID);
 					}
-					
-					// Just in case creators aren't in order
-					usort($cacheRows, function ($a, $b) {
-						return ($a['orderIndex'] < $b['orderIndex']) ? -1 : 1; 
-					});
-					Z_Core::$MC->set("itemCreators_" . $itemID, $cacheRows);
 				}
 				
 				
@@ -1314,7 +1302,6 @@ class Zotero_Item {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
 					Zotero_DB::query($sql, $itemID, $shardID);
-					$deleted = Z_Core::$MC->set("itemIsDeleted_" . $itemID, $deleted ? 1 : 0);
 				}
 				
 				
@@ -1540,8 +1527,6 @@ class Zotero_Item {
 							$insertStatement->execute(array($itemID, $linkedItemID));
 						}
 					}
-					
-					Z_Core::$MC->set("itemRelated_" . $itemID, $currentIDs);
 				}
 				
 				// Remove from delete log if it's there
@@ -1673,12 +1658,6 @@ class Zotero_Item {
 							$fids[] = $fieldID;
 						}
 					}
-					Z_Core::$MC->set("itemUsedFieldIDs_" . $this->id, $fids);
-					$names = array();
-					foreach ($fids as $fieldID) {
-						$names[] = Zotero_ItemFields::getName($fieldID);
-					}
-					Z_Core::$MC->set("itemUsedFieldNames_" . $this->id, $names);
 					
 					// Delete blank fields
 					if ($del) {
@@ -1738,18 +1717,6 @@ class Zotero_Item {
 						$sql = $sql . implode(',', $placeholders);
 						Zotero_DB::query($sql, $sqlValues, $shardID);
 					}
-					
-					// Update memcache
-					$cacheRows = array();
-					$cs = $this->getCreators();
-					foreach ($cs as $orderIndex=>$c) {
-						$cacheRows[] = array(
-							'creatorID' => $c['ref']->id,
-							'creatorTypeID' => $c['creatorTypeID'],
-							'orderIndex' => $orderIndex
-						);
-					}
-					Z_Core::$MC->set("itemCreators_" . $this->id, $cacheRows);
 				}
 				
 				// Deleted item
@@ -1762,7 +1729,6 @@ class Zotero_Item {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
 					Zotero_DB::query($sql, $this->id, $shardID);
-					Z_Core::$MC->set("itemIsDeleted_" . $this->id, $deleted ? 1 : 0);
 				}
 				
 				
@@ -2029,8 +1995,6 @@ class Zotero_Item {
 							$insertStatement->execute(array($this->id, $linkedItemID));
 						}
 					}
-					
-					Z_Core::$MC->set("itemRelated_" . $this->id, $currentIDs);
 				}
 			}
 			
@@ -2221,13 +2185,16 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$sql = "SELECT sourceItemID FROM item{$Type}s WHERE itemID=?";
-		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
-		$sourceItemID = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
-		// Temporary sanity check
-		if ($sourceItemID && !is_int($sourceItemID)) {
-			trigger_error("sourceItemID is not an integer", E_USER_ERROR);
+		$cacheKey = $this->getCacheKey("itemSource");
+		$sourceItemID = Z_Core::$MC->get($cacheKey);
+		if ($sourceItemID === false) {
+			$sql = "SELECT sourceItemID FROM item{$Type}s WHERE itemID=?";
+			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+			$sourceItemID = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
+			
+			Z_Core::$MC->set($cacheKey, $sourceItemID ? $sourceItemID : 0);
 		}
+		
 		if (!$sourceItemID) {
 			$sourceItemID = false;
 		}
@@ -2809,6 +2776,7 @@ class Zotero_Item {
 		if (!$this->id) {
 			return 0;
 		}
+		
 		$sql = "SELECT COUNT(*) FROM itemTags WHERE itemID=?";
 		return (int) Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
@@ -3494,9 +3462,15 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$sql = "SELECT fieldID, value FROM itemData WHERE itemID=?";
-		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
-		$fields = Zotero_DB::queryFromStatement($stmt, $this->id);
+		$cacheKey = $this->getCacheKey("itemData");
+		$fields = Z_Core::$MC->get($cacheKey);
+		if ($fields === false) {
+			$sql = "SELECT fieldID, value FROM itemData WHERE itemID=?";
+			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+			$fields = Zotero_DB::queryFromStatement($stmt, $this->id);
+			
+			Z_Core::$MC->set($cacheKey, $fields ? $fields : array());
+		}
 		
 		$itemTypeFields = Zotero_ItemFields::getItemTypeFields($this->itemTypeID);
 		
@@ -3544,9 +3518,9 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$cacheKey = "itemCreators_" . $this->id;
+		$cacheKey = $this->getCacheKey("itemCreators");
 		$creators = Z_Core::$MC->get($cacheKey);
-		$creators = false;
+		//var_dump($creators);
 		if ($creators === false) {
 			$sql = "SELECT creatorID, creatorTypeID, orderIndex FROM itemCreators
 					WHERE itemID=? ORDER BY orderIndex";
@@ -3597,23 +3571,18 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$cacheKey = "itemRelated_" . $this->id;
+		$cacheKey = $this->getCacheKey("itemRelated");
 		$ids = Z_Core::$MC->get($cacheKey);
-		$ids = false;
-		if ($ids !== false) {
-			$this->relatedItems = $ids;
-			$this->loaded['relatedItems'] = true;
-			return;
+		if ($ids === false) {
+			$sql = "SELECT linkedItemID FROM itemRelated WHERE itemID=?";
+			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+			$ids = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
+			
+			Z_Core::$MC->set($cacheKey, $ids ? $ids : array());
 		}
-		
-		$sql = "SELECT linkedItemID FROM itemRelated WHERE itemID=?";
-		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
-		$ids = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
 		
 		$this->relatedItems = $ids ? $ids : array();
 		$this->loaded['relatedItems'] = true;
-		
-		Z_Core::$MC->set($cacheKey, $this->relatedItems);
 	}
 	
 	
@@ -3702,6 +3671,17 @@ class Zotero_Item {
 	
 	private function storePreviousData($field) {
 		$this->previousData[$field] = $this->$field;
+	}
+	
+	
+	private function getCacheKey($mode) {
+		if (!$this->id) {
+			throw new Exception("ID not set");
+		}
+		if (!$mode) {
+			throw new Exception('$mode not provided');
+		}
+		return $mode . "_" . $this->id . "_" . str_replace(" ", "_", $this->serverDateModified) . "_" . Zotero_Items::$cacheVersion;
 	}
 	
 	

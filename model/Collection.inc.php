@@ -698,49 +698,76 @@ class Zotero_Collection {
 	private function load() {
 		Z_Core::debug("Loading data for collection $this->_id");
 		
-		if (!$this->_libraryID) {
-			throw new Exception("Library ID not set");
-		}
-		
-		if (!$this->_id && !$this->_key) {
-			throw new Exception("ID or key not set");
-		}
-		
 		$libraryID = $this->_libraryID;
 		$id = $this->_id;
 		$key = $this->_key;
 		
-		// Use cached check for existence if possible
-		if ($libraryID && $key) {
-			if (!Zotero_Collections::existsByLibraryAndKey($libraryID, $key)) {
-				$this->loaded = true;
+		if (!$libraryID) {
+			throw new Exception("Library ID not set");
+		}
+		
+		if (!$id && !$key) {
+			throw new Exception("ID or key not set");
+		}
+		
+		// Cache collection data for the entire library
+		if (true) {
+			if ($id) {
+				//Z_Core::debug("Loading data for collection $this->libraryID/$this->id");
+				$row = Zotero_Collections::getPrimaryDataByID($libraryID, $id);
+			}
+			else {
+				//Z_Core::debug("Loading data for collection $this->libraryID/$this->key");
+				$row = Zotero_Collections::getPrimaryDataByKey($libraryID, $key);
+			}
+			
+			$this->loaded = true;
+			
+			if (!$row) {
 				return;
 			}
+			
+			if ($row['libraryID'] != $libraryID) {
+				throw new Exception("libraryID {$row['libraryID']} != $this->libraryID");
+			}
+			
+			foreach ($row as $key=>$val) {
+				$field = '_' . $key;
+				$this->$field = $val;
+			}
 		}
-		
-		$sql = "SELECT collectionID AS id, collectionName AS name, libraryID, `key`,
-				dateAdded, dateModified, parentCollectionID AS parent
-				FROM collections WHERE ";
-		if ($id) {
-			$sql .= "collectionID=?";
-			$params = $id;
-		}
+		// Load collection row individually
 		else {
-			$sql .= "libraryID=? AND `key`=?";
-			$params = array($libraryID, $key);
-		}
-		
-		$data = Zotero_DB::rowQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
-		
-		$this->loaded = true;
-		
-		if (!$data) {
-			return;
-		}
-		
-		foreach ($data as $key=>$val) {
-			$field = '_' . $key;
-			$this->$field = $val;
+			// Use cached check for existence if possible
+			if ($libraryID && $key) {
+				if (!Zotero_Collections::existsByLibraryAndKey($libraryID, $key)) {
+					$this->loaded = true;
+					return;
+				}
+			}
+			
+			$sql = Zotero_Collections::getPrimaryDataSQL();
+			if ($id) {
+				$sql .= "collectionID=?";
+				$params = $id;
+			}
+			else {
+				$sql .= "libraryID=? AND `key`=?";
+				$params = array($libraryID, $key);
+			}
+			
+			$data = Zotero_DB::rowQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+			
+			$this->loaded = true;
+			
+			if (!$data) {
+				return;
+			}
+			
+			foreach ($data as $key=>$val) {
+				$field = '_' . $key;
+				$this->$field = $val;
+			}
 		}
 	}
 	

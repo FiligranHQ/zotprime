@@ -1319,8 +1319,8 @@ class Zotero_Sync {
 						$keys[$key] = true;
 						
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
-						$creatorObj->save();
 						$addedLibraryIDs[] = $creatorObj->libraryID;
+						$creatorObj->save();
 					}
 				}
 				catch (Exception $e) {

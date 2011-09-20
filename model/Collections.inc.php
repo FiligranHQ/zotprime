@@ -98,6 +98,13 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
+	public static function getPrimaryDataSQL() {
+		return "SELECT collectionID AS id, libraryID, `key`, collectionName AS name,
+				dateAdded, dateModified, parentCollectionID AS parent
+				FROM collections WHERE ";
+	}
+	
+	
 	public static function getLongDataValueFromXML(DOMDocument $doc) {
 		$xpath = new DOMXPath($doc);
 		$attr = $xpath->evaluate('//collections/collection[string-length(@name) > ' . self::$maxLength . ']/@name');

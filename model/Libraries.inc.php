@@ -26,6 +26,7 @@
 
 class Zotero_Libraries {
 	private static $libraryTypeCache = array();
+	private static $originalTimestamps = array();
 	
 	public static function add($type, $shardID) {
 		if (!$shardID) {
@@ -117,6 +118,16 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function getTimestamp($libraryID, $committedOnly=false) {
+		if ($committedOnly && isset(self::$originalTimestamps[$libraryID])) {
+			return self::$originalTimestamps[$libraryID];
+		}
+		
+		$sql = "SELECT lastUpdated FROM libraries WHERE libraryID=?";
+		return Zotero_DB::valueQuery($sql, $libraryID);
+	}
+	
+	
 	public static function getUserLibraryUpdateTimes($userID) {
 		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
 		$sql = "SELECT libraryID, UNIX_TIMESTAMP(lastUpdated) AS lastUpdated FROM libraries
@@ -139,8 +150,17 @@ class Zotero_Libraries {
 			}
 			$libraryIDs = array($libraryIDs);
 		}
-			
+		
 		Zotero_DB::beginTransaction();
+		
+		// Record the existing timestamp, since getTimestamp() needs it in $committedOnly mode
+		foreach ($libraryIDs as $libraryID) {
+			if (isset(self::$originalTimestamps[$libraryID])) {
+				// TODO: limit to same transaction?
+				throw new Exception("Library timestamp cannot be updated more than once");
+			}
+			self::$originalTimestamps[$libraryID] = self::getTimestamp($libraryID);
+		}
 		
 		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID IN "
 				. "(" . implode(',', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
