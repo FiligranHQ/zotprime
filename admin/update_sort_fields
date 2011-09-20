@@ -84,7 +84,7 @@ foreach ($shardIDs as $shardID) {
 				if (mb_substr($sortTitle, 0, 5) == mb_substr($item->getField('title', false, true), 0, 5)) {
 					$sortTitle = null;
 				}
-				$creatorSummary = $item->isRegularItem() ? mb_strcut($item->getCreatorSummary(), 0, Zotero_Creators::$creatorSummarySortLength) : '';
+				$creatorSummary = $item->isRegularItem() ? mb_strcut($item->creatorSummary, 0, Zotero_Creators::$creatorSummarySortLength) : '';
 				
 				if ($dryrun) {
 					var_dump('========');
