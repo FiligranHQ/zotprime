@@ -941,8 +941,6 @@ class Zotero_Items extends Zotero_DataObjects {
 				$item->etag,
 				Zotero_Atom::$nsZoteroAPI
 			);
-			// TODO: remove non-namespaced attribute
-			$xml->content['etag'] = $item->etag;
 			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
 		
