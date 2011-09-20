@@ -87,7 +87,7 @@ class Zotero_Creator {
 			case 'libraryID':
 			case 'key':
 				if ($this->loaded) {
-					trigger_error("Cannot set $field after creator is already loaded", E_USER_ERROR);
+					throw new Exception("Cannot set $field after creator is already loaded");
 				}
 				$this->checkValue($field, $value);
 				$this->$field = $value;
@@ -314,7 +314,7 @@ class Zotero_Creator {
 	
 	private function checkValue($field, $value) {
 		if (!property_exists($this, $field)) {
-			trigger_error("Invalid property '$field'", E_USER_ERROR);
+			throw new Exception("Invalid property '$field'");
 		}
 		
 		// Data validation
@@ -354,7 +354,7 @@ class Zotero_Creator {
 	
 	
 	private function invalidValueError($field, $value) {
-		trigger_error("Invalid '$field' value '$value'", E_USER_ERROR);
+		throw new Exception("Invalid '$field' value '$value'");
 	}
 }
 ?>
