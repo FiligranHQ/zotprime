@@ -41,8 +41,8 @@ class Z_Core {
 		return php_sapi_name() == 'cli';
 	}
 	
-	public static function logError($summary, $message=false) {
-		Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $summary);
+	public static function logError($message) {
+		Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $message);
 	}
 	
 	public static function isPosInt($val) {
