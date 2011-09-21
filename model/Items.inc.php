@@ -112,6 +112,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$itemIDs = array();
 		$keys = array();
+		$deleteTempTable = array();
 		
 		// Pass a list of itemIDs, for when the initial search is done via SQL
 		if (!empty($params['itemIDs'])) {
@@ -165,6 +166,29 @@ class Zotero_Items extends Zotero_DataObjects {
 					$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
 						. implode(',', $dateFieldIDs) . ")) ";
 				
+				case 'itemType':
+					// Create temporary table to store item type names
+					//
+					// We use IF NOT EXISTS just to make sure there are
+					// no problems with restoration from the binary log
+					$sql2 = "CREATE TEMPORARY TABLE IF NOT EXISTS tmpItemTypeNames
+							(itemTypeID SMALLINT UNSIGNED NOT NULL,
+							itemTypeName VARCHAR(255) NOT NULL,
+							PRIMARY KEY (itemTypeID),
+							INDEX (itemTypeName))";
+					Zotero_DB::query($sql2, false, $shardID);
+					$deleteTempTable['tmpItemTypeNames'] = true;
+				
+					$types = Zotero_ItemTypes::getAll('en-US');
+					foreach ($types as $type) {
+						$sql2 = "INSERT INTO tmpItemTypeNames VALUES (?, ?)";
+						Zotero_DB::query($sql2, array($type['id'], $type['localized']), $shardID);
+					}
+					
+					// Join temp table to query
+					$sql .= "JOIN tmpItemTypeNames TITN ON (TITN.itemTypeID=I.itemTypeID) ";
+					break;
+				
 				case 'addedBy':
 					$isGroup = Zotero_Libraries::getType($libraryID) == 'group';
 					if ($isGroup) {
@@ -178,7 +202,7 @@ class Zotero_Items extends Zotero_DataObjects {
 								PRIMARY KEY (userID),
 								INDEX (username))";
 						Zotero_DB::query($sql2, false, $shardID);
-						$deleteTempTable = true;
+						$deleteTempTable['tmpCreatedByUsers'] = true;
 						
 						$sql2 = "SELECT DISTINCT createdByUserID FROM items
 								JOIN groupItems USING (itemID) WHERE ";
@@ -341,6 +365,10 @@ class Zotero_Items extends Zotero_DataObjects {
 					$orderSQL = "I." . $params['order'];
 					break;
 				
+				case 'itemType';
+					$orderSQL = "TITN.itemTypeName";
+					break;
+				
 				case 'title':
 					$orderSQL = "IFNULL(COALESCE(sortTitle, IDT.value, INo.title), '')";
 					break;
@@ -404,8 +432,12 @@ class Zotero_Items extends Zotero_DataObjects {
 			$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
 		}
 		
-		if (isset($deleteTempTable)) {
+		if (!empty($deleteTempTable['tmpCreatedByUsers'])) {
 			$sql = "DROP TEMPORARY TABLE IF EXISTS tmpCreatedByUsers";
+			Zotero_DB::query($sql, false, $shardID);
+		}
+		if (!empty($deleteTempTable['tmpItemTypeNames'])) {
+			$sql = "DROP TEMPORARY TABLE IF EXISTS tmpItemTypeNames";
 			Zotero_DB::query($sql, false, $shardID);
 		}
 		

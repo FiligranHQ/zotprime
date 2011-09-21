@@ -154,7 +154,7 @@ class Zotero_API {
 						case 'dateModified':
 						case 'title':
 						case 'creator':
-						case 'type':
+						case 'itemType':
 						case 'date':
 						case 'publisher':
 						case 'publicationTitle':
