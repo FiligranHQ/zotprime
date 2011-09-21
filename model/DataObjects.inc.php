@@ -128,13 +128,11 @@ class Zotero_DataObjects {
 		
 		if (!isset(self::$idCache[$type])) {
 			self::$idCache[$type] = array();
-			self::$idCacheIsFromMemcached[$type] = array();
 		}
 		
 		// Cache object ids in library if not done yet
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
-			self::$idCacheIsFromMemcached[$type][$libraryID] = false;
 			
 			$cacheKey = $type . 'IDsByKey_' . $libraryID . "_" . str_replace(" ", "_", Zotero_Libraries::getTimestamp($libraryID, true));
 			$ids = Z_Core::$MC->get($cacheKey);
@@ -159,23 +157,11 @@ class Zotero_DataObjects {
 				Z_Core::$MC->set($cacheKey, self::$idCache[$type][$libraryID]);
 			}
 			else {
-				Z_Core::debug("Retrieved " . $cacheKey);
 				self::$idCache[$type][$libraryID] = $ids;
-				self::$idCacheIsFromMemcached[$type][$libraryID] = true;
 			}
 		}
 		
-		$exists = isset(self::$idCache[$type][$libraryID][$key]);
-		
-		// If something is missing and we got this from memcached,
-		// refresh from the DB, just in case memcached has outdated data,
-		// which shouldn't happen but could if a set request failed
-		if (!$exists && self::$idCacheIsFromMemcached[$type][$libraryID]) {
-			self::clearLibraryKeyCache($libraryID);
-			return self::existsByLibraryAndKey($libraryID, $key);
-		}
-		
-		return $exists;
+		return isset(self::$idCache[$type][$libraryID][$key]);
 	}
 	
 	
