@@ -132,7 +132,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				array(Zotero_ItemFields::getID('title')),
 				Zotero_ItemFields::getTypeFieldsFromBase('title')
 			);
-			$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND fieldID IN ("
+			$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND IDT.fieldID IN ("
 				. implode(',', $titleFieldIDs) . ")) ";
 		}
 		
@@ -162,7 +162,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						Zotero_ItemFields::getTypeFieldsFromBase('date')
 					);
 					
-					$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND fieldID IN ("
+					$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
 						. implode(',', $dateFieldIDs) . ")) ";
 				
 				case 'addedBy':
