@@ -916,10 +916,12 @@ class Zotero_Item {
 		
 		$cacheVersion = 1;
 		$cacheKey = $this->getCacheKey("creatorSummary_$cacheVersion");
-		$creatorSummary = Z_Core::$MC->get($cacheKey);
-		if ($creatorSummary !== false) {
-			$this->creatorSummary = $creatorSummary;
-			return $creatorSummary;
+		if ($cacheKey) {
+			$creatorSummary = Z_Core::$MC->get($cacheKey);
+			if ($creatorSummary !== false) {
+				$this->creatorSummary = $creatorSummary;
+				return $creatorSummary;
+			}
 		}
 		
 		$itemTypeID = $this->getField('itemTypeID');
@@ -972,7 +974,9 @@ class Zotero_Item {
 			break;
 		}
 		
-		Z_Core::$MC->set($cacheKey, $creatorSummary);
+		if ($cacheKey) {
+			Z_Core::$MC->set($cacheKey, $creatorSummary);
+		}
 		
 		$this->creatorSummary = $creatorSummary;
 		return $creatorSummary;
@@ -3675,8 +3679,12 @@ class Zotero_Item {
 	
 	
 	private function getCacheKey($mode) {
+		if (!$this->loaded['primaryData']) {
+			$this->loadPrimaryData();
+		}
+		
 		if (!$this->id) {
-			throw new Exception("ID not set");
+			return false;
 		}
 		if (!$mode) {
 			throw new Exception('$mode not provided');
