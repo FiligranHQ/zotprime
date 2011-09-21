@@ -158,7 +158,7 @@ class Zotero_API {
 						case 'date':
 						case 'publisher':
 						case 'publication':
-						case 'journalAbbrevation':
+						case 'journalAbbreviation':
 						case 'language':
 						case 'accessDate':
 						case 'libraryCatalog':
