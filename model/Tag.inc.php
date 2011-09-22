@@ -567,8 +567,6 @@ class Zotero_Tag {
 	
 	
 	private function load() {
-		Z_Core::debug("Loading data for tag $this->id");
-		
 		$libraryID = $this->libraryID;
 		$id = $this->id;
 		$key = $this->key;
@@ -584,11 +582,11 @@ class Zotero_Tag {
 		// Cache tag data for the entire library
 		if (true) {
 			if ($id) {
-				//Z_Core::debug("Loading data for tag $this->libraryID/$this->id");
+				Z_Core::debug("Loading data for tag $this->libraryID/$this->id");
 				$row = Zotero_Tags::getPrimaryDataByID($libraryID, $id);
 			}
 			else {
-				//Z_Core::debug("Loading data for tag $this->libraryID/$this->key");
+				Z_Core::debug("Loading data for tag $this->libraryID/$this->key");
 				$row = Zotero_Tags::getPrimaryDataByKey($libraryID, $key);
 			}
 			

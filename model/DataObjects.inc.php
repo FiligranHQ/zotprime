@@ -240,6 +240,8 @@ class Zotero_DataObjects {
 	
 	
 	private static function cachePrimaryDataByLibrary($libraryID) {
+		Z_Core::debug("Caching primary data for library $libraryID");
+		
 		$type = static::field('object');
 		$types = static::field('objects');
 		
@@ -287,11 +289,7 @@ class Zotero_DataObjects {
 		$libraryID = $row['libraryID'];
 		
 		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
-			self::$primaryDataByKey[$type][$libraryID] = array();
-		}
-		
-		if (!isset(self::$primaryDataByID[$type][$libraryID])) {
-			self::$primaryDataByID[$type][$libraryID] = array();
+			self::cachePrimaryDataByLibrary($libraryID);
 		}
 		
 		$found = 0;
@@ -311,7 +309,7 @@ class Zotero_DataObjects {
 		}
 		
 		self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
-		self::$primaryDataByID[$type][$libraryID][$row['id']] = self::$primaryDataByKey[$type][$libraryID][$row['key']];
+		self::$primaryDataByID[$type][$libraryID][$row['id']] =& self::$primaryDataByKey[$type][$libraryID][$row['key']];
 	}
 	
 	
