@@ -25,9 +25,19 @@
 */
 
 class Zotero_Tags extends Zotero_DataObjects {
+	public static $maxLength = 255;
+	
 	protected static $ZDO_object = 'tag';
 	
-	public static $maxLength = 255;
+	protected static $primaryFields = array(
+		'id' => 'tagID',
+		'libraryID' => '',
+		'key' => '',
+		'name' => '',
+		'type' => '',
+		'dateAdded' => '',
+		'dateModified' => ''
+	);
 	
 	private static $tagsByID = array();
 	private static $namesByHash = array();
@@ -190,18 +200,12 @@ class Zotero_Tags extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getPrimaryDataSQL() {
-		return "SELECT tagID AS id, libraryID, `key`, name, type, dateAdded, dateModified
-				FROM tags WHERE ";
-	}
-	
-	
 	public static function cache(Zotero_Tag $tag) {
 		if (isset($tagsByID[$tag->id])) {
 			error_log("Tag $tag->id is already cached");
 		}
 		
-		$tagsByID[$tag->id] = $tag;
+		self::$tagsByID[$tag->id] = $tag;
 	}
 	
 	

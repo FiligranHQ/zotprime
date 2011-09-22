@@ -262,7 +262,7 @@ class Zotero_DataObjects {
 		$rows = Z_Core::$MC->get($cacheKey);
 		if ($rows === false) {
 			$className = "Zotero_" . ucwords($types);
-			$sql = call_user_func(array($className, 'getPrimaryDataSQL')) . "libraryID=?";
+			$sql = self::getPrimaryDataSQL() . "libraryID=?";
 			
 			$shardID = Zotero_Shards::getByLibraryID($libraryID);
 			$rows = Zotero_DB::query($sql, $libraryID, $shardID);
@@ -299,28 +299,19 @@ class Zotero_DataObjects {
 		}
 		
 		$found = 0;
-		$expected = 8; // number of values below
+		$expected = sizeOf(static::$primaryFields);
 		
 		foreach ($row as $key=>$val) {
-			switch ($key) {
-				case 'id':
-				case 'libraryID':
-				case 'key':
-				case 'dateAdded':
-				case 'dateModified':
-				case 'firstName':
-				case 'lastName':
-				case 'fieldMode':
-					$found++;
-					break;
-				
-				default:
-					throw new Exception("Unknown primary data field '$key'");
+			if (isset(static::$primaryFields[$key])) {
+				$found++;
+			}
+			else {
+				throw new Exception("Unknown $type primary data field '$key'");
 			}
 		}
 		
 		if ($found != $expected) {
-			throw new Exception("$found primary data fields provided -- excepted $expected");
+			throw new Exception("$found $type primary data fields provided -- excepted $expected");
 		}
 		
 		self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
@@ -336,6 +327,20 @@ class Zotero_DataObjects {
 			unset(self::$primaryDataByKey[$type][$libraryID][$key]);
 			unset(self::$primaryDataByID[$type][$libraryID][$id]);
 		}
+	}
+	
+	
+	public static function getPrimaryDataSQL() {
+		$fields = array();
+		foreach (static::$primaryFields as $field => $dbField) {
+			if ($dbField) {
+				$fields[] = "`" . $dbField . "` AS `" . $field . "`";
+			}
+			else {
+				$fields[] = "`" . $field . "`";
+			}
+		}
+		return "SELECT " . implode(", ", $fields) . " FROM " . static::field('table') . " WHERE ";
 	}
 	
 	

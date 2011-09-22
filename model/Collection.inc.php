@@ -153,6 +153,10 @@ class Zotero_Collection {
 			
 			$key = $this->key ? $this->key : $this->generateKey();
 			
+			$timestamp = Zotero_DB::getTransactionTimestamp();
+			$datedAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
+			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
+			
 			// Verify parent
 			if ($this->_parent) {
 				if (is_int($this->_parent)) {
@@ -183,14 +187,13 @@ class Zotero_Collection {
 			
 			$fields = "collectionName=?, parentCollectionID=?, libraryID=?, `key`=?,
 						dateAdded=?, dateModified=?, serverDateModified=?";
-			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$params = array(
 				$this->name,
 				$parent,
 				$this->libraryID,
 				$key,
-				$this->dateAdded ? $this->dateAdded : $timestamp,
-				$this->dateModified ? $this->dateModified : $timestamp,
+				$dateAdded,
+				$dateModified,
 				$timestamp
 			);
 			
@@ -213,6 +216,19 @@ class Zotero_Collection {
 			Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
 			
 			Zotero_DB::commit();
+			
+			Zotero_Collections::cachePrimaryData(
+				array(
+					'id' => $collectionID,
+					'libraryID' => $this->libraryID,
+					'key' => $key,
+					'name' => $this->name,
+					'dateAdded' => $dateAdded,
+					'dateModified' => $dateModified,
+					'parent' => $parent
+				)
+			);
+
 		}
 		catch (Exception $e) {
 			Zotero_DB::rollback();
@@ -713,11 +729,11 @@ class Zotero_Collection {
 		// Cache collection data for the entire library
 		if (true) {
 			if ($id) {
-				//Z_Core::debug("Loading data for collection $this->libraryID/$this->id");
+				Z_Core::debug("Loading data for collection $libraryID/$id");
 				$row = Zotero_Collections::getPrimaryDataByID($libraryID, $id);
 			}
 			else {
-				//Z_Core::debug("Loading data for collection $this->libraryID/$this->key");
+				Z_Core::debug("Loading data for collection $libraryID/$key");
 				$row = Zotero_Collections::getPrimaryDataByKey($libraryID, $key);
 			}
 			

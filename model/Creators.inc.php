@@ -29,9 +29,20 @@ class Zotero_Creators extends Zotero_DataObjects {
 	
 	protected static $ZDO_object = 'creator';
 	
+	protected static $primaryFields = array(
+		'id' => 'creatorID',
+		'libraryID' => '',
+		'key' => '',
+		'dateAdded' => '',
+		'dateModified' => '',
+		'firstName' => '',
+		'lastName' => '',
+		'fieldMode' => ''
+	);
 	private static $fields = array(
 		'firstName', 'lastName', 'fieldMode'
 	);
+	
 	private static $maxFirstNameLength = 255;
 	private static $maxLastNameLength = 255;
 	
@@ -90,12 +101,6 @@ class Zotero_Creators extends Zotero_DataObjects {
 			Zotero_Shards::getByLibraryID($libraryID)
 		);
 		return $ids;
-	}
-	
-	
-	public static function getPrimaryDataSQL() {
-		return "SELECT creatorID AS id, libraryID, `key`, dateAdded, dateModified,
-				firstName, lastName, fieldMode FROM creators WHERE ";
 	}
 	
 	

@@ -27,6 +27,16 @@
 class Zotero_Collections extends Zotero_DataObjects {
 	protected static $ZDO_object = 'collection';
 	
+	protected static $primaryFields = array(
+		'id' => 'collectionID',
+		'libraryID' => '',
+		'key' => '',
+		'name' => 'collectionName',
+		'dateAdded' => '',
+		'dateModified' => '',
+		'parent' => 'parentCollectionID'
+	);
+	
 	private static $maxLength = 255;
 	
 	
@@ -95,13 +105,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 		}
 		
 		return $results;
-	}
-	
-	
-	public static function getPrimaryDataSQL() {
-		return "SELECT collectionID AS id, libraryID, `key`, collectionName AS name,
-				dateAdded, dateModified, parentCollectionID AS parent
-				FROM collections WHERE ";
 	}
 	
 	
@@ -334,49 +337,5 @@ class Zotero_Collections extends Zotero_DataObjects {
 			}
 		}
 	}
-	
-	
-	/**
-	* Loads collection data from DB and adds to internal cache
-	**/
-	/*
-	public static function reloadAll($userID) {
-		Z_Core::debug('Loading all collections');
-		
-		// This should be the same as the query in Zotero.Collection.load(),
-		// just without a specific collectionID
-		$sql = "SELECT C.*,
-			(SELECT COUNT(*) FROM collections WHERE
-			parentCollectionID=C.collectionID)!=0 AS hasChildCollections,
-			(SELECT COUNT(*) FROM collectionItems WHERE
-			collectionID=C.collectionID)!=0 AS hasChildItems
-			FROM collections C WHERE userID=?";
-		$rows = Zotero_DB::query($sql, $userID);
-		
-		$collectionIDs = array();
-		
-		if ($result) {
-			foreach ($rows as $row) {
-				$collectionID = $row['collectionID'];
-				$collectionIDs[] = $collectionID;
-				
-				// If collection doesn't exist, create new object and stuff in array
-				if (!self::$collections[$userID][$collectionID]) {
-					self::$collections[$userID][$collectionID] = new Zotero.Collection;
-				}
-				self::$collections[$userID][$collectionID]->loadFromRow($row);
-			}
-		}
-		
-		// Remove old collections that no longer exist
-		foreach (self::$collections[$userID] as $c)
-			if (!in_array($c->id, $collectionIDs) {
-				self::unload($c->id);
-			}
-		}
-		
-		self::$collectionsLoaded = true;
-	}
-	*/
 }
 ?>

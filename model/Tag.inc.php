@@ -183,15 +183,17 @@ class Zotero_Tag {
 			Z_Core::debug("Saving tag $tagID");
 			
 			$key = $this->key ? $this->key : $this->generateKey();
+			$timestamp = Zotero_DB::getTransactionTimestamp();
+			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
+			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
 			
 			$fields = "name=?, `type`=?, dateAdded=?, dateModified=?,
 				libraryID=?, `key`=?, serverDateModified=?";
-			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$params = array(
 				$this->name,
 				$this->type ? $this->type : 0,
-				$this->dateAdded ? $this->dateAdded : $timestamp,
-				$this->dateModified ? $this->dateModified : $timestamp,
+				$dateAdded,
+				$dateModified,
 				$this->libraryID,
 				$key,
 				$timestamp
@@ -316,6 +318,18 @@ class Zotero_Tag {
 			}
 			
 			Zotero_DB::commit();
+			
+			Zotero_Tags::cachePrimaryData(
+				array(
+					'id' => $tagID,
+					'libraryID' => $this->libraryID,
+					'key' => $key,
+					'name' => $this->name,
+					'type' => $this->type ? $this->type : 0,
+					'dateAdded' => $dateAdded,
+					'dateModified' => $dateModified
+				)
+			);
 		}
 		catch (Exception $e) {
 			Zotero_DB::rollback();
