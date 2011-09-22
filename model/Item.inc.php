@@ -841,7 +841,7 @@ class Zotero_Item {
 		
 		if ($value && !Zotero_ItemFields::isValidForType($fieldID, $this->itemTypeID)) {
 			throw new Exception("'$field' is not a valid field for type '"
-				. Zotero_ItemTypes::getName($this->itemTypeID), Z_ERROR_INVALID_INPUT);
+				. Zotero_ItemTypes::getName($this->itemTypeID) . "'", Z_ERROR_INVALID_INPUT);
 		}
 		
 		if (!$loadIn) {
@@ -3136,7 +3136,7 @@ class Zotero_Item {
 			$titleFieldID = Zotero_ItemFields::getFieldIDFromTypeAndBase($this->itemTypeID, 'title');
 			$titleFieldName = Zotero_ItemFields::getName($titleFieldID);
 			if ($includeEmpty || $this->itemData[$titleFieldID] !== false) {
-				$arr[$titleFieldName] = $this->itemData[$titleFieldID];
+				$arr[$titleFieldName] = $this->itemData[$titleFieldID] !== false ? $this->itemData[$titleFieldID] : "";
 			}
 			
 			// Creators
