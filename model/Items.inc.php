@@ -1121,7 +1121,8 @@ class Zotero_Items extends Zotero_DataObjects {
 						}
 						
 						// None found, so make a new one
-						$newCreator->save();
+						$creatorID = $newCreator->save();
+						$newCreator = Zotero_Creators::get($item->libraryID, $creatorID);
 						$item->setCreator($orderIndex, $newCreator, $newCreatorTypeID);
 					}
 					

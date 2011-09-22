@@ -1175,7 +1175,6 @@ class Zotero_Item {
 						throw new Exception("Item id not available after INSERT");
 					}
 					$itemID = $insertID;
-					Zotero_Items::cacheLibraryKeyID($this->libraryID, $key, $insertID);
 					
 					$this->serverDateModified = $timestamp;
 				}
@@ -2019,6 +2018,7 @@ class Zotero_Item {
 		
 		if ($isNew) {
 			Zotero_Items::cache($this);
+			Zotero_Items::cacheLibraryKeyID($this->libraryID, $key, $itemID);
 		}
 		
 		// TODO: invalidate memcache

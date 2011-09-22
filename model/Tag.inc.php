@@ -204,7 +204,6 @@ class Zotero_Tag {
 					$sql = "INSERT INTO tags SET tagID=?, $fields";
 					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 					Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
-					Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
 					
 					// Remove from delete log if it's there
 					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='tag' AND `key`=?";
@@ -241,7 +240,6 @@ class Zotero_Tag {
 						$sql = "INSERT INTO tags SET tagID=?, $fields";
 						$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 						Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
-						Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
 						
 						// Remove from delete log if it's there
 						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='tag' AND `key`=?";
@@ -348,6 +346,7 @@ class Zotero_Tag {
 		
 		if ($isNew) {
 			Zotero_Tags::cache($this);
+			Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
 		}
 		
 		return $this->id;

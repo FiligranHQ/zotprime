@@ -187,16 +187,12 @@ class Zotero_DataObjects {
 		}
 		
 		self::$idCache[$type][$libraryID][$key] = $id;
-		
-		// TODO: remove expiration time
-		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
 	}
 	
 	
 	public static function clearLibraryKeyCache($libraryID) {
 		$type = static::field('object');
 		unset(self::$idCache[$type][$libraryID]);
-		Z_Core::$MC->delete($type . 'IDsByKey_' . $libraryID);
 	}
 	
 	
@@ -518,7 +514,6 @@ class Zotero_DataObjects {
 		}
 		
 		unset(self::$idCache[$type][$libraryID][$key]);
-		Z_Core::$MC->set($type . 'IDsByKey_' . $libraryID, self::$idCache[$type][$libraryID], 1800);
 		
 		if ($deleted) {
 			$sql = "INSERT INTO syncDeleteLogKeys (libraryID, objectType, `key`, timestamp)

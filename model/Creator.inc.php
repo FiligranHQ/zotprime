@@ -187,7 +187,6 @@ class Zotero_Creator {
 					$sql = "INSERT INTO creators SET creatorID=?, $fields";
 					$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 					Zotero_DB::queryFromStatement($stmt, array_merge(array($creatorID), $params));
-					Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
 					
 					// Remove from delete log if it's there
 					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='creator' AND `key`=?";
@@ -257,6 +256,7 @@ class Zotero_Creator {
 		
 		if ($isNew) {
 			Zotero_Creators::cache($this);
+			Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
 		}
 		
 		// TODO: invalidate memcache?
