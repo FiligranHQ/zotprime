@@ -175,8 +175,11 @@ class Zotero_Collection {
 					trigger_error("Cannot move collection $this->id into itself!", E_USER_ERROR);
 				}
 				
+				// If the designated parent collection is already within this
+				// collection (which shouldn't happen), move it to the root
 				if ($this->id && $this->hasDescendent('collection', $newParentCollection->id)) {
-					trigger_error('Cannot move collection into one of its own descendents!', E_USER_ERROR);
+					$newParentCollection->parent = null;
+					$newParentCollection->save();
 				}
 				
 				$parent = $newParentCollection->id;
