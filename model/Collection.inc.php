@@ -154,7 +154,7 @@ class Zotero_Collection {
 			$key = $this->key ? $this->key : $this->generateKey();
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$datedAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
+			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
 			
 			// Verify parent
