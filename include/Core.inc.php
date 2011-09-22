@@ -26,7 +26,6 @@
 
 class Z_Core {
 	public static $MC = null; // Memcached
-	public static $Solr = null; // Solr
 	public static $debug = false;
 	
 	public static function debug($str, $level=false) {
@@ -43,10 +42,6 @@ class Z_Core {
 	
 	public static function logError($message) {
 		Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $message);
-	}
-	
-	public static function isPosInt($val) {
-		return preg_match('/^[0-9]+$/', $val);
 	}
 	
 	public static function getBacktrace() {
