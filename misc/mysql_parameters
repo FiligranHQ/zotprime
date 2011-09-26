@@ -1,0 +1,27 @@
+master:
+
+character_set_database = utf8
+character_set_server = utf8
+collation_server = utf8_general_ci
+event_scheduler = ON
+innodb_flush_log_at_trx_commit = 1
+log_bin_trust_function_creators = 1
+max_allowed_packet = 134217728
+sql_mode = STRICT_ALL_TABLES
+sync_binlog = 0
+table_open_cache = 128
+wait_timeout = 300
+
+shard:
+
+character_set_database = utf8
+character_set_server = utf8
+collation_server = utf8_general_ci
+event_scheduler = ON
+innodb_flush_log_at_trx_commit = 1
+log_bin_trust_function_creators = 1
+max_allowed_packet = 67108864
+sql_mode = STRICT_ALL_TABLES
+sync_binlog = 0
+table_open_cache = 512
+wait_timeout = 300
