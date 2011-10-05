@@ -205,7 +205,8 @@ class Zotero_Items extends Zotero_DataObjects {
 						$deleteTempTable['tmpCreatedByUsers'] = true;
 						
 						$sql2 = "SELECT DISTINCT createdByUserID FROM items
-								JOIN groupItems USING (itemID) WHERE ";
+								JOIN groupItems USING (itemID) WHERE
+								createdByUserID IS NOT NULL AND ";
 						if ($itemIDs) {
 							$sql2 .= "itemID IN ("
 									. implode(', ', array_fill(0, sizeOf($itemIDs), '?'))
@@ -383,7 +384,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'addedBy':
-					if ($isGroup) {
+					if ($isGroup && $createdByUserIDs) {
 						$orderSQL = "TCBU.username";
 					}
 					else {
