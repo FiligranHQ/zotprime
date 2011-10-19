@@ -298,7 +298,7 @@ class ApiController extends Controller {
 			else if (preg_match('/^[0-9]+$/', $extra['key'])) {
 				$this->objectID = (int) $extra['key'];
 			}
-			else if (preg_match('/[A-Z0-9]{8}/', $extra['key'])) {
+			else if (preg_match('/^[A-Z0-9]{8}$/', $extra['key'])) {
 				$this->objectKey = $extra['key'];
 			}
 		}
@@ -352,7 +352,17 @@ class ApiController extends Controller {
 				$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 			}
 			else {
-				$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
+				try {
+					$item = Zotero_Items::get($this->objectLibraryID, $this->objectID);
+				}
+				catch (Exception $e) {
+					if ($e->getCode() == Z_ERROR_OBJECT_LIBRARY_MISMATCH) {
+						$item = false;
+					}
+					else {
+						throw ($e);
+					}
+				}
 			}
 			
 			if (!$item) {
@@ -2619,13 +2629,14 @@ class ApiController extends Controller {
 		}
 		
 		$id = substr(md5(uniqid(rand(), true)), 0, 10);
-		$str = date("D M j G:i:s T Y") . "\n";
-		$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
+		$str = date("D M j G:i:s T Y") . "  \n";
+		$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "  \n";
 		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-			$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
+			$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
 		}
-		$str .= $_SERVER['REQUEST_URI'] . "\n";
-		$str .= $e;
+		$str .= $_SERVER['REQUEST_URI'] . "  \n";
+		$str .= $e . "  \n";
+		$str .= $this->body;
 		
 		if (!Z_ENV_TESTING_SITE) {
 			file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
