@@ -1069,6 +1069,7 @@ class Zotero_Item {
 			$this->storePreviousData('relatedItems');
 			$this->changed['relatedItems'] = true;
 		}
+		Z_Core::debug("Adding $itemID related item to " . $this->id);
 		$this->relatedItems[] = $itemID;
 		return true;
 	}
@@ -1090,6 +1091,7 @@ class Zotero_Item {
 			$this->storePreviousData('relatedItems');
 			$this->changed['relatedItems'] = true;
 		}
+		Z_Core::debug("Unsetting $itemID related item from " . $this->id);
 		unset($this->relatedItems[$index]);
 		return true;
 	}
@@ -3576,7 +3578,8 @@ class Zotero_Item {
 		}
 		
 		$cacheKey = $this->getCacheKey("itemRelated");
-		$ids = Z_Core::$MC->get($cacheKey);
+		//$ids = Z_Core::$MC->get($cacheKey);
+		$ids = false;
 		if ($ids === false) {
 			$sql = "SELECT linkedItemID FROM itemRelated WHERE itemID=?";
 			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
@@ -3674,6 +3677,10 @@ class Zotero_Item {
 	
 	
 	private function storePreviousData($field) {
+		// Don't overwrite previous data already stored
+		if (isset($this->previousData[$field])) {
+			return;
+		}
 		$this->previousData[$field] = $this->$field;
 	}
 	
