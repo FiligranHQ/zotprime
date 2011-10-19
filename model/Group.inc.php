@@ -537,7 +537,7 @@ class Zotero_Group {
 			throw new Exception("Cannot save group without name");
 		}
 		
-		if (strlen($this->description) > 1024) {
+		if (mb_strlen($this->description) > 1024) {
 			throw new Exception("Group description too long", Z_ERROR_GROUP_DESCRIPTION_TOO_LONG);
 		}
 		
