@@ -512,6 +512,7 @@ class Zotero_DataObjects {
 		}
 		
 		unset(self::$idCache[$type][$libraryID][$key]);
+		static::uncachePrimaryData($libraryID, $key);
 		
 		if ($deleted) {
 			$sql = "INSERT INTO syncDeleteLogKeys (libraryID, objectType, `key`, timestamp)
