@@ -693,6 +693,21 @@ class Zotero_Group {
 			throw new Exception("Group not deleted");
 		}
 		
+		// Delete key permissions for this library, and then delete any keys
+		// that had no other permissions
+		$sql = "SELECT keyID FROM keyPermissions WHERE libraryID=?";
+		$keyIDs = Zotero_DB::columnQuery($sql, $this->libraryID);
+		if ($keyIDs) {
+			$sql = "DELETE FROM keyPermissions WHERE libraryID=?";
+			Zotero_DB::query($sql, $this->libraryID);
+			
+			$sql = "DELETE K FROM `keys` K LEFT JOIN keyPermissions KP USING (keyID)
+					WHERE keyID IN ("
+				. implode(', ', array_fill(0, sizeOf($keyIDs), '?'))
+				. ") AND KP.keyID IS NULL";
+			Zotero_DB::query($sql, $keyIDs);
+		}
+		
 		// If group is locked by a sync, flag group for a timestamp update
 		// once the sync is done so that the uploading user gets the change
 		try {
