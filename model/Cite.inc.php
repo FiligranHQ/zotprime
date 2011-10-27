@@ -3,73 +3,24 @@ class Zotero_Cite {
 	private static $citePaperJournalArticleURL = false;
 	
 	
-	/**
-	 * Generate JSON for items and send to citeproc-js web service
-	 */
+	public static function getCitationFromCiteServer($item, $style='chicago-note-bibliography') {
+		$json = self::getJSONFromItems(array($item));
+		$response = self::makeRequest($style, 'citation', $json);
+		if (strpos($response->citations[0][1], "[CSL STYLE ERROR: ") !== false) {
+			return false;
+		}
+		return "<span>" . $response->citations[0][1] . "</span>";
+	}
+	
+	
 	public static function getBibliographyFromCiteServer($items, $style='chicago-note-bibliography', $css='inline') {
-		if (!is_string($style) || !preg_match('/^[a-zA-Z0-9\-]+$/', $style)) {
-			throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
-		}
-		
-		$cslItems = array();
-		foreach ($items as $item) {
-			$cslItems[] = $item->toCSLItem();
-		}
-		
-		$json = array(
-			"items" => $cslItems
-		);
-		
-		$json = json_encode($json);
-		
-		$servers = Z_CONFIG::$CITE_SERVERS;
-		// Try servers in a random order
-		shuffle($servers);
-		
-		foreach ($servers as $server) {
-			$url = "http://$server/?responseformat=json&style=$style";
-			
-			$start = microtime(true);
-			
-			$ch = curl_init($url);
-			curl_setopt($ch, CURLOPT_POST, 1);
-			curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
-			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
-			curl_setopt($ch, CURLOPT_TIMEOUT, 4);
-			curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER , 1);
-			$response = curl_exec($ch);
-			
-			$time = microtime(true) - $start;
-			
-			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-			
-			if ($code == 404) {
-				throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
-			}
-			
-			// If no response, try another server
-			if (!$response) {
-				continue;
-			}
-			
-			break;
-		}
-		
-		if (!$response) {
-			throw new Exception("Error generating bibliography");
-		}
+		$json = self::getJSONFromItems($items);
+		$response = self::makeRequest($style, 'bibliography', $json);
 		
 		//
 		// Ported from Zotero.Cite.makeFormattedBibliography() in Zotero client
 		//
-		
-		$bib = json_decode($response);
-		if (!$bib) {
-			throw new Exception("Error generating bibliography");
-		}
-		$bib = $bib->bibliography;
+		$bib = $response->bibliography;
 		$html = $bib[0]->bibstart . implode("", $bib[1]) . $bib[0]->bibend;
 		
 		if ($css == "none") {
@@ -364,6 +315,77 @@ class Zotero_Cite {
 		
 		return $cslItem;
 	}
+	
+	
+	private static function getJSONFromItems($items) {
+		$cslItems = array();
+		foreach ($items as $item) {
+			$cslItems[] = $item->toCSLItem();
+		}
+		
+		$json = array(
+			"items" => $cslItems
+		);
+		
+		return json_encode($json);
+	}
+	
+	
+	private static function makeRequest($style, $mode, $json) {
+		if (!is_string($style) || !preg_match('/^[a-zA-Z0-9\-]+$/', $style)) {
+			throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+		}
+		
+		$servers = Z_CONFIG::$CITE_SERVERS;
+		// Try servers in a random order
+		shuffle($servers);
+		
+		foreach ($servers as $server) {
+			$url = "http://$server/?responseformat=json&style=$style";
+			if ($mode == 'citation') {
+				$url .= "&citations=1&bibliography=0";
+			}
+			
+			$start = microtime(true);
+			
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_POST, 1);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
+			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+			curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+			curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER , 1);
+			$response = curl_exec($ch);
+			
+			$time = microtime(true) - $start;
+			
+			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			
+			if ($code == 404) {
+				throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+			}
+			
+			// If no response, try another server
+			if (!$response) {
+				continue;
+			}
+			
+			break;
+		}
+		
+		if (!$response) {
+			throw new Exception("Error generating $mode");
+		}
+		
+		$response = json_decode($response);
+		if (!$response) {
+			throw new Exception("Error generating $mode -- invalid response");
+		}
+		
+		return $response;
+	}
+	
 	
 	/*Zotero.Cite.System.getAbbreviations = function() {
 		return {};

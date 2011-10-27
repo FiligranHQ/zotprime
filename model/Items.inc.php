@@ -955,6 +955,16 @@ class Zotero_Items extends Zotero_DataObjects {
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
 		}
+		else if ($content == 'citation') {
+			$xml->content['type'] = 'xhtml';
+			$html = Zotero_Cite::getCitationFromCiteServer($item, $style);
+			$html = new SimpleXMLElement($html);
+			$html['xmlns'] = Zotero_Atom::$nsXHTML;
+			$fNode = dom_import_simplexml($xml->content);
+			$subNode = dom_import_simplexml($html);
+			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
+			$fNode->appendChild($importedNode);
+		}
 		else if ($content == 'bib') {
 			$xml->content['type'] = 'xhtml';
 			$html = Zotero_Cite::getBibliographyFromCiteServer(array($item), $style);

@@ -129,6 +129,7 @@ class Zotero_API {
 					switch ($getParams[$key]) {
 						case 'none':
 						case 'html':
+						case 'citation':
 						case 'bib':
 						case 'json':
 						case 'full':
