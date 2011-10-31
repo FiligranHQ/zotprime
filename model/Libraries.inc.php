@@ -157,7 +157,7 @@ class Zotero_Libraries {
 		foreach ($libraryIDs as $libraryID) {
 			if (isset(self::$originalTimestamps[$libraryID])) {
 				// TODO: limit to same transaction?
-				throw new Exception("Library timestamp cannot be updated more than once");
+				//throw new Exception("Library timestamp cannot be updated more than once");
 			}
 			self::$originalTimestamps[$libraryID] = self::getTimestamp($libraryID);
 		}
