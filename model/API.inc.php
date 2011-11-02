@@ -48,6 +48,7 @@ class Zotero_API {
 		
 		// search
 		'itemKey' => '',
+		'itemType' => '',
 		'tag' => '',
 		'tagType' => ''
 	);

@@ -265,6 +265,31 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= ") ";
 		}
 		
+		// Search on itemType
+		if (!empty($params['itemType'])) {
+			$itemTypes = Zotero_API::getSearchParamValues($params, 'itemType');
+			if ($itemTypes) {
+				if (sizeOf($itemTypes) > 1) {
+					throw new Exception("Cannot specify 'itemType' more than once", Z_ERROR_INVALID_INPUT);
+				}
+				$itemTypes = $itemTypes[0];
+				
+				$itemTypeIDs = array();
+				foreach ($itemTypes['values'] as $itemType) {
+					$itemTypeID = Zotero_ItemTypes::getID($itemType);
+					if (!$itemTypeID) {
+						throw new Exception("Invalid itemType '{$itemType}'", Z_ERROR_INVALID_INPUT);
+					}
+					$itemTypeIDs[] = $itemTypeID;
+				}
+				
+				$sql .= "AND itemTypeID " . ($itemTypes['negation'] ? "NOT " : "") . "IN ("
+						. implode(',', array_fill(0, sizeOf($itemTypeIDs), '?'))
+						. ") ";
+				$sqlParams = array_merge($sqlParams, $itemTypeIDs);
+			}
+		}
+		
 		// Tags
 		//
 		// ?tag=foo
