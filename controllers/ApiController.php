@@ -2254,7 +2254,20 @@ class ApiController extends Controller {
 		
 		$locale = empty($_GET['locale']) ? 'en-US' : $_GET['locale'];
 		
-		if ($this->subset == 'itemTypeCreatorTypes') {
+		if ($this->subset == 'itemTypeFields') {
+			if (empty($_GET['itemType'])) {
+				$this->e400("'itemType' not provided");
+			}
+			
+			$itemType = $_GET['itemType'];
+			
+			$itemTypeID = Zotero_ItemTypes::getID($itemType);
+			if (!$itemTypeID) {
+				$this->e400("Invalid item type '$itemType'");
+			}
+		}
+		
+		else if ($this->subset == 'itemTypeCreatorTypes') {
 			if (empty($_GET['itemType'])) {
 				$this->e400("'itemType' not provided");
 			}
@@ -2293,6 +2306,21 @@ class ApiController extends Controller {
 			case 'itemTypes':
 				$rows = Zotero_ItemTypes::getAll($locale);
 				$propName = 'itemType';
+				break;
+			
+			case 'itemTypeFields':
+				$fieldIDs = Zotero_ItemFields::getItemTypeFields($itemTypeID);
+				$rows = array();
+				foreach ($fieldIDs as $fieldID) {
+					$fieldName = Zotero_ItemFields::getName($fieldID);
+					$rows[] = array(
+						'name' => $fieldName,
+						'localized' => Zotero_ItemFields::getLocalizedString(
+							$itemTypeID, $fieldName, $locale
+						)
+					);
+				}
+				$propName = 'field';
 				break;
 			
 			case 'itemFields':

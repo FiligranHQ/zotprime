@@ -65,6 +65,7 @@ else {
 	$router->connect('/groups/:groupID/:action/:key/:subset', array('controller' => 'Api'));
 	
 	$router->connect('/itemTypes', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemTypes')));
+	$router->connect('/itemTypeFields', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemTypeFields')));
 	$router->connect('/itemFields', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemFields')));
 	$router->connect('/itemTypeCreatorTypes', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'itemTypeCreatorTypes')));
 	$router->connect('/creatorFields', array('controller' => 'Api', 'action' => 'mappings', 'extra' => array('subset' => 'creatorFields')));
