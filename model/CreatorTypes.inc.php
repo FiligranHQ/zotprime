@@ -127,7 +127,7 @@ class Zotero_CreatorTypes {
 		
 		$sql = "SELECT creatorTypeID AS id, creatorTypeName AS name
 			FROM itemTypeCreatorTypes NATURAL JOIN creatorTypes
-			WHERE itemTypeID=? ORDER BY primaryField=1 DESC";
+			WHERE itemTypeID=? ORDER BY primaryField=1 DESC, name";
 		$rows = Zotero_DB::query($sql, $itemTypeID);
 		if (!$rows) {
 			$rows = array();
