@@ -1,0 +1,128 @@
+#!/usr/bin/php
+<?
+set_include_path("../include");
+require("header.inc.php");
+
+if (empty($argv[1])) {
+	die("shardHostID not provided\n");
+}
+
+$startShardID = empty($argv[2]) ? 0 : $argv[2];
+
+$shardIDs = Zotero_DB::columnQuery("SELECT shardID FROM shards S JOIN shardHosts SH USING (shardHostID) WHERE SH.shardHostID=? AND S.state='up' AND SH.state='up' AND shardID>=? ORDER BY shardID", array($argv[1], $startShardID));
+
+foreach ($shardIDs as $shardID) {
+	echo "Shard: $shardID\n";
+	
+	$i = 0;
+	
+	while (true) {
+		$sql = "SELECT relationID, libraryID, subject, predicate, object, serverDateModified FROM relations LIMIT $i, 1000";
+		$rows = Zotero_DB::query($sql, false, $shardID);
+		if (!$rows) {
+			break;
+		}
+		
+		foreach ($rows as $row) {
+			$changed = 0;
+			$i++;
+			
+			try {
+				$subjectLibraryID = Zotero_URI::getURILibrary($row['subject']);
+				if (!$subjectLibraryID) {
+					echo "Library for subject {$row['subject']} doesn't exist\n";
+					continue;
+				}
+				$subjectLibraryType = Zotero_Libraries::getType($subjectLibraryID);
+				
+				$objectLibraryID = Zotero_URI::getURILibrary($row['object']);
+				if (!$objectLibraryID) {
+					echo "Library for object {$row['object']} doesn't exist\n";
+					continue;
+				}
+				$objectLibraryType = Zotero_Libraries::getType($objectLibraryID);
+			}
+			catch (Exception $e) {
+				if (strpos($e->getMessage(), "Invalid base URI") === 0 ||
+						strpos($e->getMessage(), "Invalid libraryURI URI") === 0) {
+					echo $e->getMessage() . "\n";
+					continue;
+				}
+				
+				throw ($e);
+			}
+			
+			$updateFromSource = false;
+			$updateFromObject = false;
+			
+			if ($row['predicate'] == 'owl:sameAs') {
+				if  ($subjectLibraryType == 'user') {
+					if ($objectLibraryType == 'group') {
+						// Store library of user
+						$updateFromSource = true;
+					}
+				}
+				else if ($subjectLibraryType == 'group') {
+					if ($objectLibraryType = 'user') {
+						// Store library of user
+						$updateFromObject = true;
+					}
+					else {
+						// Store library of source group
+						$updateFromSource = true;
+					}
+				}
+			}
+			else if ($row['predicate'] == 'dc:isReplacedBy') {
+				if ($subjectLibraryType == 'group') {
+					// Store library of source group
+					$updateFromSource = true;
+				}
+			}
+			// Other relations
+			else {
+				if ($subjectLibraryType == 'group') {
+					// Store library of source group
+					$updateFromSource = true;
+				}
+			}
+			
+			if ($updateFromSource) {
+				$newLibraryID = $subjectLibraryID;
+			}
+			else if ($updateFromObject) {
+				$newLibraryID = $objectLibraryID;
+			}
+			else {
+				$newLibraryID = false;
+			}
+			
+			if ($newLibraryID) {
+				if ($newLibraryID == $row['libraryID']) {
+					continue;
+				}
+				
+				$changed++;
+				
+				$newShardID = Zotero_Shards::getByLibraryID($newLibraryID);
+				// Shard hasn't changed, so just update
+				if ($shardID == $newShardID) {
+					$sql = "UPDATE relations SET libraryID=? WHERE relationID=?";
+					Zotero_DB::query($sql, array($newLibraryID, $row['relationID']), $shardID);
+				}
+				else {
+					// Add to new shard
+					$sql = "INSERT INTO relations (relationID, libraryID, subject, predicate, object, serverDateModified) "
+						. "VALUES (?, ?, ?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE serverDateModified=NOW()";
+					Zotero_DB::query($sql, array($row['relationID'], $newLibraryID, $row['subject'], $row['predicate'], $row['object']), $newShardID);
+					// Remove from old shard
+					$sql = "DELETE FROM relations WHERE relationID=?";
+					Zotero_DB::query($sql, $row['relationID'], $shardID);
+				}
+			}
+		}
+		
+		echo "Updated $changed relations rows on shard $shardID\n";
+	}
+}
+?>
