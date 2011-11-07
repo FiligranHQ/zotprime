@@ -5,6 +5,11 @@ start = element response {
 			attribute version { "8" },
 			element updated { external "data8.rnc" }
 		)
+			|
+		(
+			attribute version { "9" },
+			element updated { external "data9.rnc" }
+		)
 	),
 	attribute userID { xsd:integer },
 	attribute defaultLibraryID { xsd:integer },

@@ -47,9 +47,15 @@ class Zotero_Relations extends Zotero_DataObjects {
 	 * @param	Integer				$libraryID
 	 * @return	Zotero_Relation					Zotero relation object
 	 */
-	public static function convertXMLToRelation(DOMElement $xml, $libraryID) {
+	public static function convertXMLToRelation(DOMElement $xml, $userLibraryID) {
 		$relation = new Zotero_Relation;
-		$relation->libraryID = $libraryID;
+		$libraryID = $xml->getAttribute('libraryID');
+		if ($libraryID) {
+			$relation->libraryID = $libraryID;
+		}
+		else {
+			$relation->libraryID = $userLibraryID;
+		}
 		$relation->subject = $xml->getElementsByTagName('subject')->item(0)->nodeValue;
 		$relation->predicate = $xml->getElementsByTagName('predicate')->item(0)->nodeValue;
 		$relation->object = $xml->getElementsByTagName('object')->item(0)->nodeValue;

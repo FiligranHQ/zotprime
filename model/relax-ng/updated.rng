@@ -5,14 +5,24 @@
       <attribute name="timestamp">
         <data type="decimal"/>
       </attribute>
-      <group>
-        <attribute name="version">
-          <value>8</value>
-        </attribute>
-        <element name="updated">
-          <externalRef href="data8.rng"/>
-        </element>
-      </group>
+      <choice>
+        <group>
+          <attribute name="version">
+            <value>8</value>
+          </attribute>
+          <element name="updated">
+            <externalRef href="data8.rng"/>
+          </element>
+        </group>
+        <group>
+          <attribute name="version">
+            <value>9</value>
+          </attribute>
+          <element name="updated">
+            <externalRef href="data9.rng"/>
+          </element>
+        </group>
+      </choice>
       <attribute name="userID">
         <data type="integer"/>
       </attribute>

@@ -90,5 +90,70 @@ class Zotero_URI {
 	public static function getTagURI(Zotero_Tag $tag) {
 		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
+	
+	public static function getURIItem($itemURI) {
+		return self::getURIObject($itemURI, 'item');
+	}
+	
+	
+	public static function getURICollection($collectionURI) {
+		return self::getURIObject($collectionURI, 'collection');
+	}
+	
+	
+	public static function getURILibrary($libraryURI) {
+		return self::getURIObject($libraryURI, "library");
+	}
+	
+	
+	private static function getURIObject($objectURI, $type) {
+		$Types = ucwords($type) . 's';
+		$types = strtolower($Types);
+		
+		$libraryType = null;
+		
+		$baseURI = self::getBaseURI();
+		
+		// If not found, try global URI
+		if (strpos($objectURI, $baseURI) !== 0) {
+			throw new Exception("Invalid base URI '$objectURI'");
+		}
+		$objectURI = substr($objectURI, strlen($baseURI));
+		$typeRE = "/^(users|groups)\/([0-9]+)(?:\/|$)/";
+		if (!preg_match($typeRE, $objectURI, $matches)) {
+			throw new Exception("Invalid library URI '$objectURI'");
+		}
+		$libraryType = substr($matches[1], 0, -1);
+		$id = $matches[2];
+		$objectURI = preg_replace($typeRE, '', $objectURI);
+		
+		if ($libraryType == 'user') {
+			if (!Zotero_Users::exists($id)) {
+				return false;
+			}
+			$libraryID = Zotero_Users::getLibraryIDFromUserID($id);
+		}
+		else if ($libraryType == 'group') {
+			if (!Zotero_Groups::get($id)) {
+				return false;
+			}
+			$libraryID = Zotero_Groups::getLibraryIDFromGroupID($id);
+		}
+		else {
+			throw new Exception("Invalid library type $libraryType");
+		}
+		
+		if ($type === 'library') {
+			return $libraryID;
+		}
+		else {
+			// TODO: objectID-based URI?
+			if (!preg_match($types . "\/([A-Z0-9]{8})", $objectURI, $matches)) {
+				throw new Exception("Invalid object URI '$objectURI'");
+			}
+			$objectKey = $matches[1];
+			return call_user_func(array("Zotero_$Types", "getByLibraryAndKey"), $libraryID, $objectKey);
+		}
+	}
 }
 ?>

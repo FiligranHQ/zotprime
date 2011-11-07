@@ -25,7 +25,7 @@
 */
 
 class SyncController extends Controller {
-	private $validAPIVersions = array(8);
+	private $validAPIVersions = array(8, 9);
 	private $sessionLifetime = 3600;
 	
 	private $apiVersion;
@@ -274,7 +274,7 @@ class SyncController extends Controller {
 			// If we have a cached response, return that
 			try {
 				$startedTimestamp = microtime(true);
-				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync);
+				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync, $this->apiVersion);
 				if ($cached) {
 					$this->responseXML = simplexml_load_string($cached);
 					

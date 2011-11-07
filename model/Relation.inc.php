@@ -169,6 +169,7 @@ class Zotero_Relation {
 		}
 		
 		$xml = new SimpleXMLElement('<relation/>');
+		$xml['libraryID'] = $this->libraryID;
 		$xml->subject = $this->subject;
 		$xml->predicate = $this->predicate;
 		$xml->object = $this->object;

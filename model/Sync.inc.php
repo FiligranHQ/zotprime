@@ -842,12 +842,18 @@ class Zotero_Sync {
 	}
 	
 	
-	public static function getCachedDownload($userID, $lastsync) {
+	public static function getCachedDownload($userID, $lastsync, $apiVersion) {
 		if (!$lastsync) {
 			throw new Exception('$lastsync not provided');
 		}
 		
-		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
+		$key = md5(
+			Zotero_Users::getUpdateKey($userID)
+			. "_" . $lastsync
+			// Remove after 2.1 sync cutoff
+			. ($apiVersion >= 9 ? "_" . $apiVersion : "")
+			. "_" . self::$cacheVersion
+		);
 		
 		try {
 			$sql = "SELECT xmldata FROM syncDownloadCache WHERE hash=?";
@@ -876,8 +882,14 @@ class Zotero_Sync {
 	}
 	
 	
-	public static function cacheDownload($userID, $lastsync, $xmldata) {
-		$key = md5(Zotero_Users::getUpdateKey($userID) . "_" . $lastsync . "_" . self::$cacheVersion);
+	public static function cacheDownload($userID, $lastsync, $apiVersion, $xmldata) {
+		$key = md5(
+			Zotero_Users::getUpdateKey($userID)
+			. "_" . $lastsync
+			// Remove after 2.1 sync cutoff
+			. ($apiVersion >= 9 ? "_" . $apiVersion : "")
+			. "_" . self::$cacheVersion
+		);
 		
 		$sql = "INSERT IGNORE INTO syncDownloadCache (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
 		Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
@@ -1015,8 +1027,10 @@ class Zotero_Sync {
 	//
 	//
 	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null) {
+		$apiVersion = (int) $doc->documentElement->getAttribute('version');
+		
 		try {
-			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync);
+			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion);
 			if ($cached) {
 				$doc->loadXML($cached);
 				return;
@@ -1048,7 +1062,6 @@ class Zotero_Sync {
 		$updatedNode = $doc->createElement('updated');
 		$doc->documentElement->appendChild($updatedNode);
 		
-		$apiVersion = (int) $doc->documentElement->getAttribute('version');
 		$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 		
 		$updatedCreators = array();
@@ -1155,6 +1168,12 @@ class Zotero_Sync {
 										}
 										$node->appendChild($xmlElement);
 									}
+									else if ($name == 'relation') {
+										$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
+										if ($apiVersion <= 8) {
+											unset($xmlElement['libraryID']);
+										}
+									}
 									else {
 										$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
 									}
@@ -1251,7 +1270,7 @@ class Zotero_Sync {
 		// Cache response if response isn't empty
 		try {
 			if ($doc->documentElement->firstChild->hasChildNodes()) {
-				self::cacheDownload($userID, $lastsync, $doc->saveXML());
+				self::cacheDownload($userID, $lastsync, $apiVersion, $doc->saveXML());
 			}
 		}
 		catch (Exception $e) {
