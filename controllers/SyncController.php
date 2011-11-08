@@ -513,7 +513,7 @@ class SyncController extends Controller {
 		}
 		
 		if (!preg_match('/^[a-f0-9]{32}$/', $_REQUEST['sessionid'])) {
-			$this->error(500, 'INVALID_SESSION_ID', "Invalid session ID");
+			$this->error($this->apiVersion >= 9 ? 403 : 500, 'INVALID_SESSION_ID', "Invalid session ID");
 		}
 		
 		$sessionID = $_REQUEST['sessionid'];
@@ -528,11 +528,11 @@ class SyncController extends Controller {
 			$session = Zotero_DB::rowQuery($sql, $sessionID);
 			
 			if (!$session) {
-				$this->error(500, 'INVALID_SESSION_ID', "Invalid session ID");
+				$this->error($this->apiVersion >= 9 ? 403 : 500, 'INVALID_SESSION_ID', "Invalid session ID");
 			}
 			
 			if ($session['age'] > $this->sessionLifetime) {
-				$this->error(500, 'SESSION_TIMED_OUT', "Session timed out");
+				$this->error($this->apiVersion >= 9 ? 403 : 500, 'SESSION_TIMED_OUT', "Session timed out");
 			}
 			
 			$userID = $session['userid'];
