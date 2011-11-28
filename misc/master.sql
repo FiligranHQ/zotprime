@@ -182,7 +182,7 @@ CREATE TABLE `libraries` (
   `libraryType` enum('user','group') NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `lastUpdatedMS` smallint(5) unsigned NOT NULL DEFAULT '0',
-  `shardID` tinyint(3) unsigned NOT NULL,
+  `shardID` smallint(5) unsigned NOT NULL,
   PRIMARY KEY (`libraryID`),
   KEY `libraryType` (`libraryType`),
   KEY `shardID` (`shardID`)
@@ -223,7 +223,7 @@ CREATE TABLE `shardHosts` (
 
 
 CREATE TABLE `shards` (
-  `shardID` tinyint(3) unsigned NOT NULL,
+  `shardID` smallint(5) unsigned NOT NULL,
   `shardHostID` tinyint(3) unsigned NOT NULL,
   `username` varchar(20) NOT NULL,
   `password` varchar(16) NOT NULL,
@@ -232,23 +232,6 @@ CREATE TABLE `shards` (
   PRIMARY KEY (`shardID`),
   KEY `shardHostID` (`shardHostID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
-CREATE TABLE IF NOT EXISTS `solrProcesses` (
-  `solrProcessID` int(10) unsigned NOT NULL,
-  `hostID` tinyint(3) unsigned NOT NULL,
-  `started` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`solrProcessID`),
-  KEY `hostID` (`hostID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-
-
-CREATE TABLE `solrQueue` (
-  `itemID` INT(10) UNSIGNED NOT NULL,
-  PRIMARY KEY (`itemID`)
-) ENGINE = InnoDB DEFAULT CHARSET=utf8;
 
 
 
@@ -529,3 +512,5 @@ ALTER TABLE `users`
 
 CREATE EVENT sessionGC ON SCHEDULE EVERY 5 MINUTE DO
     DELETE S FROM sessions S LEFT JOIN syncUploadQueue USING (sessionID) WHERE timestamp<DATE_SUB(NOW(), INTERVAL 1 HOUR) AND (syncUploadQueue.sessionID IS NULL OR finished IS NOT NULL);
+
+
