@@ -1010,7 +1010,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
 		
-		// Not for public consumption
+		// Deprecated and not for public consumption
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';
 			$fullXML = Zotero_Items::convertItemToXML($item, array(), $apiVersion);
