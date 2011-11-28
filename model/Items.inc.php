@@ -594,7 +594,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			$pos = (int) $creator->getAttribute('index');
 			if ($pos != $i) {
-				throw new Exception("No creator in position $i");
+				throw new Exception("No creator in position $i for item " . $itemObj->key);
 			}
 			
 			$key = $creator->getAttribute('key');

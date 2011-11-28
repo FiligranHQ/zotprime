@@ -157,7 +157,7 @@ class Zotero_Creators extends Zotero_DataObjects {
 	 * Converts a Zotero_Creator object to a DOMElement
 	 *
 	 * @param	object				$item		Zotero_Creator object
-	 * @return	SimpleXMLElement				Creator data as DOMElement element
+	 * @return	DOMElement						Creator data as DOMElement element
 	 */
 	public static function convertCreatorToXML(Zotero_Creator $creator, DOMDocument $doc) {
 		$xmlCreator = $doc->createElement('creator');
