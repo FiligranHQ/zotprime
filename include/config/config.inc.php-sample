@@ -35,6 +35,10 @@ class Z_CONFIG {
 		"citeserver1.localdomain:8080", "citeserver2.localdomain:8080"
 	);
 	
+	public static $ATTACHMENT_SERVER_HOSTS = array("files1.localdomain:80", "files2.localdomain:80");
+	public static $ATTACHMENT_SERVER_DOMAIN = "https://files.example.net";
+	public static $ATTACHMENT_SERVER_DOCROOT = "/var/www/attachments/";
+	
 	public static $LOG_TO_SCRIBE = false;
 	public static $LOG_ADDRESS = '';
 	public static $LOG_PORT = 1463;

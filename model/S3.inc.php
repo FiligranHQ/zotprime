@@ -47,13 +47,17 @@ class Zotero_S3 {
 		$url = Zotero_API::getItemURI($item) . "/file";
 		$info = self::getFileInfoByID($storageFileID);
 		if ($info['zip']) {
-			return false;
+			return array(
+				'url' => $url . "/view"
+			);
 		}
-		return array(
-			'url' => $url,
-			'filename' => $info['filename'],
-			'size' => $info['size']
-		);
+		else {
+			return array(
+				'url' => $url,
+				'filename' => $info['filename'],
+				'size' => $info['size']
+			);
+		}
 	}
 	
 	public static function getDownloadURL($item, $ttl=false) {
@@ -79,6 +83,29 @@ class Zotero_S3 {
 		);
 		
 		return $url;
+	}
+	
+	
+	public static function downloadFile(array $localFileItemInfo, $savePath) {
+		Zotero_S3::requireLibrary();
+		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		
+		if (!file_exists($savePath)) {
+			throw new Exception("Path '$savePath' does not exist");
+		}
+		
+		if (!is_dir($savePath)) {
+			throw new Exception("'$savePath' is not a directory");
+		}
+		
+		$response = S3::getObject(
+			Z_CONFIG::$S3_BUCKET,
+			self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
+				. $localFileItemInfo['filename'],
+			$savePath . "/" . $localFileItemInfo['filename']
+		);
+		
+		return $response;
 	}
 	
 	public static function logDownload($item, $downloadUserID, $ipAddress) {

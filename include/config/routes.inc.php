@@ -28,7 +28,9 @@ else {
 	$router->connect('/storagepurge', array('controller' => 'Api', 'action' => 'storagepurge'));
 	$router->connect('/users/:userID/removestoragefiles', array('controller' => 'Api', 'action' => 'removestoragefiles', 'extra' => array('allowHTTP' => true)));
 	$router->connect('/users/:userID/items/:key/file', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true)));
+	$router->connect('/users/:userID/items/:key/file/view', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true, 'view' => true)));
 	$router->connect('/groups/:groupID/items/:key/file', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true)));
+	$router->connect('/groups/:groupID/items/:key/file/view', array('controller' => 'Api', 'action' => 'items', 'extra' => array('allowHTTP' => true, 'file' => true, 'view' => true)));
 	
 	// May be necessary for tag scope
 	//$router->connect('/users/:userID/:scopeObject/:scopeObjectKey/items/top', array('controller' => 'Api', 'action' => 'items', 'extra' => array('subset' => 'top')));

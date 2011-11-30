@@ -920,8 +920,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					$link['type'] = $type;
 				}
 				$link['href'] = $details['url'];
-				$link['title'] = $details['filename'];
-				$link['length'] = $details['size'];
+				if (!empty($details['filename'])) {
+					$link['title'] = $details['filename'];
+				}
+				if (!empty($details['size'])) {
+					$link['length'] = $details['size'];
+				}
 			}
 		}
 		

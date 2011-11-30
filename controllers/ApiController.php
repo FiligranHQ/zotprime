@@ -53,6 +53,7 @@ class ApiController extends Controller {
 	private $objectName;
 	private $subset;
 	private $fileMode;
+	private $fileView;
 	private $httpAuth;
 	
 	private $profile = false;
@@ -303,7 +304,7 @@ class ApiController extends Controller {
 		$this->fileMode = !empty($extra['file'])
 							? (!empty($_GET['info']) ? 'info' : 'download')
 							: false;
-		
+		$this->fileView = !empty($extra['view']);
 		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING']);
 	}
 	
@@ -327,7 +328,12 @@ class ApiController extends Controller {
 		//
 		if (($this->objectID || $this->objectKey) && !$this->subset) {
 			if ($this->fileMode) {
-				$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD'));
+				if ($this->fileView) {
+					$this->allowMethods(array('GET', 'HEAD'));
+				}
+				else {
+					$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD'));
+				}
 			}
 			else {
 				$this->allowMethods(array('GET', 'PUT', 'DELETE'));
@@ -859,6 +865,10 @@ class ApiController extends Controller {
 		
 		$this->allowMethods(array('HEAD', 'GET', 'POST'));
 		
+		if (!$item->isAttachment()) {
+			$this->e400("Item is not an attachment");
+		}
+		
 		// Use of HEAD method is deprecated after 2.0.8/2.1b1 due to
 		// compatibility problems with proxies and security software
 		if ($this->method == 'HEAD' || $this->fileMode == 'info') {
@@ -878,8 +888,24 @@ class ApiController extends Controller {
 			header_remove("X-Powered-By");
 		}
 		
-		// Redirect GET request to S3 URL
 		else if ($this->method == 'GET') {
+			if ($this->fileView) {
+				$info = Zotero_S3::getLocalFileItemInfo($item);
+				if (!$info) {
+					$this->e404();
+				}
+				// For zip files, redirect to files domain
+				if ($info['zip']) {
+					$url = Zotero_Attachments::getTemporaryURL($item);
+					if (!$url) {
+						$this->e500();
+					}
+					header("Location: $url");
+					exit;
+				}
+			}
+			
+			// For single files, redirect to S3
 			$url = Zotero_S3::getDownloadURL($item, 60);
 			if (!$url) {
 				$this->e404();
