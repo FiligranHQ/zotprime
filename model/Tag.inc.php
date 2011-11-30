@@ -219,8 +219,6 @@ class Zotero_Tag {
 				// If an incoming tag is the same as an existing tag, but with a different key,
 				// then delete the old tag and add its linked items to the new tag
 				if (preg_match("/Duplicate entry .+ for key 'uniqueTags'/", $e->getMessage())) {
-					Z_Core::$debug = false;
-					
 					// GET existing tag
 					$existing = Zotero_Tags::getIDs($this->libraryID, $this->name);
 					if (!$existing) {

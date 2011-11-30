@@ -28,18 +28,17 @@ class Zotero_Utilities {
 	/**
 	 * Generates random string of given length
 	 *
-	 * @param		int		$length
-	 * @param		string	$case				'lower', 'upper' or 'mixed' (optional, default 'lower')
-	 * @param		bool	$exclude_ambiguous	Exclude letters that are hard to distinguish visually
-	 *											(Optional, default false)
+	 * @param int    $length
+	 * @param string [$mode='lower']              'key', 'lower', 'upper', 'mixed'
+	 * @param bool   [$exclude_ambiguous=false]   Exclude letters that are hard to distinguish visually
 	 **/
-	public static function randomString($length, $case='lower', $exclude_ambiguous=false) {
+	public static function randomString($length, $mode='lower', $exclude_ambiguous=false) {
 		// if you want extended ascii, then add the characters to the array
 		$upper = array('A','B','C','D','E','F','G','H','I','J','K','L','M','N','P','Q','R','S','T','U','V','W','X','Y','Z');
 		$lower = array('a','b','c','d','e','f','g','h','i','j','k','m','n','o','p','q','r','s','t','u','v','w','x','y','z');
 		$numbers = array('2','3','4','5','6','7','8','9');
 		
-		switch ($case){
+		switch ($mode) {
 			// Special case for object ids, which are inadvertently missing 'L' and 'Y'
 			case 'key':
 				$characters = array_merge(
@@ -171,6 +170,6 @@ class Zotero_Utilities {
 		}
 	
 		return $new_json;
-	} 
+	}
 }
 ?>
