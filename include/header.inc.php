@@ -159,7 +159,7 @@ if ($_SERVER['REQUEST_URI'] == '*') {
 }
 
 // Get canonical URL without extension and query string
-preg_match("/[^?\.]+/", $_SERVER['REQUEST_URI'], $matches);
+preg_match("/[^?]+/", $_SERVER['REQUEST_URI'], $matches);
 define('Z_ENV_SELF', $matches[0]);
 
 // Load in core functions
