@@ -13,6 +13,7 @@ class Z_CONFIG {
 	public static $AUTH_SALT = '';
 	public static $API_SUPER_USERNAME = '';
 	public static $API_SUPER_PASSWORD = '';
+	public static $SESSION_AUTH_KEY = '';
 	
 	public static $API_BASE_URI = '';
 	public static $SYNC_DOMAIN = '';

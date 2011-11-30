@@ -122,19 +122,7 @@ class ApiController extends Controller {
 				}
 				$this->httpAuth = true;
 				$this->userID = $userID;
-				$this->permissions = new Zotero_Permissions($userID);
-				$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-				
-				// Grant user file permissions on own library
-				$this->permissions->setPermission($libraryID, 'library', true);
-				$this->permissions->setPermission($libraryID, 'files', true);
-				
-				// Grant user file permissions on allowed groups
-				$groups = Zotero_Groups::getAllAdvanced($userID);
-				foreach ($groups['groups'] as $group) {
-					$this->permissions->setPermission($group->libraryID, 'library', true);
-					$this->permissions->setPermission($group->libraryID, 'files', true);
-				}
+				self::grantUserPermissions($userID);
 			}
 			
 			else {
@@ -158,6 +146,10 @@ class ApiController extends Controller {
 					}
 				}
 			}
+		}
+		// Website cookie authentication
+		else if (!empty($_COOKIE) && ($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE))) {
+			self::grantUserPermissions($this->userID);
 		}
 		// No credentials provided
 		else {
@@ -2496,6 +2488,27 @@ class ApiController extends Controller {
 			header("HTTP/1.1 405 Method Not Allowed");
 			header("Allow: " . implode(", ", $methods));
 			die($message ? $message : "Method not allowed");
+		}
+	}
+	
+	
+	/**
+	 * For HTTP Auth and session-based auth, generate blanket user permissions
+	 * manually, since there's no key object
+	 */
+	private function grantUserPermissions($userID) {
+		$this->permissions = new Zotero_Permissions($userID);
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		
+		// Grant user file permissions on own library
+		$this->permissions->setPermission($libraryID, 'library', true);
+		$this->permissions->setPermission($libraryID, 'files', true);
+		
+		// Grant user file permissions on allowed groups
+		$groups = Zotero_Groups::getAllAdvanced($userID);
+		foreach ($groups['groups'] as $group) {
+			$this->permissions->setPermission($group->libraryID, 'library', true);
+			$this->permissions->setPermission($group->libraryID, 'files', true);
 		}
 	}
 	
