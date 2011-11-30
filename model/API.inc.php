@@ -182,8 +182,11 @@ class Zotero_API {
 									break;
 							}
 							
-							if (!isset($getParams['sort']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
+							if (!isset($getParams['sort'])) {
 								$queryParams['sort'] = self::getDefaultSort($getParams[$key]);
+							}
+							else if (!in_array($getParams['sort'], array('asc', 'desc'))) {
+								throw new Exception("Invalid 'sort' value '" . $getParams['sort'] . "'", Z_ERROR_INVALID_INPUT);
 							}
 							else {
 								$queryParams['sort'] = $getParams['sort'];
@@ -197,8 +200,11 @@ class Zotero_API {
 				
 				// If sort and no order
 				case 'sort':
-					if (!isset($getParams['order']) || !in_array($getParams['sort'], array('asc', 'desc'))) {
-						$queryParams['sort'] = self::getDefaultSort($getParams[$key]);
+					if (!in_array($getParams['sort'], array('asc', 'desc'))) {
+						throw new Exception("Invalid 'sort' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					}
+					else if (!isset($getParams['order'])) {
+						$queryParams['sort'] = self::getDefaultSort();
 						continue 2;
 					}
 					break;
