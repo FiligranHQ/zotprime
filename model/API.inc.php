@@ -133,6 +133,7 @@ class Zotero_API {
 						case 'citation':
 						case 'bib':
 						case 'json':
+						case 'csljson':
 						case 'full':
 							break;
 						

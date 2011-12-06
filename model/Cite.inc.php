@@ -236,7 +236,7 @@ class Zotero_Cite {
 				&& self::$citePaperJournalArticleURL);
 		
 		$cslItem = array(
-			'id' => $zoteroItem->id,
+			'id' => $zoteroItem->key,
 			'type' => $cslType
 		);
 		

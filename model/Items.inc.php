@@ -1013,7 +1013,22 @@ class Zotero_Items extends Zotero_DataObjects {
 			);
 			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
-		
+		else if ($content == 'csljson') {
+			$xml->content['type'] = 'application/x-csl+json';
+			$arr = $item->toCSLItem();
+			
+			$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+			if ($queryParams['pprint']) {
+				$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
+			}
+			else {
+				$json = json_encode($arr, $mask);
+			}
+			// Until JSON_UNESCAPED_SLASHES is available
+			$json = str_replace('\\/', '/', $json);
+			
+			$xml->content = $json;
+		}
 		// Deprecated and not for public consumption
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';
