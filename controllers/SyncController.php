@@ -616,8 +616,9 @@ class SyncController extends Controller {
 		$msg = $e->getMessage();
 		
 		if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
-				|| strpos($msg, "MySQL error: Deadlock found when trying to get lock; try restarting transaction") !== false
-				|| strpos($msg, "Too many connections") !== false) {
+				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
+				|| strpos($msg, "Too many connections") !== false
+				|| strpos($msg, "Can't connect to MySQL server") !==false) {
 			Z_Core::logError("WARNING: $msg -- sending sync wait");
 			$locked = $this->responseXML->addChild('locked');
 			$locked['wait'] = $this->getWaitTime($this->sessionID);
