@@ -974,6 +974,13 @@ class Zotero_Items extends Zotero_DataObjects {
 			Zotero_Atom::$nsZoteroAPI
 		);
 		
+		$xml->content = '';
+		$xml->content->addAttribute(
+			'zapi:type',
+			$content,
+			Zotero_Atom::$nsZoteroAPI
+		);
+		
 		if ($content == 'html') {
 			$xml->content['type'] = 'xhtml';
 			$html = $item->toHTML(true);
@@ -1005,7 +1012,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			$fNode->appendChild($importedNode);
 		}
 		else if ($content == 'json') {
-			$xml->content['type'] = 'application/json';
 			$xml->content->addAttribute(
 				'zapi:etag',
 				$item->etag,
@@ -1014,7 +1020,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
 		}
 		else if ($content == 'csljson') {
-			$xml->content['type'] = 'application/x-csl+json';
 			$arr = $item->toCSLItem();
 			
 			$mask = JSON_HEX_TAG|JSON_HEX_AMP;
