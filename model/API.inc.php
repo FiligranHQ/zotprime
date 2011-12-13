@@ -40,7 +40,7 @@ class Zotero_API {
 		'pprint' => false,
 		
 		// format='atom'
-		'content' => "html",
+		'content' => array("html"),
 		
 		// format='bib'
 		'style' => "chicago-note-bibliography",
@@ -127,21 +127,34 @@ class Zotero_API {
 					continue 2;
 				
 				case 'content':
-					switch ($getParams[$key]) {
-						case 'none':
-						case 'html':
-						case 'citation':
-						case 'bib':
-						case 'json':
-						case 'csljson':
-						case 'full':
-							break;
-						
-						default:
-							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
+					$getParams[$key] = array_values(array_unique(explode(',', $getParams[$key])));
+					sort($getParams[$key]);
+					foreach ($getParams[$key] as $value) {
+						switch ($value) {
+							case 'none':
+							case 'full':
+								if (sizeOf($getParams[$key]) > 1) {
+									throw new Exception(
+										"content=$value is not valid in "
+											. "multi-format responses",
+										Z_ERROR_INVALID_INPUT
+									);
+								}
 								break;
-							}
-							throw new Exception("Invalid 'content' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+								
+							case 'html':
+							case 'citation':
+							case 'bib':
+							case 'json':
+							case 'csljson':
+								break;
+							
+							default:
+								if (in_array($value, Zotero_Translate::$exportFormats)) {
+									break;
+								}
+								throw new Exception("Invalid 'content' value '$value'", Z_ERROR_INVALID_INPUT);
+						}
 					}
 					break;
 				

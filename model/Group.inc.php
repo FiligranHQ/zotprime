@@ -910,7 +910,10 @@ class Zotero_Group {
 	}
 	
 	
-	public function toAtom($content='none', $queryParams, $apiVersion=null) {
+	public function toAtom($content=array('none'), $queryParams, $apiVersion=null) {
+		// TODO: multi-format support
+		$content = $content[0];
+		
 		if (!$this->loaded) {
 			$this->load();
 		}

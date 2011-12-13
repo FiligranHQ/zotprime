@@ -847,6 +847,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	 */
 	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions=null) {
 		$content = $queryParams['content'];
+		$contentIsHTML = sizeOf($content) == 1 && $content[0] == 'html';
+		$contentParamString = urlencode(implode(',', $content));
 		$style = $queryParams['style'];
 		
 		$entry = '<entry xmlns="' . Zotero_Atom::$nsAtom . '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>';
@@ -873,7 +875,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		$id = Zotero_URI::getItemURI($item);
-		/*if ($content != 'html') {
+		/*if (!$contentIsHTML) {
 			$id .= "?content=$content";
 		}*/
 		$xml->id = $id;
@@ -885,8 +887,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
 		$href = Zotero_Atom::getItemURI($item);
-		if ($content != 'html') {
-			$href .= "?content=$content";
+		if (!$contentIsHTML) {
+			$href .= "?content=$contentParamString";
 		}
 		$link['href'] = $href;
 		
@@ -898,8 +900,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
 			$href = Zotero_Atom::getItemURI($parentItem);
-			if ($content != 'html') {
-				$href .= "?content=$content";
+			if (!$contentIsHTML) {
+				$href .= "?content=$contentParamString";
 			}
 			$link['href'] = $href;
 		}
@@ -975,82 +977,117 @@ class Zotero_Items extends Zotero_DataObjects {
 		);
 		
 		$xml->content = '';
-		$xml->content->addAttribute(
-			'zapi:type',
-			$content,
-			Zotero_Atom::$nsZoteroAPI
-		);
 		
-		if ($content == 'html') {
-			$xml->content['type'] = 'xhtml';
-			$html = $item->toHTML(true);
-			$xml->content->div = '';
-			$xml->content->div['xmlns'] = Zotero_Atom::$nsXHTML;
-			$fNode = dom_import_simplexml($xml->content->div);
-			$subNode = dom_import_simplexml($html);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
-		}
-		else if ($content == 'citation') {
-			$xml->content['type'] = 'xhtml';
-			$html = Zotero_Cite::getCitationFromCiteServer($item, $style);
-			$html = new SimpleXMLElement($html);
-			$html['xmlns'] = Zotero_Atom::$nsXHTML;
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($html);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
-		}
-		else if ($content == 'bib') {
-			$xml->content['type'] = 'xhtml';
-			$html = Zotero_Cite::getBibliographyFromCiteServer(array($item), $style);
-			$html = new SimpleXMLElement($html);
-			$html['xmlns'] = Zotero_Atom::$nsXHTML;
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($html);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
-		}
-		else if ($content == 'json') {
-			$xml->content->addAttribute(
-				'zapi:etag',
-				$item->etag,
-				Zotero_Atom::$nsZoteroAPI
+		//
+		// DOM XML from here on out
+		//
+		
+		$contentNode = dom_import_simplexml($xml->content);
+		$domDoc = $contentNode->ownerDocument;
+		$multiFormat = sizeOf($content) > 1;
+		
+		// Create a root XML document for multi-format responses
+		if ($multiFormat) {
+			$contentNode->setAttribute('type', 'application/xml');
+			/*$multicontent = $domDoc->createElementNS(
+				Zotero_Atom::$nsZoteroAPI, 'multicontent'
 			);
-			$xml->content = $item->toJSON(false, $queryParams['pprint'], true);
+			$contentNode->appendChild($multicontent);*/
 		}
-		else if ($content == 'csljson') {
-			$arr = $item->toCSLItem();
-			
-			$mask = JSON_HEX_TAG|JSON_HEX_AMP;
-			if ($queryParams['pprint']) {
-				$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
+		
+		foreach ($content as $type) {
+			// Set the target to either the main <content>
+			// or a <multicontent> <content>
+			if (!$multiFormat) {
+				$target = $contentNode;
 			}
 			else {
-				$json = json_encode($arr, $mask);
+				$target = $domDoc->createElementNS(
+					Zotero_Atom::$nsZoteroAPI, 'subcontent'
+				);
+				$contentNode->appendChild($target);
 			}
-			// Until JSON_UNESCAPED_SLASHES is available
-			$json = str_replace('\\/', '/', $json);
 			
-			$xml->content = $json;
-		}
-		// Deprecated and not for public consumption
-		else if ($content == 'full') {
-			$xml->content['type'] = 'application/xml';
-			$fullXML = Zotero_Items::convertItemToXML($item, array(), $apiVersion);
-			$fullXML->addAttribute(
-				"xmlns", Zotero_Atom::$nsZoteroTransfer
+			$target->setAttributeNS(
+				Zotero_Atom::$nsZoteroAPI,
+				"zapi:type",
+				$type
 			);
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
-		}
-		
-		else if (in_array($content, Zotero_Translate::$exportFormats)) {
-			$export = Zotero_Translate::getExportFromTranslateServer(array($item), $content);
-			$xml->content['type'] = $export['mimeType'];
-			$xml->content = $export['body'];
+			
+			if ($type == 'html') {
+				if (!$multiFormat) {
+					$target->setAttribute('type', 'xhtml');
+				}
+				$div = $domDoc->createElement('div');
+				$div->setAttribute('xmlns', Zotero_Atom::$nsXHTML);
+				$target->appendChild($div);
+				$html = $item->toHTML(true);
+				$subNode = dom_import_simplexml($html);
+				$importedNode = $domDoc->importNode($subNode, true);
+				$div->appendChild($importedNode);
+			}
+			else if ($type == 'citation') {
+				if (!$multiFormat) {
+					$target->setAttribute('type', 'xhtml');
+				}
+				$html = Zotero_Cite::getCitationFromCiteServer($item, $style);
+				$html = new SimpleXMLElement($html);
+				$html['xmlns'] = Zotero_Atom::$nsXHTML;
+				$subNode = dom_import_simplexml($html);
+				$importedNode = $domDoc->importNode($subNode, true);
+				$target->appendChild($importedNode);
+			}
+			else if ($type == 'bib') {
+				if (!$multiFormat) {
+					$target->setAttribute('type', 'xhtml');
+				}
+				$html = Zotero_Cite::getBibliographyFromCiteServer(array($item), $style);
+				$html = new SimpleXMLElement($html);
+				$html['xmlns'] = Zotero_Atom::$nsXHTML;
+				$subNode = dom_import_simplexml($html);
+				$importedNode = $domDoc->importNode($subNode, true);
+				$target->appendChild($importedNode);
+			}
+			else if ($type == 'json') {
+				$target->setAttributeNS(
+					Zotero_Atom::$nsZoteroAPI,
+					"zapi:etag",
+					$item->etag
+				);
+				$target->nodeValue = $item->toJSON(false, $queryParams['pprint'], true);
+			}
+			else if ($type == 'csljson') {
+				$arr = $item->toCSLItem();
+				
+				$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+				if ($queryParams['pprint']) {
+					$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
+				}
+				else {
+					$json = json_encode($arr, $mask);
+				}
+				// Until JSON_UNESCAPED_SLASHES is available
+				$json = str_replace('\\/', '/', $json);
+				
+				$target->nodeValue = $json;
+			}
+			// Deprecated and not for public consumption
+			else if ($type == 'full') {
+				if (!$multiFormat) {
+					$target->setAttribute('type', 'xhtml');
+				}
+				$fullXML = Zotero_Items::convertItemToXML($item, array(), $apiVersion);
+				$fullXML->addAttribute("xmlns", Zotero_Atom::$nsZoteroTransfer);
+				$subNode = dom_import_simplexml($fullXML);
+				$importedNode = $domDoc->importNode($subNode, true);
+				$target->appendChild($importedNode);
+			}
+			
+			else if (in_array($type, Zotero_Translate::$exportFormats)) {
+				$export = Zotero_Translate::getExportFromTranslateServer(array($item), $type);
+				$target->setAttribute('type', $export['mimeType']);
+				$target->nodeValue = $export['body'];
+			}
 		}
 		
 		return $xml;

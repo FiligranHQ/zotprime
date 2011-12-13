@@ -488,7 +488,10 @@ class Zotero_Tag {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Tag data as SimpleXML element
 	 */
-	public function toAtom($content='none', $apiVersion=null, $fixedValues=null) {
+	public function toAtom($content=array('none'), $apiVersion=null, $fixedValues=null) {
+		// TEMP: multi-format support
+		$content = $content[0];
+		
 		$xml = new SimpleXMLElement(
 			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '

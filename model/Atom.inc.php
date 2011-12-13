@@ -81,6 +81,10 @@ class Zotero_Atom {
 	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $apiVersion=null, $permissions=null, $fixedValues=array()) {
 		if ($queryParams) {
 			$nonDefaultParams = Zotero_API::getNonDefaultQueryParams($queryParams);
+			// Convert 'content' array to sorted comma-separated string
+			if (isset($nonDefaultParams['content'])) {
+				$nonDefaultParams['content'] = implode(',', $nonDefaultParams['content']);
+			}
 		}
 		else {
 			$nonDefaultParams = array();
@@ -88,7 +92,7 @@ class Zotero_Atom {
 		
 		$feed = '<feed xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"';
-		if ($queryParams && $queryParams['content'] == 'full') {
+		if ($queryParams && $queryParams['content'][0] == 'full') {
 			$feed .= ' xmlns:zxfer="' . Zotero_Atom::$nsZoteroTransfer . '"';
 		}
 		$feed .= '/>';

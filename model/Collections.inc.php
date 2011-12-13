@@ -189,7 +189,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Collection data as SimpleXML element
 	 */
-	public static function convertCollectionToAtom(Zotero_Collection $collection, $content='none') {
+	public static function convertCollectionToAtom(Zotero_Collection $collection, $content=array('none')) {
+		// TEMP: multi-format support
+		$content = $content[0];
+		
 		$xml = new SimpleXMLElement(
 			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
 		);

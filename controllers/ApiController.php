@@ -477,7 +477,7 @@ class ApiController extends Controller {
 					$obj = $this->jsonDecode($this->body);
 					Zotero_Items::updateFromJSON($item, $obj, false, null, $this->userID);
 					$this->queryParams['format'] = 'atom';
-					$this->queryParams['content'] = 'json';
+					$this->queryParams['content'] = array('json');
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -1253,7 +1253,7 @@ class ApiController extends Controller {
 					$obj = $this->jsonDecode($this->body);
 					Zotero_Collections::updateFromJSON($collection, $obj);
 					$this->queryParams['format'] = 'atom';
-					$this->queryParams['content'] = 'json';
+					$this->queryParams['content'] = array('json');
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -1564,7 +1564,7 @@ class ApiController extends Controller {
 				}
 			}
 			
-			$this->responseXML = $group->toAtom('full', $this->queryParams, $this->apiVersion);
+			$this->responseXML = $group->toAtom(array('full'), $this->queryParams, $this->apiVersion);
 			
 			Zotero_DB::commit();
 			
@@ -1629,7 +1629,7 @@ class ApiController extends Controller {
 				$this->e500($e->getMessage());
 			}
 			
-			$this->responseXML = $group->toAtom('full', $this->queryParams, $this->apiVersion);
+			$this->responseXML = $group->toAtom(array('full'), $this->queryParams, $this->apiVersion);
 			
 			Zotero_DB::commit();
 			
