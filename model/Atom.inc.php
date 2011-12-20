@@ -134,15 +134,27 @@ class Zotero_Atom {
 			$atomLastURI = $atomSelfURI;
 		}
 		else {
-			$lastStart = $totalResults - ($totalResults % $queryParams['limit']);
-			if ($lastStart == $totalResults) {
+			// 'start' past results
+			if ($queryParams['start'] >= $totalResults) {
 				$lastStart = $totalResults - $queryParams['limit'];
+			}
+			else {
+				$lastStart = $totalResults - ($totalResults % $queryParams['limit']);
+				if ($lastStart == $totalResults) {
+					$lastStart = $totalResults - $queryParams['limit'];
+				}
 			}
 			$p = $nonDefaultParams;
 			if ($lastStart > 0) {
 				$p['start'] = $lastStart;
 			}
-			$atomLastURI = $atomURI . "?" . http_build_query($p);
+			else {
+				unset($p['start']);
+			}
+			$atomLastURI = $atomURI;
+			if ($last = http_build_query($p)) {
+				$atomLastURI .= "?" . $last;
+			}
 			
 			// 'next'
 			$nextStart = $queryParams['start'] + $queryParams['limit'];

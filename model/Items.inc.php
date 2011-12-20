@@ -453,8 +453,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		$itemIDs = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
+		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 		if ($itemIDs) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 			$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
 		}
 		
