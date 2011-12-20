@@ -124,7 +124,9 @@ class Zotero_Atom {
 		if ($nonDefaultParams) {
 			$p = $nonDefaultParams;
 			unset($p['start']);
-			 $atomFirstURI .= "?" . http_build_query($p);
+			if ($first = http_build_query($p)) {
+				$atomFirstURI .= "?" . $first;
+			}
 		}
 		
 		// 'last'
