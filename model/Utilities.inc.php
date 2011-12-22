@@ -99,6 +99,17 @@ class Zotero_Utilities {
     }
     
     
+	public static function ellipsize($str, $len) {
+		if (!$len) {
+			throw new Exception("Length not specified");
+		}
+		if (mb_strlen($str) > $len) {
+			return mb_substr($str, 0, $len) . '…';
+		}
+		return $str;
+	}
+    
+    
     // By umbrae on http://us2.php.net/json_encode
 	public static function json_encode_pretty($json_obj, $mask=false) {
 		$tab = "  ";

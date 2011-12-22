@@ -1316,6 +1316,7 @@ class Zotero_Item {
 					// If we don't have a sanitized note, generate one
 					if (is_null($this->noteTextSanitized)) {
 						$noteTextSanitized = Zotero_Notes::sanitize($this->noteText);
+						
 						// But if the same as original, just use reference
 						if ($this->noteText == $noteTextSanitized) {
 							$this->noteTextSanitized =& $this->noteText;
@@ -1347,7 +1348,15 @@ class Zotero_Item {
 						$hash
 					);
 					
-					Zotero_DB::query($sql, $bindParams, $shardID);
+					try {
+						Zotero_DB::query($sql, $bindParams, $shardID);
+					}
+					catch (Exception $e) {
+						if (strpos($e->getMessage(), "Incorrect string value") !== false) {
+							throw new Exception("=Invalid character in note '" . Zotero_Utilities::ellipsize($title, 70) . "'.", Z_ERROR_INVALID_INPUT);
+						}
+						throw ($e);
+					}
 					Zotero_Notes::updateNoteCache($this->libraryID, $itemID, $this->noteText);
 					Zotero_Notes::updateHash($this->libraryID, $itemID, $hash);
 				}
