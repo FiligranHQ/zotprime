@@ -1353,7 +1353,7 @@ class Zotero_Item {
 					}
 					catch (Exception $e) {
 						if (strpos($e->getMessage(), "Incorrect string value") !== false) {
-							throw new Exception("=Invalid character in note '" . Zotero_Utilities::ellipsize($title, 70) . "'.", Z_ERROR_INVALID_INPUT);
+							throw new Exception("=Invalid character in note '" . Zotero_Utilities::ellipsize($title, 70) . "'", Z_ERROR_INVALID_INPUT);
 						}
 						throw ($e);
 					}
