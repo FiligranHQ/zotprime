@@ -64,36 +64,43 @@ class Zotero_API {
 		$queryParams = array();
 		
 		foreach (self::getDefaultQueryParams() as $key=>$val) {
-			// Don't overwrite 'sort' or 'emptyFirst' if already derived from 'order'
-			if (($key == 'sort' && !empty($queryParams['sort']))
-				|| ($key == 'emptyFirst' && !empty($queryParams['emptyFirst']))) {
+			// Don't overwrite field if already derived from another field
+			if (!empty($queryParams[$key])) {
 				continue;
+			}
+			
+			// Maximum 'limit' depends on 'format'
+			if ($key == 'limit') {
+				$val = self::getLimitMax(isset($getParams['format']) ? $getParams['format'] : "");
 			}
 			
 			// Fill defaults
 			$queryParams[$key] = $val;
 			
-			// Set an arbitrary limit in bib mode, above which we'll return an
-			// error below, since sorting and limiting doesn't make sense for
-			// bibliographies sorted by citeproc-js
-			if (isset($getParams['format']) && $getParams['format'] == 'bib') {
-				switch ($key) {
-					case 'limit':
-						// Use +1 here, since test elsewhere uses just $maxBibliographyItems
-						$queryParams['limit'] = Zotero_API::$maxBibliographyItems + 1;
-						break;
-					
-					// Use defaults
-					case 'order':
-					case 'sort':
-					case 'start':
-					case 'content':
-						continue 2;
-				}
-			}
-			
+			// If no parameter passed, used default
 			if (!isset($getParams[$key])) {
 				continue;
+			}
+			
+			// Some formats need special parameter handling
+			if (isset($getParams['format'])) {
+				if ($getParams['format'] == 'bib') {
+					switch ($key) {
+						// Invalid parameters
+						case 'order':
+						case 'sort':
+						case 'start':
+						case 'limit':
+							throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
+					}
+				}
+				else if ($getParams['format'] == 'keys') {
+					switch ($key) {
+						// Invalid parameters
+						case 'start':
+							throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
+					}
+				}
 			}
 			
 			switch ($key) {
@@ -101,6 +108,7 @@ class Zotero_API {
 					switch ($getParams[$key]) {
 						case 'atom':
 						case 'bib':
+						case 'keys':
 							break;
 						
 						default:
@@ -112,21 +120,25 @@ class Zotero_API {
 					break;
 				
 				case 'start':
+					$queryParams[$key] = (int) $getParams[$key];
+					continue 2;
+					
 				case 'limit':
-					if ($key == 'limit') {
-						// Enforce max on 'limit'
-						if ((int) $getParams[$key] > 100) {
-							$getParams[$key] = 100;
-						}
-						// Use default if 0 or invalid
-						else if ((int) $getParams[$key] == 0) {
-							continue 2;
-						}
+					// If there's a maximum, enforce it
+					if ($queryParams['limit'] && (int) $getParams[$key] > $queryParams['limit']) {
+						$getParams[$key] = $limitMax;
+					}
+					// Use default if 0 or invalid
+					else if ((int) $getParams[$key] == 0) {
+						continue 2;
 					}
 					$queryParams[$key] = (int) $getParams[$key];
 					continue 2;
 				
 				case 'content':
+					if (isset($getParams['format']) && $getParams['format'] != 'atom') {
+						throw new Exception("'content' is valid only for format=atom", Z_ERROR_INVALID_INPUT);
+					}
 					$getParams[$key] = array_values(array_unique(explode(',', $getParams[$key])));
 					sort($getParams[$key]);
 					foreach ($getParams[$key] as $value) {
@@ -212,14 +224,9 @@ class Zotero_API {
 					}
 					break;
 				
-				// If sort and no order
 				case 'sort':
 					if (!in_array($getParams['sort'], array('asc', 'desc'))) {
 						throw new Exception("Invalid 'sort' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
-					}
-					else if (!isset($getParams['order'])) {
-						$queryParams['sort'] = self::getDefaultSort();
-						continue 2;
 					}
 					break;
 			}
@@ -279,12 +286,6 @@ class Zotero_API {
 		$nonDefault = array();
 		foreach ($params as $key=>$val) {
 			if (isset(self::$defaultQueryParams[$key]) && self::$defaultQueryParams[$key] != $val) {
-				// Don't include 'limit' as a non-default parameter in bib mode,
-				// since it's just used internally to enforce a maximum bib size
-				if ($key == 'limit' && $params['format'] == 'bib' && $val > self::$maxBibliographyItems) {
-					continue;
-				}
-				
 				$nonDefault[$key] = $val;
 			}
 		}
@@ -292,7 +293,7 @@ class Zotero_API {
 	}
 	
 	
-	public static function getDefaultSort($field) {
+	public static function getDefaultSort($field="") {
 		// Use descending for date fields
 		// TODO: use predefined field formats
 		if (strpos($field, 'date') === 0) {
@@ -303,6 +304,15 @@ class Zotero_API {
 			default:
 				return 'asc';
 		}
+	}
+	
+	public static function getLimitMax($format) {
+		switch ($format) {
+			case 'keys':
+				return 0;
+		}
+		
+		return 100;
 	}
 	
 	

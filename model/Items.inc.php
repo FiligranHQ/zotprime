@@ -105,8 +105,13 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
-		$results = array('items' => array(), 'total' => 0);
+	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false, $asKeys=false) {
+		if ($asKeys) {
+			$results = array('keys' => array(), 'total' => 0);
+		}
+		else {
+			$results = array('items' => array(), 'total' => 0);
+		}
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
@@ -125,7 +130,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT I.itemID FROM items I ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT "
+				. ($asKeys ? "I.key" : "I.itemID")
+				. " FROM items I ";
 		$sqlParams = array($libraryID);
 		
 		if (!empty($params['q']) || $titleSort) {
@@ -346,10 +353,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			// No matches
 			if (!$tagItems) {
-				return array(
-					'total' => 0,
-					'items' => array(),
-				);
+				return $results;
 			}
 			
 			// Combine with passed keys
@@ -357,10 +361,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				$itemIDs = array_intersect($itemIDs, $tagItems);
 				// None of the tag matches match the passed keys
 				if (!$itemIDs) {
-					return array(
-						'total' => 0,
-						'items' => array(),
-					);
+					return $results;
 				}
 			}
 			else {
@@ -430,7 +431,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			
 			if (!empty($params['sort'])) {
-				$dir = " " . $params['sort'];
+				$dir = $params['sort'];
 			}
 			else {
 				$dir = "ASC";
@@ -455,7 +456,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 		if ($itemIDs) {
-			$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
+			if ($asKeys) {
+				$results['keys'] = $itemIDs;
+			}
+			else {
+				$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
+			}
 		}
 		
 		if (!empty($deleteTempTable['tmpCreatedByUsers'])) {

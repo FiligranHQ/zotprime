@@ -320,7 +320,8 @@ class ApiController extends Controller {
 		}
 		
 		$itemIDs = array();
-		$items = array();
+		$responseItems = array();
+		$responseKeys = array();
 		$totalResults = null;
 		
 		//
@@ -512,14 +513,12 @@ class ApiController extends Controller {
 					exit;
 				
 				default:
-					if (in_array($this->queryParams['format'], Zotero_Translate::$exportFormats)) {
-						$export = Zotero_Translate::getExportFromTranslateServer(array($item), $this->queryParams['format']);
-						header("Content-Type: " . $export['mimeType']);
-						echo $export['body'];
-						exit;
-					}
+					$this->allowFormats(Zotero_Translate::$exportFormats);
 					
-					throw new Exception("Invalid format");
+					$export = Zotero_Translate::getExportFromTranslateServer(array($item), $this->queryParams['format']);
+					header("Content-Type: " . $export['mimeType']);
+					echo $export['body'];
+					exit;
 			}
 		}
 		
@@ -534,6 +533,7 @@ class ApiController extends Controller {
 			}
 			
 			$includeTrashed = false;
+			$formatAsKeys = $this->queryParams['format'] == 'keys';
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET', 'POST'));
@@ -744,11 +744,16 @@ class ApiController extends Controller {
 					}
 					
 					$title = "Items";
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
+					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, false, $formatAsKeys);
 				}
 				
 				if (!empty($results)) {
-					$items = $results['items'];
+					if ($formatAsKeys) {
+						$responseKeys = $results['keys'];
+					}
+					else {
+						$responseItems = $results['items'];
+					}
 					$totalResults = $results['total'];
 				}
 			}
@@ -761,22 +766,30 @@ class ApiController extends Controller {
 			
 			if ($itemIDs) {
 				$this->queryParams['itemIDs'] = $itemIDs;
-				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
+				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $formatAsKeys);
 				
-				$items = $results['items'];
+				if ($formatAsKeys) {
+					$responseKeys = $results['keys'];
+				}
+				else {
+					$responseItems = $results['items'];
+				}
 				$totalResults = $results['total'];
 			}
 			else if (!isset($results)) {
-				$results = array('items' => array(), 'total' => 0);
-				
-				$items = array();
+				if ($formatAsKeys) {
+					$responseKeys = array();
+				}
+				else {
+					$responseItems = array();
+				}
 				$totalResults = 0;
 			}
 			
 			// Remove notes if not user and not public
-			for ($i=0; $i<sizeOf($items); $i++) {
-				if ($items[$i]->isNote() && !$this->permissions->canAccess($items[$i]->libraryID, 'notes')) {
-					array_splice($items, $i, 1);
+			for ($i=0; $i<sizeOf($responseItems); $i++) {
+				if ($responseItems[$i]->isNote() && !$this->permissions->canAccess($responseItems[$i]->libraryID, 'notes')) {
+					array_splice($responseItems, $i, 1);
 					$totalResults--;
 					$i--;
 				}
@@ -787,7 +800,7 @@ class ApiController extends Controller {
 					$this->responseXML = Zotero_Atom::createAtomFeed(
 						$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 						$this->uri,
-						$items,
+						$responseItems,
 						$totalResults,
 						$this->queryParams,
 						$this->apiVersion,
@@ -796,18 +809,28 @@ class ApiController extends Controller {
 					break;
 				
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCiteServer($items, $this->queryParams['style'], $this->queryParams['css']);
+					echo Zotero_Cite::getBibliographyFromCiteServer($responseItems, $this->queryParams['style'], $this->queryParams['css']);
+					exit;
+				
+				case 'keys':
+					if (!$formatAsKeys) {
+						$responseKeys = array();
+						foreach ($responseItems as $item) {
+							$responseKeys[] = $item->key;
+						}
+					}
+					
+					header("Content-Type: text/plain");
+					echo implode("\n", $responseKeys) . "\n";
 					exit;
 				
 				default:
-					if (in_array($this->queryParams['format'], Zotero_Translate::$exportFormats)) {
-						$export = Zotero_Translate::getExportFromTranslateServer($items, $this->queryParams['format']);
-						header("Content-Type: " . $export['mimeType']);
-						echo $export['body'];
-						exit;
-					}
+					$this->allowFormats(Zotero_Translate::$exportFormats);
 					
-					throw new Exception("Invalid format");
+					$export = Zotero_Translate::getExportFromTranslateServer($responseItems, $this->queryParams['format']);
+					header("Content-Type: " . $export['mimeType']);
+					echo $export['body'];
+					exit;
 			}
 		}
 		
@@ -1198,6 +1221,8 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
+		$this->allowFormats(array('atom'));
+		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
 		}
@@ -1386,6 +1411,7 @@ class ApiController extends Controller {
 	
 	public function tags() {
 		$this->allowMethods(array('GET'));
+		$this->allowFormats(array('atom'));
 		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
@@ -1509,6 +1535,8 @@ class ApiController extends Controller {
 	
 	
 	public function groups() {
+		$this->allowFormats(array('atom'));
+		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
 		}
@@ -1777,6 +1805,8 @@ class ApiController extends Controller {
 	
 	
 	public function groupUsers() {
+		$this->requireFormat(array('atom'));
+		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
 		}
@@ -2514,6 +2544,13 @@ class ApiController extends Controller {
 			header("HTTP/1.1 405 Method Not Allowed");
 			header("Allow: " . implode(", ", $methods));
 			die($message ? $message : "Method not allowed");
+		}
+	}
+	
+	
+	private function allowFormats($formats) {
+		if (!in_array($this->queryParams['format'], $formats)) {
+			throw new Exception("Invalid format '{$this->queryParams['format']}'", Z_ERROR_INVALID_INPUT);
 		}
 	}
 	
