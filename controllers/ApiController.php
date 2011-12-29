@@ -54,7 +54,8 @@ class ApiController extends Controller {
 	private $subset;
 	private $fileMode;
 	private $fileView;
-	private $httpAuth;
+	private $httpAuth = false;
+	private $cookieAuth = false;
 	
 	private $profile = false;
 	private $profileShard = 1;
@@ -151,6 +152,7 @@ class ApiController extends Controller {
 		// Website cookie authentication
 		else if (!empty($_COOKIE) && ($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE))) {
 			self::grantUserPermissions($this->userID);
+			$this->cookieAuth = true;
 		}
 		// No credentials provided
 		else {
@@ -2555,6 +2557,12 @@ class ApiController extends Controller {
 	}
 	
 	
+	private function requireContentType($contentType) {
+		if ($_SERVER['CONTENT_TYPE'] != $contentType) {
+			throw new Exception("Content-Type must be '$contentType'", Z_ERROR_INVALID_INPUT);
+		}
+	}
+	
 	/**
 	 * For HTTP Auth and session-based auth, generate blanket user permissions
 	 * manually, since there's no key object
@@ -2685,6 +2693,14 @@ class ApiController extends Controller {
 	
 	
 	private function jsonDecode($json) {
+		// Require explicit content type for session-based authentication
+		// to prevent CSRF attacks. Browsers won't send enctype=application/json
+		// with form submissions, per
+		// http://pseudo-flaw.net/content/web-browsers/form-data-encoding-roundup/
+		if ($this->cookieAuth) {
+			$this->requireContentType('application/json');
+		}
+		
 		$obj = json_decode($json);
 		
 		switch(json_last_error()) {
@@ -2705,7 +2721,7 @@ class ApiController extends Controller {
         }
         
         if (!empty($error)) {
-            $this->e400('JSON Error: ' . $error);
+            throw new Exception("JSON Error: $error", Z_ERROR_INVALID_INPUT);
         }
         
         return $obj;
