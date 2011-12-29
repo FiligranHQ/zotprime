@@ -124,7 +124,7 @@ class ApiController extends Controller {
 				}
 				$this->httpAuth = true;
 				$this->userID = $userID;
-				self::grantUserPermissions($userID);
+				$this->grantUserPermissions($userID);
 			}
 			
 			else {
@@ -151,7 +151,7 @@ class ApiController extends Controller {
 		}
 		// Website cookie authentication
 		else if (!empty($_COOKIE) && ($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE))) {
-			self::grantUserPermissions($this->userID);
+			$this->grantUserPermissions($this->userID);
 			$this->cookieAuth = true;
 		}
 		// No credentials provided
@@ -2123,7 +2123,7 @@ class ApiController extends Controller {
 					$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
 				}
 				
-				$fields = self::getFieldsFromKeyXML($key);
+				$fields = $this->getFieldsFromKeyXML($key);
 				
 				Zotero_DB::beginTransaction();
 				
