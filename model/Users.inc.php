@@ -205,21 +205,12 @@ class Zotero_Users {
 	
 	/**
 	 * Get a key to represent the current state of all of a user's libraries
-	 *
-	 * includeMS is temporary until lastUpdatedMS is removed
 	 */
-	public static function getUpdateKey($userID, $includeMS=false) {
+	public static function getUpdateKey($userID) {
 		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
 		$parts = array();
 		foreach ($libraryIDs as $libraryID) {
-			// TEMP
-			if ($includeMS) {
-				$sql = "SELECT CONCAT(UNIX_TIMESTAMP(lastUpdated), '.', IFNULL(lastUpdatedMS, 0))
-						FROM libraries WHERE libraryID=?";
-			}
-			else {
-				$sql = "SELECT UNIX_TIMESTAMP(lastUpdated) FROM libraries WHERE libraryID=?";
-			}
+			$sql = "SELECT UNIX_TIMESTAMP(lastUpdated) FROM libraries WHERE libraryID=?";
 			$timestamp = Zotero_DB::valueQuery($sql, $libraryID);
 			$parts[] = $libraryID . ':' . $timestamp;
 		}
