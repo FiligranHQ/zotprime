@@ -107,7 +107,7 @@ foreach ($shardIDs as $shardID) {
 				$newShardID = Zotero_Shards::getByLibraryID($newLibraryID);
 				// Shard hasn't changed, so just update
 				if ($shardID == $newShardID) {
-					$sql = "UPDATE relations SET libraryID=? WHERE relationID=?";
+					$sql = "UPDATE relations SET libraryID=?, serverDateModified=NOW() WHERE relationID=?";
 					Zotero_DB::query($sql, array($newLibraryID, $row['relationID']), $shardID);
 				}
 				else {
