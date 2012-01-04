@@ -392,6 +392,7 @@ class SyncController extends Controller {
 			//Z_Core::logError($errstr);
 		}
 		set_error_handler('relaxNGErrorHandler');
+		set_time_limit(60);
 		if (!$doc->relaxNGValidate(Z_ENV_MODEL_PATH . 'relax-ng/upload.rng')) {
 			$id = substr(md5(uniqid(rand(), true)), 0, 10);
 			$str = date("D M j G:i:s T Y") . "\n";
