@@ -69,9 +69,8 @@ class Zotero_API {
 				continue;
 			}
 			
-			// Maximum 'limit' depends on 'format'
 			if ($key == 'limit') {
-				$val = self::getLimitMax(isset($getParams['format']) ? $getParams['format'] : "");
+				$val = self::getDefaultLimit(isset($getParams['format']) ? $getParams['format'] : "");
 			}
 			
 			// Fill defaults
@@ -124,8 +123,11 @@ class Zotero_API {
 					continue 2;
 					
 				case 'limit':
+					// Maximum limit depends on 'format'
+					$limitMax = self::getLimitMax(isset($getParams['format']) ? $getParams['format'] : "");
+					
 					// If there's a maximum, enforce it
-					if ($queryParams['limit'] && (int) $getParams[$key] > $queryParams['limit']) {
+					if ($limitMax && (int) $getParams[$key] > $limitMax) {
 						$getParams[$key] = $limitMax;
 					}
 					// Use default if 0 or invalid
@@ -306,7 +308,18 @@ class Zotero_API {
 		}
 	}
 	
-	public static function getLimitMax($format) {
+	
+	public static function getDefaultLimit($format="") {
+		switch ($format) {
+			case 'keys':
+				return 0;
+		}
+		
+		return self::$defaultQueryParams['limit'];
+	}
+	
+	
+	public static function getLimitMax($format="") {
 		switch ($format) {
 			case 'keys':
 				return 0;
