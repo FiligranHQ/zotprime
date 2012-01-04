@@ -75,6 +75,12 @@ class ApiController extends Controller {
 		$this->startTime = microtime(true);
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
+		/*if (isset($_SERVER['REMOTE_ADDR'])
+				&& in_array($_SERVER['REMOTE_ADDR'], array('67.222.53.60'))) {
+			header("HTTP/1.1 420 Rate Limited");
+			die("Too many requests");
+		}*/
+		
 		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE'))) {
 			header("HTTP/1.1 501 Not Implemented");
 			die("Method is not implemented");
@@ -295,6 +301,11 @@ class ApiController extends Controller {
 			}
 			else if (preg_match('/^[A-Z0-9]{8}$/', $extra['key'])) {
 				$this->objectKey = $extra['key'];
+			}
+			else if ($extra['key'] != 'top') {
+				Z_Core::logError("=============");
+				Z_Core::logError("Invalid key");
+				Z_Core::logError($extra['key']);
 			}
 		}
 		
@@ -969,6 +980,7 @@ class ApiController extends Controller {
 				
 				$info = Zotero_S3::getUploadInfo($uploadKey);
 				if (!$info) {
+					Z_Core::logError("400 here $uploadKey");
 					$this->e400("Upload key not found");
 				}
 				
@@ -978,6 +990,7 @@ class ApiController extends Controller {
 				
 				$info = Zotero_S3::getRemoteFileInfo($hash, $filename, $zip);
 				if (!$info) {
+					Z_Core::logError("400 here $hash $filename $zip");
 					$this->e400("Remote file not found");
 				}
 				if (!isset($info['size'])) {
@@ -1807,7 +1820,7 @@ class ApiController extends Controller {
 	
 	
 	public function groupUsers() {
-		$this->requireFormat(array('atom'));
+		$this->allowFormats(array('atom'));
 		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
