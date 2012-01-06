@@ -655,7 +655,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
+					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams, false, $formatAsKeys);
 				}
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
