@@ -2361,6 +2361,12 @@ class ApiController extends Controller {
 		}
 		$json = Z_Core::$MC->get($cacheKey);
 		if ($json) {
+			if ($this->queryParams['pprint']) {
+				header("Content-Type: text/plain");
+			}
+			else {
+				header("Content-Type: application/json");
+			}
 			echo $json;
 			exit;
 		}
@@ -2410,13 +2416,13 @@ class ApiController extends Controller {
 			);
 		}
 		
-		header("Content-Type: application/json");
-		
 		if ($this->queryParams['pprint']) {
+			header("Content-Type: text/plain");
 			$json = Zotero_Utilities::json_encode_pretty($json);
 			Z_Core::$MC->set($cacheKey, $json, $ttl);
 		}
 		else {
+			header("Content-Type: application/json");
 			$json = json_encode($json);
 			Z_Core::$MC->set($cacheKey, $json, $ttl);
 		}
