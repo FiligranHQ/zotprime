@@ -56,7 +56,7 @@ class Zotero_Groups {
 	
 	public static function getAllAdvanced($userID=false, $params=array(), $permissions=null) {
 		$buffer = 20;
-		$maxTimes = 5;
+		$maxTimes = 3;
 		
 		$groups = array();
 		$start = !empty($params['start']) ? $params['start'] : 0;
@@ -78,7 +78,9 @@ class Zotero_Groups {
 				$sqlParams[] = $userID;
 			}
 			else {
-				$sql .= "WHERE 1 ";
+				// Don't include groups that have never had items
+				$sql .= "JOIN libraries L ON (G.libraryID=L.libraryID)
+						WHERE L.lastUpdated != '0000-00-00 00:00:00'";
 			}
 			
 			if (!empty($params['q'])) {
@@ -185,13 +187,6 @@ class Zotero_Groups {
 			
 			foreach ($ids as $id) {
 				$group = Zotero_Groups::get($id, true);
-				
-				// Remove groups with no items
-				if (!$group->numItems()) {
-					$totalResults--;
-					continue;
-				}
-				
 				$groups[] = $group;
 			}
 			
