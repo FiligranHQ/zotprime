@@ -77,12 +77,9 @@ class Zotero_Groups {
 				$sql .= "JOIN groupUsers GUA ON (G.groupID=GUA.groupID) WHERE GUA.userID=? ";
 				$sqlParams[] = $userID;
 			}
-			else {
-				// Don't include groups that have never had items
-				$sql .= "JOIN libraries L ON (G.libraryID=L.libraryID)
-						WHERE L.lastUpdated != '0000-00-00 00:00:00'";
-			}
 			
+			$paramSQL = "";
+			$includeEmpty = false;
 			if (!empty($params['q'])) {
 				if (!is_array($params['q'])) {
 					$params['q'] = array($params['q']);
@@ -92,24 +89,37 @@ class Zotero_Groups {
 					if (sizeOf($field) == 2) {
 						switch ($field[0]) {
 							case 'slug':
+								$includeEmpty = true;
 								break;
 							
 							default:
 								throw new Exception("Cannot search by group field '{$field[0]}'", Z_ERROR_INVALID_GROUP_TYPE);
 						}
 						
-						$sql .= "AND " . $field[0];
+						$paramSQL .= "AND " . $field[0];
 						// If first character is '-', negate
-						$sql .= ($field[0][0] == '-' ? '!' : '');
-						$sql .= "=? ";
+						$paramSQL .= ($field[0][0] == '-' ? '!' : '');
+						$paramSQL .= "=? ";
 						$sqlParams[] = $field[1];
 					}
 					else {
-						$sql .= "AND name LIKE ? ";
+						$paramSQL .= "AND name LIKE ? ";
 						$sqlParams[] = "%$q%";
 					}
 				}
 			}
+			
+			if (!$userID) {
+				if ($includeEmpty) {
+					$sql .= "WHERE 1 ";
+				}
+				else {
+					// Don't include groups that have never had items
+					$sql .= "JOIN libraries L ON (G.libraryID=L.libraryID)
+							WHERE L.lastUpdated != '0000-00-00 00:00:00' ";
+				}
+			}
+			$sql .= $paramSQL;
 			
 			if (!empty($params['fq'])) {
 				if (!is_array($params['fq'])) {
