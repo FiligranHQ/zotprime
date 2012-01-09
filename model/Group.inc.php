@@ -513,6 +513,10 @@ class Zotero_Group {
 	 * Returns the number of items in the group
 	 */
 	public function numItems() {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
 		$sql = "SELECT COUNT(*) FROM items WHERE libraryID=?";
 		return Zotero_DB::valueQuery($sql, $this->libraryID, Zotero_Shards::getByLibraryID($this->libraryID));
 	}

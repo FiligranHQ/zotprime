@@ -56,7 +56,7 @@ class Zotero_Groups {
 	
 	public static function getAllAdvanced($userID=false, $params=array(), $permissions=null) {
 		$buffer = 20;
-		$maxTimes = 3;
+		$maxTimes = 5;
 		
 		$groups = array();
 		$start = !empty($params['start']) ? $params['start'] : 0;
@@ -185,6 +185,13 @@ class Zotero_Groups {
 			
 			foreach ($ids as $id) {
 				$group = Zotero_Groups::get($id, true);
+				
+				// Remove groups with no items
+				if (!$group->numItems()) {
+					$totalResults--;
+					continue;
+				}
+				
 				$groups[] = $group;
 			}
 			
