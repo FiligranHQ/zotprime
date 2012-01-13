@@ -256,7 +256,7 @@ class Zotero_Item {
 			$this->loadItemData();
 		}
 		
-		$value = $this->itemData[$fieldID] ? $this->itemData[$fieldID] : '';
+		$value = $this->itemData[$fieldID] !== false ? $this->itemData[$fieldID] : '';
 		
         if (!$unformatted) {
 			// Multipart date fields
@@ -839,7 +839,7 @@ class Zotero_Item {
 			throw new Exception("'$field' is not a valid itemData field.", Z_ERROR_INVALID_INPUT);
 		}
 		
-		if ($value && !Zotero_ItemFields::isValidForType($fieldID, $this->itemTypeID)) {
+		if ($value !== false && !Zotero_ItemFields::isValidForType($fieldID, $this->itemTypeID)) {
 			throw new Exception("'$field' is not a valid field for type '"
 				. Zotero_ItemTypes::getName($this->itemTypeID) . "'", Z_ERROR_INVALID_INPUT);
 		}
@@ -861,9 +861,8 @@ class Zotero_Item {
 			}
 			
 			// If existing value, make sure it's actually changing
-			if (!$loadIn &&
-					(!isset($this->itemData[$fieldID]) && !$value) ||
-					(isset($this->itemData[$fieldID]) && $this->itemData[$fieldID] == $value)) {
+			if ((!isset($this->itemData[$fieldID]) && $value === false) ||
+					(isset($this->itemData[$fieldID]) && $this->itemData[$fieldID] === $value)) {
 				return false;
 			}
 			
@@ -1622,7 +1621,7 @@ class Zotero_Item {
 						$value = $this->getField($fieldID, true, false, true);
 						
 						// If field changed and is empty, mark row for deletion
-						if (!$value) {
+						if ($value === false) {
 							$del[] = $fieldID;
 							continue;
 						}
