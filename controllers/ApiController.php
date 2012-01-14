@@ -318,7 +318,7 @@ class ApiController extends Controller {
 							? (!empty($_GET['info']) ? 'info' : 'download')
 							: false;
 		$this->fileView = !empty($extra['view']);
-		$this->queryParams = Zotero_API::parseQueryParams(urldecode($_SERVER['QUERY_STRING']));
+		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING']);
 	}
 	
 	
