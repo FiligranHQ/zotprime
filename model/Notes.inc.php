@@ -63,12 +63,13 @@ class Zotero_Notes {
 		
 		Zotero_DB::beginTransaction();
 		
-		$sql = "CREATE TEMPORARY TABLE tmpNoteCacheIDs (itemID int(10) unsigned NOT NULL, PRIMARY KEY (itemID))";
+		$rnd = "_" . uniqid($libraryID . "_");
+		$sql = "CREATE TEMPORARY TABLE tmpNoteCacheIDs$rnd (itemID int(10) unsigned NOT NULL, PRIMARY KEY (itemID))";
 		Zotero_DB::query($sql, false, $shardID);
 		
-		Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpNoteCacheIDs VALUES ", $itemIDs, 100, false, $shardID);
+		Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpNoteCacheIDs$rnd VALUES ", $itemIDs, 100, false, $shardID);
 		
-		$sql = "SELECT itemID, note FROM itemNotes JOIN tmpNoteCacheIDs USING (itemID)";
+		$sql = "SELECT itemID, note FROM itemNotes JOIN tmpNoteCacheIDs$rnd USING (itemID)";
 		$notes = Zotero_DB::query($sql, false, $shardID);
 		if ($notes) {
 			foreach ($notes as $row) {
@@ -76,7 +77,7 @@ class Zotero_Notes {
 			}
 		}
 		
-		Zotero_DB::query("DROP TEMPORARY TABLE tmpNoteCacheIDs", false, $shardID);
+		Zotero_DB::query("DROP TEMPORARY TABLE tmpNoteCacheIDs$rnd", false, $shardID);
 		
 		Zotero_DB::commit();
 	}
