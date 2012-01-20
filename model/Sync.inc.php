@@ -180,17 +180,10 @@ class Zotero_Sync {
 		catch (Exception $e) {
 			$msg = $e->getMessage();
 			if (strpos($msg, "Cannot add or update a child row: a foreign key constraint fails") !== false) {
-				$rnd = "_" . uniqid();
-				Zotero_DB::query("CREATE TEMPORARY TABLE tmpLibraryCheck$rnd (libraryID INTEGER UNSIGNED PRIMARY KEY)");
 				foreach ($affectedLibraries as $libraryID) {
-					Zotero_DB::query("INSERT INTO tmpLibraryCheck$rnd VALUES (?)", $libraryID);
-				}
-				$sql = "SELECT libraryID FROM tmpLibraryCheck$rnd
-						LEFT JOIN libraries USING (libraryID)
-						WHERE libraries.libraryID IS NULL LIMIT 1";
-				$libraryID = Zotero_DB::valueQuery($sql);
-				if ($libraryID) {
-					throw new Exception("Library $libraryID does not exist", Z_ERROR_LIBRARY_ACCESS_DENIED);
+					if (!Zotero_DB::valueQuery("SELECT COUNT(*) FROM libraries WHERE libraryID=?", $libraryID)) {
+						throw new Exception("Library $libraryID does not exist", Z_ERROR_LIBRARY_ACCESS_DENIED);
+					}
 				}
 			}
 			throw ($e);
