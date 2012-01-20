@@ -41,47 +41,6 @@ class Zotero_Notes {
 		return isset(self::$noteCache[$libraryID][$itemID]) ? self::$noteCache[$libraryID][$itemID] : false;
 	}
 	
-	public static function cacheNotes($libraryID, $itemIDs) {
-		if (!$libraryID) {
-			throw new Exception("Library ID not provided");
-		}
-		if (!$itemIDs) {
-			throw new Exception("Item IDs not provided");
-		}
-		
-		if (isset(self::$noteCache[$libraryID])) {
-			// Clear all notes before getting new ones
-			foreach ($itemIDs as $itemID) {
-				self::$noteCache[$libraryID][$row['itemID']] = '';
-			}
-		}
-		else {
-			self::$noteCache[$libraryID] = array();
-		}
-		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		Zotero_DB::beginTransaction();
-		
-		$rnd = "_" . uniqid($libraryID . "_");
-		$sql = "CREATE TEMPORARY TABLE tmpNoteCacheIDs$rnd (itemID int(10) unsigned NOT NULL, PRIMARY KEY (itemID))";
-		Zotero_DB::query($sql, false, $shardID);
-		
-		Zotero_DB::bulkInsert("INSERT IGNORE INTO tmpNoteCacheIDs$rnd VALUES ", $itemIDs, 100, false, $shardID);
-		
-		$sql = "SELECT itemID, note FROM itemNotes JOIN tmpNoteCacheIDs$rnd USING (itemID)";
-		$notes = Zotero_DB::query($sql, false, $shardID);
-		if ($notes) {
-			foreach ($notes as $row) {
-				self::$noteCache[$libraryID][$row['itemID']] = $row['note'];
-			}
-		}
-		
-		Zotero_DB::query("DROP TEMPORARY TABLE tmpNoteCacheIDs$rnd", false, $shardID);
-		
-		Zotero_DB::commit();
-	}
-	
 	
 	public static function updateNoteCache($libraryID, $itemID, $note) {
 		if (!$libraryID) {

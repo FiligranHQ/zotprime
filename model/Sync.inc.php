@@ -1137,12 +1137,6 @@ class Zotero_Sync {
 								$updatedCreators[$libraryID] = $ids;
 							}
 							
-							// Pre-cache item pull
-							if ($name == 'item') {
-								Zotero_Items::get($libraryID, $ids);
-								Zotero_Notes::cacheNotes($libraryID, $ids);
-							}
-							
 							foreach ($ids as $id) {
 								if ($name == 'item') {
 									$obj = call_user_func(array($className, 'get'), $libraryID, $id);
