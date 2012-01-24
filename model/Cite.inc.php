@@ -72,6 +72,9 @@ class Zotero_Cite {
 			}
 		}
 		
+		$leftMarginDivs = $xml->xpath("//div[@class = 'csl-left-margin']");
+		$clearEntries = sizeOf($leftMarginDivs) > 0;
+		
 		// csl-entry
 		$divs = $xml->xpath("//div[@class = 'csl-entry']");
 		$num = sizeOf($divs);
@@ -79,6 +82,10 @@ class Zotero_Cite {
 		foreach ($divs as $div) {
 			$first = $i == 0;
 			$last = $i == $num - 1;
+			
+			if ($clearEntries) {
+				$div['style'] .= "clear: left; ";
+			}
 			
 			if ($entrySpacing) {
 				if (!$last) {
@@ -94,7 +101,7 @@ class Zotero_Cite {
 		$rightPadding = .5;
 		
 		// div.csl-left-margin
-		foreach ($xml->xpath("//div[@class = 'csl-left-margin']") as $div) {
+		foreach ($leftMarginDivs as $div) {
 			$div['style'] = "float: left; padding-right: " . $rightPadding . "em; ";
 			
 			// Right-align the labels if aligning second line, since it looks
