@@ -120,7 +120,6 @@ define('Z_ENV_CONTROLLER_PATH', Z_ENV_BASE_PATH . 'controllers/');
 define('Z_ENV_MODEL_PATH', Z_ENV_BASE_PATH . 'model/');
 define('Z_ENV_TMP_PATH', Z_ENV_BASE_PATH . 'tmp/');
 
-file_put_contents(Z_ENV_TMP_PATH . "foo", "test");
 if (!is_writable(Z_ENV_TMP_PATH)) {
 	throw new Exception("Temp directory '" . Z_ENV_TMP_PATH . "' is not writable");
 }
