@@ -80,6 +80,10 @@ class Z_MemcachedClientLocal {
 			}
 		}
 		else if (is_string($keys)) {
+			if (!$keys) {
+				throw new Exception("Memcached key not provided");
+			}
+			
 			// Return values already set within this transaction
 			if ($this->queuing && isset($this->queueValues[$keys])) {
 				return $this->queueValues[$keys];
@@ -123,6 +127,10 @@ class Z_MemcachedClientLocal {
 	public function set($key, $val, $exptime = 0) {
 		if ($this->disabled) {
 			return false;
+		}
+		
+		if (!$key) {
+			throw new Exception("Memcached key not provided");
 		}
 		
 		if ($this->queuing) {
