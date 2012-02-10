@@ -29,10 +29,13 @@ class ApiController extends Controller {
 	private $validAPIVersions = array(1);
 	private $writeTokenCacheTime = 43200; // 12 hours
 	
-	private $queryParams = array();
+	private $profile = false;
+	private $profileShard = 0;
+	private $timeLogThreshold = 1;
 	
-	private $uri;
 	private $method;
+	private $uri;
+	private $queryParams = array();
 	private $ifUnmodifiedSince;
 	private $body;
 	private $apiKey;
@@ -57,11 +60,8 @@ class ApiController extends Controller {
 	private $httpAuth = false;
 	private $cookieAuth = false;
 	
-	private $profile = false;
-	private $profileShard = 1;
 	private $startTime = false;
 	private $timeLogged = false;
-	private $timeLogThreshold = 5;
 	
 	
 	public function __construct($action, $settings, $extra) {
@@ -2623,7 +2623,7 @@ class ApiController extends Controller {
 		}
 		
 		if ($this->profile) {
-			Zotero_DB::profileEnd($this->profileShard);
+			Zotero_DB::profileEnd($this->profileShard, false);
 		}
 		
 		if ($this->responseCode) {

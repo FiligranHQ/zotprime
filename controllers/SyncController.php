@@ -28,6 +28,9 @@ class SyncController extends Controller {
 	private $validAPIVersions = array(8, 9);
 	private $sessionLifetime = 3600;
 	
+	private $profile = false;
+	private $profileShard = 0;
+	
 	private $apiVersion;
 	private $sessionID = null;
 	private $userID = null;
@@ -35,9 +38,6 @@ class SyncController extends Controller {
 	private $ipAddress = null;
 	private $updateKey = null;
 	private $responseXML = null;
-	
-	private $profile = false;
-	private $profileShard = 0;
 	
 	
 	public function __get($field) {
@@ -816,7 +816,7 @@ class SyncController extends Controller {
 	
 	private function end() {
 		if ($this->profile) {
-			Zotero_DB::profileEnd($this->profileShard);
+			Zotero_DB::profileEnd($this->profileShard, false);
 		}
 		
 		header("Content-Type: text/xml");

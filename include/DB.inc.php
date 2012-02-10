@@ -854,7 +854,7 @@ class Zotero_DB {
 		$profiler->setEnabled(true);
 	}
 	
-	public static function profileEnd($shardID=0) {
+	public static function profileEnd($shardID=0, $appendRandomID=true) {
 		$instance = self::getInstance();
 		$link = $instance->getShardLink($shardID);
 		$profiler = $link->getProfiler();
@@ -912,7 +912,7 @@ class Zotero_DB {
 		$temp = ob_get_clean();
 		
 		$id = substr(md5(uniqid(rand(), true)), 0, 10);
-		file_put_contents("/tmp/profile_" . $shardID . "_" . $id, $temp);
+		file_put_contents("/tmp/profile_" . $shardID . ($appendRandomID ? "_" . $id : ""), $temp);
 		
 		$profiler->setEnabled(false);
 	}
