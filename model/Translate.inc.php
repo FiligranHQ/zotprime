@@ -1,14 +1,15 @@
 <?
 class Zotero_Translate {
 	public static $exportFormats = array(
-		'bibliontology_rdf',
 		'bibtex',
 		'bookmarks',
-		'dc_rdf',
+		'rdf_bibliontology',
+		'rdf_dc',
+		'rdf_zotero',
+		'mods',
 		'refer',
 		'ris',
-		'wikipedia',
-		'zotero_rdf'
+		'wikipedia'
 	);
 	
 	public static function getExportFromTranslateServer($items, $format) {
@@ -38,7 +39,7 @@ class Zotero_Translate {
 			$ch = curl_init($url);
 			curl_setopt($ch, CURLOPT_POST, 1);
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
-			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:", "Content-Type: application/json"));
 			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
 			curl_setopt($ch, CURLOPT_TIMEOUT, 4);
 			curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
@@ -51,7 +52,9 @@ class Zotero_Translate {
 			$mimeType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
 			
 			if ($code != 200) {
+				$response = null;
 				Z_Core::logError("HTTP $code from translate server $server exporting items");
+				Z_Core::logError($response);
 				continue;
 			}
 			
