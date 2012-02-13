@@ -343,7 +343,7 @@ class Zotero_Cite {
 			throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
 		}
 		
-		$servers = Z_CONFIG::$CITE_SERVERS;
+		$servers = Z_CONFIG::$CITATION_SERVERS;
 		// Try servers in a random order
 		shuffle($servers);
 		
