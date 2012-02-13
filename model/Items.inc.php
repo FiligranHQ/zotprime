@@ -1092,7 +1092,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
-				$export = Zotero_Translate::getExportFromTranslateServer(array($item), $type);
+				$export = Zotero_Translate::getExportFromTranslationServer(array($item), $type);
 				$target->setAttribute('type', $export['mimeType']);
 				// Insert XML into document
 				if (preg_match('/\+xml$/', $export['mimeType'])) {

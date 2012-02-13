@@ -12,7 +12,7 @@ class Zotero_Translate {
 		'wikipedia'
 	);
 	
-	public static function getExportFromTranslateServer($items, $format) {
+	public static function getExportFromTranslationServer($items, $format) {
 		if (!in_array($format, self::$exportFormats)) {
 			throw new Exception("Invalid export format");
 		}
@@ -26,7 +26,7 @@ class Zotero_Translate {
 		
 		$json = json_encode($jsonItems);
 		
-		$servers = Z_CONFIG::$TRANSLATE_SERVERS;
+		$servers = Z_CONFIG::$TRANSLATION_SERVERS;
 		
 		// Try servers in a random order
 		shuffle($servers);
