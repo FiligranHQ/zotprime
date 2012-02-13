@@ -58,15 +58,14 @@ class Zotero_Translate {
 				continue;
 			}
 			
-			// If no response, try another server
 			if (!$response) {
-				continue;
+				$response = "";
 			}
 			
 			break;
 		}
 		
-		if (!$response) {
+		if ($response === null) {
 			throw new Exception("Error exporting items");
 		}
 		
