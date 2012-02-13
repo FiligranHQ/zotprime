@@ -15,6 +15,7 @@ foreach ($shardIDs as $shardID) {
 	echo "Shard: $shardID\n";
 	
 	$i = 0;
+	$changed = 0;
 	
 	while (true) {
 		$sql = "SELECT relationID, libraryID, subject, predicate, object, serverDateModified FROM relations LIMIT $i, 1000";
@@ -24,20 +25,49 @@ foreach ($shardIDs as $shardID) {
 		}
 		
 		foreach ($rows as $row) {
-			$changed = 0;
 			$i++;
+			
+			if (strpos($row['subject'], "users/local") !== false) {
+				$userID = Zotero_Users::getUserIDFromLibraryID($row['libraryID']);
+				$sql = "UPDATE relations SET subject=? WHERE relationID=?";
+				$row['subject'] = preg_replace("'users/local/[a-zA-Z0-9]+/'", "users/$userID/", $row['subject']);
+				try {
+					Zotero_DB::query($sql, array($row['subject'], $row['relationID']), $shardID);
+				}
+				catch (Exception $e) {
+					echo "Deleting duplicate relation\n";
+					$sql = "DELETE FROM relations WHERE relationID=?";
+					Zotero_DB::query($sql, array($row['relationID']), $shardID);
+					continue;
+				}
+			}
+			
+			if (strpos($row['object'], "users/local") !== false) {
+				$userID = Zotero_Users::getUserIDFromLibraryID($row['libraryID']);
+				$sql = "UPDATE relations SET object=? WHERE relationID=?";
+				$row['object'] = preg_replace("'users/local/[a-zA-Z0-9]+/'", "users/$userID/", $row['object']);
+				try {
+					Zotero_DB::query($sql, array($row['subject'], $row['relationID']), $shardID);
+				}
+				catch (Exception $e) {
+					echo "Deleting duplicate relation\n";
+					$sql = "DELETE FROM relations WHERE relationID=?";
+					Zotero_DB::query($sql, array($row['relationID']), $shardID);
+					continue;
+				}
+			}
 			
 			try {
 				$subjectLibraryID = Zotero_URI::getURILibrary($row['subject']);
 				if (!$subjectLibraryID) {
-					echo "Library for subject {$row['subject']} doesn't exist\n";
+					//echo "Library for subject {$row['subject']} doesn't exist\n";
 					continue;
 				}
 				$subjectLibraryType = Zotero_Libraries::getType($subjectLibraryID);
 				
 				$objectLibraryID = Zotero_URI::getURILibrary($row['object']);
 				if (!$objectLibraryID) {
-					echo "Library for object {$row['object']} doesn't exist\n";
+					//echo "Library for object {$row['object']} doesn't exist\n";
 					continue;
 				}
 				$objectLibraryType = Zotero_Libraries::getType($objectLibraryID);
