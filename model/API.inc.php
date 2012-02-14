@@ -112,6 +112,17 @@ class Zotero_API {
 						
 						default:
 							if (in_array($getParams[$key], Zotero_Translate::$exportFormats)) {
+								// Since the export formats don't give a clear indication of
+								// limiting or rel="next" links, require an explicit limit
+								$limitMax = self::getLimitMax($getParams[$key]);
+								if (empty($getParams['limit'])) {
+									throw new Exception("'limit' is required for format=" . $getParams[$key], Z_ERROR_INVALID_INPUT);
+								}
+								// Also make the maximum limit explicit
+								// TODO: Do this for all formats?
+								else if ($getParams['limit'] > $limitMax) {
+									throw new Exception("'limit' cannot be greater than $limitMax for format=" . $getParams[$key], Z_ERROR_INVALID_INPUT);
+								}
 								break;
 							}
 							throw new Exception("Invalid 'format' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
