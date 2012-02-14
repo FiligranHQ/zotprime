@@ -24,6 +24,16 @@ class Zotero_Translate {
 			$jsonItems[] = $arr;
 		}
 		
+		if (!$jsonItems) {
+			return array(
+				'body' => "",
+				// Stripping the Content-Type header (header_remove, "Content-Type:")
+				// in the API controller doesn't seem to be working, so send
+				// text/plain instead
+				'mimeType' => "text/plain"
+			);
+		}
+		
 		$json = json_encode($jsonItems);
 		
 		$servers = Z_CONFIG::$TRANSLATION_SERVERS;
