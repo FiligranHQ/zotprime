@@ -529,7 +529,12 @@ class ApiController extends Controller {
 					$this->allowFormats(Zotero_Translate::$exportFormats);
 					
 					$export = Zotero_Translate::getExportFromTranslationServer(array($item), $this->queryParams['format']);
-					header("Content-Type: " . $export['mimeType']);
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+					}
+					else {
+						header("Content-Type: " . $export['mimeType']);
+					}
 					echo $export['body'];
 					exit;
 			}
@@ -841,7 +846,12 @@ class ApiController extends Controller {
 					$this->allowFormats(Zotero_Translate::$exportFormats);
 					
 					$export = Zotero_Translate::getExportFromTranslationServer($responseItems, $this->queryParams['format']);
-					header("Content-Type: " . $export['mimeType']);
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+					}
+					else {
+						header("Content-Type: " . $export['mimeType']);
+					}
 					echo $export['body'];
 					exit;
 			}
