@@ -1049,7 +1049,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				if (!$multiFormat) {
 					$target->setAttribute('type', 'xhtml');
 				}
-				$html = Zotero_Cite::getBibliographyFromCiteServer(array($item), $style);
+				$html = Zotero_Cite::getBibliographyFromCitationServer(array($item), $style);
 				$html = new SimpleXMLElement($html);
 				$html['xmlns'] = Zotero_Atom::$nsXHTML;
 				$subNode = dom_import_simplexml($html);

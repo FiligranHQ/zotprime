@@ -13,7 +13,7 @@ class Zotero_Cite {
 	}
 	
 	
-	public static function getBibliographyFromCiteServer($items, $style='chicago-note-bibliography', $css='inline') {
+	public static function getBibliographyFromCitationServer($items, $style='chicago-note-bibliography', $css='inline') {
 		$json = self::getJSONFromItems($items);
 		$response = self::makeRequest($style, 'bibliography', $json);
 		

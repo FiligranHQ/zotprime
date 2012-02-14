@@ -522,7 +522,7 @@ class ApiController extends Controller {
 					break;
 			
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCiteServer(array($item), $this->queryParams['style'], $this->queryParams['css']);
+					echo Zotero_Cite::getBibliographyFromCitationServer(array($item), $this->queryParams['style'], $this->queryParams['css']);
 					exit;
 				
 				default:
@@ -827,7 +827,7 @@ class ApiController extends Controller {
 					break;
 				
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCiteServer($responseItems, $this->queryParams['style'], $this->queryParams['css']);
+					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams['style'], $this->queryParams['css']);
 					exit;
 				
 				case 'keys':
