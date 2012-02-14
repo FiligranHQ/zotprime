@@ -324,7 +324,7 @@ class Zotero_Cite {
 	}
 	
 	
-	private static function getJSONFromItems($items) {
+	public static function getJSONFromItems($items, $asArray=false) {
 		$cslItems = array();
 		foreach ($items as $item) {
 			$cslItems[] = $item->toCSLItem();
@@ -333,6 +333,10 @@ class Zotero_Cite {
 		$json = array(
 			"items" => $cslItems
 		);
+		
+		if ($asArray) {
+			return $json;
+		}
 		
 		return json_encode($json);
 	}

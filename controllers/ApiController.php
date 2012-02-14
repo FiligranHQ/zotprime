@@ -525,6 +525,19 @@ class ApiController extends Controller {
 					echo Zotero_Cite::getBibliographyFromCitationServer(array($item), $this->queryParams['style'], $this->queryParams['css']);
 					exit;
 				
+				case 'csljson':
+					$json = Zotero_Cite::getJSONFromItems(array($item), true);
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+						$json = Zotero_Utilities::json_encode_pretty($json);
+					}
+					else {
+						header("Content-Type: application/vnd.citationstyles.citeproc+json");
+						$json = json_encode($json);
+					}
+					echo $json;
+					exit;
+				
 				default:
 					$this->allowFormats(Zotero_Translate::$exportFormats);
 					
@@ -828,6 +841,19 @@ class ApiController extends Controller {
 				
 				case 'bib':
 					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams['style'], $this->queryParams['css']);
+					exit;
+				
+				case 'csljson':
+					$json = Zotero_Cite::getJSONFromItems($responseItems, true);
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+						$json = Zotero_Utilities::json_encode_pretty($json);
+					}
+					else {
+						header("Content-Type: application/vnd.citationstyles.citeproc+json");
+						$json = json_encode($json);
+					}
+					echo $json;
 					exit;
 				
 				case 'keys':
