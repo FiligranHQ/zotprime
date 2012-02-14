@@ -174,6 +174,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					
 					$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
 						. implode(',', $dateFieldIDs) . ")) ";
+					break;
 				
 				case 'itemType':
 					// Create temporary table to store item type names
@@ -292,7 +293,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					$itemTypeIDs[] = $itemTypeID;
 				}
 				
-				$sql .= "AND itemTypeID " . ($itemTypes['negation'] ? "NOT " : "") . "IN ("
+				$sql .= "AND I.itemTypeID " . ($itemTypes['negation'] ? "NOT " : "") . "IN ("
 						. implode(',', array_fill(0, sizeOf($itemTypeIDs), '?'))
 						. ") ";
 				$sqlParams = array_merge($sqlParams, $itemTypeIDs);
