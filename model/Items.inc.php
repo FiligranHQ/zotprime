@@ -1062,7 +1062,8 @@ class Zotero_Items extends Zotero_DataObjects {
 					"zapi:etag",
 					$item->etag
 				);
-				$target->nodeValue = $item->toJSON(false, $queryParams['pprint'], true);
+				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams['pprint'], true));
+				$target->appendChild($textNode);
 			}
 			else if ($type == 'csljson') {
 				$arr = $item->toCSLItem();
@@ -1077,7 +1078,8 @@ class Zotero_Items extends Zotero_DataObjects {
 				// Until JSON_UNESCAPED_SLASHES is available
 				$json = str_replace('\\/', '/', $json);
 				
-				$target->nodeValue = $json;
+				$textNode = $domDoc->createTextNode($json);
+				$target->appendChild($textNode);
 			}
 			// Deprecated and not for public consumption
 			else if ($type == 'full') {
