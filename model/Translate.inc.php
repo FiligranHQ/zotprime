@@ -3,12 +3,14 @@ class Zotero_Translate {
 	public static $exportFormats = array(
 		'bibtex',
 		'bookmarks',
+		'coins',
 		'rdf_bibliontology',
 		'rdf_dc',
 		'rdf_zotero',
 		'mods',
 		'refer',
 		'ris',
+		'tei',
 		'wikipedia'
 	);
 	
