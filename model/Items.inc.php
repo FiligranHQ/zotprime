@@ -1103,7 +1103,8 @@ class Zotero_Items extends Zotero_DataObjects {
 					$target->appendChild($subNode);
 				}
 				else {
-					$target->nodeValue = $export['body'];
+					$textNode = $domDoc->createTextNode($export['body']);
+					$target->appendChild($textNode);
 				}
 			}
 		}
