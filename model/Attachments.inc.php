@@ -7,10 +7,12 @@ class Zotero_Attachments {
 	 * pointing to the main file
 	 */
 	public static function getTemporaryURL(Zotero_Item $item, $localOnly=false) {
-		$host = Z_CONFIG::$ATTACHMENT_SERVER_DOMAIN;
-		if ($host[strlen($host) - 1] != "/") {
-			$host .= "/";
+		$extHost = Z_CONFIG::$ATTACHMENT_SERVER_DOMAIN;
+		if ($extHost[strlen($extHost) - 1] != "/") {
+			$extHost .= "/";
 		}
+		
+		$skipLocal = false;
 		
 		$info = Zotero_S3::getLocalFileItemInfo($item);
 		$storageFileID = $info['storageFileID'];
@@ -29,7 +31,7 @@ class Zotero_Attachments {
 		$key = "attachmentServerString_" . $storageFileID . "_" . $mtime;
 		if ($randomStr = Z_Core::$MC->get($key)) {
 			$dir = $docroot . $randomStr . "/";
-			return $host . "$randomStr/$realFilename";
+			return $extHost . "$randomStr/$realFilename";
 		}
 		
 		$hostname = gethostname();
@@ -37,13 +39,39 @@ class Zotero_Attachments {
 		// See if this is an attachment host
 		$index = false;
 		for ($i = 0, $len = sizeOf(Z_CONFIG::$ATTACHMENT_SERVER_HOSTS); $i < $len; $i++) {
-			// Check without ports
-			$parts = explode(":", Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]);
-			if ($parts[0] == $hostname) {
+			if (Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i] == $hostname) {
+				
+				// Make a HEAD request on the local static port to make sure
+				// this host is actually functional
+				$url = "http://" . Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]
+					. ":" . Z_CONFIG::$ATTACHMENT_SERVER_STATIC_PORT . "/";
+				Z_Core::debug("Making HEAD request to $url");
+				$ch = curl_init($url);
+				curl_setopt($ch, CURLOPT_NOBODY, 1);
+				curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
+				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+				curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+				curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER , 1);
+				$response = curl_exec($ch);
+				$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+				
+				if ($code != 200) {
+					$skipLocal = true;
+					if ($code == 0) {
+						Z_Core::logError("Error connecting to local attachments server");
+					}
+					else {
+						Z_Core::logError("Local attachments server returned $code");
+					}
+					break;
+				}
+				
 				$index = $i + 1;
 				break;
 			}
 		}
+		
 		// If not, make an internal root request to trigger the extraction on
 		// one of them and retrieve the temporary URL
 		if ($index === false) {
@@ -67,7 +95,11 @@ class Zotero_Attachments {
 			// Try in random order
 			shuffle($hosts);
 			foreach ($hosts as $host) {
-				$intURL = $prefix . $host . $path;
+				// Don't try the local host again if we know it's not working
+				if ($skipLocal && $host == $hostname) {
+					continue;
+				}
+				$intURL = $prefix . $host . ":" . Z_CONFIG::$ATTACHMENT_SERVER_DYNAMIC_PORT . $path;
 				if (file_get_contents($intURL, false, $context) !== false) {
 					foreach ($http_response_header as $header) {
 						if (preg_match('/^Location:\s*(.+)$/', $header, $matches)) {
@@ -116,7 +148,7 @@ class Zotero_Attachments {
 		
 		Z_Core::$MC->set($key, $randomStr, self::$cacheTime);
 		
-		return $host . "$randomStr/" . $realFilename;
+		return $extHost . "$randomStr/" . $realFilename;
 	}
 	
 	
