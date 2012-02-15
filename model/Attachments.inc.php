@@ -6,7 +6,7 @@ class Zotero_Attachments {
 	 * Download ZIP file from S3, extract it, and return a temporary URL
 	 * pointing to the main file
 	 */
-	public static function getTemporaryURL(Zotero_Item $item) {
+	public static function getTemporaryURL(Zotero_Item $item, $localOnly=false) {
 		$host = Z_CONFIG::$ATTACHMENT_SERVER_DOMAIN;
 		if ($host[strlen($host) - 1] != "/") {
 			$host .= "/";
@@ -47,9 +47,15 @@ class Zotero_Attachments {
 		// If not, make an internal root request to trigger the extraction on
 		// one of them and retrieve the temporary URL
 		if ($index === false) {
+			// Prevent redirect madness if target server doesn't think it's an
+			// attachment server
+			if ($localOnly) {
+				throw new Exception("Internal attachments request hit a non-attachment server");
+			}
+			
 			$prefix = 'http://' . Z_CONFIG::$API_SUPER_USERNAME .
 							":" . Z_CONFIG::$API_SUPER_PASSWORD . "@";
-			$path = Zotero_API::getItemURI($item) . "/file/view";
+			$path = Zotero_API::getItemURI($item) . "/file/view?int=1";
 			$path = preg_replace('/^[^:]+:\/\/[^\/]+/', '', $path);
 			$context = stream_context_create(array(
 				'http' => array(
@@ -65,6 +71,12 @@ class Zotero_Attachments {
 				if (file_get_contents($intURL, false, $context) !== false) {
 					foreach ($http_response_header as $header) {
 						if (preg_match('/^Location:\s*(.+)$/', $header, $matches)) {
+							if (strpos($matches[1], $host) !== 0) {
+								throw new Exception(
+									"Redirect location '" . $matches[1] . "'"
+									. " does not begin with $host"
+								);
+							}
 							return $matches[1];
 						}
 					}

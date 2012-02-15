@@ -968,7 +968,7 @@ class ApiController extends Controller {
 				}
 				// For zip files, redirect to files domain
 				if ($info['zip']) {
-					$url = Zotero_Attachments::getTemporaryURL($item);
+					$url = Zotero_Attachments::getTemporaryURL($item, !empty($_GET['int']));
 					if (!$url) {
 						$this->e500();
 					}
