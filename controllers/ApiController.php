@@ -532,7 +532,7 @@ class ApiController extends Controller {
 						$json = Zotero_Utilities::json_encode_pretty($json);
 					}
 					else {
-						header("Content-Type: application/vnd.citationstyles.citeproc+json");
+						header("Content-Type: application/vnd.citationstyles.csl+json");
 						$json = json_encode($json);
 					}
 					echo $json;
@@ -850,7 +850,7 @@ class ApiController extends Controller {
 						$json = Zotero_Utilities::json_encode_pretty($json);
 					}
 					else {
-						header("Content-Type: application/vnd.citationstyles.citeproc+json");
+						header("Content-Type: application/vnd.citationstyles.csl+json");
 						$json = json_encode($json);
 					}
 					echo $json;
