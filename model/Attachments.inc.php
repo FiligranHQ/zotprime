@@ -12,8 +12,6 @@ class Zotero_Attachments {
 			$extHost .= "/";
 		}
 		
-		$skipLocal = false;
-		
 		$info = Zotero_S3::getLocalFileItemInfo($item);
 		$storageFileID = $info['storageFileID'];
 		$filename = $info['filename'];
@@ -34,13 +32,14 @@ class Zotero_Attachments {
 			return $extHost . "$randomStr/$realFilename";
 		}
 		
-		$hostname = gethostname();
+		$localAddr = gethostbyname(gethostname());
 		
 		// See if this is an attachment host
 		$index = false;
+		$skipHost = false;
 		for ($i = 0, $len = sizeOf(Z_CONFIG::$ATTACHMENT_SERVER_HOSTS); $i < $len; $i++) {
-			if (Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i] == $hostname) {
-				
+			$hostAddr = gethostbyname(Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]);
+			if ($hostAddr == $localAddr) {
 				// Make a HEAD request on the local static port to make sure
 				// this host is actually functional
 				$url = "http://" . Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]
@@ -57,7 +56,7 @@ class Zotero_Attachments {
 				$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 				
 				if ($code != 200) {
-					$skipLocal = true;
+					$skipHost = Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i];
 					if ($code == 0) {
 						Z_Core::logError("Error connecting to local attachments server");
 					}
@@ -96,7 +95,7 @@ class Zotero_Attachments {
 			shuffle($hosts);
 			foreach ($hosts as $host) {
 				// Don't try the local host again if we know it's not working
-				if ($skipLocal && $host == $hostname) {
+				if ($host == $skipHost) {
 					continue;
 				}
 				$intURL = $prefix . $host . ":" . Z_CONFIG::$ATTACHMENT_SERVER_DYNAMIC_PORT . $path;
