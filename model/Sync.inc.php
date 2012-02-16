@@ -874,55 +874,6 @@ class Zotero_Sync {
 		// Close cache db to avoid sleeping thread
 		Zotero_Cache_DB::close();
 		
-		if (!$xmldata) {
-			$xmldata = self::getCachedDownloadOld($userID, $lastsync, $apiVersion);
-			if ($xmldata) {
-				self::cacheDownload($userID, $lastsync, $apiVersion, $xmldata);
-			}
-		}
-		
-		return $xmldata;
-	}
-	
-	
-	private static function getCachedDownloadOld($userID, $lastsync, $apiVersion) {
-		if (!$lastsync) {
-			throw new Exception('$lastsync not provided');
-		}
-		
-		$key = md5(
-			Zotero_Users::getUpdateKey($userID)
-			. "_" . $lastsync
-			// Remove after 2.1 sync cutoff
-			. ($apiVersion >= 9 ? "_" . $apiVersion : "")
-			. "_" . self::$cacheVersion
-		);
-		
-		$suffix = "_" . $key[0];
-		
-		try {
-			$sql = "SELECT xmldata FROM syncDownloadCache WHERE hash=?";
-			$xmldata = Zotero_Cache2_DB::valueQuery($sql, $key);
-		}
-		catch (Exception $e) {
-			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
-			$xmldata = false;
-		}
-		
-		if ($xmldata) {
-			try {
-				// Update the last-used timestamp
-				$sql = "UPDATE syncDownloadCache SET lastUsed=NOW() WHERE hash=?";
-				Zotero_Cache2_DB::query($sql, $key);
-			}
-			catch (Exception $e) {
-				Z_Core::logError("Warning: '" . $e->getMessage() . "' updating cached download");
-			}
-		}
-		
-		// Close cache db to avoid sleeping thread
-		Zotero_Cache2_DB::close();
-		
 		return $xmldata;
 	}
 	
