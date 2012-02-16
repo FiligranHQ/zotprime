@@ -31,7 +31,7 @@ class ApiController extends Controller {
 	
 	private $profile = false;
 	private $profileShard = 0;
-	private $timeLogThreshold = 1;
+	private $timeLogThreshold = 5;
 	
 	private $method;
 	private $uri;
@@ -2711,7 +2711,7 @@ class ApiController extends Controller {
 	
 	
 	private function currentRequestTime() {
-		return microtime(true) - $this->startTime;
+		return round(microtime(true) - $this->startTime, 2);
 	}
 	
 	
