@@ -57,7 +57,7 @@ class Zotero_API {
 	/**
 	 * Parse query string into parameters, validating and filling in defaults
 	 */
-	public static function parseQueryParams($queryString) {
+	public static function parseQueryParams($queryString, $action, $singleObject) {
 		// Handle multiple identical parameters in the CGI-standard way instead of
 		// PHP's foo[]=bar way
 		$getParams = Zotero_URL::proper_parse_str($queryString);
@@ -104,30 +104,44 @@ class Zotero_API {
 			
 			switch ($key) {
 				case 'format':
-					$isExportFormat = in_array($getParams[$key], Zotero_Translate::$exportFormats);
+					$format = $getParams[$key];
+					$isExportFormat = in_array($format, Zotero_Translate::$exportFormats);
 					
-					if ($isExportFormat || $getParams[$key] == 'csljson') {
-						// Since the export formats and csljson don't give a clear indication
-						// of limiting or rel="next" links, require an explicit limit
-						$limitMax = self::getLimitMax($getParams[$key]);
+					// All actions other than items must be Atom
+					if ($action != 'items') {
+						if ($format != 'atom') {
+							throw new Exception("Invalid 'format' value '$format'", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					// Since the export formats and csljson don't give a clear indication
+					// of limiting or rel="next" links, require an explicit limit
+					// for everything other than single items and itemKey queries
+					else if ($isExportFormat || $format == 'csljson') {
+						if ($singleObject || !empty($getParams['itemKey'])) {
+							break;
+						}
+						
+						$limitMax = self::getLimitMax($format);
 						if (empty($getParams['limit'])) {
-							throw new Exception("'limit' is required for format=" . $getParams[$key], Z_ERROR_INVALID_INPUT);
+							throw new Exception("'limit' is required for format=$format", Z_ERROR_INVALID_INPUT);
 						}
 						// Also make the maximum limit explicit
 						// TODO: Do this for all formats?
 						else if ($getParams['limit'] > $limitMax) {
-							throw new Exception("'limit' cannot be greater than $limitMax for format=" . $getParams[$key], Z_ERROR_INVALID_INPUT);
+							throw new Exception("'limit' cannot be greater than $limitMax for format=$format", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					else {
-						switch ($getParams[$key]) {
+						switch ($format) {
 							case 'atom':
 							case 'bib':
-							case 'keys':
 								break;
 							
 							default:
-								throw new Exception("Invalid 'format' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+								if ($format == 'keys' && !$singleObject) {
+									break;
+								}
+								throw new Exception("Invalid 'format' value '$format' for request", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					break;

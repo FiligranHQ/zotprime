@@ -318,7 +318,9 @@ class ApiController extends Controller {
 							? (!empty($_GET['info']) ? 'info' : 'download')
 							: false;
 		$this->fileView = !empty($extra['view']);
-		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING']);
+		
+		$singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
+		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $singleObject);
 	}
 	
 	
@@ -539,8 +541,6 @@ class ApiController extends Controller {
 					exit;
 				
 				default:
-					$this->allowFormats(Zotero_Translate::$exportFormats);
-					
 					$export = Zotero_Translate::getExportFromTranslationServer(array($item), $this->queryParams['format']);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
@@ -869,8 +869,6 @@ class ApiController extends Controller {
 					exit;
 				
 				default:
-					$this->allowFormats(Zotero_Translate::$exportFormats);
-					
 					$export = Zotero_Translate::getExportFromTranslationServer($responseItems, $this->queryParams['format']);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
@@ -1272,8 +1270,6 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
-		$this->allowFormats(array('atom'));
-		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
 		}
@@ -1462,7 +1458,6 @@ class ApiController extends Controller {
 	
 	public function tags() {
 		$this->allowMethods(array('GET'));
-		$this->allowFormats(array('atom'));
 		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
@@ -1586,8 +1581,6 @@ class ApiController extends Controller {
 	
 	
 	public function groups() {
-		$this->allowFormats(array('atom'));
-		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
 		}
@@ -1856,8 +1849,6 @@ class ApiController extends Controller {
 	
 	
 	public function groupUsers() {
-		$this->allowFormats(array('atom'));
-		
 		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
 			$this->e400("$this->method data not provided");
 		}
@@ -2601,13 +2592,6 @@ class ApiController extends Controller {
 			header("HTTP/1.1 405 Method Not Allowed");
 			header("Allow: " . implode(", ", $methods));
 			die($message ? $message : "Method not allowed");
-		}
-	}
-	
-	
-	private function allowFormats($formats) {
-		if (!in_array($this->queryParams['format'], $formats)) {
-			throw new Exception("Invalid format '{$this->queryParams['format']}'", Z_ERROR_INVALID_INPUT);
 		}
 	}
 	
