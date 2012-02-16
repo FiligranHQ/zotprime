@@ -733,7 +733,7 @@ class ApiController extends Controller {
 						$uri .= "?" . $queryString;
 						
 						$this->responseCode = 201;
-						$this->queryParams = Zotero_API::parseQueryParams($queryString);
+						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
 					}
 					
 					// Display items
@@ -771,7 +771,7 @@ class ApiController extends Controller {
 						$uri .= "?" . $queryString;
 						
 						$this->responseCode = 201;
-						$this->queryParams = Zotero_API::parseQueryParams($queryString);
+						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
 					}
 					
 					$title = "Items";
@@ -1405,7 +1405,7 @@ class ApiController extends Controller {
 						}
 						$uri .= "?" . $queryString;
 						
-						$this->queryParams = Zotero_API::parseQueryParams($queryString);
+						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
 					}
 					
 					$title = "Collections";
