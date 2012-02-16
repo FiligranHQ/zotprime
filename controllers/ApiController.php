@@ -345,7 +345,7 @@ class ApiController extends Controller {
 		if (($this->objectID || $this->objectKey) && !$this->subset) {
 			if ($this->fileMode) {
 				if ($this->fileView) {
-					$this->allowMethods(array('GET', 'HEAD'));
+					$this->allowMethods(array('GET', 'HEAD', 'POST'));
 				}
 				else {
 					$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD'));
@@ -958,7 +958,8 @@ class ApiController extends Controller {
 			header_remove("X-Powered-By");
 		}
 		
-		else if ($this->method == 'GET') {
+		// TEMP: allow POST for snapshot viewing while keys are embedded
+		else if ($this->method == 'GET' || ($this->method == 'POST' && $this->fileView)) {
 			if ($this->fileView) {
 				$info = Zotero_S3::getLocalFileItemInfo($item);
 				if (!$info) {
