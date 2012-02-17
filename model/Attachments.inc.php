@@ -7,9 +7,9 @@ class Zotero_Attachments {
 	 * pointing to the main file
 	 */
 	public static function getTemporaryURL(Zotero_Item $item, $localOnly=false) {
-		$extHost = Z_CONFIG::$ATTACHMENT_SERVER_DOMAIN;
-		if ($extHost[strlen($extHost) - 1] != "/") {
-			$extHost .= "/";
+		$extURLPrefix = Z_CONFIG::$ATTACHMENT_SERVER_URL;
+		if ($extURLPrefix[strlen($extURLPrefix) - 1] != "/") {
+			$extURLPrefix .= "/";
 		}
 		
 		$info = Zotero_S3::getLocalFileItemInfo($item);
@@ -29,7 +29,7 @@ class Zotero_Attachments {
 		$key = "attachmentServerString_" . $storageFileID . "_" . $mtime;
 		if ($randomStr = Z_Core::$MC->get($key)) {
 			$dir = $docroot . $randomStr . "/";
-			return $extHost . "$randomStr/$realFilename";
+			return $extURLPrefix . "$randomStr/$realFilename";
 		}
 		
 		$localAddr = gethostbyname(gethostname());
@@ -102,10 +102,10 @@ class Zotero_Attachments {
 				if (file_get_contents($intURL, false, $context) !== false) {
 					foreach ($http_response_header as $header) {
 						if (preg_match('/^Location:\s*(.+)$/', $header, $matches)) {
-							if (strpos($matches[1], $host) !== 0) {
+							if (strpos($matches[1], $extURLPrefix) !== 0) {
 								throw new Exception(
 									"Redirect location '" . $matches[1] . "'"
-									. " does not begin with $host"
+									. " does not begin with $extURLPrefix"
 								);
 							}
 							return $matches[1];
@@ -147,7 +147,7 @@ class Zotero_Attachments {
 		
 		Z_Core::$MC->set($key, $randomStr, self::$cacheTime);
 		
-		return $extHost . "$randomStr/" . $realFilename;
+		return $extURLPrefix . "$randomStr/" . $realFilename;
 	}
 	
 	
