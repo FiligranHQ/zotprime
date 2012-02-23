@@ -170,6 +170,7 @@ CREATE TABLE `keys` (
   `userID` int(10) unsigned NOT NULL,
   `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `lastUsed` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   PRIMARY KEY (`keyID`),
   UNIQUE KEY `key` (`key`),
   KEY `userID` (`userID`)

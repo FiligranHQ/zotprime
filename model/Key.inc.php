@@ -30,6 +30,7 @@ class Zotero_Key {
 	private $userID;
 	private $name;
 	private $dateAdded;
+	private $lastUsed;
 	private $permissions = array();
 	
 	private $loaded = false;
@@ -300,6 +301,9 @@ class Zotero_Key {
 		
 		$xml['key'] = $this->key;
 		$xml['dateAdded'] = $this->dateAdded;
+		if ($this->lastUsed != '0000-00-00 00:00:00') {
+			$xml['lastUsed'] =  $this->lastUsed;
+		}
 		$xml->name = $this->name;
 		
 		if ($this->permissions) {
@@ -335,7 +339,6 @@ class Zotero_Key {
 		
 		$ips = $this->getRecentIPs();
 		if ($ips) {
-			$xml['lastUsed'] = $this->getLastUsed();
 			$xml->recentIPs = implode(' ', $ips);
 		}
 		
@@ -365,6 +368,9 @@ class Zotero_Key {
 		if (!$this->id) {
 			throw new Exception("Key not loaded");
 		}
+		
+		$sql = "UPDATE `keys` SET lastUsed=NOW() WHERE keyID=?";
+		Zotero_DB::query($sql, $this->id);
 		
 		$ip = IPAddress::getIP();
 		$sql = "INSERT INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
@@ -402,12 +408,6 @@ class Zotero_Key {
 				}
 			}
 		}
-	}
-	
-	
-	private function getLastUsed() {
-		$sql = "SELECT timestamp FROM keyAccessLog WHERE keyID=? ORDER BY timestamp DESC LIMIT 1";
-		return Zotero_DB::valueQuery($sql, $this->id);
 	}
 	
 	
