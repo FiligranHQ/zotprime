@@ -377,6 +377,8 @@ class Zotero_Tag {
 			trigger_error('$itemIDs must be an array', E_USER_ERROR);
 		}
 		
+		$itemIDs = array_unique($itemIDs);
+		
 		$currentIDs = $this->getLinkedItems(true);
 		if (!$currentIDs) {
 			$currentIDs = array();
