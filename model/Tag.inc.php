@@ -377,8 +377,6 @@ class Zotero_Tag {
 			trigger_error('$itemIDs must be an array', E_USER_ERROR);
 		}
 		
-		$itemIDs = array_unique($itemIDs);
-		
 		$currentIDs = $this->getLinkedItems(true);
 		if (!$currentIDs) {
 			$currentIDs = array();
@@ -386,13 +384,8 @@ class Zotero_Tag {
 		$oldIDs = array(); // children being kept
 		$newIDs = array(); // new children
 		
-		if (!$itemIDs) {
-			if (!$currentIDs) {
-				Z_Core::debug("No linked items added", 4);
-				return false;
-			}
-		}
-		else {
+		if ($itemIDs) {
+			$itemIDs = array_unique($itemIDs);
 			foreach ($itemIDs as $itemID) {
 				if (in_array($itemID, $currentIDs)) {
 					Z_Core::debug("Item $itemID already has tag {$this->id}");
@@ -401,6 +394,12 @@ class Zotero_Tag {
 				}
 				
 				$newIDs[] = $itemID;
+			}
+		}
+		else {
+			if (!$currentIDs) {
+				Z_Core::debug("No linked items added", 4);
+				return false;
 			}
 		}
 		
