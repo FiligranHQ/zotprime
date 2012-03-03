@@ -208,8 +208,6 @@ class Zotero_API {
 						// Valid fields to sort by
 						//
 						// Allow all fields available in client
-						case 'dateAdded':
-						case 'dateModified':
 						case 'title':
 						case 'creator':
 						case 'itemType':
@@ -228,6 +226,7 @@ class Zotero_API {
 						
 						case 'addedBy':
 						case 'numItems':
+						case 'serverDateModified':
 							
 							// numItems is valid only for tags requests
 							switch ($getParams[$key]) {

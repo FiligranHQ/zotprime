@@ -392,6 +392,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			switch ($params['order']) {
 				case 'dateAdded':
 				case 'dateModified':
+				case 'serverDateModified':
 					$orderSQL = "I." . $params['order'];
 					break;
 				
