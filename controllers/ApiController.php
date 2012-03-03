@@ -1065,7 +1065,7 @@ class ApiController extends Controller {
 				throw new Exception('Invalid MD5 hash');
 			}
 			
-			if (empty($_POST['filename'])) {
+			if (!isset($_POST['filename']) || $_POST['filename'] === "") {
 				throw new Exception('File name not provided');
 			}
 			
