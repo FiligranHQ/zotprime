@@ -131,6 +131,7 @@ class Zotero_S3 {
 				AND time > (NOW() - INTERVAL " . self::$uploadQueueTimeout . " SECOND)";
 		$num = Zotero_DB::valueQuery($sql, $userID);
 		if ($num > self::$uploadQueueLimit) {
+			Z_Core::logError("Too many queued uploads ($num) for user $userID");
 			return false;
 		}
 		
