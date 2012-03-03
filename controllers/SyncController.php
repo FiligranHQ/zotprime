@@ -39,6 +39,8 @@ class SyncController extends Controller {
 	private $updateKey = null;
 	private $responseXML = null;
 	
+	private $startTime = false;
+	private $timeLogged = false;
 	
 	public function __get($field) {
 		switch ($field) {
@@ -59,6 +61,7 @@ class SyncController extends Controller {
 		if ($this->profile) {
 			Zotero_DB::profileStart($this->profileShard);
 		}
+		$this->startTime = microtime(true);
 		
 		// Inflate gzipped data
 		if (!empty($_GET['gzip'])) {
@@ -639,6 +642,7 @@ class SyncController extends Controller {
 			$str .= "Error: " . $e;
 			$str .= $this->responseXML->saveXML();
 			file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
+			
 			$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
 		}
 
@@ -850,7 +854,30 @@ class SyncController extends Controller {
 		$xmlstr = preg_replace("/<\?xml.+?>\n/", '', $xmlstr);
 		
 		echo $xmlstr;
+		
+		$this->logRequestTime();
 		Z_Core::exitClean();
+	}
+	
+	
+	private function currentRequestTime() {
+		return round(microtime(true) - $this->startTime, 2);
+	}
+	
+	
+	private function logRequestTime($point=false) {
+		if ($this->timeLogged) {
+			return;
+		}
+		$time = $this->currentRequestTime();
+		if ($time > 5) {
+			$this->timeLogged = true;
+			error_log(
+				"Slow request " . ($point ? "at point " . $point : "") . ": "
+				. $time . " sec for "
+				. $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI']
+			);
+		}
 	}
 	
 	
