@@ -156,7 +156,8 @@ class ApiController extends Controller {
 			}
 		}
 		// Website cookie authentication
-		else if (false && !empty($_COOKIE) && ($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE))) {
+		else if (!empty($_COOKIE) && !empty($_GET['session']) &&
+				($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE, $_GET['session']))) {
 			$this->grantUserPermissions($this->userID);
 			$this->cookieAuth = true;
 		}

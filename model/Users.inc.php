@@ -70,7 +70,7 @@ class Zotero_Users {
 	}
 	
 	
-	public static function getUserIDFromSession($cookie) {
+	public static function getUserIDFromSession($cookie, $sessionID) {
 		if (empty(Z_CONFIG::$SESSION_AUTH_KEY)) {
 			return false;
 		}
@@ -82,6 +82,12 @@ class Zotero_Users {
 		}
 		
 		$id = $cookie[$sessionKey];
+		
+		// For CSRF protection, require the session id to be submitted in the URL
+		// as well, since other domains don't have access to the session cookie.
+		if ($id != $sessionID) {
+			return false;
+		}
 		
 		$sql = "SELECT userID FROM sessions WHERE id=?";
 		try {
