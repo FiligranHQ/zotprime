@@ -311,12 +311,7 @@ class Zotero_DB {
 		
 		$instance = self::getInstance();
 		
-		// Determine the type of query using first word
-		preg_match('/^[^\s\(]*/', $sql, $matches);
-		$queryMethod = strtolower($matches[0]);
-		$forWriting = self::isWriteQuery($queryMethod);
-		
-		$link = $instance->getShardLink($shardID, $forWriting);
+		$link = $instance->getShardLink($shardID, self::isWriteQuery($sql));
 		
 		$instance->checkShardTransaction($shardID);
 		
@@ -798,8 +793,12 @@ class Zotero_DB {
 	}
 	
 	
-	public static function isWriteQuery($command) {
-		$command = strtoupper($command);
+	/**
+	 * Determine the type of query using first word
+	 */
+	public static function isWriteQuery($sql) {
+		preg_match('/^[^\s\(]*/', $sql, $matches);
+		$command = strtoupper($matches[0]);
 		switch ($command) {
 			case 'SELECT':
 			case 'SHOW':
@@ -1023,9 +1022,7 @@ class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
 		$this->sql = $sql;
 		$this->shardID = $shardID;
 		
-		// Determine the type of query using first word
-		preg_match('/^[^\s\(]*/', $sql, $matches);
-		$this->isWriteQuery = Zotero_DB::isWriteQuery($matches[0]);
+		$this->isWriteQuery = Zotero_DB::isWriteQuery($sql);
 	}
 	
 	public function __get($name) {
