@@ -25,10 +25,12 @@ class Zotero_Attachments {
 		
 		$docroot = Z_CONFIG::$ATTACHMENT_SERVER_DOCROOT;
 		
+		//Z_Core::$debug = true;
+		
 		// Check memcached to see if file is already extracted
 		$key = "attachmentServerString_" . $storageFileID . "_" . $mtime;
 		if ($randomStr = Z_Core::$MC->get($key)) {
-			$dir = $docroot . $randomStr . "/";
+			Z_Core::debug("Got attachment path '$randomStr/$realFilename' from memcached");
 			return $extURLPrefix . "$randomStr/$realFilename";
 		}
 		
@@ -99,6 +101,7 @@ class Zotero_Attachments {
 					continue;
 				}
 				$intURL = $prefix . $host . ":" . Z_CONFIG::$ATTACHMENT_SERVER_DYNAMIC_PORT . $path;
+				Z_Core::debug("Making GET request to $host");
 				if (file_get_contents($intURL, false, $context) !== false) {
 					foreach ($http_response_header as $header) {
 						if (preg_match('/^Location:\s*(.+)$/', $header, $matches)) {
@@ -123,7 +126,6 @@ class Zotero_Attachments {
 		// using the embedded id.
 		//
 		// A cron job deletes old attachment directories
-		
 		$randomStr = rand(1000000, 2147483647);
 		// Seventh number is the host id
 		$randomStr = substr($randomStr, 0, 6) . $index . substr($randomStr, 6);
@@ -134,6 +136,7 @@ class Zotero_Attachments {
 		if (!mkdir($tmpDir, 0777, true)) {
 			throw new Exception("Unable to create directory '$tmpDir'");
 		}
+		Z_Core::debug("Downloading attachment to $dir");
 		$response = Zotero_S3::downloadFile($info, $tmpDir);
 		
 		$success = self::extractZip($tmpDir . $info['filename'], $dir);
