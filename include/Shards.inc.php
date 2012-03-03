@@ -124,9 +124,27 @@ class Zotero_Shards {
 	}
 	
 	
+	/**
+	 * Get one of the smallest shards
+	 */
 	public static function getNextShard() {
-		// TODO: figure out best shard
-		return 2;
+		$sql = "SELECT shardID FROM shards ORDER BY items ASC LIMIT 10";
+		$shards = Zotero_DB::columnQuery($sql);
+		return $shards[array_rand($shards, 1)];
+	}
+	
+	
+	public static function getAllShards($state=false) {
+		$sql = "SELECT shardID FROM shards S JOIN shardHosts SH USING (shardHostID)";
+		if ($state) {
+			$sql .= " WHERE SH.state=? AND S.state=?";
+			$params = array($state, $state);
+		}
+		else {
+			$params = array();
+		}
+		
+		return Zotero_DB::columnQuery($sql, $params);
 	}
 	
 	

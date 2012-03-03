@@ -230,6 +230,7 @@ CREATE TABLE `shards` (
   `password` varchar(16) NOT NULL,
   `db` varchar(20) NOT NULL,
   `state` enum('up','readonly','down') NOT NULL,
+  `items` mediumint(8) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`shardID`),
   KEY `shardHostID` (`shardHostID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
