@@ -619,6 +619,10 @@ class SyncController extends Controller {
 		
 		$msg = $e->getMessage();
 		
+		//if (strpos($msg, "Can't connect to MySQL server on") !== false) {
+		//	$this->error(503, 'SERVER_ERROR', "Syncing is currently unavailable for some users due to a server issue. We're working to restore service as soon as possible. Our apologies for the inconvenience.");
+		//}
+		
 		if (strpos($msg, "Lock wait timeout exceeded; try restarting transaction") !== false
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
 				|| strpos($msg, "Too many connections") !== false
