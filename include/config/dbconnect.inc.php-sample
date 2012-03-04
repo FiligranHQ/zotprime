@@ -7,6 +7,13 @@ function Zotero_dbConnectAuth($db) {
 		$user = '';
 		$pass = '';
 	}
+	else if ($db == 'shard') {
+		$host = false;
+		$port = false;
+		$db = false;
+		$user = '';
+		$pass = '';
+	}
 	else if ($db == 'id1') {
 		$host = '';
 		$port = 3306;

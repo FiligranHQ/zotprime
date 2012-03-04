@@ -86,14 +86,14 @@ class Zotero_DB {
 			}
 		}
 		
+		$auth = Zotero_DBConnectAuth('shard');
 		$config = array(
 			'host'     => $shardInfo['address'],
 			'port'     => $shardInfo['port'],
-			'username' => $shardInfo['username'],
-			'password' => $shardInfo['password'],
+			'username' => $auth['user'],
+			'password' => $auth['pass'],
 			'dbname'   => $shardInfo['db'],
-			'charset'  => 'utf8',
-			
+			'charset'  => 'utf8'
 		);
 		
 		// For admin, use user/pass from master

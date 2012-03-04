@@ -226,8 +226,6 @@ CREATE TABLE `shardHosts` (
 CREATE TABLE `shards` (
   `shardID` smallint(5) unsigned NOT NULL,
   `shardHostID` tinyint(3) unsigned NOT NULL,
-  `username` varchar(20) NOT NULL,
-  `password` varchar(16) NOT NULL,
   `db` varchar(20) NOT NULL,
   `state` enum('up','readonly','down') NOT NULL,
   `items` mediumint(8) unsigned NOT NULL DEFAULT '0',

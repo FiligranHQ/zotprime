@@ -44,7 +44,7 @@ class Zotero_Shards {
 			return $shardInfo;
 		}
 		
-		$sql = "SELECT address, port, username, password, db,
+		$sql = "SELECT address, port, db,
 				CASE
 					WHEN shardHosts.state='up' THEN shards.state
 					WHEN shardHosts.state='readonly' THEN
