@@ -542,7 +542,7 @@ class ApiController extends Controller {
 					exit;
 				
 				default:
-					$export = Zotero_Translate::getExportFromTranslationServer(array($item), $this->queryParams['format']);
+					$export = Zotero_Translate::doExport(array($item), $this->queryParams['format']);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
 					}
@@ -752,7 +752,30 @@ class ApiController extends Controller {
 						}
 						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, null, $this->userID);
+						if (isset($obj->url)) {
+							$response = Zotero_Items::addFromURL($obj, $this->objectLibraryID, $this->userID, $this->getTranslationToken());
+							if ($response instanceof stdClass) {
+								header("Content-Type: application/json");
+								echo json_encode($response->select);
+								$this->e300();
+							}
+							else if (is_int($response)) {
+								switch ($response) {
+									case 501:
+										$this->e501("No translators found for URL");
+										break;
+									
+									default:
+										$this->e500("Error translating URL");
+								}
+							}
+							else {
+								$keys = $response;
+							}
+						}
+						else {
+							$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, null, $this->userID);
+						}
 						
 						if (!$keys) {
 							throw new Exception("No items added");
@@ -870,7 +893,7 @@ class ApiController extends Controller {
 					exit;
 				
 				default:
-					$export = Zotero_Translate::getExportFromTranslationServer($responseItems, $this->queryParams['format']);
+					$export = Zotero_Translate::doExport($responseItems, $this->queryParams['format']);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
 					}
@@ -2625,6 +2648,17 @@ class ApiController extends Controller {
 	}
 	
 	
+	/**
+	 * Get a token to pass to the translation server to retain state for multi-item saves
+	 */
+	private function getTranslationToken() {
+		if (!$this->cookieAuth) {
+			return false;
+		}
+		$str = md5($this->userID . $_GET['session']);
+	}
+	
+	
 	private function getWriteTokenCacheKey() {
 		if (empty($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN'])) {
 			return false;
@@ -2824,6 +2858,10 @@ class ApiController extends Controller {
 		die();
 	}
 	
+	private function e300() {
+		header('HTTP/1.1 300 Multiple Choices');
+		die();
+	}
 	
 	private function e400($message="Invalid request") {
 		header('HTTP/1.1 400 Bad Request');
@@ -2870,6 +2908,12 @@ class ApiController extends Controller {
 	
 	private function e500($message="An error occurred") {
 		header("HTTP/1.1 500 Internal Server Error");
+		die(htmlspecialchars($message));
+	}
+	
+	
+	private function e501($message="An error occurred") {
+		header("HTTP/1.1 501 Not Implemented");
 		die(htmlspecialchars($message));
 	}
 	

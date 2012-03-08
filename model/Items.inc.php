@@ -1096,7 +1096,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
-				$export = Zotero_Translate::getExportFromTranslationServer(array($item), $type);
+				$export = Zotero_Translate::doExport(array($item), $type);
 				$target->setAttribute('type', $export['mimeType']);
 				// Insert XML into document
 				if (preg_match('/\+xml$/', $export['mimeType'])) {
@@ -1121,7 +1121,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * Create new items from a decoded JSON object
 	 */
 	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null, $userID=null) {
-		self::validateJSONItems($json, true);
+		self::validateJSONItems($json);
 		
 		$keys = array();
 		
@@ -1141,6 +1141,63 @@ class Zotero_Items extends Zotero_DataObjects {
 		Zotero_DB::commit();
 		
 		return $keys;
+	}
+	
+	
+	/**
+	 * Import an item by URL using the translation server
+	 *
+	 * Initial request:
+	 *
+	 * {
+	 *   "url": "http://..."
+	 * }
+	 *
+	 * Item selection for multi-item results
+	 *
+	 * {
+	 *   "url": "http://...",
+	 *   "items": {
+	 *     "0": "Item 1 Title",
+	 *     "3": "Item 2 Title"
+	 *   }
+	 * }
+	 *
+	 * Returns an array of keys of added items (like addFromJSON) or an object
+	 * with a 'select' property containing an array of titles for multi-item results
+	 */
+	public static function addFromURL($json, $libraryID, $userID, $translationToken) {
+		self::validateJSONURL($json);
+		
+		$response = Zotero_Translate::doWeb(
+			$json->url,
+			$translationToken,
+			isset($json->items) ? $json->items : null
+		);
+		
+		if (!$response || is_int($response)) {
+			return $response;
+		}
+		
+		if (isset($response->items)) {
+			try {
+				self::validateJSONItems($response);
+			}
+			catch (Exception $e) {
+				error_log($e);
+				error_log($response);
+				throw new Exception("Invalid JSON from doWeb()");
+			}
+		}
+		// Multi-item select
+		else if (isset($response->select)) {
+			return $response;
+		}
+		else {
+			throw new Exception("Invalid return value from doWeb()");
+		}
+		
+		return self::addFromJSON($response, $libraryID, null, $userID);
 	}
 	
 	
@@ -1544,7 +1601,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function validateJSONItems($json) {
+	private static function validateJSONItems($json) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
 		}
@@ -1555,6 +1612,27 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			if (sizeOf($val) > Zotero_API::$maxWriteItems) {
 				throw new Exception("Cannot add more than " . Zotero_API::$maxWriteItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+			}
+		}
+	}
+	
+	
+	private static function validateJSONURL($json) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
+		}
+		
+		if (!isset($json->url)) {
+			throw new Exception("URL not provided");
+		}
+		
+		foreach ($json as $key=>$val) {
+			if (!in_array($key, array('url', 'items'))) {
+				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+			}
+			
+			if ($key == 'items' && sizeOf($val) > Zotero_API::$maxTranslateItems) {
+				throw new Exception("Cannot translate more than " . Zotero_API::$maxTranslateItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
 			}
 		}
 	}
