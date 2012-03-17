@@ -311,7 +311,8 @@ class Zotero_DB {
 		
 		$instance = self::getInstance();
 		
-		$link = $instance->getShardLink($shardID, self::isWriteQuery($sql));
+		$isWriteQuery = self::isWriteQuery($sql);
+		$link = $instance->getShardLink($shardID, $isWriteQuery);
 		
 		$instance->checkShardTransaction($shardID);
 		
@@ -330,7 +331,7 @@ class Zotero_DB {
 							$repl = 'NULL';
 							$sublen = 1;
 						}
-						else if ($queryMethod == 'select') {
+						else if (!$isWriteQuery) {
 							$repl = ' IS NULL';
 							$sublen = strlen($matches[0][$i][0]);
 						}
