@@ -70,6 +70,7 @@ class ApiController extends Controller {
 		}
 		
 		set_exception_handler(array($this, 'handleException'));
+		set_error_handler(array($this, 'handleError'));
 		require_once('../model/Error.inc.php');
 		
 		$this->startTime = microtime(true);
@@ -322,6 +323,19 @@ class ApiController extends Controller {
 		
 		$singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
 		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $singleObject);
+	}
+	
+	
+	public function __call($name, $arguments) {
+		if (preg_match("/^e[1-5][0-9]{2}$/", $name)) {
+			if (isset($arguments[0])) {
+				Z_HTTP::$name($arguments[0]);
+			}
+			else {
+				Z_HTTP::$name();
+			}
+		}
+		throw new Exception("Invalid function $name");
 	}
 	
 	
@@ -2852,75 +2866,9 @@ class ApiController extends Controller {
 		$this->e500();
 	}
 	
-	
-	private function e204() {
-		header('HTTP/1.1 204 No Content');
-		die();
-	}
-	
-	private function e300() {
-		header('HTTP/1.1 300 Multiple Choices');
-		die();
-	}
-	
-	private function e400($message="Invalid request") {
-		header('HTTP/1.1 400 Bad Request');
-		die($message);
-	}
-	
-	
-	private function e401($message="Access denied") {
-		header('WWW-Authenticate: Basic realm="Zotero API"');
-		header('HTTP/1.1 401 Unauthorized');
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e403($message="Forbidden") {
-		header('HTTP/1.1 403 Forbidden');
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e404($message="Not found") {
-		header("HTTP/1.1 404 Not Found");
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e409($message) {
-		header("HTTP/1.1 409 Conflict");
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e412($message=false) {
-		header("HTTP/1.1 412 Precondition Failed");
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e413($message=false) {
-		header("HTTP/1.1 413 Request Entity Too Large");
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e500($message="An error occurred") {
-		header("HTTP/1.1 500 Internal Server Error");
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e501($message="An error occurred") {
-		header("HTTP/1.1 501 Not Implemented");
-		die(htmlspecialchars($message));
-	}
-	
-	
-	private function e503($message="Service unavailable") {
-		header("HTTP/1.1 503 Service Unavailable");
-		die(htmlspecialchars($message));
+	public function handleError($no, $str, $file, $line) {
+		$e = new ErrorException($str, $no, 0, $file, $line);
+		$this->handleException($e);
 	}
 }
 ?>
