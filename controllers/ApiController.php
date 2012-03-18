@@ -70,7 +70,7 @@ class ApiController extends Controller {
 		}
 		
 		set_exception_handler(array($this, 'handleException'));
-		set_error_handler(array($this, 'handleError'));
+		set_error_handler(array($this, 'handleError'), E_USER_ERROR);
 		require_once('../model/Error.inc.php');
 		
 		$this->startTime = microtime(true);
