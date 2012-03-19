@@ -2649,16 +2649,13 @@ class ApiController extends Controller {
 		$this->permissions = new Zotero_Permissions($userID);
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 		
-		// Grant user file permissions on own library
+		// Grant user permissions on own library and all groups
 		$this->permissions->setPermission($libraryID, 'library', true);
 		$this->permissions->setPermission($libraryID, 'files', true);
-		
-		// Grant user file permissions on allowed groups
-		$groups = Zotero_Groups::getAllAdvanced($userID);
-		foreach ($groups['groups'] as $group) {
-			$this->permissions->setPermission($group->libraryID, 'library', true);
-			$this->permissions->setPermission($group->libraryID, 'files', true);
-		}
+		$this->permissions->setPermission($libraryID, 'notes', true);
+		$this->permissions->setPermission($libraryID, 'write', true);
+		$this->permissions->setPermission(0, 'library', true);
+		$this->permissions->setPermission(0, 'write', true);
 	}
 	
 	
