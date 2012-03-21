@@ -25,17 +25,18 @@
 */
 
 error_reporting(E_ALL | E_STRICT);
-set_include_path(get_include_path() . PATH_SEPARATOR . "../include");
+set_include_path(get_include_path() . PATH_SEPARATOR . dirname(dirname(dirname(__FILE__)))  . "/include");
 require_once("header.inc.php");
 
 class Tests extends PHPUnit_Framework_TestSuite {
 	public static function suite() {
 		$suite = new PHPUnit_Framework_TestSuite();
 		$suite->addTestSuite('CreatorsTests');
-		$suite->addTestSuite('DBTests');
+		//$suite->addTestSuite('DBTests');
 		$suite->addTestSuite('DateTests');
 		$suite->addTestSuite('MemcacheTests');
 		$suite->addTestSuite('TagsTests');
+		$suite->addTestSuite('UnicodeTests');
 		//$suite->addTestSuite('UsersTests');
 		return $suite;
 	}
@@ -598,6 +599,17 @@ EOD;
 		$doc->loadXML($xml);
 		$tag = Zotero_Tags::getLongDataValueFromXML($doc);
 		$this->assertEquals($longTag, $tag);
+	}
+}
+
+
+class UnicodeTests extends PHPUnit_Framework_TestCase {
+	public function testConvert() {
+		$original = "Abcdefg Âéìøü 这是一个测试。";
+		$str = Zotero_Attachments::encodeRelativeDescriptorString($original);
+		// assert
+		$str = Zotero_Attachments::decodeRelativeDescriptorString($str);
+		$this->assertEquals($original, $str);
 	}
 }
 

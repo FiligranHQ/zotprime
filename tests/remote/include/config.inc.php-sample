@@ -1,0 +1,19 @@
+<?
+$config = array(
+	'verbose' => false,
+	'syncURLPrefix' => "",
+	'apiURLPrefix' => "",
+	'rootUsername' => "",
+	'rootPassword' => "",
+	's3Bucket' => "",
+	's3AccessKey' => "",
+	's3SecretKey' => "",
+	'apiVersion' => 9,
+	
+	// User
+	'userID' => 0,
+	'username' => "", // user used for sync tests
+	'password' => "",
+	'apiKey' => ""
+);
+?>
