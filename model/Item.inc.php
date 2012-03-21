@@ -53,7 +53,8 @@ class Zotero_Item {
 		'charset' => null,
 		'storageModTime' => null,
 		'storageHash' => null,
-		'path' => null
+		'path' => null,
+		'filename' => null
 	);
 	
 	private $relatedItems = array();
@@ -143,7 +144,10 @@ class Zotero_Item {
 			
 			case 'attachmentPath':
 				return $this->getAttachmentPath();
-				
+			
+			case 'attachmentFilename':
+				return $this->getAttachmentFilename();
+			
 			case 'attachmentStorageModTime':
 				return $this->getAttachmentStorageModTime();
 			
@@ -157,7 +161,7 @@ class Zotero_Item {
 				return $this->getETag();
 		}
 		
-		trigger_error("'$field' is not a primary or attachment field", E_USER_ERROR);
+		throw new Exception("'$field' is not a primary or attachment field");
 	}
 	
 	
@@ -176,27 +180,18 @@ class Zotero_Item {
 				return $this->setDeleted($val);
 			
 			case 'attachmentLinkMode':
-				$this->setAttachmentField('linkMode', $val);
+			case 'attachmentCharset':
+			case 'attachmentStorageModTime':
+			case 'attachmentStorageHash':
+			case 'attachmentPath':
+			case 'attachmentFilename':
+				$field = substr($field, 10);
+				$field[0] = strtolower($field[0]);
+				$this->setAttachmentField($field, $val);
 				return;
-				
+			
 			case 'attachmentMIMEType':
 				$this->setAttachmentField('mimeType', $val);
-				return;
-				
-			case 'attachmentCharset':
-				$this->setAttachmentField('charset', $val);
-				return;
-			
-			case 'attachmentStorageModTime':
-				$this->setAttachmentField('storageModTime', $val);
-				return;
-			
-			case 'attachmentStorageHash':
-				$this->setAttachmentField('storageHash', $val);
-				return;
-			
-			case 'attachmentPath':
-				$this->setAttachmentField('path', $val);
 				return;
 			
 			case 'relatedItems':
@@ -895,9 +890,8 @@ class Zotero_Item {
 		if (!$this->isAttachment()) {
 			return false;
 		}
-		$linkMode = $this->attachmentLinkMode;
-		// TODO: get from somewhere
-		return $linkMode == 0 || $linkMode == 1;
+		$name = Zotero_Attachments::linkModeNumberToName($this->attachmentLinkMode);
+		return $name == "IMPORTED_FILE" || $name == "IMPORTED_URL";
 	}
 	
 	
@@ -2547,7 +2541,7 @@ class Zotero_Item {
 	 */
 	private function getAttachmentLinkMode() {
 		if (!$this->isAttachment()) {
-			trigger_error("attachmentLinkMode can only be retrieved for attachment items", E_USER_ERROR);
+			throw new Exception("attachmentLinkMode can only be retrieved for attachment items");
 		}
 		
 		if ($this->attachmentData['linkMode'] !== null) {
@@ -2652,6 +2646,37 @@ class Zotero_Item {
 	}
 	
 	
+	private function getAttachmentFilename() {
+		if (!$this->isAttachment()) {
+			throw new Exception("attachmentFilename can only be retrieved for attachment items");
+		}
+		
+		if (!$this->isImportedAttachment()) {
+			throw new Exception("attachmentFilename cannot be retrieved for linked attachments");
+		}
+		
+		if ($this->attachmentData['filename'] !== null) {
+			return $this->attachmentData['filename'];
+		}
+		
+		if (!$this->id) {
+			return '';
+		}
+		
+		$path = $this->attachmentPath;
+		if (!$path) {
+			return '';
+		}
+		
+		// Strip "storage:"
+		$filename = substr($path, 8);
+		$filename = Zotero_Attachments::decodeRelativeDescriptorString($filename);
+		
+		$this->attachmentData['filename'] = $filename;
+		return $filename;
+	}
+	
+	
 	private function getAttachmentStorageModTime() {
 		if (!$this->isAttachment()) {
 			trigger_error("attachmentStorageModTime can only be retrieved
@@ -2710,6 +2735,7 @@ class Zotero_Item {
 			case 'storageModTime':
 			case 'storageHash':
 			case 'path':
+			case 'filename':
 				$fieldCap = ucwords($field);
 				break;
 				
@@ -2721,20 +2747,24 @@ class Zotero_Item {
 			trigger_error("attachment$fieldCap can only be set for attachment items", E_USER_ERROR);
 		}
 		
+		// Validate linkMode
 		if ($field == 'linkMode') {
-			switch ($val) {
-				// TODO: get these constants from somewhere
-				// TODO: validate field for this link mode
-				case 0:
-				case 1:
-				case 2:
-				case 3:
-					break;
-					
-				default:
-					trigger_error("Invalid attachment link mode '$val' in "
-						. "Zotero_Item::attachmentLinkMode setter", E_USER_ERROR);
+			Zotero_Attachments::linkModeNumberToName($val);
+		}
+		// For filename, modify 
+		else if ($field == 'filename') {
+			$linkMode = $this->getAttachmentLinkMode();
+			$linkMode = Zotero_Attachments::linkModeNumberToName($linkMode);
+			if ($linkMode == "LINKED_URL") {
+				throw new Exception("Linked URLs cannot have filenames");
 			}
+			else if ($linkMode == "LINKED_FILE") {
+				throw new Exception("Cannot change filename for linked file");
+			}
+			
+			$field = 'path';
+			$fieldCap = 'Path';
+			$val = 'storage:' . Zotero_Attachments::encodeRelativeDescriptorString($val);
 		}
 		
 		if (!is_int($val) && !$val) {
@@ -2745,6 +2775,11 @@ class Zotero_Item {
 		
 		if ($val === $this->$fieldName) {
 			return;
+		}
+		
+		// Don't allow changing of existing linkMode
+		if ($field == 'linkMode' && $this->$fieldName !== null) {
+			throw new Exception("Cannot change existing linkMode");
 		}
 		
 		$this->changed['attachmentData'][$field] = true;
@@ -3145,6 +3180,11 @@ class Zotero_Item {
 		$arr = array();
 		$arr['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
 		
+		if ($this->isAttachment()) {
+			$val = $this->attachmentLinkMode;
+			$arr['linkMode'] = strtolower(Zotero_Attachments::linkModeNumberToName($val));
+		}
+		
 		// For regular items, show title and creators first
 		if ($regularItem) {
 			// Get 'title' or the equivalent base-mapped field
@@ -3209,13 +3249,11 @@ class Zotero_Item {
 		
 		if ($this->isAttachment()) {
 			$val = $this->attachmentLinkMode;
-			if ($includeEmpty || ($val !== false && $val !== "")) {
-				$arr['linkMode'] = $val;
-			}
+			$arr['linkMode'] = strtolower(Zotero_Attachments::linkModeNumberToName($val));
 			
 			$val = $this->attachmentMIMEType;
 			if ($includeEmpty || ($val !== false && $val !== "")) {
-				$arr['mimeType'] = $val;
+				$arr['contentType'] = $val;
 			}
 			
 			$val = $this->attachmentCharset;
@@ -3223,10 +3261,19 @@ class Zotero_Item {
 				$arr['charset'] = $val;
 			}
 			
-			// TODO: get from a constant
-			/*if ($this->attachmentLinkMode != 3) {
-				$doc->addField('path', $this->attachmentPath);
-			}*/
+			if ($this->isImportedAttachment()) {
+				$arr['filename'] = $this->attachmentFilename;
+				
+				$val = $this->attachmentStorageHash;
+				if ($includeEmpty || $val) {
+					$arr['md5'] = $val;
+				}
+				
+				$val = $this->attachmentStorageModTime;
+				if ($includeEmpty || $val) {
+					$arr['mtime'] = $val;
+				}
+			}
 		}
 		
 		if ($this->getDeleted()) {

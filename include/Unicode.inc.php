@@ -5,11 +5,11 @@ class Z_Unicode {
 	}
 	
 	public static function fromCharCode($str) {
-		return Z_Unicode::unichr($str);
+		return self::unichr($str);
 	}
 	
 	public static function charCodeAt($str, $pos) {
-		return Z_Unicode::uniord(mb_substr($str, $pos, 1));
+		return self::uniord(mb_substr($str, $pos, 1));
 	}
 	
 	// From http://us2.php.net/manual/en/function.chr.php#88611
@@ -168,6 +168,46 @@ class Z_Unicode {
 	}
 	
 	
+	public static function convertCharStr2UTF8($str) {
+		// Converts a string of characters to UTF-8 byte codes, separated by spaces
+		// str: sequence of Unicode characters
+		$highsurrogate = 0;
+		$suppCP; // decimal code point value for a supp char
+		$n = 0;
+		$outputString = '';
+		for ($i = 0; $i < mb_strlen($str); $i++) {
+			$cc = self::charCodeAt($str, $i);
+			if ($cc < 0 || $cc > 0xFFFF) {
+				throw new Exception('Error in convertCharStr2UTF8: unexpected charCodeAt result, cc=' . $cc . '!');
+			}
+			if ($highsurrogate != 0) {
+				if (0xDC00 <= $cc && $cc <= 0xDFFF) {
+					$suppCP = 0x10000 + (($highsurrogate - 0xD800) << 10) + ($cc - 0xDC00);
+					$outputString .= ' ' . self::dec2hex2(0xF0 | (($suppCP>>18) & 0x07)) . ' '
+						. self::dec2hex2(0x80 | (($suppCP>>12) & 0x3F)) . ' '
+						. self::dec2hex2(0x80 | (($suppCP>>6) & 0x3F)) . ' '
+						. self::dec2hex2(0x80 | ($suppCP & 0x3F));
+					$highsurrogate = 0;
+					continue;
+				}
+				else {
+					throw new Exception('Error in convertCharStr2UTF8: low surrogate expected, cc=' . $cc . '!');
+					$highsurrogate = 0;
+				}
+			}
+			if (0xD800 <= $cc && $cc <= 0xDBFF) { // high surrogate
+				$highsurrogate = $cc;
+			}
+			else {
+				if ($cc <= 0x7F) { $outputString .= ' ' . self::dec2hex2($cc); }
+				else if ($cc <= 0x7FF) { $outputString .= ' ' . self::dec2hex2(0xC0 | (($cc>>6) & 0x1F)) . ' ' . self::dec2hex2(0x80 | ($cc & 0x3F)); } 
+				else if ($cc <= 0xFFFF) { $outputString .= ' ' . self::dec2hex2(0xE0 | (($cc>>12) & 0x0F)) . ' ' . self::dec2hex2(0x80 | (($cc>>6) & 0x3F)) . ' ' . self::dec2hex2(0x80 | ($cc & 0x3F)); }
+			}
+		}
+		return substr($outputString, 1);
+	}
+	
+	
 	private static function dec2char($n) {
 		// converts a single string representing a decimal number to a character
 		// note that no checking is performed to ensure that this is just a hex number, eg. no spaces etc
@@ -184,5 +224,27 @@ class Z_Unicode {
 			throw new Exception('dec2char error: Code point out of range: ' . dechex($n));
 		}
 		return $result;
+	}
+	
+	
+	public static function hex2char ($hex) {
+		// converts a single hex number to a character
+		// note that no checking is performed to ensure that this is just a hex number, eg. no spaces etc
+		// hex: string, the hex codepoint to be converted
+		$result = '';
+		$n = intval($hex, 16);
+		if ($n <= 0xFFFF) { $result .= self::fromCharCode($n); } 
+		else if ($n <= 0x10FFFF) {
+			$n -= 0x10000;
+			$result .= self::fromCharCode(0xD800 | ($n >> 10)) . self::fromCharCode(0xDC00 | ($n & 0x3FF));
+		} 
+		else { throw new Exception('hex2char error: Code point out of range: ' . dexhex($n)); }
+		return $result;
+	}
+
+	
+	public static function dec2hex2($textString) {
+		$hexequiv = array("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F");
+		return $hexequiv[($textString >> 4) & 0xF] . $hexequiv[$textString & 0xF];
 	}
 }

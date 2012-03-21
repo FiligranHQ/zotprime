@@ -1,6 +1,33 @@
 <?
 class Zotero_Attachments {
-	private static $cacheTime = 60;
+	private static $cacheTime = 60; // seconds to cache extracted ZIP files
+	
+	private static $linkModes = array(
+		0 => "IMPORTED_FILE",
+		1 => "IMPORTED_URL",
+		2 => "LINKED_FILE",
+		3 => "LINKED_URL"
+	);
+	
+	public static function linkModeNumberToName($number) {
+		if (!isset(self::$linkModes[$number])) {
+			throw new Exception("Invalid link mode '" . $number . "'");
+		}
+		return self::$linkModes[$number];
+	}
+	
+	
+	public static function linkModeNameToNumber($name, $caseInsensitive=false) {
+		if ($caseInsensitive) {
+			$name = strtoupper($name);
+		}
+		$number = array_search($name, self::$linkModes);
+		if ($number === false) {
+			throw new Exception("Invalid link mode name '" . $name . "'");
+		}
+		return $number;
+	}
+	
 	
 	/**
 	 * Download ZIP file from S3, extract it, and return a temporary URL
@@ -154,6 +181,36 @@ class Zotero_Attachments {
 	}
 	
 	
+	// Filenames are in Mozilla's getRelativeDescriptor() format
+	public static function decodeRelativeDescriptorString($str) {
+		$str = Z_Unicode::convertCharStr2CP($str, false, true, 'hex');
+		$str = Z_Unicode::convertUTF82Char($str);
+		if (function_exists('normalizer_normalize')) {
+			$str = normalizer_normalize($str);
+		}
+		return $str;
+	}
+	
+	
+	public static function encodeRelativeDescriptorString($str) {
+		if (function_exists('normalizer_normalize')) {
+			$str = normalizer_normalize($str);
+		}
+		
+		$str = Z_Unicode::convertCharStr2UTF8($str);
+		// convertNumbers2Char($str, 'hex')
+		$str = preg_replace_callback(
+			"/([A-Fa-f0-9]{2})/",
+			function($matches) {
+				return Z_Unicode::hex2char($matches[0]);
+			},
+			str_replace(" ", "", $str)
+		);
+		
+		return $str;
+	}
+	
+	
 	private static function extractZip($file, $destDir) {
 		$za = new ZipArchive();
 		$za->open($file);
@@ -191,16 +248,5 @@ class Zotero_Attachments {
 		}
 		
 		return $success;
-	}
-	
-	
-	// Filenames are in Mozilla's getRelativeDescriptor() format
-	private static function decodeRelativeDescriptorString($str) {
-		$str = Z_Unicode::convertCharStr2CP($str, false, true, 'hex');
-		$str = Z_Unicode::convertUTF82Char($str);
-		if (function_exists('normalizer_normalize')) {
-			$str = normalizer_normalize($str);
-		}
-		return $str;
 	}
 }

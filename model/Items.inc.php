@@ -1203,7 +1203,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	
 	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null, $userID=null) {
-		self::validateJSONItem($json, $isNew, !is_null($parentItem));
+		self::validateJSONItem($json, $isNew ? null : $item, !is_null($parentItem));
 		
 		Zotero_DB::beginTransaction();
 		
@@ -1338,6 +1338,10 @@ class Zotero_Items extends Zotero_DataObjects {
 					$item->setNote($val);
 					break;
 				
+				case 'linkMode':
+					$item->attachmentLinkMode = Zotero_Attachments::linkModeNameToNumber($val, true);
+					break;
+				
 				default:
 					$item->setField($key, $val);
 					break;
@@ -1396,9 +1400,27 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function validateJSONItem($json, $isNew=false, $isChild=false) {
+	private static function validateJSONItems($json) {
 		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
+			throw new Exception("Invalid items object (found " . gettype($json) . " '" . $json . "')", Z_ERROR_INVALID_INPUT);
+		}
+		
+		foreach ($json as $key=>$val) {
+			if ($key != 'items') {
+				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+			}
+			if (sizeOf($val) > Zotero_API::$maxWriteItems) {
+				throw new Exception("Cannot add more than " . Zotero_API::$maxWriteItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+			}
+		}
+	}
+	
+	
+	private static function validateJSONItem($json, $item=null, $isChild=false) {
+		$isNew = !$item;
+		
+		if (!is_object($json)) {
+			throw new Exception("Invalid item object (found " . gettype($json) . " '" . $json . "')", Z_ERROR_INVALID_INPUT);
 		}
 		
 		if (isset($json->items) && is_array($json->items)) {
@@ -1407,6 +1429,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if ($isNew) {
 			$requiredProps = array('itemType');
+		}
+		else if (isset($json->itemType) && in_array($json->itemType, array("attachment", "note"))) {
+			$requiredProps = array('tags');
 		}
 		else {
 			$requiredProps = array('itemType', 'creators', 'tags');
@@ -1440,7 +1465,20 @@ class Zotero_Items extends Zotero_DataObjects {
 						throw new Exception("'$val' is not a valid itemType", Z_ERROR_INVALID_INPUT);
 					}
 					break;
-					
+				
+				case 'linkMode':
+					try {
+						$linkMode = Zotero_Attachments::linkModeNameToNumber($val, true);
+					}
+					catch (Exception $e) {
+						throw new Exception("'$val' is not a valid linkMode", Z_ERROR_INVALID_INPUT);
+					}
+					// Don't allow changing of linkMode
+					if ($item && $linkMode != $item->attachmentLinkMode) {
+						throw new Exception("Cannot change attachment linkMode", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
 				case 'tags':
 					if (!is_array($val)) {
 						throw new Exception("'tags' property must be an array", Z_ERROR_INVALID_INPUT);
@@ -1602,25 +1640,9 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONItems($json) {
-		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
-		}
-		
-		foreach ($json as $key=>$val) {
-			if ($key != 'items') {
-				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
-			}
-			if (sizeOf($val) > Zotero_API::$maxWriteItems) {
-				throw new Exception("Cannot add more than " . Zotero_API::$maxWriteItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
-			}
-		}
-	}
-	
-	
 	private static function validateJSONURL($json) {
 		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object', Z_ERROR_INVALID_INPUT);
+			throw new Exception("Unexpected " . gettype($json) . " '" . $json . "'", Z_ERROR_INVALID_INPUT);
 		}
 		
 		if (!isset($json->url)) {

@@ -82,7 +82,7 @@ class ApiController extends Controller {
 			die("Too many requests");
 		}*/
 		
-		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE'))) {
+		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE', 'PATCH'))) {
 			header("HTTP/1.1 501 Not Implemented");
 			die("Method is not implemented");
 		}
@@ -96,12 +96,12 @@ class ApiController extends Controller {
 			die("Expect header is not supported");
 		}
 		
-		if ($this->method == 'POST' || $this->method == 'PUT') {
+		if (in_array($this->method, array('POST', 'PUT', 'PATCH'))) {
 			$this->ifUnmodifiedSince =
 				isset($_SERVER['HTTP_IF_UNMODIFIED_SINCE'])
 					? strtotime($_SERVER['HTTP_IF_UNMODIFIED_SINCE']) : false;
 			
-			$this->body = trim(file_get_contents("php://input"));
+			$this->body = file_get_contents("php://input");
 		}
 		
 		if ($this->profile) {
@@ -363,7 +363,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET', 'HEAD', 'POST'));
 				}
 				else {
-					$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD'));
+					$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD', 'PATCH'));
 				}
 			}
 			else {
@@ -971,15 +971,17 @@ class ApiController extends Controller {
 			$this->e403();
 		}
 		
-		$this->allowMethods(array('HEAD', 'GET', 'POST'));
+		$this->allowMethods(array('HEAD', 'GET', 'POST', 'PATCH'));
 		
 		if (!$item->isAttachment()) {
 			$this->e400("Item is not an attachment");
 		}
 		
+		// File info for client sync
+		//
 		// Use of HEAD method is deprecated after 2.0.8/2.1b1 due to
 		// compatibility problems with proxies and security software
-		if ($this->method == 'HEAD' || $this->fileMode == 'info') {
+		if ($this->method == 'HEAD' || ($this->method == 'GET' && $this->fileMode == 'info')) {
 			$info = Zotero_S3::getLocalFileItemInfo($item);
 			if (!$info) {
 				$this->e404();
@@ -996,7 +998,9 @@ class ApiController extends Controller {
 			header_remove("X-Powered-By");
 		}
 		
-		// TEMP: allow POST for snapshot viewing while keys are embedded
+		// File download/viewing
+		//
+		// TEMP: allow POST for snapshot viewing until using session auth
 		else if ($this->method == 'GET' || ($this->method == 'POST' && $this->fileView)) {
 			if ($this->fileView) {
 				$info = Zotero_S3::getLocalFileItemInfo($item);
@@ -1029,7 +1033,11 @@ class ApiController extends Controller {
 			exit;
 		}
 		
-		else if ($this->method == 'POST') {
+		else if ($this->method == 'POST' || $this->method == 'PATCH') {
+			if (!$item->isImportedAttachment()) {
+				$this->e400("Cannot upload file for linked file/URL attachment item");
+			}
+			
 			$libraryID = $item->libraryID;
 			$type = Zotero_Libraries::getType($libraryID);
 			if ($type == 'group') {
@@ -1043,32 +1051,287 @@ class ApiController extends Controller {
 				$group = null;
 			}
 			
-			if (empty($_POST['mtime'])) {
-				throw new Exception('File modification time not provided');
+			// If not the client, require If-Match or If-None-Match
+			if (!$this->httpAuth) {
+				if (empty($_SERVER['HTTP_IF_MATCH']) && empty($_SERVER['HTTP_IF_NONE_MATCH'])) {
+					$this->e400("If-Match/If-None-Match header not provided");
+				}
+				
+				if (!empty($_SERVER['HTTP_IF_MATCH'])) {
+					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+						$this->e400("Invalid ETag in If-Match header");
+					}
+					
+					if (!$item->attachmentStorageHash) {
+						$info = Zotero_S3::getLocalFileItemInfo($item);
+						$this->e412("ETag set but file does not exist");
+					}
+					
+					if ($item->attachmentStorageHash != $matches[1]) {
+						$this->e412("ETag does not match current version of file");
+					}
+				}
+				else {
+					if ($_SERVER['HTTP_IF_NONE_MATCH'] != "*") {
+						$this->e400("Invalid value for If-None-Match header");
+					}
+					
+					if ($this->attachmentStorageHash) {
+						$this->e412("If-None-Match: * set but file exists");
+					}
+				}
 			}
 			
-			// Post-upload file registration
-			if (!empty($_POST['update'])) {
+			//
+			// Upload authorization
+			//
+			if (!isset($_POST['update']) && !isset($_REQUEST['upload'])) {
+				$info = new Zotero_StorageFileInfo;
+				
+				// Validate upload metadata
+				if (empty($_REQUEST['md5'])) {
+					$this->e400('MD5 hash not provided');
+				}
+				$info->hash = $_REQUEST['md5'];
+				if (!preg_match('/[abcdefg0-9]{32}/', $info->hash)) {
+					$this->e400('Invalid MD5 hash');
+				}
+				
+				if (empty($_REQUEST['mtime'])) {
+					$this->e400('File modification time not provided');
+				}
+				$info->mtime = $_REQUEST['mtime'];
+				
+				if (!isset($_REQUEST['filename']) || $_REQUEST['filename'] === "") {
+					$this->e400('File name not provided');
+				}
+				$info->filename = $_REQUEST['filename'];
+				
+				if (!isset($_REQUEST['filesize'])) {
+					$this->e400('File size not provided');
+				}
+				$info->size = $_REQUEST['filesize'];
+				if (!is_numeric($info->size)) {
+					$this->e400("Invalid file size");
+				}
+				
+				$info->contentType = isset($_REQUEST['contentType']) ? $_REQUEST['contentType'] : "";
+				if (!preg_match("/^[a-zA-Z0-9\-\/]+$/", $info->contentType)) {
+					$info->contentType = "";
+				}
+				
+				$info->charset = isset($_REQUEST['charset']) ? $_REQUEST['charset'] : "";
+				if (!preg_match("/^[a-zA-Z0-9\-]+$/", $info->charset)) {
+					$info->charset = "";
+				}
+				
+				$contentTypeHeader = $info->contentType . (($info->contentType && $info->charset) ? "; charset=" . $info->charset : "");
+				
+				$info->zip = !empty($_REQUEST['zip']);
+				
+				// Reject file if it would put account over quota
+				if ($group) {
+					$quota = Zotero_S3::getEffectiveUserQuota($group->ownerUserID);
+					$usage = Zotero_S3::getUserUsage($group->ownerUserID);
+				}
+				else {
+					$quota = Zotero_S3::getEffectiveUserQuota($this->objectUserID);
+					$usage = Zotero_S3::getUserUsage($this->objectUserID);
+				}
+				$total = $usage['total'];
+				$fileSizeMB = round($info->size / 1024 / 1024, 1);
+				if ($total + $fileSizeMB > $quota) {
+					$this->e413("File would exceed quota ($total + $fileSizeMB > $quota)");
+				}
+				
+				Zotero_DB::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+				Zotero_DB::beginTransaction();
+				
+				// See if file exists with this filename
+				$localInfo = Zotero_S3::getLocalFileInfo($info);
+				if ($localInfo) {
+					$storageFileID = $localInfo['storageFileID'];
+					
+					// Verify file size
+					if ($localInfo['size'] != $info->size) {
+						throw new Exception(
+							"Specified file size incorrect for existing file "
+								. $info->hash . "/" . $info->filename
+								. " ({$localInfo['size']} != {$info->size})"
+						);
+					}
+				}
+				// If not found, see if there's a copy with a different name
+				else {
+					$oldStorageFileID = Zotero_S3::getFileByHash($info->hash, $info->zip);
+					if ($oldStorageFileID) {
+						// Verify file size
+						$localInfo = Zotero_S3::getFileInfoByID($oldStorageFileID);
+						if ($localInfo['size'] != $info->size) {
+							throw new Exception(
+								"Specified file size incorrect for duplicated file "
+								. $info->hash . "/" . $info->filename
+								. " ({$localInfo['size']} != {$info->size})"
+							);
+						}
+						
+						// Create new file on S3 with new name
+						$storageFileID = Zotero_S3::duplicateFile(
+							$oldStorageFileID,
+							$info->filename,
+							$info->zip,
+							$contentTypeHeader
+						);
+						if (!$storageFileID) {
+							$this->e500("File duplication failed");
+						}
+					}
+				}
+				
+				// If we already have a file, add/update storageFileItems row and stop
+				if (!empty($storageFileID)) {
+					Zotero_S3::updateFileItemInfo($item, $storageFileID, $info);
+					Zotero_DB::commit();
+					
+					if ($this->httpAuth) {
+						header('Content-Type: application/xml');
+						echo "<exists/>";
+					}
+					else {
+						header('Content-Type: application/json');
+						echo json_encode(array('exists' => 1));
+					}
+					exit;
+				}
+				
+				Zotero_DB::commit();
+				
+				// Add request to upload queue
+				$uploadKey = Zotero_S3::queueUpload($this->userID, $info);
+				// User over queue limit
+				if (!$uploadKey) {
+					header('Retry-After: ' . Zotero_S3::$uploadQueueTimeout);
+					if ($this->httpAuth) {
+						$this->e413("Too many queued uploads");
+					}
+					else {
+						$this->e420("Too many queued uploads");
+					}
+				}
+				
+				// Output XML for client requests (which use HTTP Auth)
+				if ($this->httpAuth) {
+					// If no existing file, generate upload parameters
+					$params = Zotero_S3::generateUploadPOSTParams($item, $info);
+					
+					header('application/xml');
+					$xml = new SimpleXMLElement('<upload/>');
+					$xml->url = Zotero_S3::getUploadBaseURL();
+					$xml->key = $uploadKey;
+					foreach ($params as $key=>$val) {
+						$xml->params->$key = $val;
+					}
+					echo $xml->asXML();
+				}
+				// Output JSON for API requests
+				else {
+					$params = Zotero_S3::getUploadPOSTData($item, $info);
+					$params['uploadKey'] = $uploadKey;
+					
+					header('application/json');
+					echo json_encode($params);
+				}
+				exit;
+			}
+			
+			//
+			// API partial upload and post-upload file registration
+			//
+			if (isset($_REQUEST['upload'])) {
+				$uploadKey = $_REQUEST['upload'];
+				
+				if (!$uploadKey) {
+					$this->e400("Upload key not provided");
+				}
+				
+				$info = Zotero_S3::getUploadInfo($uploadKey);
+				if (!$info) {
+					$this->e400("Upload key not found");
+				}
+				
+				// Partial upload
+				if ($this->method == 'PATCH') {
+					if (empty($_REQUEST['algorithm'])) {
+						throw new Exception("Algorithm not specified", Z_ERROR_INVALID_INPUT);
+					}
+					
+					$storageFileID = Zotero_S3::patchFile($item, $info, $_REQUEST['algorithm'], $this->body);
+				}
+				// Full upload
+				else {
+					$remoteInfo = Zotero_S3::getRemoteFileInfo($info);
+					if (!$remoteInfo) {
+						$this->e400("Remote file not found");
+					}
+					if ($remoteInfo['size'] != $info->size) {
+						error_log("Uploaded file size does not match ({$remoteInfo['size']} != {$info->size}) for file {$info->hash}/{$info->filename}");
+					}
+				}
+				
+				// Set an automatic shared lock in getLocalFileInfo() to prevent
+				// two simultaneous transactions from adding a file
+				Zotero_DB::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+				Zotero_DB::beginTransaction();
+				
+				if (!isset($storageFileID)) {
+					// Check if file already exists, which can happen if two identical
+					// files are uploaded simultaneously
+					$fileInfo = Zotero_S3::getLocalFileInfo($info);
+					if ($fileInfo) {
+						$storageFileID = $fileInfo['storageFileID'];
+					}
+					// If file doesn't exist, add it
+					else {
+						$storageFileID = Zotero_S3::addFile($info);
+					}
+				}
+				Zotero_S3::updateFileItemInfo($item, $storageFileID, $info);
+				
+				Zotero_S3::logUpload($this->userID, $item, $uploadKey, IPAddress::getIP());
+				
+				Zotero_DB::commit();
+				
+				header("HTTP/1.1 204 No Content");
+				exit;
+			}
+			
+			
+			//
+			// Client post-upload file registration
+			//
+			if (isset($_POST['update'])) {
+				$this->allowMethods(array('POST'));
+				
+				if (empty($_POST['mtime'])) {
+					throw new Exception('File modification time not provided');
+				}
+				
 				$uploadKey = $_POST['update'];
 				
 				$info = Zotero_S3::getUploadInfo($uploadKey);
 				if (!$info) {
-					Z_Core::logError("400 here $uploadKey");
 					$this->e400("Upload key not found");
 				}
 				
-				$hash = $info['hash'];
-				$filename = $info['filename'];
-				$zip = $info['zip'];
-				
-				$info = Zotero_S3::getRemoteFileInfo($hash, $filename, $zip);
-				if (!$info) {
-					Z_Core::logError("400 here $hash $filename $zip");
+				$remoteInfo = Zotero_S3::getRemoteFileInfo($info);
+				if (!$remoteInfo) {
 					$this->e400("Remote file not found");
 				}
-				if (!isset($info['size'])) {
+				if (!isset($info->size)) {
 					throw new Exception("Size information not available");
 				}
+				
+				$info->mtime = $_POST['mtime'];
 				
 				// Set an automatic shared lock in getLocalFileInfo() to prevent
 				// two simultaneous transactions from adding a file
@@ -1077,129 +1340,23 @@ class ApiController extends Controller {
 				
 				// Check if file already exists, which can happen if two identical
 				// files are uploaded simultaneously
-				$fileInfo = Zotero_S3::getLocalFileInfo($hash, $filename, $zip);
+				$fileInfo = Zotero_S3::getLocalFileInfo($info);
 				if ($fileInfo) {
 					$storageFileID = $fileInfo['storageFileID'];
 				}
 				else {
-					$storageFileID = Zotero_S3::addFile($hash, $filename, $info['size'], $zip);
+					$storageFileID = Zotero_S3::addFile($info);
 				}
-				Zotero_S3::updateFileItemInfo($item, $storageFileID, $_POST['mtime'], $info['size']);
 				
-				$ipAddress = IPAddress::getIP();
-				Zotero_S3::logUpload($item, $uploadKey, $ipAddress);
+				Zotero_S3::updateFileItemInfo($item, $storageFileID, $info);
+				
+				Zotero_S3::logUpload($this->userID, $item, $uploadKey, IPAddress::getIP());
 				
 				Zotero_DB::commit();
 				
 				header("HTTP/1.1 204 No Content");
 				exit;
 			}
-			
-			if (empty($_POST['md5'])) {
-				throw new Exception('MD5 hash not provided');
-			}
-			
-			if (!preg_match('/[abcdefg0-9]{32}/', $_POST['md5'])) {
-				throw new Exception('Invalid MD5 hash');
-			}
-			
-			if (!isset($_POST['filename']) || $_POST['filename'] === "") {
-				throw new Exception('File name not provided');
-			}
-			
-			if (!isset($_POST['filesize'])) {
-				throw new Exception('File size not provided');
-			}
-			
-			if (!is_numeric($_POST['filesize'])) {
-				throw new Exception("Invalid file size");
-			}
-			
-			$zip = !empty($_POST['zip']);
-			
-			// Reject file if it would put account over quota
-			if ($group) {
-				$quota = Zotero_S3::getEffectiveUserQuota($group->ownerUserID);
-				$usage = Zotero_S3::getUserUsage($group->ownerUserID);
-			}
-			else {
-				$quota = Zotero_S3::getEffectiveUserQuota($this->objectUserID);
-				$usage = Zotero_S3::getUserUsage($this->objectUserID);
-			}
-			
-			$total = $usage['total'];
-			$fileSizeMB = round($_POST['filesize'] / 1024 / 1024, 1);
-			if ($total + $fileSizeMB > $quota) {
-				$this->e413("File would exceed quota ($total + $fileSizeMB > $quota)");
-			}
-			
-			Zotero_DB::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE");
-			Zotero_DB::beginTransaction();
-			
-			// See if file exists with this filename
-			$info = Zotero_S3::getLocalFileInfo($_POST['md5'], $_POST['filename'], $zip);
-			if ($info) {
-				$storageFileID = $info['storageFileID'];
-			}
-			// If not found, see if there's a copy with a different name
-			else {
-				$oldStorageFileID = Zotero_S3::getFileByHash($_POST['md5'], $zip);
-				if ($oldStorageFileID) {
-					// Create new file on S3 with new name
-					$storageFileID = Zotero_S3::duplicateFile($oldStorageFileID, $_POST['filename'], $zip);
-					if (!$storageFileID) {
-						$this->e500("File duplication failed");
-					}
-				}
-			}
-			
-			// If we have a file, add/update storageFileItems row and stop
-			if (!empty($storageFileID)) {
-				// If we didn't get it above, get the size to set on shard
-				if (!$info) {
-					$info = Zotero_S3::getFileInfoByID($storageFileID);
-				}
-				Zotero_S3::updateFileItemInfo($item, $storageFileID, $_POST['mtime'], $info['size']);
-				Zotero_DB::commit();
-				
-				header('application/xml');
-				echo "<exists/>";
-				exit;
-			}
-			
-			Zotero_DB::commit();
-			
-			// Add request to upload queue
-			$uploadKey = Zotero_S3::queueUpload(
-				$this->userID,
-				$_POST['md5'],
-				$_POST['filename'],
-				$zip
-			);
-			// User over queue limit
-			if (!$uploadKey) {
-				header('application/xml');
-				header('Retry-After: ' . Zotero_S3::$uploadQueueTimeout);
-				$this->e413("Too many queued uploads");
-			}
-			
-			// If no existing file, generate upload parameters
-			$params = Zotero_S3::generateUploadPOSTParams(
-				$item,
-				$_POST['md5'],
-				$_POST['filename'],
-				$_POST['filesize'],
-				$zip
-			);
-			
-			header('application/xml');
-			$xml = new SimpleXMLElement('<upload/>');
-			$xml->url = Zotero_S3::getUploadURL();
-			$xml->key = $uploadKey;
-			foreach ($params as $key=>$val) {
-				$xml->params->$key = $val;
-			}
-			echo $xml->asXML();
 		}
 		exit;
 	}
@@ -2504,25 +2661,39 @@ class ApiController extends Controller {
 		}
 		
 		$itemType = $_GET['itemType'];
+		if ($itemType == 'attachment') {
+			if (empty($_GET['linkMode'])) {
+				$this->e400("linkMode required for itemType=attachment");
+			}
+			
+			$linkModeName = $_GET['linkMode'];
+			
+			try {
+				$linkMode = Zotero_Attachments::linkModeNameToNumber(strtoupper($linkModeName));
+			}
+			catch (Exception $e) {
+				$this->e400("Invalid linkMode '$linkModeName'");
+			}
+		}
 		
 		$itemTypeID = Zotero_ItemTypes::getID($itemType);
 		if (!$itemTypeID) {
 			$this->e400("Invalid item type '$itemType'");
 		}
 		
-		if ($itemType == 'attachment') {
-			$this->e400("'attachment' items cannot currently be created via the API");
-		}
-		
 		// TODO: check If-Modified-Since and return 304 if not changed
 		
 		$cacheKey = "newItemJSON_" . $itemTypeID;
+		if ($itemType == 'attachment') {
+			$cacheKey .= "_" . $linkMode;
+		}
 		$ttl = 60;
 		if ($this->queryParams['pprint']) {
 			$cacheKey .= "_pprint";
 		}
 		$json = Z_Core::$MC->get($cacheKey);
 		if ($json) {
+			header("Content-Type: application/json");
 			echo $json;
 			exit;
 		}
@@ -2532,11 +2703,19 @@ class ApiController extends Controller {
 		$json = array(
 			'itemType' => $itemType
 		);
+		if ($itemType == 'attachment') {
+			$json['linkMode'] = $linkModeName;
+		}
 		
 		$fieldIDs = Zotero_ItemFields::getItemTypeFields($itemTypeID);
 		$first = true;
 		foreach ($fieldIDs as $fieldID) {
 			$fieldName = Zotero_ItemFields::getName($fieldID);
+			
+			if ($itemType == 'attachment' && $fieldName == 'url' && !preg_match('/_url$/', $linkModeName)) {
+				continue;
+			}
+			
 			$json[$fieldName] = "";
 			
 			if ($first && $itemType != 'note' && $itemType != 'attachment') {
@@ -2553,7 +2732,7 @@ class ApiController extends Controller {
 			}
 		}
 		
-		if ($itemType == 'note') {
+		if ($itemType == 'note' || $itemType == 'attachment') {
 			$json['note'] = '';
 		}
 		

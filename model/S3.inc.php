@@ -86,7 +86,7 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function downloadFile(array $localFileItemInfo, $savePath) {
+	public static function downloadFile(array $localFileItemInfo, $savePath, $filename=false) {
 		Zotero_S3::requireLibrary();
 		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
 		
@@ -102,7 +102,7 @@ class Zotero_S3 {
 			Z_CONFIG::$S3_BUCKET,
 			self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
 				. $localFileItemInfo['filename'],
-			$savePath . "/" . $localFileItemInfo['filename']
+			$savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
 		);
 		
 		return $response;
@@ -124,7 +124,31 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function queueUpload($userID, $hash, $filename, $zip=false) {
+	public static function uploadFile(Zotero_StorageFileInfo $info, $file, $contentType) {
+		Zotero_S3::requireLibrary();
+		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		
+		if (!file_exists($file)) {
+			throw new Exception("File '$file' does not exist");
+		}
+		
+		$success = S3::putObject(
+			S3::inputFile($file),
+			Z_CONFIG::$S3_BUCKET,
+			self::getPathPrefix($info->hash, $info->zip) . $info->filename,
+			S3::ACL_PRIVATE,
+			array(),
+			array("Content-Type" => $contentType)
+		);
+		if (!$success) {
+			return false;
+		}
+		
+		return self::addFile($info);
+	}
+	
+	
+	public static function queueUpload($userID, Zotero_StorageFileInfo $info) {
 		$uploadKey = md5(uniqid(rand(), true));
 		
 		$sql = "SELECT COUNT(*) FROM storageUploadQueue WHERE userID=?
@@ -136,9 +160,22 @@ class Zotero_S3 {
 		}
 		
 		$sql = "INSERT INTO storageUploadQueue
-				(uploadKey, userID, hash, filename, zip)
-				VALUES (?, ?, ?, ?, ?)";
-		Zotero_DB::query($sql, array($uploadKey, $userID, $hash, $filename, $zip ? 1 : 0));
+				(uploadKey, userID, hash, filename, zip, size, mtime, contentType, charset)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+		Zotero_DB::query(
+			$sql,
+			array(
+				$uploadKey,
+				$userID,
+				$info->hash,
+				$info->filename,
+				$info->zip ? 1 : 0,
+				$info->size,
+				$info->mtime,
+				$info->contentType,
+				$info->charset
+			)
+		);
 		
 		return $uploadKey;
 	}
@@ -146,11 +183,20 @@ class Zotero_S3 {
 	
 	public static function getUploadInfo($key) {
 		$sql = "SELECT * FROM storageUploadQueue WHERE uploadKey=?";
-		return Zotero_DB::rowQuery($sql, $key);
+		$row = Zotero_DB::rowQuery($sql, $key);
+		if (!$row) {
+			return false;
+		}
+		
+		$info = new Zotero_StorageFileInfo;
+		foreach ($row as $key => $val) {
+			$info->$key = $val;
+		}
+		return $info;
 	}
 	
 	
-	public static function logUpload($item, $key, $ipAddress) {
+	public static function logUpload($uploadUserID, $item, $key, $ipAddress) {
 		$libraryID = $item->libraryID;
 		$ownerUserID = Zotero_Libraries::getOwner($libraryID);
 		
@@ -158,8 +204,6 @@ class Zotero_S3 {
 		if (!$info) {
 			throw new Exception("Upload key '$key' not found in queue");
 		}
-		
-		$uploadUserID = $info['userID'];
 		
 		$info = self::getLocalFileItemInfo($item);
 		$storageFileID = $info['storageFileID'];
@@ -176,8 +220,148 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function getUploadURL() {
+	public static function getUploadBaseURL() {
 		return "https://" . Z_CONFIG::$S3_BUCKET . ".s3.amazonaws.com/";
+	}
+	
+	
+	public static function patchFile($item, $info, $algorithm, $patch) {
+		switch ($algorithm) {
+			case 'bsdiff':
+				break;
+			
+			case 'xdelta':
+				break;
+				
+			case 'xdiff':
+				if (!function_exists('xdiff_file_patch_binary')) {
+					throw new Exception("=xdiff not available");
+				}
+				break;
+				
+			default:
+				throw new Exception("Invalid algorithm '$algorithm'", Z_ERROR_INVALID_INPUT);
+		}
+		
+		$originalInfo = Zotero_S3::getLocalFileItemInfo($item);
+		
+		$basePath = "/tmp/zfsupload/";
+		$path = $basePath . $info->hash . "_" . uniqid() . "/";
+		mkdir($path, 0777, true);
+		
+		$cleanup = function () use ($basePath, $path) {
+			unlink("original");
+			unlink("patch");
+			unlink("new");
+			chdir($basePath);
+			rmdir($path);
+		};
+		
+		$e = null;
+		try {
+			// Download file from S3 to temp directory
+			if (!Zotero_S3::downloadFile($originalInfo, $path, "original")) {
+				throw new Exception("Error downloading original file");
+			}
+			chdir($path);
+			
+			// Save body to temp file
+			file_put_contents("patch", $patch);
+			
+			// Patch file
+			switch ($algorithm) {
+				case 'bsdiff':
+					exec('bspatch original new patch 2>&1', $output, $ret);
+					if ($ret) {
+						throw new Exception("Error applying patch ($ret): " . implode("\n", $output));
+					}
+					if (!file_exists("new")) {
+						throw new Exception("Error applying patch ($ret)");
+					}
+					break;
+				
+				case 'xdelta':
+					exec('xdelta3 -d -s original patch new 2>&1', $output, $ret);
+					if ($ret) {
+						if ($ret == 2) {
+							Z_HTTP::e400("Invalid delta");
+						}
+						throw new Exception("Error applying patch ($ret): " . implode("\n", $output));
+					}
+					if (!file_exists("new")) {
+						throw new Exception("Error applying patch ($ret)");
+					}
+					break;
+				
+				case 'xdiff':
+					$ret = xdiff_file_patch_binary("original", "patch", "new");
+					if (!$ret) {
+						throw new Exception("Error applying patch");
+					}
+					break;
+			}
+			
+			// Check MD5 hash
+			if (md5_file("new") != $info->hash) {
+				$cleanup();
+				Z_HTTP::e409("Patched file does not match hash");
+			}
+			
+			// Check file size
+			if (filesize("new") != $info->size) {
+				$cleanup();
+				Z_HTTP::e409("Patched file size does not match (" . filesize("new") . " != {$info->size})");
+			}
+			
+			// If ZIP, make sure it's a ZIP
+			if ($info->zip && file_get_contents("new", false, null, 0, 4) != "PK" . chr(03) . chr(04)) {
+				$cleanup();
+				Z_HTTP::e409("Patched file is not a ZIP file");
+			}
+			
+			// Upload to S3
+			$t = $info->contentType . (($info->contentType && $info->charset) ? "; charset={$info->charset}" : "");
+			$storageFileID = Zotero_S3::uploadFile($info, "new", $t);
+		}
+		catch (Exception $e) {
+			//$cleanup();
+			throw ($e);
+		}
+		
+		return $storageFileID;
+	}
+	
+	public static function duplicateFile($storageFileID, $newName, $zip, $contentType=null) {
+		self::requireLibrary();
+		
+		if (!$newName) {
+			throw new Exception("New name not provided");
+		}
+		
+		$localInfo = self::getFileInfoByID($storageFileID);
+		if (!$localInfo) {
+			throw new Exception("File $storageFileID not found");
+		}
+		
+		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		$success = S3::copyObject(
+			Z_CONFIG::$S3_BUCKET,
+			self::getPathPrefix($localInfo['hash'], $localInfo['zip']) . $localInfo['filename'],
+			Z_CONFIG::$S3_BUCKET,
+			self::getPathPrefix($localInfo['hash'], $zip) . $newName,
+			S3::ACL_PRIVATE,
+			array(),
+			$contentType ? array("Content-Type" => $contentType) : ""
+		);
+		if (!$success) {
+			return false;
+		}
+		
+		$info = new Zotero_StorageFileInfo;
+		foreach ($localInfo as $key => $val) {
+			$info->$key = $val;
+		}
+		return self::addFile($info);
 	}
 	
 	
@@ -191,26 +375,26 @@ class Zotero_S3 {
 		return Zotero_DB::rowQuery($sql, $storageFileID);
 	}
 	
-	public static function getLocalFileInfo($hash, $filename, $zip) {
+	public static function getLocalFileInfo(Zotero_StorageFileInfo $info) {
 		$sql = "SELECT * FROM storageFiles WHERE hash=? AND filename=? AND zip=?";
-		return Zotero_DB::rowQuery($sql, array($hash, $filename, (int) $zip));
+		return Zotero_DB::rowQuery($sql, array($info->hash, $info->filename, (int) $info->zip));
 	}
 	
-	public static function getRemoteFileInfo($hash, $filename, $zip) {
+	public static function getRemoteFileInfo(Zotero_StorageFileInfo $info) {
 		self::requireLibrary();
 		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
 		
-		$url = self::getPathPrefix($hash, $zip) . $filename;
+		$url = self::getPathPrefix($info->hash, $info->zip) . $info->filename;
 		
-		$info = S3::getObjectInfo(
+		$remoteInfo = S3::getObjectInfo(
 			Z_CONFIG::$S3_BUCKET,
 			$url,
 			true
 		);
-		if (!$info) {
+		if (!$remoteInfo) {
 			return false;
 		}
-		return $info;
+		return $remoteInfo;
 	}
 	
 	
@@ -246,31 +430,51 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function addFile($hash, $filename, $size, $zip) {
+	public static function addFile(Zotero_StorageFileInfo $info) {
 		$sql = "INSERT INTO storageFiles (hash, filename, size, zip) VALUES (?,?,?,?)";
-		$storageFileID = Zotero_DB::query($sql, array($hash, $filename, $size, (int) $zip));
-		return $storageFileID;
+		return Zotero_DB::query($sql, array($info->hash, $info->filename, $info->size, (int) $info->zip));
 	}
 	
 	
-	public static function updateFileItemInfo($item, $storageFileID, $mtime, $size) {
+	public static function updateFileItemInfo($item, $storageFileID, Zotero_StorageFileInfo $info) {
+		if (!$item->isImportedAttachment()) {
+			throw new Exception("Cannot add storage file for linked file/URL");
+		}
+		
+		Zotero_DB::beginTransaction();
+		
 		// Note: We set the size on the shard so that usage queries are instantaneous
-		// and aren't dependent on replication
 		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?)
 				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?, size=?";
 		Zotero_DB::query(
 			$sql,
-			array($storageFileID, $item->id, $mtime, $size, $storageFileID, $mtime, $size),
+			array($storageFileID, $item->id, $info->mtime, $info->size, $storageFileID, $info->mtime, $info->size),
 			Zotero_Shards::getByLibraryID($item->libraryID)
 		);
+		
+		$item->attachmentFilename = $info->filename;
+		$item->attachmentStorageHash = $info->hash;
+		$item->attachmentStorageModTime = $info->mtime;
+		$item->attachmentMIMEType = $info->contentType;
+		$item->attachmentCharset = $info->charset;
+		$item->save();
+		
+		Zotero_DB::commit();
 	}
 	
-	/*public static function getUploadAuthorization($item, $date, $contentMD5='') {
-		$method = "PUT";
-		
-		// TODO: validate library, key, and filename
-		
-		// make sure upload is allowed here?
+	public static function getPathPrefix($hash, $zip=false) {
+		return "$hash/" . ($zip ? "c/" : '');
+	}
+	
+	
+	/*
+	
+	These are unused, since they don't restrict file size
+	
+	public static function getUploadURL($item, $md5, $filename, $fileSize, $zip, $ttl=300) {
+		if (strlen($md5) != 32) {
+			throw new Exception("Invalid MD5 hash '$md5'");
+		}
 		
 		if (!$item->isAttachment()) {
 			throw new Exception("Item $item->id is not an attachment");
@@ -285,24 +489,36 @@ class Zotero_S3 {
 			default:
 				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
 		}
-		$filename = substr($item->attachmentPath, 8);
 		
-		$resource = "/$item->libraryID/$item->key/$filename";
+		$contentMD5 = '';
+		for ($i = 0; $i < strlen($md5); $i += 2) {
+			$contentMD5 .= chr(hexdec(substr($md5, $i, 2)));
+		}
+		$contentMD5 = base64_encode($contentMD5);
 		
-		$contentType = $item->attachmentMIMEType;
+		if ($zip) {
+			$contentType = "application/octet-stream";
+		}
+		else {
+			$contentType = $item->attachmentMIMEType;
+		}
 		
-		$stringToSign = "$method\n$contentMD5\n$contentType\n$date\n$resource";
+		$expires = time() + $ttl;
 		
-		return "AWS " . Z_CONFIG::$S3_ACCESS_KEY . ":" . self::getHash($stringToSign);
-	}*/
-	
-	
-	public static function getPathPrefix($hash, $zip=false) {
-		return "$hash/" . ($zip ? "c/" : '');
+		$path = self::getPathPrefix($md5, $zip);
+		$resource = "/" . Z_CONFIG::$S3_BUCKET . "/$path/$filename";
+		
+		$stringToSign = "PUT\n$contentMD5\n$contentType\n$expires\n$resource";
+		$signature = urlencode(self::getHash($stringToSign));
+		
+		return self::getUploadBaseURL() . substr($path, 1) . $filename
+			. "?Signature=$signature&Expires=$expires&AWSAccessKey=" . Z_CONFIG::$S3_ACCESS_KEY;
 	}
 	
 	
-	public static function generateUploadPOSTParams($item, $md5, $filename, $fileSize, $zip) {
+	public static function getUploadParameters($item, $md5, $filename, $fileSize, $zip) {
+		$method = "PUT";
+		
 		if (strlen($md5) != 32) {
 			throw new Exception("Invalid MD5 hash '$md5'");
 		}
@@ -326,11 +542,87 @@ class Zotero_S3 {
 				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
 		}
 		
-		$lifetime = 3600;
-		
 		$path = self::getPathPrefix($md5, $zip);
 		
 		if ($zip) {
+			$contentType = "application/octet-stream";
+		}
+		else {
+			$contentType = $item->attachmentMIMEType;
+		}
+		
+		$contentType = $item->attachmentMIMEType;
+		$date = gmdate('D, d M Y H:i:s \G\M\T');
+		$resource = "/" . Z_CONFIG::$S3_BUCKET . "/$path/$filename";
+		
+		$stringToSign = "$method\n$contentMD5\n$contentType\n$date\n$resource";
+		
+		$params = array(
+			"Content-Type" => $contentType,
+			"Content-MD5" => $contentMD5,
+			"Date" => $date,
+			"Authorization" => "AWS " . Z_CONFIG::$S3_ACCESS_KEY . ":" . self::getHash($stringToSign)
+		);
+		
+		return $params;
+	}*/
+	
+	
+	public static function getUploadPOSTData($item, Zotero_StorageFileInfo $info) {
+		$params = self::generateUploadPOSTParams($item, $info);
+		$boundary = "---------------------------" . md5(uniqid());
+		
+		// Prefix
+		$prefix = "";
+		foreach ($params as $key => $val) {
+			$prefix .= "--$boundary\r\n"
+				. "Content-Disposition: form-data; name=\"$key\"\r\n\r\n"
+				. $val . "\r\n";
+		}
+		$prefix .= "--$boundary\r\nContent-Disposition: form-data; name=\"file\"\r\n\r\n";
+		
+		// Suffix
+		$suffix = "\r\n--$boundary--";
+		
+		return array(
+			'url' => self::getUploadBaseURL(),
+			'contentType' => "multipart/form-data; boundary=$boundary",
+			'prefix' => $prefix,
+			'suffix' => $suffix
+		);
+	}
+	
+	
+	public static function generateUploadPOSTParams($item, Zotero_StorageFileInfo $info) {
+		if (strlen($info->hash) != 32) {
+			throw new Exception("Invalid MD5 hash '{$info->md5}'");
+		}
+		
+		if (!$item->isAttachment()) {
+			throw new Exception("Item $item->id is not an attachment");
+		}
+		$linkMode = $item->attachmentLinkMode;
+		switch ($linkMode) {
+			// TODO: get these constants from somewhere
+			case 0:
+			case 1:
+				break;
+			
+			default:
+				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
+		}
+		
+		$lifetime = 3600;
+		
+		$path = self::getPathPrefix($info->hash, $info->zip);
+		
+		$contentMD5 = '';
+		for ($i = 0; $i < strlen($info->hash); $i += 2) {
+			$contentMD5 .= chr(hexdec(substr($info->hash, $i, 2)));
+		}
+		$contentMD5 = base64_encode($contentMD5);
+		
+		if ($info->zip) {
 			$contentType = "application/octet-stream";
 		}
 		else {
@@ -351,41 +643,13 @@ class Zotero_S3 {
 			$path,
 			S3::ACL_PRIVATE,
 			$lifetime,
-			$fileSize + 262144, // an extra 256KB that may or may not be necessary
+			$info->size + 262144, // an extra 256KB that may or may not be necessary
 			201,
 			$metaHeaders,
 			$requestHeaders,
-			$filename
+			$info->filename
 		);
 		return $params;
-	}
-	
-	
-	public static function duplicateFile($storageFileID, $newName, $zip) {
-		self::requireLibrary();
-		
-		if (!$newName) {
-			throw new Exception("New name not provided");
-		}
-		
-		$info = self::getFileInfoByID($storageFileID);
-		if (!$info) {
-			throw new Exception("File $storageFileID not found");
-		}
-		
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
-		$success = S3::copyObject(
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($info['hash'], $zip) . $newName
-		);
-		if (!$success) {
-			return false;
-		}
-		
-		$storageFileID = self::addFile($info['hash'], $newName, $info['size'], $zip);
-		return $storageFileID;
 	}
 	
 	
@@ -586,8 +850,8 @@ class Zotero_S3 {
 	}
 	
 	
-	/*private static function getHash($stringToSign) {
+	private static function getHash($stringToSign) {
 		return base64_encode(hash_hmac('sha1', $stringToSign, Z_CONFIG::$S3_SECRET_KEY, true));
-	}*/
+	}
 }
 ?>
