@@ -89,7 +89,8 @@ class Zotero_Users {
 			return false;
 		}
 		
-		$sql = "SELECT userID FROM sessions WHERE id=?";
+		$sql = "SELECT userID FROM sessions WHERE id=?
+				AND UNIX_TIMESTAMP() < modified + lifetime";
 		try {
 			$userID = Zotero_WWW_DB_2::valueQuery($sql, $id);
 			Zotero_WWW_DB_2::close();
