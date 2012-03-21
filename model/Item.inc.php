@@ -32,6 +32,7 @@ class Zotero_Item {
 	private $dateAdded;
 	private $dateModified;
 	private $serverDateModified;
+	private $version;
 	private $numNotes;
 	private $numAttachments;
 	
@@ -510,6 +511,7 @@ class Zotero_Item {
 					case 'libraryID':
 					case 'key':
 					case 'serverDateModified':
+					case 'version':
 						$colSQL = 'I.' . $field;
 						break;
 					
@@ -790,6 +792,7 @@ class Zotero_Item {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
+				case 'version':
 				case 'numNotes':
 				case 'numAttachments':
 					trigger_error("Primary field '$field' cannot be changed through setField()", E_USER_ERROR);
@@ -1582,7 +1585,7 @@ class Zotero_Item {
 					}
 				}
 				
-				$sql .= "serverDateModified=? WHERE itemID=?";
+				$sql .= "serverDateModified=?, version=IF(version = 65535, 0, version + 1) WHERE itemID=?";
 				array_push(
 					$sqlValues,
 					$timestamp,
@@ -2666,6 +2669,7 @@ class Zotero_Item {
 		$sql = "SELECT storageModTime FROM itemAttachments WHERE itemID=?";
 		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		$val = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
+		
 		$this->attachmentData['storageModTime'] = $val;
 		return $val;
 	}
@@ -2978,6 +2982,7 @@ class Zotero_Item {
 				//case 'numAttachments':
 				//case 'numNotes':
 				case 'serverDateModified':
+				case 'version':
 					continue 2;
 			}
 			
@@ -3680,7 +3685,7 @@ class Zotero_Item {
 			$this->loadPrimaryData();
 		}
 		
-		return md5($this->serverDateModified);
+		return md5($this->serverDateModified . $this->version);
 	}
 	
 	
@@ -3704,7 +3709,7 @@ class Zotero_Item {
 		if (!$mode) {
 			throw new Exception('$mode not provided');
 		}
-		return $mode . "_" . $this->id . "_" . str_replace(" ", "_", $this->serverDateModified) . "_" . Zotero_Items::$cacheVersion;
+		return $mode . "_" . $this->id . "_" . self::getETag() . "_" . Zotero_Items::$cacheVersion;
 	}
 	
 	
