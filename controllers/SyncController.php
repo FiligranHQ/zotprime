@@ -64,7 +64,7 @@ class SyncController extends Controller {
 		$this->startTime = microtime(true);
 		
 		// Inflate gzipped data
-		if (!empty($_SERVER['HTTP_CONTENT_ENCODING']) == 'gzip') {
+		if (!empty($_SERVER['HTTP_CONTENT_ENCODING']) && $_SERVER['HTTP_CONTENT_ENCODING'] == 'gzip') {
 			$gzdata = file_get_contents('php://input');
 			
 			// Firefox 12 and above include the standard gzip header,
