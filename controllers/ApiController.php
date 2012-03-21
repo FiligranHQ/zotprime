@@ -2958,14 +2958,6 @@ class ApiController extends Controller {
 	
 	
 	private function jsonDecode($json) {
-		// Require explicit content type for session-based authentication
-		// to prevent CSRF attacks. Browsers won't send enctype=application/json
-		// with form submissions, per
-		// http://pseudo-flaw.net/content/web-browsers/form-data-encoding-roundup/
-		if ($this->cookieAuth) {
-			$this->requireContentType('application/json');
-		}
-		
 		$obj = json_decode($json);
 		
 		switch(json_last_error()) {
