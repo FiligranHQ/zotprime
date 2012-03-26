@@ -1224,7 +1224,7 @@ class ApiController extends Controller {
 					// If no existing file, generate upload parameters
 					$params = Zotero_S3::generateUploadPOSTParams($item, $info);
 					
-					header('application/xml');
+					header('Content-Type: application/xml');
 					$xml = new SimpleXMLElement('<upload/>');
 					$xml->url = Zotero_S3::getUploadBaseURL();
 					$xml->key = $uploadKey;
@@ -1238,7 +1238,7 @@ class ApiController extends Controller {
 					$params = Zotero_S3::getUploadPOSTData($item, $info);
 					$params['uploadKey'] = $uploadKey;
 					
-					header('application/json');
+					header('Content-Type: application/json');
 					echo json_encode($params);
 				}
 				exit;
