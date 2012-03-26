@@ -1338,8 +1338,15 @@ class Zotero_Items extends Zotero_DataObjects {
 					$item->setNote($val);
 					break;
 				
+				// Attachment properties
 				case 'linkMode':
 					$item->attachmentLinkMode = Zotero_Attachments::linkModeNameToNumber($val, true);
+					break;
+				
+				case 'contentType':
+				case 'charset':
+					$k = "attachment" . ucwords($key);
+					$item->$k = $val;
 					break;
 				
 				default:
@@ -1463,19 +1470,6 @@ class Zotero_Items extends Zotero_DataObjects {
 					
 					if (!Zotero_ItemTypes::getID($val)) {
 						throw new Exception("'$val' is not a valid itemType", Z_ERROR_INVALID_INPUT);
-					}
-					break;
-				
-				case 'linkMode':
-					try {
-						$linkMode = Zotero_Attachments::linkModeNameToNumber($val, true);
-					}
-					catch (Exception $e) {
-						throw new Exception("'$val' is not a valid linkMode", Z_ERROR_INVALID_INPUT);
-					}
-					// Don't allow changing of linkMode
-					if ($item && $linkMode != $item->attachmentLinkMode) {
-						throw new Exception("Cannot change attachment linkMode", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
@@ -1623,6 +1617,27 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'deleted':
+					break;
+				
+				// Attachment properties
+				case 'linkMode':
+					try {
+						$linkMode = Zotero_Attachments::linkModeNameToNumber($val, true);
+					}
+					catch (Exception $e) {
+						throw new Exception("'$val' is not a valid linkMode", Z_ERROR_INVALID_INPUT);
+					}
+					// Don't allow changing of linkMode
+					if ($item && $linkMode != $item->attachmentLinkMode) {
+						throw new Exception("Cannot change attachment linkMode", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'contentType':
+				case 'charset':
+					if ($json->itemType != 'attachment') {
+						throw new Exception("$key is valid only for attachment items", Z_ERROR_INVALID_INPUT);
+					}
 					break;
 				
 				default:
