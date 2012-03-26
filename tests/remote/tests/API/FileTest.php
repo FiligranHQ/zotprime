@@ -172,6 +172,7 @@ class FileTests extends APITests {
 			)
 		);
 		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
 		$json = json_decode($response->getBody());
 		$this->assertNotNull($json);
 		
@@ -455,6 +456,7 @@ class FileTests extends APITests {
 			$auth
 		);
 		$this->assert200($response);
+		$this->assertContentType("application/xml", $response);
 		$xml = new SimpleXMLElement($response->getBody());
 		
 		self::$toDelete[] = "$hash/$filename";
