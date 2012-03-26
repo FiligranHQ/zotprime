@@ -98,9 +98,22 @@ class ItemTests extends APITests {
 		$response = API::get("items/new?itemType=book");
 		$json = json_decode($response->getBody());
 		
+		// Missing item type
 		$json2 = $json;
 		unset($json2->itemType);
+		$response = API::userPost(
+			$this->fixture->config['userID'],
+			"items?key=" . $this->fixture->config['apiKey'],
+			json_encode(array(
+				"items" => array($json2)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert400($response);
 		
+		// contentType on non-attachment
+		$json2 = $json;
+		$json2->contentType = "text/html";
 		$response = API::userPost(
 			$this->fixture->config['userID'],
 			"items?key=" . $this->fixture->config['apiKey'],
@@ -135,12 +148,49 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyLinkAttachmentItem
 	 */
+	public function testEditEmptyLinkAttachmentItem($newItemXML) {
+		$key = (string) array_shift($newItemXML->xpath('/atom:feed/atom:entry/zapi:key'));
+		$etag = (string) array_shift($newItemXML->xpath('/atom:feed/atom:entry/atom:content/@zapi:etag'));
+		$json = json_decode(array_shift($newItemXML->xpath('/atom:feed/atom:entry/atom:content')));
+		
+		$response = API::userPut(
+			$this->fixture->config['userID'],
+			"items/$key?key=" . $this->fixture->config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: $etag"
+			)
+		);
+		$this->assert200($response);
+	}
+	
+	
+	/**
+	 * @depends testNewEmptyLinkAttachmentItem
+	 */
 	public function testEditLinkAttachmentItem($newItemXML) {
 		$key = (string) array_shift($newItemXML->xpath('/atom:feed/atom:entry/zapi:key'));
 		$etag = (string) array_shift($newItemXML->xpath('/atom:feed/atom:entry/atom:content/@zapi:etag'));
 		$json = json_decode(array_shift($newItemXML->xpath('/atom:feed/atom:entry/atom:content')));
 		
+		$contentType = "text/xml";
+		$json->contentType = $contentType;
 		
+		$response = API::userPut(
+			$this->fixture->config['userID'],
+			"items/$key?key=" . $this->fixture->config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: $etag"
+			)
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals($contentType, $json->contentType);
 	}
 	
 	
