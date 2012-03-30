@@ -14,6 +14,7 @@ $config = array(
 	'userID' => 0,
 	'username' => "", // user used for sync tests
 	'password' => "",
-	'apiKey' => ""
+	'apiKey' => "",
+	'ownedPrivateGroupID' => 0
 );
 ?>

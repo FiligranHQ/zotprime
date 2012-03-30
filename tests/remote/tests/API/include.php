@@ -50,6 +50,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 		throw new Exception("Invalid function $name");
 	}
 	
+	
 	protected function assertHasResults($req) {
 		$xml = $req->getBody();
 		$xml = new SimpleXMLElement($xml);

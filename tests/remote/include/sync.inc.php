@@ -25,42 +25,5 @@
 */
 
 class Sync {
-	public static function clear() {
-		require 'include/config.inc.php';
-		
-		// Get sync session
-		$url = $config['syncURLPrefix'] . "login";
-		$req = new HTTP_Request2($url);
-		$req->setConfig('ssl_verify_peer', false);
-		$req->setMethod(HTTP_Request2::METHOD_POST);
-		$req->addPostParameter(
-			array(
-				"version" => $config['apiVersion'],
-				"username" => $config['username'],
-				"password" => $config['password']
-			)
-		);
-		$response = $req->send();
-		$xml = $response->getBody();
-		$xml = new SimpleXMLElement($xml);
-		$sessionID = (string) $xml->sessionID;
-		
-		// Clear account
-		$url = $config['syncURLPrefix'] . "clear";
-		$req = new HTTP_Request2($url);
-		$req->setConfig('ssl_verify_peer', false);
-		$req->setMethod(HTTP_Request2::METHOD_POST);
-		$req->addPostParameter(
-			array(
-				"version" => $config['apiVersion'],
-				"sessionid" => $sessionID
-			)
-		);
-		$response = $req->send();
-		$xml = $response->getBody();
-		$xml = new SimpleXMLElement($xml);
-		if (!$xml->cleared) {
-			throw new Exception("Data not cleared");
-		}
-	}
+	
 }

@@ -30,7 +30,7 @@ class API {
 	private static $config;
 	private static $nsZAPI;
 	
-	private function loadConfig() {
+	private static function loadConfig() {
 		require 'include/config.inc.php';
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
@@ -38,8 +38,123 @@ class API {
 		self::$nsZAPI = 'http://zotero.org/ns/api';
 	}
 	
+	//
+	// Item modification methods
+	//
+	public function createItem($itemType, $context=null) {
+		self::loadConfig();
+		
+		$response = API::get("items/new?itemType=$itemType");
+		$json = json_decode($response->getBody());
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert201($response);
+		}
+		return API::getXMLFromResponse($response);
+	}
 	
-	public function get($url, $headers=array(), $auth=false) {
+	
+	public function groupCreateItem($groupID, $itemType, $context=null) {
+		self::loadConfig();
+		
+		$response = API::get("items/new?itemType=$itemType");
+		$json = json_decode($response->getBody());
+		
+		$response = API::groupPost(
+			$groupID,
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert201($response);
+		}
+		return API::getXMLFromResponse($response);
+	}
+	
+	
+	public function createAttachmentItem($linkMode, $parentKey=false, $context=false) {
+		self::loadConfig();
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
+		$json = json_decode($response->getBody());
+		
+		if ($parentKey) {
+			$url = "items/$parentKey/children";
+		}
+		else {
+			$url = "items";
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			$url . "?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert201($response);
+		}
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		if ($context) {
+			$json = json_decode($data['content']);
+			$context->assertEquals($linkMode, $json->linkMode);
+		}
+		return $xml;
+	}
+	
+	
+	public function groupCreateAttachmentItem($groupID, $linkMode, $parentKey=false, $context=false) {
+		self::loadConfig();
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
+		$json = json_decode($response->getBody());
+		
+		if ($parentKey) {
+			$url = "items/$parentKey/children";
+		}
+		else {
+			$url = "items";
+		}
+		
+		$response = API::groupPost(
+			$groupID,
+			$url . "?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert201($response);
+		}
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		if ($context) {
+			$json = json_decode($data['content']);
+			$context->assertEquals($linkMode, $json->linkMode);
+		}
+		return $xml;
+	}
+	
+	
+	//
+	// HTTP methods
+	//
+	public static function get($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		$response = HTTP::get($url, $headers, $auth);
@@ -49,64 +164,109 @@ class API {
 		return $response;
 	}
 	
-	public function userGet($userID, $suffix, $headers=array(), $auth=false) {
+	public static function userGet($userID, $suffix, $headers=array(), $auth=false) {
 		return self::get("users/$userID/$suffix", $headers, $auth);
 	}
 	
-	public function post($url, $data, $headers=array(), $auth=false) {
+	public static function groupGet($groupID, $suffix, $headers=array(), $auth=false) {
+		return self::get("groups/$groupID/$suffix", $headers, $auth);
+	}
+	
+	public static function post($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		$response = HTTP::post($url, $data, $headers, $auth);
 		return $response;
 	}
 	
-	public function userPost($userID, $suffix, $data, $headers=array(), $auth=false) {
+	public static function userPost($userID, $suffix, $data, $headers=array(), $auth=false) {
 		return self::post("users/$userID/$suffix", $data, $headers, $auth);
 	}
 	
-	public function put($url, $data, $headers=array(), $auth=false) {
+	public static function groupPost($groupID, $suffix, $data, $headers=array(), $auth=false) {
+		return self::post("groups/$groupID/$suffix", $data, $headers, $auth);
+	}
+	
+	public static function put($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		$response = HTTP::put($url, $data, $headers, $auth);
 		return $response;
 	}
 	
-	public function userPut($userID, $suffix, $data, $headers=array(), $auth=false) {
+	public static function userPut($userID, $suffix, $data, $headers=array(), $auth=false) {
 		return self::put("users/$userID/$suffix", $data, $headers, $auth);
 	}
 	
-	public function patch($url, $data, $headers=array(), $auth=false) {
+	public static function groupPut($groupID, $suffix, $data, $headers=array(), $auth=false) {
+		return self::put("groups/$groupID/$suffix", $data, $headers, $auth);
+	}
+	
+	public static function patch($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		$response = HTTP::patch($url, $data, $headers, $auth);
 		return $response;
 	}
 	
-	public function userPatch($userID, $suffix, $data, $headers=array()) {
+	public static function userPatch($userID, $suffix, $data, $headers=array()) {
 		return self::patch("users/$userID/$suffix", $data, $headers);
 	}
 	
-	public function head($url, $headers=array(), $auth=false) {
+	public static function head($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		$response = HTTP::head($url, $headers, $auth);
 		return $response;
 	}
 	
-	public function userHead($userID, $suffix, $headers=array(), $auth=false) {
+	public static function userHead($userID, $suffix, $headers=array(), $auth=false) {
 		return self::head("users/$userID/$suffix", $headers, $auth);
 	}
 	
-	public function delete($url, $headers=array(), $auth=false) {
+	public static function delete($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		$response = HTTP::delete($url, $headers, $auth);
 		return $response;
 	}
 	
-	public function userDelete($userID, $suffix, $headers=array(), $auth=false) {
+	public static function userDelete($userID, $suffix, $headers=array(), $auth=false) {
 		return self::delete("users/$userID/$suffix", $headers, $auth);
 	}
+	
+	public static function groupDelete($groupID, $suffix, $headers=array(), $auth=false) {
+		return self::delete("groups/$groupID/$suffix", $headers, $auth);
+	}
+	
+	public static function userClear($userID) {
+		self::loadConfig();
+		return self::userPost(
+			$userID,
+			"clear",
+			"",
+			array(),
+			array(
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			)
+		);
+	}
+	
+	public static function groupClear($groupID) {
+		self::loadConfig();
+		return self::groupPost(
+			$groupID,
+			"clear",
+			"",
+			array(),
+			array(
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			)
+		);
+	}
+	
 	
 	
 	public static function getXMLFromResponse($response) {
@@ -130,15 +290,9 @@ class API {
 	}
 	
 	
-	/**
-	* Strips updated and published field values
-	*/
-	public function simpleXMLStripAtomDates(SimpleXMLElement $xml) {
-		$namespaces = $xml->getNamespaces(true);
-		$xml->registerXPathNamespace("default", $namespaces[""]);
-		$updated = $xml->xpath("//default:updated|//default:published");
-		foreach ($updated as $node) {
-			$node[0] = "";
-		}
+	public static function getContentFromResponse($response) {
+		$xml = self::getXMLFromResponse($response);
+		$data = self::parseDataFromItemEntry($xml);
+		return $data['content'];
 	}
 }

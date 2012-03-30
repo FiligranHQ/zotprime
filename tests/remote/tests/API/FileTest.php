@@ -34,7 +34,7 @@ class FileTests extends APITests {
 		require 'include/config.inc.php';
 		S3::setAuth($config['s3AccessKey'], $config['s3SecretKey']);
 		
-		Sync::clear();
+		API::userClear($config['userID']);
 	}
 	
 	public function setUp() {
@@ -63,7 +63,7 @@ class FileTests extends APITests {
 	
 	
 	public function testNewEmptyImportedFileAttachmentItem() {
-		$xml = $this->createAttachmentItem("imported_file");
+		$xml = API::createAttachmentItem("imported_file", false, $this);
 		return API::parseDataFromItemEntry($xml);
 	}
 	
@@ -141,7 +141,7 @@ class FileTests extends APITests {
 	
 	
 	public function testAddFileFull() {
-		$xml = $this->createAttachmentItem("imported_file");
+		$xml = API::createAttachmentItem("imported_file", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
 		$file = "work/file";
@@ -404,7 +404,7 @@ class FileTests extends APITests {
 	
 	
 	public function testAddFileClient() {
-		Sync::clear();
+		API::userClear($this->fixture->config['userID']);
 		
 		$auth = array(
 			'username' => $this->fixture->config['username'],
@@ -420,7 +420,7 @@ class FileTests extends APITests {
 		);
 		$this->assert404($response);
 		
-		$xml = $this->createAttachmentItem("imported_file");
+		$xml = API::createAttachmentItem("imported_file", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
 		// Get file info
@@ -567,7 +567,7 @@ class FileTests extends APITests {
 	
 	
 	public function testAddFileLinkedAttachment() {
-		$xml = $this->createAttachmentItem("linked_file");
+		$xml = API::createAttachmentItem("linked_file", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
 		$file = "work/file";
@@ -611,27 +611,6 @@ class FileTests extends APITests {
 			$parts[] = $key . "=" . urlencode($val);
 		}
 		return implode("&", $parts);
-	}
-	
-	
-	private function createAttachmentItem($linkMode) {
-		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
-		$json = json_decode($response->getBody());
-		
-		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array("Content-Type: application/json")
-		);
-		$this->assert201($response);
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$json = json_decode($data['content']);
-		$this->assertEquals($linkMode, $json->linkMode);
-		return $xml;
 	}
 	
 	
