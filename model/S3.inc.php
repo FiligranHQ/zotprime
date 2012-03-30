@@ -228,9 +228,8 @@ class Zotero_S3 {
 	public static function patchFile($item, $info, $algorithm, $patch) {
 		switch ($algorithm) {
 			case 'bsdiff':
-				break;
-			
 			case 'xdelta':
+			case 'vcdiff':
 				break;
 				
 			case 'xdiff':
@@ -281,6 +280,7 @@ class Zotero_S3 {
 					break;
 				
 				case 'xdelta':
+				case 'vcdiff':
 					exec('xdelta3 -d -s original patch new 2>&1', $output, $ret);
 					if ($ret) {
 						if ($ret == 2) {
