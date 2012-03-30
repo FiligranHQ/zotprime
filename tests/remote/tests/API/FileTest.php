@@ -125,7 +125,7 @@ class FileTests extends APITests {
 				"Content-Type: application/x-www-form-urlencoded"
 			)
 		);
-		$this->assert400($response);
+		$this->assert428($response);
 		
 		// Invalid If-None-Match
 		$response = API::userPost(
@@ -202,7 +202,7 @@ class FileTests extends APITests {
 				"Content-Type: application/x-www-form-urlencoded"
 			)
 		);
-		$this->assert400($response);
+		$this->assert428($response);
 		
 		// Invalid upload key
 		$response = API::userPost(
@@ -210,7 +210,8 @@ class FileTests extends APITests {
 			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
 			"upload=invalidUploadKey",
 			array(
-				"Content-Type: application/x-www-form-urlencoded"
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
 			)
 		);
 		$this->assert400($response);
@@ -332,7 +333,11 @@ class FileTests extends APITests {
 			"xdelta" => "xdelta3 -f -e -9 -S djw -s "
 				. escapeshellarg($oldFilename) . " "
 				. escapeshellarg($newFilename) . " "
-				. escapeshellarg($patchFilename)
+				. escapeshellarg($patchFilename),
+			"vcdiff" => "vcdiff encode "
+				. "-dictionary " . escapeshellarg($oldFilename) . " "
+				. " -target " . escapeshellarg($newFilename) . " "
+				. " -delta " . escapeshellarg($patchFilename)
 		);
 		// xiff
 		//xdiff_file_bdiff($oldFilename . ".old", $newFilename, $newFilename . ".bdiff");
