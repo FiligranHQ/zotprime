@@ -24,7 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include.php';
+require_once 'APITests.inc.php';
+require_once 'include/api.inc.php';
 require_once '../../model/S3Lib.inc.php';
 
 class FileTests extends APITests {

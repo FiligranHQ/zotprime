@@ -24,9 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include.php';
+require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
-require_once 'include/sync.inc.php';
 
 class ItemTests extends APITests {
 	public static function setUpBeforeClass() {
