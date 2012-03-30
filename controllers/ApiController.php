@@ -1054,7 +1054,7 @@ class ApiController extends Controller {
 			// If not the client, require If-Match or If-None-Match
 			if (!$this->httpAuth) {
 				if (empty($_SERVER['HTTP_IF_MATCH']) && empty($_SERVER['HTTP_IF_NONE_MATCH'])) {
-					$this->e400("If-Match/If-None-Match header not provided");
+					$this->e428("If-Match/If-None-Match header not provided");
 				}
 				
 				if (!empty($_SERVER['HTTP_IF_MATCH'])) {

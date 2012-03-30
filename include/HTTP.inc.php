@@ -53,6 +53,12 @@ class Z_HTTP {
 	}
 	
 	
+	public static function e428($message="Precondition Required") {
+		header("HTTP/1.1 428 Precondition Required");
+		die(htmlspecialchars($message));
+	}
+	
+	
 	public static function e429($message="Too Many Requests") {
 		header("HTTP/1.1 429 Too Many Requests");
 		die(htmlspecialchars($message));
