@@ -368,34 +368,13 @@ class Zotero_Users {
 		
 		Zotero_DB::beginTransaction();
 		
-		$tables = array(
-			'collections', 'creators', 'items', 'relations', 'savedSearches', 'tags',
-			'syncDeleteLogIDs', 'syncDeleteLogKeys'
-		);
-		
 		$libraryID = self::getLibraryIDFromUserID($userID);
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		Zotero_Libraries::deleteCachedData($libraryID);
-		
-		foreach ($tables as $table) {
-			// Delete notes and attachments first (since they may be child items)
-			if ($table == 'items') {
-				$sql = "DELETE FROM $table WHERE libraryID=? AND itemTypeID IN (1,14)";
-				Zotero_DB::query($sql, $libraryID, $shardID);
-			}
-			
-			$sql = "DELETE FROM $table WHERE libraryID=?";
-			Zotero_DB::query($sql, $libraryID, $shardID);
-		}
+		Zotero_Libraries::deleteAllData($libraryID);
 		
 		// TODO: Better handling of locked out sessions elsewhere
 		$sql = "UPDATE sessions SET timestamp='0000-00-00 00:00:00',
 					exclusive=0 WHERE userID=? AND exclusive=1";
 		Zotero_DB::query($sql, $userID);
-		
-		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID=?";
-		Zotero_DB::query($sql, $libraryID);
 		
 		Zotero_DB::commit();
 	}

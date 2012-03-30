@@ -648,7 +648,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$itemObj->attachmentLinkMode = (int) $xml->getAttribute('linkMode');
 			$itemObj->attachmentMIMEType = $xml->getAttribute('mimeType');
 			$itemObj->attachmentCharset = $xml->getAttribute('charset');
-			$storageModTime = (int) $xml->getAttribute('storageModTime');
+			// Cast to string to be 32-bit safe
+			$storageModTime = (string) $xml->getAttribute('storageModTime');
 			$itemObj->attachmentStorageModTime = $storageModTime ? $storageModTime : null;
 			$storageHash = $xml->getAttribute('storageHash');
 			$itemObj->attachmentStorageHash = $storageHash ? $storageHash : null;
@@ -1203,7 +1204,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	
 	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null, $userID=null) {
-		self::validateJSONItem($json, $isNew ? null : $item, !is_null($parentItem));
+		self::validateJSONItem($json, $item->libraryID, $isNew ? null : $item, !is_null($parentItem));
 		
 		Zotero_DB::beginTransaction();
 		
@@ -1345,8 +1346,17 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'contentType':
 				case 'charset':
+				case 'filename';
 					$k = "attachment" . ucwords($key);
 					$item->$k = $val;
+					break;
+				
+				case 'md5':
+					$item->attachmentStorageHash = $val;
+					break;
+					
+				case 'mtime':
+					$item->attachmentStorageModTime = $val;
 					break;
 				
 				default:
@@ -1423,7 +1433,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONItem($json, $item=null, $isChild=false) {
+	private static function validateJSONItem($json, $libraryID, $item=null, $isChild=false) {
 		$isNew = !$item;
 		
 		if (!is_object($json)) {
@@ -1434,11 +1444,14 @@ class Zotero_Items extends Zotero_DataObjects {
 			throw new Exception("An 'items' array is not valid for item updates", Z_ERROR_INVALID_INPUT);
 		}
 		
-		if ($isNew) {
-			$requiredProps = array('itemType');
+		if (isset($json->itemType) && $json->itemType == "attachment") {
+			$requiredProps = array('linkMode', 'tags');
 		}
-		else if (isset($json->itemType) && in_array($json->itemType, array("attachment", "note"))) {
+		else if (isset($json->itemType) && $json->itemType == "attachment") {
 			$requiredProps = array('tags');
+		}
+		else if ($isNew) {
+			$requiredProps = array('itemType');
 		}
 		else {
 			$requiredProps = array('itemType', 'creators', 'tags');
@@ -1465,6 +1478,13 @@ class Zotero_Items extends Zotero_DataObjects {
 							
 							default:
 								throw new Exception("Child item must be note or attachment", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					// Don't allow web attachments other than PDFs to be top-level items
+					else if ($val == 'attachment' && (!$item || !$item->getSource())) {
+						if ($json->linkMode == 'linked_url' ||
+								($json->linkMode == 'imported_url' && (empty($json->contentType) || $json->contentType != 'application/pdf'))) {
+							throw new Exception("Only file attachments and PDFs can be top-level items", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					
@@ -1635,8 +1655,48 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'contentType':
 				case 'charset':
+				case 'filename':
+				case 'md5':
+				case 'mtime':
 					if ($json->itemType != 'attachment') {
-						throw new Exception("$key is valid only for attachment items", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' is valid only for attachment items", Z_ERROR_INVALID_INPUT);
+					}
+					
+					switch ($key) {
+						case 'filename':
+						case 'md5':
+						case 'mtime':
+							if (strpos($json->linkMode, 'imported_') !== 0) {
+								throw new Exception("'$key' is valid only for imported attachment items", Z_ERROR_INVALID_INPUT);
+							}
+							break;
+					}
+					
+					switch ($key) {
+						case 'contentType':
+						case 'charset':
+						case 'filename':
+							$propName = 'attachment' . ucwords($key);
+							break;
+							
+						case 'md5':
+							$propName = 'attachmentStorageHash';
+							break;
+							
+						case 'mtime':
+							$propName = 'attachmentStorageModTime';
+							break;
+					}
+					
+					if (Zotero_Libraries::getType($libraryID) == 'group') {
+						if (($item && $item->$propName !== $val) || (!$item && $val !== null && $val !== "")) {
+							throw new Exception("Cannot change '$key' directly in group library", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					else if ($key == 'md5') {
+						if ($val && !preg_match("/^[a-f0-9]{32}$/", $val)) {
+							throw new Exception("'$val' is not a valid MD5 hash", Z_ERROR_INVALID_INPUT);
+						}
 					}
 					break;
 				

@@ -136,6 +136,10 @@ class Zotero_Item {
 			case 'attachmentLinkMode':
 				return $this->getAttachmentLinkMode();
 				
+			case 'attachmentContentType':
+				return $this->getAttachmentMIMEType();
+			
+			// Deprecated
 			case 'attachmentMIMEType':
 				return $this->getAttachmentMIMEType();
 				
@@ -190,6 +194,8 @@ class Zotero_Item {
 				$this->setAttachmentField($field, $val);
 				return;
 			
+			case 'attachmentContentType':
+			// Deprecated
 			case 'attachmentMIMEType':
 				$this->setAttachmentField('mimeType', $val);
 				return;
@@ -2751,7 +2757,6 @@ class Zotero_Item {
 		if ($field == 'linkMode') {
 			Zotero_Attachments::linkModeNumberToName($val);
 		}
-		// For filename, modify 
 		else if ($field == 'filename') {
 			$linkMode = $this->getAttachmentLinkMode();
 			$linkMode = Zotero_Attachments::linkModeNumberToName($linkMode);
@@ -2767,9 +2772,9 @@ class Zotero_Item {
 			$val = 'storage:' . Zotero_Attachments::encodeRelativeDescriptorString($val);
 		}
 		
-		if (!is_int($val) && !$val) {
+		/*if (!is_int($val) && !$val) {
 			$val = '';
-		}
+		}*/
 		
 		$fieldName = 'attachment' . $fieldCap;
 		

@@ -2742,6 +2742,18 @@ class ApiController extends Controller {
 			$json['notes'] = array();
 		}
 		
+		if ($itemType == 'attachment') {
+			$json['contentType'] = '';
+			$json['charset'] = '';
+			
+			if (preg_match('/^imported_/', $linkModeName)) {
+				$json['filename'] = '';
+				$json['md5'] = null;
+				$json['mtime'] = null;
+				//$json['zip'] = false;
+			}
+		}
+		
 		header("Content-Type: application/json");
 		
 		if ($this->queryParams['pprint']) {
@@ -2766,6 +2778,30 @@ class ApiController extends Controller {
 	
 	/**
 	 * Used for integration tests
+	 *
+	 * Valid only on testing site
+	 */
+	public function clear() {
+		if (!$this->permissions->isSuper()) {
+			$this->e404();
+		}
+		
+		if (!Z_ENV_TESTING_SITE) {
+			$this->e404();
+		}
+		
+		$this->allowMethods(array('POST'));
+		
+		Zotero_Libraries::clearAllData($this->objectLibraryID);
+		
+		$this->e204();
+	}
+	
+	
+	/**
+	 * Used for integration tests
+	 *
+	 * Valid only on testing site
 	 */
 	public function testSetup() {
 		if (!$this->permissions->isSuper()) {

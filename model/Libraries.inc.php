@@ -27,6 +27,7 @@
 class Zotero_Libraries {
 	private static $libraryTypeCache = array();
 	private static $originalTimestamps = array();
+	private static $originalVersions = array();
 	
 	public static function add($type, $shardID) {
 		if (!$shardID) {
@@ -128,6 +129,16 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function getVersion($libraryID, $committedOnly=false) {
+		if ($committedOnly && isset(self::$originalVersions[$libraryID])) {
+			return self::$originalVersions[$libraryID];
+		}
+		
+		$sql = "SELECT version FROM libraries WHERE libraryID=?";
+		return Zotero_DB::valueQuery($sql, $libraryID);
+	}
+	
+	
 	public static function getUserLibraryUpdateTimes($userID) {
 		$libraryIDs = Zotero_Libraries::getUserLibraries($userID);
 		$sql = "SELECT libraryID, UNIX_TIMESTAMP(lastUpdated) AS lastUpdated FROM libraries
@@ -160,9 +171,10 @@ class Zotero_Libraries {
 				//throw new Exception("Library timestamp cannot be updated more than once");
 			}
 			self::$originalTimestamps[$libraryID] = self::getTimestamp($libraryID);
+			self::$originalVersions[$libraryID] = self::getVersion($libraryID);
 		}
 		
-		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID IN "
+		$sql = "UPDATE libraries SET lastUpdated=NOW(), version=version+1 WHERE libraryID IN "
 				. "(" . implode(',', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
 		Zotero_DB::query($sql, $libraryIDs);
 		
@@ -208,6 +220,41 @@ class Zotero_Libraries {
 		$sql = "SELECT COUNT(*) FROM syncProcessLocks WHERE libraryID=?";
 		return !!Zotero_DB::valueQuery($sql, $libraryID);
 	}
+	
+	
+	public static function clearAllData($libraryID) {
+		if (empty($libraryID)) {
+			throw new Exception("libraryID not provided");
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		$tables = array(
+			'collections', 'creators', 'items', 'relations', 'savedSearches', 'tags',
+			'syncDeleteLogIDs', 'syncDeleteLogKeys'
+		);
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		self::deleteCachedData($libraryID);
+		
+		foreach ($tables as $table) {
+			// Delete notes and attachments first (since they may be child items)
+			if ($table == 'items') {
+				$sql = "DELETE FROM $table WHERE libraryID=? AND itemTypeID IN (1,14)";
+				Zotero_DB::query($sql, $libraryID, $shardID);
+			}
+			
+			$sql = "DELETE FROM $table WHERE libraryID=?";
+			Zotero_DB::query($sql, $libraryID, $shardID);
+		}
+		
+		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID=?";
+		Zotero_DB::query($sql, $libraryID);
+		
+		Zotero_DB::commit();
+	}
+	
 	
 	
 	/**

@@ -182,7 +182,7 @@ CREATE TABLE `libraries` (
   `libraryID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryType` enum('user','group') NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `lastUpdatedMS` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `version` int(10) unsigned NOT NULL DEFAULT '0',
   `shardID` smallint(5) unsigned NOT NULL,
   PRIMARY KEY (`libraryID`),
   KEY `libraryType` (`libraryType`),
