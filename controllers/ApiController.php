@@ -77,8 +77,8 @@ class ApiController extends Controller {
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		/*if (isset($_SERVER['REMOTE_ADDR'])
-				&& in_array($_SERVER['REMOTE_ADDR'], array('67.222.53.60'))) {
-			header("HTTP/1.1 420 Rate Limited");
+				&& in_array($_SERVER['REMOTE_ADDR'], array(''))) {
+			header("HTTP/1.1 429 Rate Limited");
 			die("Too many requests");
 		}*/
 		
@@ -1215,7 +1215,7 @@ class ApiController extends Controller {
 						$this->e413("Too many queued uploads");
 					}
 					else {
-						$this->e420("Too many queued uploads");
+						$this->e429("Too many queued uploads");
 					}
 				}
 				

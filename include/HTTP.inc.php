@@ -53,8 +53,8 @@ class Z_HTTP {
 	}
 	
 	
-	public static function e420($message="Rate Limited") {
-		header("HTTP/1.1 420 Rate Limited");
+	public static function e429($message="Too Many Requests") {
+		header("HTTP/1.1 429 Too Many Requests");
 		die(htmlspecialchars($message));
 	}
 	
