@@ -2739,6 +2739,7 @@ class ApiController extends Controller {
 		$json['tags'] = array();
 		
 		if ($itemType != 'note' && $itemType != 'attachment') {
+			$json['attachments'] = array();
 			$json['notes'] = array();
 		}
 		

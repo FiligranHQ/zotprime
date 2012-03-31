@@ -1328,6 +1328,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
+				case 'attachments':
 				case 'notes':
 					if (!$val) {
 						continue;
@@ -1381,13 +1382,23 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($twoStage) {
 			foreach ($json as $key=>$val) {
 				switch ($key) {
+					case 'attachments':
+						if (!$val) {
+							continue;
+						}
+						foreach ($val as $attachment) {
+							$childItem = new Zotero_Item;
+							$childItem->libraryID = $item->libraryID;
+							self::updateFromJSON($childItem, $attachment, true, $item, $userID);
+						}
+						break;
+					
 					case 'notes':
 						if (!$val) {
 							continue;
 						}
 						$noteItemTypeID = Zotero_ItemTypes::getID("note");
 						
-						// Save child notes
 						foreach ($val as $note) {
 							$childItem = new Zotero_Item;
 							$childItem->libraryID = $item->libraryID;
@@ -1617,21 +1628,26 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
+				case 'attachments':
 				case 'notes':
 					if (!$isNew) {
-						throw new Exception("'notes' property is valid only for new items", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property is valid only for new items", Z_ERROR_INVALID_INPUT);
 					}
 					
 					if (!is_array($val)) {
-						throw new Exception("'notes' property must be an array", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
 					}
 					
-					foreach ($val as $note) {
-						if (isset($note->itemType) && $note->itemType != 'note') {
-							throw new Exception("Child note must be of itemType 'note'", Z_ERROR_INVALID_INPUT);
+					foreach ($val as $child) {
+						// Check child item type ('attachment' or 'note')
+						$t = substr($key, 0, -1);
+						if (isset($child->itemType) && $child->itemType != $t) {
+							throw new Exception("Child $t must be of itemType '$t'", Z_ERROR_INVALID_INPUT);
 						}
-						if (!isset($note->note)) {
-							throw new Exception("'note' property not provided for child note", Z_ERROR_INVALID_INPUT);
+						if ($key == 'note') {
+							if (!isset($child->note)) {
+								throw new Exception("'note' property not provided for child note", Z_ERROR_INVALID_INPUT);
+							}
 						}
 					}
 					break;
@@ -1701,12 +1717,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				default:
-					if (is_array($val)) {
-						throw new Exception("Unexpected array for property '$key'", Z_ERROR_INVALID_INPUT);
+					if (!Zotero_ItemFields::getID($key)) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					
-					if (!Zotero_ItemFields::getID($key)) {
-						throw new Exception("'$key' is not a valid item field", Z_ERROR_INVALID_INPUT);
+					if (is_array($val)) {
+						throw new Exception("Unexpected array for property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					
 					break;
