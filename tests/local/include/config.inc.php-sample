@@ -1,0 +1,4 @@
+<?
+$config = array(
+	"userID" => 0
+);
