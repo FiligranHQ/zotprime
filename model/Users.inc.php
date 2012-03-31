@@ -369,7 +369,7 @@ class Zotero_Users {
 		Zotero_DB::beginTransaction();
 		
 		$libraryID = self::getLibraryIDFromUserID($userID);
-		Zotero_Libraries::deleteAllData($libraryID);
+		Zotero_Libraries::clearAllData($libraryID);
 		
 		// TODO: Better handling of locked out sessions elsewhere
 		$sql = "UPDATE sessions SET timestamp='0000-00-00 00:00:00',
