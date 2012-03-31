@@ -26,6 +26,36 @@
 require_once 'include/bootstrap.inc.php';
 
 class ItemsTests extends PHPUnit_Framework_TestCase {
+	protected static $config;
+	
+	public static function setUpBeforeClass() {
+		require("include/config.inc.php");
+		self::$config = $config;
+		self::$config['userLibraryID'] = Zotero_Users::getLibraryIDFromUserID($config['userID']);
+	}
+	
+	public function setUp() {
+		Zotero_Users::clearAllData(self::$config['userID']);
+	}
+	
+	
+	public function testNumAttachments() {
+		$item = new Zotero_Item;
+		$item->libraryID = self::$config['userLibraryID'];
+		$item->itemTypeID = Zotero_ItemTypes::getID("book");
+		$item->save();
+		$this->assertEquals(0, $item->numAttachments());
+		
+		$attachmentItem = new Zotero_Item;
+		$attachmentItem->libraryID = self::$config['userLibraryID'];
+		$attachmentItem->itemTypeID = Zotero_ItemTypes::getID("attachment");
+		$attachmentItem->setSource($item->id);
+		$attachmentItem->save();
+		
+		$this->assertEquals(1, $item->numAttachments());
+	}
+	
+	
 	public function testGetDataValuesFromXML() {
 		$xml = <<<'EOD'
 			<data>

@@ -1411,91 +1411,19 @@ class Zotero_Item {
 				//
 				// Source item id
 				//
-				if (false && $this->getSource()) {
-					trigger_error("Unimplemented", E_USER_ERROR);
-					// NOTE: don't need much of this on insert
-					
-					$newItem = Zotero_Items::get($this->libraryID, $sourceItemID);
-					// FK check
-					if ($newItem) {
-						if ($sourceItemID) {
-						}
-						else {
-							trigger_error("Cannot set $type source to invalid item $sourceItemID", E_USER_ERROR);
-						}
+				if ($sourceItemID = $this->getSource()) {
+					$newSourceItem = Zotero_Items::get($this->libraryID, $sourceItemID);
+					if (!$newSourceItem) {
+						throw new Exception("Cannot set source to invalid item");
 					}
 					
-					$oldSourceItemID = $this->getSource();
-					
-					if ($oldSourceItemID == $sourceItemID) {
-						Z_Core::debug("$Type source hasn't changed", 4);
-					}
-					else {
-						$oldItem = Zotero_Items::get($this->libraryID, $oldSourceItemID);
-						if ($oldSourceItemID && $oldItem) {
-						}
-						else {
-							//$oldItemNotifierData = null;
-							Z_Core::debug("Old source item $oldSourceItemID didn't exist in setSource()", 2);
-						}
-						
-						// If this was an independent item, remove from any collections where it
-						// existed previously and add source instead if there is one
-						if (!$oldSourceItemID) {
-							$sql = "SELECT collectionID FROM collectionItems WHERE itemID=?";
-							$changedCollections = Zotero_DB::query($sql, $itemID, $shardID);
-							if ($changedCollections) {
-								trigger_error("Unimplemented", E_USER_ERROR);
-								if ($sourceItemID) {
-									$sql = "UPDATE OR REPLACE collectionItems "
-										. "SET itemID=? WHERE itemID=?";
-									Zotero_DB::query($sql, array($sourceItemID, $this->id), $shardID);
-								}
-								else {
-									$sql = "DELETE FROM collectionItems WHERE itemID=?";
-									Zotero_DB::query($sql, $this->id, $shardID);
-								}
-							}
-						}
-						
-						$sql = "UPDATE item{$Type}s SET sourceItemID=?
-								WHERE itemID=?";
-						$bindParams = array(
-							$sourceItemID ? $sourceItemID : null,
-							$itemID
-						);
-						Zotero_DB::query($sql, $bindParams, $shardID);
-						
-						//Zotero.Notifier.trigger('modify', 'item', $this->id, notifierData);
-						
-						// Update the counts of the previous and new sources
-						if ($oldItem) {
-							/*
-							switch ($type) {
-								case 'note':
-									$oldItem->decrementNoteCount();
-									break;
-								case 'attachment':
-									$oldItem->decrementAttachmentCount();
-									break;
-							}
-							*/
-							//Zotero.Notifier.trigger('modify', 'item', oldSourceItemID, oldItemNotifierData);
-						}
-						
-						if ($newItem) {
-							/*
-							switch ($type) {
-								case 'note':
-									$newItem->incrementNoteCount();
-									break;
-								case 'attachment':
-									$newItem->incrementAttachmentCount();
-									break;
-							}
-							*/
-							//Zotero.Notifier.trigger('modify', 'item', sourceItemID, newItemNotifierData);
-						}
+					switch (Zotero_ItemTypes::getName($this->itemTypeID)) {
+						case 'note':
+							$newSourceItem->incrementNoteCount();
+							break;
+						case 'attachment':
+							$newSourceItem->incrementAttachmentCount();
+							break;
 					}
 				}
 				
@@ -2334,6 +2262,16 @@ class Zotero_Item {
 	}
 	
 	
+	public function incrementAttachmentCount() {
+		$this->numAttachments++;
+	}
+	
+	
+	public function decrementAttachmentCount() {
+		$this->numAttachments--;
+	}
+	
+	
 	//
 	//
 	// Note methods
@@ -2496,6 +2434,16 @@ class Zotero_Item {
 		}
 		
 		return $this->numNotes + $deleted;
+	}
+	
+	
+	public function incrementNoteCount() {
+		$this->numNotes++;
+	}
+	
+	
+	public function decrementNoteCount() {
+		$this->numNotes--;
 	}
 	
 	
