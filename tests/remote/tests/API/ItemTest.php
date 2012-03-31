@@ -54,6 +54,27 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
+		$response = API::get("items/new?itemType=book");
+		$json = json_decode($response->getBody());
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=imported_url");
+		$json->attachments[] = json_decode($response->getBody());
+		
+		$response = API::userPost(
+			$this->fixture->config['userID'],
+			"items?key=" . $this->fixture->config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert201($response);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numChildren')));
+	}
+	
+	
 	/**
 	 * @depends testNewEmptyBookItem
 	 */
