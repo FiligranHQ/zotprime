@@ -41,6 +41,11 @@ class API {
 	//
 	// Item modification methods
 	//
+	public function getItemTemplate($itemType) {
+		$response = API::get("items/new?itemType=$itemType");
+		return json_decode($response->getBody());
+	}
+	
 	public function createItem($itemType, $context=null) {
 		self::loadConfig();
 		
@@ -59,6 +64,22 @@ class API {
 			$context->assert201($response);
 		}
 		return API::getXMLFromResponse($response);
+	}
+	
+	
+	/**
+	 * POST a JSON item object to the main test user's account
+	 * and return the response
+	 */
+	public static function postItem($json) {
+		return API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
 	}
 	
 	
@@ -239,6 +260,7 @@ class API {
 		return self::delete("groups/$groupID/$suffix", $headers, $auth);
 	}
 	
+	
 	public static function userClear($userID) {
 		self::loadConfig();
 		return self::userPost(
@@ -266,8 +288,6 @@ class API {
 			)
 		);
 	}
-	
-	
 	
 	public static function getXMLFromResponse($response) {
 		$xml = new SimpleXMLElement($response->getBody());
