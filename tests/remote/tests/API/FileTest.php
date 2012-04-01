@@ -91,8 +91,8 @@ class FileTests extends APITests {
 		// Check required params
 		foreach (array("md5", "filename", "filesize", "mtime") as $exclude) {
 			$response = API::userPost(
-				$this->fixture->config['userID'],
-				"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+				self::$config['userID'],
+				"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 				$this->implodeParams($fileParams, array($exclude)),
 				array(
 					"Content-Type: application/x-www-form-urlencoded",
@@ -106,8 +106,8 @@ class FileTests extends APITests {
 		
 		// Invalid If-Match
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			$fileParams,
 			array(
 				"Content-Type: application/x-www-form-urlencoded",
@@ -118,8 +118,8 @@ class FileTests extends APITests {
 		
 		// Missing If-None-Match
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			$fileParams,
 			array(
 				"Content-Type: application/x-www-form-urlencoded"
@@ -129,8 +129,8 @@ class FileTests extends APITests {
 		
 		// Invalid If-None-Match
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			$fileParams,
 			array(
 				"Content-Type: application/x-www-form-urlencoded",
@@ -157,8 +157,8 @@ class FileTests extends APITests {
 		
 		// Get upload authorization
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			$this->implodeParams(array(
 				"md5" => $hash,
 				"filename" => $filename,
@@ -195,8 +195,8 @@ class FileTests extends APITests {
 		
 		// No If-None-Match
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			"upload=" . $json->uploadKey,
 			array(
 				"Content-Type: application/x-www-form-urlencoded"
@@ -206,8 +206,8 @@ class FileTests extends APITests {
 		
 		// Invalid upload key
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			"upload=invalidUploadKey",
 			array(
 				"Content-Type: application/x-www-form-urlencoded",
@@ -217,8 +217,8 @@ class FileTests extends APITests {
 		$this->assert400($response);
 		
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			"upload=" . $json->uploadKey,
 			array(
 				"Content-Type: application/x-www-form-urlencoded",
@@ -229,8 +229,8 @@ class FileTests extends APITests {
 		
 		// Verify attachment item metadata
 		$response = API::userGet(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}?key=" . $this->fixture->config['apiKey'] . "&content=json"
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
@@ -260,8 +260,8 @@ class FileTests extends APITests {
 		
 		// Get upload authorization
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/$key/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey'],
 			$this->implodeParams(array(
 				"md5" => $json->md5,
 				"filename" => $json->filename,
@@ -295,8 +295,8 @@ class FileTests extends APITests {
 		$md5 = $addFileData['md5'];
 		
 		$response = API::userGet(
-			$this->fixture->config['userID'],
-			"items/$key/file?key=" . $this->fixture->config['apiKey']
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey']
 		);
 		$this->assert302($response);
 		$location = $response->getHeader("Location");
@@ -339,8 +339,6 @@ class FileTests extends APITests {
 				. " -target " . escapeshellarg($newFilename) . " "
 				. " -delta " . escapeshellarg($patchFilename)
 		);
-		// xiff
-		//xdiff_file_bdiff($oldFilename . ".old", $newFilename, $newFilename . ".bdiff");
 		
 		foreach ($algorithms as $algo => $cmd) {
 			clearstatcache();
@@ -359,8 +357,8 @@ class FileTests extends APITests {
 				"charset" => "utf-8"
 			);
 			$response = API::userPost(
-				$this->fixture->config['userID'],
-				"items/{$getFileData['key']}/file?key=" . $this->fixture->config['apiKey'],
+				self::$config['userID'],
+				"items/{$getFileData['key']}/file?key=" . self::$config['apiKey'],
 				$this->implodeParams($fileParams),
 				array(
 					"Content-Type: application/x-www-form-urlencoded",
@@ -380,8 +378,8 @@ class FileTests extends APITests {
 			
 			// Upload patch file
 			$response = API::userPatch(
-				$this->fixture->config['userID'],
-				"items/{$getFileData['key']}/file?key=" . $this->fixture->config['apiKey']
+				self::$config['userID'],
+				"items/{$getFileData['key']}/file?key=" . self::$config['apiKey']
 					. "&algorithm=$algo&upload=" . $json->uploadKey,
 				$patch,
 				array(
@@ -392,8 +390,8 @@ class FileTests extends APITests {
 			
 			// Verify attachment item metadata
 			$response = API::userGet(
-				$this->fixture->config['userID'],
-				"items/{$getFileData['key']}?key=" . $this->fixture->config['apiKey'] . "&content=json"
+				self::$config['userID'],
+				"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=json"
 			);
 			$xml = API::getXMLFromResponse($response);
 			$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
@@ -410,16 +408,16 @@ class FileTests extends APITests {
 	
 	
 	public function testAddFileClient() {
-		API::userClear($this->fixture->config['userID']);
+		API::userClear(self::$config['userID']);
 		
 		$auth = array(
-			'username' => $this->fixture->config['username'],
-			'password' => $this->fixture->config['password']
+			'username' => self::$config['username'],
+			'password' => self::$config['password']
 		);
 		
 		// Get last storage sync
 		$response = API::userGet(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"laststoragesync?auth=1",
 			array(),
 			$auth
@@ -431,7 +429,7 @@ class FileTests extends APITests {
 		
 		// Get file info
 		$response = API::userGet(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"items/{$data['key']}/file?auth=1&iskey=1&version=1&info=1",
 			array(),
 			$auth
@@ -448,7 +446,7 @@ class FileTests extends APITests {
 		
 		// Get upload authorization
 		$response = API::userPost(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
 			$this->implodeParams(array(
 				"md5" => $hash,
@@ -493,7 +491,7 @@ class FileTests extends APITests {
 		
 		// Invalid upload key
 		$response = API::userPost(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
 			"update=invalidUploadKey&mtime=" . $mtime,
 			array(
@@ -505,7 +503,7 @@ class FileTests extends APITests {
 		
 		// No mtime
 		$response = API::userPost(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
 			"update=" . $xml->key,
 			array(
@@ -516,7 +514,7 @@ class FileTests extends APITests {
 		$this->assert500($response);
 		
 		$response = API::userPost(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
 			"update=" . $xml->key . "&mtime=" . $mtime,
 			array(
@@ -528,8 +526,8 @@ class FileTests extends APITests {
 		
 		// Verify attachment item metadata
 		$response = API::userGet(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}?key=" . $this->fixture->config['apiKey'] . "&content=json"
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
@@ -539,12 +537,12 @@ class FileTests extends APITests {
 		$this->assertEquals($mtime, $json->mtime);
 		
 		$response = API::userGet(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"laststoragesync?auth=1",
 			array(),
 			array(
-				'username' => $this->fixture->config['username'],
-				'password' => $this->fixture->config['password']
+				'username' => self::$config['username'],
+				'password' => self::$config['password']
 			)
 		);
 		$this->assert200($response);
@@ -553,7 +551,7 @@ class FileTests extends APITests {
 		
 		// File exists
 		$response = API::userPost(
-			$this->fixture->config['userID'],
+			self::$config['userID'],
 			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
 			$this->implodeParams(array(
 				"md5" => $hash,
@@ -588,8 +586,8 @@ class FileTests extends APITests {
 		
 		// Get upload authorization
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/{$data['key']}/file?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
 			$this->implodeParams(array(
 				"md5" => $hash,
 				"filename" => $filename,

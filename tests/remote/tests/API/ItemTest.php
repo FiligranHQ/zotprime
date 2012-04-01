@@ -62,8 +62,8 @@ class ItemTests extends APITests {
 		$json->attachments[] = json_decode($response->getBody());
 		
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -96,8 +96,8 @@ class ItemTests extends APITests {
 		);
 		
 		$response = API::userPut(
-			$this->fixture->config['userID'],
-			"items/$key?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
@@ -124,8 +124,8 @@ class ItemTests extends APITests {
 		$json2 = clone $json;
 		unset($json2->itemType);
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json2)
 			)),
@@ -138,8 +138,8 @@ class ItemTests extends APITests {
 		$json2 = clone $json;
 		$json2->contentType = "text/html";
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json2)
 			)),
@@ -157,8 +157,8 @@ class ItemTests extends APITests {
 		$json = json_decode($response->getBody());
 		
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -175,8 +175,8 @@ class ItemTests extends APITests {
 			$json = json_decode($response->getBody());
 			
 			$response = API::userPost(
-				$this->fixture->config['userID'],
-				"items?key=" . $this->fixture->config['apiKey'],
+				self::$config['userID'],
+				"items?key=" . self::$config['apiKey'],
 				json_encode(array(
 					"items" => array($json)
 				)),
@@ -215,8 +215,8 @@ class ItemTests extends APITests {
 		$json = json_decode($newItemData['content']);
 		
 		$response = API::userPut(
-			$this->fixture->config['userID'],
-			"items/$key?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
@@ -242,8 +242,8 @@ class ItemTests extends APITests {
 		$json = json_decode($newItemData['content']);
 		
 		$response = API::userPut(
-			$this->fixture->config['userID'],
-			"items/$key?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
@@ -275,8 +275,8 @@ class ItemTests extends APITests {
 		$json->charset = $charset;
 		
 		$response = API::userPut(
-			$this->fixture->config['userID'],
-			"items/$key?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
@@ -299,8 +299,8 @@ class ItemTests extends APITests {
 		// Invalid linkMode
 		$json->linkMode = "invalidName";
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -312,8 +312,8 @@ class ItemTests extends APITests {
 		// Missing linkMode
 		unset($json->linkMode);
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -335,8 +335,8 @@ class ItemTests extends APITests {
 		
 		$json->md5 = "c7487a750a97722ae1878ed46b215ebe";
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/$parentKey/children?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$parentKey/children?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -358,8 +358,8 @@ class ItemTests extends APITests {
 		
 		$json->mtime = "1332807793000";
 		$response = API::userPost(
-			$this->fixture->config['userID'],
-			"items/$parentKey/children?key=" . $this->fixture->config['apiKey'],
+			self::$config['userID'],
+			"items/$parentKey/children?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -372,12 +372,12 @@ class ItemTests extends APITests {
 	
 	public function testNewEmptyImportedURLAttachmentItemGroup() {
 		$xml = API::groupCreateItem(
-			$this->fixture->config['ownedPrivateGroupID'], "book", $this
+			self::$config['ownedPrivateGroupID'], "book", $this
 		);
 		$data = API::parseDataFromItemEntry($xml);
 		
 		$xml = API::groupCreateAttachmentItem(
-			$this->fixture->config['ownedPrivateGroupID'], "imported_url", $data['key'], $this
+			self::$config['ownedPrivateGroupID'], "imported_url", $data['key'], $this
 		);
 		return API::parseDataFromItemEntry($xml);
 	}
@@ -396,8 +396,8 @@ class ItemTests extends APITests {
 			$json2 = clone $json;
 			$json2->$prop = "new" . ucwords($prop);
 			$response = API::groupPut(
-				$this->fixture->config['ownedPrivateGroupID'],
-				"items/$key?key=" . $this->fixture->config['apiKey'],
+				self::$config['ownedPrivateGroupID'],
+				"items/$key?key=" . self::$config['apiKey'],
 				json_encode($json2),
 				array(
 					"Content-Type: application/json",

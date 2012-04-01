@@ -32,12 +32,15 @@ require_once 'include/sync.inc.php';
 // Helper functions
 //
 class APITests extends PHPUnit_Framework_TestCase {
-	public function setUp() {
+	protected static $config;
+	protected static $nsZAPI;
+	
+	public static function setUpBeforeClass() {
 		require 'include/config.inc.php';
 		foreach ($config as $k => $v) {
-			$this->fixture->config[$k] = $v;
+			self::$config[$k] = $v;
 		}
-		$this->fixture->nsZAPI = 'http://zotero.org/ns/api';
+		self::$nsZAPI = 'http://zotero.org/ns/api';
 	}
 	
 	public function test() {}
@@ -55,7 +58,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 		$xml = $req->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
-		$zapiNodes = $xml->children($this->fixture->nsZAPI);
+		$zapiNodes = $xml->children(self::$nsZAPI);
 		$this->assertNotEquals(0, (int) $zapiNodes->totalResults);
 		$this->assertNotEquals(0, count($xml->entry));
 	}
@@ -64,7 +67,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 		$xml = $req->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
-		$zapiNodes = $xml->children($this->fixture->nsZAPI);
+		$zapiNodes = $xml->children(self::$nsZAPI);
 		$this->assertEquals($num, (int) $zapiNodes->totalResults);
 		$this->assertEquals($num, count($xml->entry));
 	}
@@ -73,7 +76,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 		$xml = $req->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
-		$zapiNodes = $xml->children($this->fixture->nsZAPI);
+		$zapiNodes = $xml->children(self::$nsZAPI);
 		$this->assertEquals(1, count($zapiNodes->totalResults));
 		$this->assertEquals(0, (int) $zapiNodes->totalResults);
 		$this->assertEquals(0, count($xml->entry));
