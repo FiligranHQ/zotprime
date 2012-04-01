@@ -32,10 +32,11 @@ class FileTests extends APITests {
 	private static $toDelete = array();
 	
 	public static function setUpBeforeClass() {
-		require 'include/config.inc.php';
-		S3::setAuth($config['s3AccessKey'], $config['s3SecretKey']);
+		parent::setUpBeforeClass();
 		
-		API::userClear($config['userID']);
+		S3::setAuth(self::$config['s3AccessKey'], self::$config['s3SecretKey']);
+		
+		API::userClear(self::$config['userID']);
 	}
 	
 	public function setUp() {
@@ -52,10 +53,10 @@ class FileTests extends APITests {
 	}
 	
 	public static function tearDownAfterClass() {
-		require 'include/config.inc.php';
+		parent::tearDownAfterClass();
 		
 		foreach (self::$toDelete as $file) {
-			$deleted = S3::deleteObject($config['s3Bucket'], $file);
+			$deleted = S3::deleteObject(self::$config['s3Bucket'], $file);
 			if (!$deleted) {
 				echo "\n$file not found on S3 to delete\n";
 			}

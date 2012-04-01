@@ -29,15 +29,15 @@ require_once 'include/api.inc.php';
 
 class ItemTests extends APITests {
 	public static function setUpBeforeClass() {
-		require 'include/config.inc.php';
-		API::userClear($config['userID']);
-		API::groupClear($config['ownedPrivateGroupID']);
+		parent::setUpBeforeClass();
+		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
 	}
 	
 	public static function tearDownAfterClass() {
-		require 'include/config.inc.php';
-		API::userClear($config['userID']);
-		API::groupClear($config['ownedPrivateGroupID']);
+		parent::tearDownAfterClass();
+		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
 	}
 	
 	
@@ -55,8 +55,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
-		$response = API::get("items/new?itemType=book");
-		$json = json_decode($response->getBody());
+		$json = API::getItemTemplate("book");
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=imported_url");
 		$json->attachments[] = json_decode($response->getBody());
@@ -117,8 +116,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testNewInvalidBookItem() {
-		$response = API::get("items/new?itemType=book");
-		$json = json_decode($response->getBody());
+		$json = API::getItemTemplate("book");
 		
 		// Missing item type
 		$json2 = clone $json;
