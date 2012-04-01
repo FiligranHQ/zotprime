@@ -1518,6 +1518,9 @@ class Zotero_Items extends Zotero_DataObjects {
 									if (!is_scalar($v)) {
 										throw new Exception("Invalid tag name", Z_ERROR_INVALID_INPUT);
 									}
+									if ($v === "") {
+										throw new Exception("Tag cannot be empty", Z_ERROR_INVALID_INPUT);
+									}
 									break;
 									
 								case 'type':
