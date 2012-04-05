@@ -361,6 +361,7 @@ class Zotero_S3 {
 		foreach ($localInfo as $key => $val) {
 			$info->$key = $val;
 		}
+		$info->filename = $newName;
 		return self::addFile($info);
 	}
 	
