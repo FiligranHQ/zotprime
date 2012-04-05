@@ -351,7 +351,7 @@ class Zotero_S3 {
 			self::getPathPrefix($localInfo['hash'], $zip) . $newName,
 			S3::ACL_PRIVATE,
 			array(),
-			$contentType ? array("Content-Type" => $contentType) : ""
+			$contentType ? array("Content-Type" => $contentType) : array()
 		);
 		if (!$success) {
 			return false;
