@@ -593,7 +593,7 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function generateUploadPOSTParams($item, Zotero_StorageFileInfo $info) {
+	public static function generateUploadPOSTParams($item, Zotero_StorageFileInfo $info, $useItemContentType=false) {
 		if (strlen($info->hash) != 32) {
 			throw new Exception("Invalid MD5 hash '{$info->md5}'");
 		}
@@ -622,11 +622,16 @@ class Zotero_S3 {
 		}
 		$contentMD5 = base64_encode($contentMD5);
 		
-		if ($info->zip) {
-			$contentType = "application/octet-stream";
+		if ($useItemContentType) {
+			if ($info->zip) {
+				$contentType = "application/octet-stream";
+			}
+			else {
+				$contentType = $item->attachmentMIMEType;
+			}
 		}
 		else {
-			$contentType = $item->attachmentMIMEType;
+			$contentType = $info->contentType;
 		}
 		
 		$metaHeaders = array();

@@ -1221,8 +1221,7 @@ class ApiController extends Controller {
 				
 				// Output XML for client requests (which use HTTP Auth)
 				if ($this->httpAuth) {
-					// If no existing file, generate upload parameters
-					$params = Zotero_S3::generateUploadPOSTParams($item, $info);
+					$params = Zotero_S3::generateUploadPOSTParams($item, $info, true);
 					
 					header('Content-Type: application/xml');
 					$xml = new SimpleXMLElement('<upload/>');
@@ -1235,7 +1234,19 @@ class ApiController extends Controller {
 				}
 				// Output JSON for API requests
 				else {
-					$params = Zotero_S3::getUploadPOSTData($item, $info);
+					if (!empty($_REQUEST['params']) && $_REQUEST['params'] == "1") {
+						$params = array(
+							"url" => Zotero_S3::getUploadBaseURL(),
+							"params" => array()
+						);
+						foreach (Zotero_S3::generateUploadPOSTParams($item, $info) as $key=>$val) {
+							$params['params'][$key] = $val;
+						}
+					}
+					else {
+						$params = Zotero_S3::getUploadPOSTData($item, $info);
+					}
+					
 					$params['uploadKey'] = $uploadKey;
 					
 					header('Content-Type: application/json');
