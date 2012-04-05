@@ -1282,6 +1282,7 @@ class ApiController extends Controller {
 				else {
 					$remoteInfo = Zotero_S3::getRemoteFileInfo($info);
 					if (!$remoteInfo) {
+						error_log("Remote file {$info->hash}/{$info->filename} not found");
 						$this->e400("Remote file not found");
 					}
 					if ($remoteInfo['size'] != $info->size) {
