@@ -2893,7 +2893,7 @@ class ApiController extends Controller {
 		if (!$this->cookieAuth) {
 			return false;
 		}
-		$str = md5($this->userID . $_GET['session']);
+		return md5($this->userID . $_GET['session']);
 	}
 	
 	
