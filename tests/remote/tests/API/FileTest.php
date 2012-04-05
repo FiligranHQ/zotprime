@@ -250,6 +250,96 @@ class FileTests extends APITests {
 	}
 	
 	
+	public function testAddFileFullParams() {
+		$xml = API::createAttachmentItem("imported_file", false, $this);
+		$data = API::parseDataFromItemEntry($xml);
+		
+		$file = "work/file";
+		$fileContents = self::getRandomUnicodeString();
+		file_put_contents($file, $fileContents);
+		$hash = md5_file($file);
+		$filename = "test_" . $fileContents;
+		$mtime = filemtime($file) * 1000;
+		$size = filesize($file);
+		$contentType = "text/plain";
+		$charset = "utf-8";
+		
+		// Get upload authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => $filename,
+				"filesize" => $size,
+				"mtime" => $mtime,
+				"contentType" => $contentType,
+				"charset" => $charset,
+				"params" => 1
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$json = json_decode($response->getBody());
+		$this->assertNotNull($json);
+		
+		self::$toDelete[] = "$hash/$filename";
+		
+		// Generate form-data -- taken from S3::getUploadPostData()
+		$boundary = "---------------------------" . md5(uniqid());
+		$prefix = "";
+		foreach ($json->params as $key => $val) {
+			$prefix .= "--$boundary\r\n"
+				. "Content-Disposition: form-data; name=\"$key\"\r\n\r\n"
+				. $val . "\r\n";
+		}
+		$prefix .= "--$boundary\r\nContent-Disposition: form-data; name=\"file\"\r\n\r\n";
+		$suffix = "\r\n--$boundary--";
+		
+		// Upload to S3
+		$response = HTTP::post(
+			$json->url,
+			$prefix . $fileContents . $suffix,
+			array(
+				"Content-Type: multipart/form-data; boundary=$boundary"
+			)
+		);
+		$this->assert201($response);
+		
+		//
+		// Register upload
+		//
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
+			"upload=" . $json->uploadKey,
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert204($response);
+		
+		// Verify attachment item metadata
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		
+		$this->assertEquals($hash, $json->md5);
+		$this->assertEquals($filename, $json->filename);
+		$this->assertEquals($mtime, $json->mtime);
+		$this->assertEquals($contentType, $json->contentType);
+		$this->assertEquals($charset, $json->charset);
+	}
+	
+	
 	/**
 	 * @depends testAddFileFull
 	 */
