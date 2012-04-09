@@ -32,7 +32,7 @@ class Zotero_Item {
 	private $dateAdded;
 	private $dateModified;
 	private $serverDateModified;
-	private $version;
+	private $itemVersion;
 	private $numNotes;
 	private $numAttachments;
 	
@@ -512,8 +512,11 @@ class Zotero_Item {
 					case 'libraryID':
 					case 'key':
 					case 'serverDateModified':
-					case 'version':
 						$colSQL = 'I.' . $field;
+						break;
+					
+					case 'itemVersion':
+						$colSQL = 'I.version AS itemVersion';
 						break;
 					
 					case 'numNotes':
@@ -592,6 +595,10 @@ class Zotero_Item {
 		}
 		
 		foreach ($row as $field=>$val) {
+			if ($field == 'version') {
+				$field = 'itemVersion';
+			}
+			
 			// Only accept primary field data through loadFromRow()
 			if (in_array($field, Zotero_Items::$primaryFields)) {
 				//Z_Core::debug("Setting field '" + col + "' to '" + row[col] + "' for item " + this.id);
@@ -793,7 +800,7 @@ class Zotero_Item {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
-				case 'version':
+				case 'itemVersion':
 				case 'numNotes':
 				case 'numAttachments':
 					trigger_error("Primary field '$field' cannot be changed through setField()", E_USER_ERROR);
@@ -2088,7 +2095,6 @@ class Zotero_Item {
 	public function numChildren($includeTrashed=false) {
 		return $this->numNotes($includeTrashed) + $this->numAttachments($includeTrashed);
 	}
-
 	
 	
 	//
@@ -3684,8 +3690,7 @@ class Zotero_Item {
 		if (!$this->loaded['primaryData']) {
 			$this->loadPrimaryData();
 		}
-		
-		return md5($this->serverDateModified . $this->version);
+		return md5($this->serverDateModified . $this->itemVersion);
 	}
 	
 	

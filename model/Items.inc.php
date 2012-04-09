@@ -28,7 +28,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	protected static $ZDO_object = 'item';
 	
 	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
-		'dateAdded', 'dateModified', 'serverDateModified', 'version',
+		'dateAdded', 'dateModified', 'serverDateModified', 'itemVersion',
 		'numNotes', 'numAttachments');
 	public static $maxDataValueLength = 65535;
 	public static $cacheVersion = 1;
@@ -718,7 +718,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			switch ($field) {
 				case 'itemID':
 				case 'serverDateModified':
-				case 'version':
+				case 'itemVersion':
 				case 'numAttachments':
 				case 'numNotes':
 					continue (2);
