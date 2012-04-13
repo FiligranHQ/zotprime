@@ -44,7 +44,6 @@ class Zotero_DataObjects {
 	private static $cacheVersion = 1;
 	
 	private static $idCache = array();
-	private static $idCacheIsFromMemcached = array();
 	private static $primaryDataByID = array();
 	private static $primaryDataByKey = array();
 	
@@ -168,7 +167,7 @@ class Zotero_DataObjects {
 	/**
 	 * Cache a new libraryID/key/id combination
 	 *
-		 * Newly created ids must be registered here or getByLibraryAndKey() won't work
+     * Newly created ids must be registered here or getByLibraryAndKey() won't work
 	 */
 	public static function cacheLibraryKeyID($libraryID, $key, $id) {
 		$type = static::field('object');
@@ -321,6 +320,13 @@ class Zotero_DataObjects {
 			unset(self::$primaryDataByKey[$type][$libraryID][$key]);
 			unset(self::$primaryDataByID[$type][$libraryID][$id]);
 		}
+	}
+	
+	
+	// Used for unit tests
+	public static function clearPrimaryDataCache() {
+		self::$primaryDataByID = array();
+		self::$primaryDataByKey = array();
 	}
 	
 	

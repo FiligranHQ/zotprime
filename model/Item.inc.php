@@ -64,13 +64,17 @@ class Zotero_Item {
 	private $changed = array();
 	private $previousData = array();
 	
-	public function __construct() {
+	public function __construct($itemTypeOrID=false) {
 		$numArgs = func_num_args();
-		if ($numArgs) {
-			throw new Exception("Constructor doesn't take any parameters");
+		if ($numArgs > 1) {
+			throw new Exception("Constructor can take only one parameter");
 		}
 		
 		$this->init();
+		
+		if ($itemTypeOrID) {
+			$this->setField("itemTypeID", Zotero_ItemTypes::getID($itemTypeOrID));
+		}
 	}
 	
 	
@@ -98,7 +102,6 @@ class Zotero_Item {
 		foreach ($props as $prop) {
 			$this->changed[$prop] = array();
 		}
-		
 		// Boolean
 		$props = array(
 			'deleted',
@@ -419,12 +422,6 @@ class Zotero_Item {
 			return array();
 		}
 		
-		$cacheKey = $this->getCacheKey($asNames ? "itemUsedFieldNames" : "itemUsedFieldIDs");
-		$fields = Z_Core::$MC->get($cacheKey);
-		if ($fields !== false) {
-			return $fields;
-		}
-		
 		$sql = "SELECT fieldID FROM itemData WHERE itemID=?";
 		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		$fields = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
@@ -439,8 +436,6 @@ class Zotero_Item {
 			}
 			$fields = $fieldNames;
 		}
-		
-		Z_Core::$MC->set($cacheKey, $fields);
 		
 		return $fields;
 	}
@@ -469,10 +464,10 @@ class Zotero_Item {
 	
 	
 	private function loadPrimaryData($allowFail=false) {
-		Z_Core::debug("Loading primary data for item $this->id");
+		Z_Core::debug("Loading primary data for item $this->libraryID/$this->key");
 		
 		if ($this->loaded['primaryData']) {
-			throw new Exception("Primary data already loaded for item $this->id");
+			throw new Exception("Primary data already loaded for item $this->libraryID/$this->key");
 		}
 		
 		$libraryID = $this->libraryID;
@@ -547,6 +542,11 @@ class Zotero_Item {
 			}
 		}
 		
+		if (!$columns) {
+			Z_Core::debug("No primary columns to load");
+			return;
+		}
+		
 		$sql = 'SELECT ' . implode(', ', $columns) . " FROM items I WHERE ";
 		
 		if ($id) {
@@ -601,7 +601,7 @@ class Zotero_Item {
 			
 			// Only accept primary field data through loadFromRow()
 			if (in_array($field, Zotero_Items::$primaryFields)) {
-				//Z_Core::debug("Setting field '" + col + "' to '" + row[col] + "' for item " + this.id);
+				//Z_Core::debug("Setting field '$field' to '$val' for item " . $this->id);
 				switch ($field) {
 					case 'itemID':
 						$this->id = $val;
@@ -624,6 +624,10 @@ class Zotero_Item {
 	}
 	
 	
+	/**
+	 * @param {Integer} $itemTypeID  itemTypeID to change to
+	 * @param {Boolean} [$loadIn=false]  Internal call, so don't flag field as changed
+	 */
 	private function setType($itemTypeID, $loadIn=false) {
 		if ($this->itemTypeID == $itemTypeID) {
 			return false;
@@ -722,39 +726,33 @@ class Zotero_Item {
 	 * via base fields (e.g. label => publisher => studio)
 	 */
 	private function getFieldsNotInType($itemTypeID, $allowBaseConversion=false) {
-		$usedFields = self::getUsedFields();
-		if (!$usedFields) {
+		$fieldIDs = array();
+		
+		foreach ($this->itemData as $fieldID => $val) {
+			if (!is_null($val)) {
+				if (Zotero_ItemFields::isValidForType($fieldID, $itemTypeID)) {
+					continue;
+				}
+				
+				if ($allowBaseConversion) {
+					$baseID = Zotero_ItemFields::getBaseIDFromTypeAndField($this->itemTypeID, $fieldID);
+					if ($baseID) {
+						$newFieldID = Zotero_ItemFields::getFieldIDFromTypeAndBase($itemTypeID, $baseID);
+						if ($newFieldID) {
+							continue;
+						}
+					}
+				}
+				
+				$fieldIDs[] = $fieldID;
+			}
+		}
+		
+		if (!$fieldIDs) {
 			return false;
 		}
 		
-		$sql = "SELECT fieldID FROM itemTypeFields
-				WHERE itemTypeID=? AND fieldID IN ("
-				. implode(', ', array_fill(0, sizeOf($usedFields), '?'))
-				. ") AND
-				fieldID NOT IN (SELECT fieldID FROM itemTypeFields WHERE itemTypeID=?)";
-		
-		if ($allowBaseConversion) {
-			trigger_error("Unimplemented", E_USER_ERROR);
-			/*
-			// Not the type-specific field for a base field in the new type
-			sql += " AND fieldID NOT IN (SELECT fieldID FROM baseFieldMappings "
-				+ "WHERE itemTypeID=?1 AND baseFieldID IN "
-				+ "(SELECT fieldID FROM itemTypeFields WHERE itemTypeID=?3)) AND ";
-			// And not a base field with a type-specific field in the new type
-			sql += "fieldID NOT IN (SELECT baseFieldID FROM baseFieldMappings "
-				+ "WHERE itemTypeID=?3) AND ";
-			// And not the type-specific field for a base field that has
-			// a type-specific field in the new type
-			sql += "fieldID NOT IN (SELECT fieldID FROM baseFieldMappings "
-				+ "WHERE itemTypeID=?1 AND baseFieldID IN "
-				+ "(SELECT baseFieldID FROM baseFieldMappings WHERE itemTypeID=?3))";
-			*/
-		}
-		
-		return Zotero_DB::columnQuery(
-			$sql,
-			array_merge(array($this->itemTypeID), $usedFields, array($itemTypeID))
-		);
+		return $fieldIDs;
 	}
 	
 	
@@ -774,7 +772,10 @@ class Zotero_Item {
 			case 'id':
 			case 'libraryID':
 			case 'key':
-				if ($this->loaded['primaryData']) {
+				// Allow libraryID to be set if empty, even if primary data is loaded,
+				// which happens if an item type is set in the constructor
+				if ($field == 'libraryID' && !$this->$field) {}
+				else if ($this->loaded['primaryData']) {
 					throw new Exception("Cannot set $field after item is already loaded");
 				}
 				//this._checkValue(field, val);
@@ -3689,6 +3690,9 @@ class Zotero_Item {
 	private function getETag() {
 		if (!$this->loaded['primaryData']) {
 			$this->loadPrimaryData();
+		}
+		if (!isset($this->itemVersion)) {
+			error_log("WARNING: Item version not set in getETag()");
 		}
 		return md5($this->serverDateModified . $this->itemVersion);
 	}

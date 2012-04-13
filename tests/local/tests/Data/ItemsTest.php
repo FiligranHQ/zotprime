@@ -39,20 +39,20 @@ class ItemsTests extends PHPUnit_Framework_TestCase {
 	}
 	
 	
-	public function testNumAttachments() {
+	public function testExistsByLibraryAndKey() {
+		$this->assertFalse(Zotero_Items::existsByLibraryAndKey(self::$config['userLibraryID'], "AAAAAAAA"));
+		
 		$item = new Zotero_Item;
 		$item->libraryID = self::$config['userLibraryID'];
 		$item->itemTypeID = Zotero_ItemTypes::getID("book");
 		$item->save();
-		$this->assertEquals(0, $item->numAttachments());
+		$key = $item->key;
 		
-		$attachmentItem = new Zotero_Item;
-		$attachmentItem->libraryID = self::$config['userLibraryID'];
-		$attachmentItem->itemTypeID = Zotero_ItemTypes::getID("attachment");
-		$attachmentItem->setSource($item->id);
-		$attachmentItem->save();
+		$this->assertTrue(Zotero_Items::existsByLibraryAndKey(self::$config['userLibraryID'], $key));
 		
-		$this->assertEquals(1, $item->numAttachments());
+		Zotero_Items::delete(self::$config['userLibraryID'], $key);
+		
+		$this->assertFalse(Zotero_Items::existsByLibraryAndKey(self::$config['userLibraryID'], $key));
 	}
 	
 	
