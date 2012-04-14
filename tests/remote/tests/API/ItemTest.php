@@ -54,26 +54,6 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
-		$json = API::getItemTemplate("book");
-		
-		$response = API::get("items/new?itemType=attachment&linkMode=imported_url");
-		$json->attachments[] = json_decode($response->getBody());
-		
-		$response = API::userPost(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array("Content-Type: application/json")
-		);
-		$this->assert201($response);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numChildren')));
-	}
-	
-	
 	/**
 	 * @depends testNewEmptyBookItem
 	 */
@@ -112,6 +92,56 @@ class ItemTests extends APITests {
 		$this->assertEquals($creatorType, $json->creators[0]->creatorType);
 		$this->assertEquals($firstName, $json->creators[0]->firstName);
 		$this->assertEquals($lastName, $json->creators[0]->lastName);
+	}
+	
+	
+	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
+		$json = API::getItemTemplate("book");
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=imported_url");
+		$json->attachments[] = json_decode($response->getBody());
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert201($response);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numChildren')));
+	}
+	
+	
+	public function testNewComputerProgramItem() {
+		$xml = API::createItem("computerProgram", $this);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		
+		$data = API::parseDataFromItemEntry($xml);
+		
+		$json = json_decode($data['content']);
+		$this->assertEquals("computerProgram", (string) $json->itemType);
+		
+		$version = "1.0";
+		$json->version = $version;
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: {$data['etag']}"
+			)
+		);
+		$this->assert200($response);
+		
+		$xml = API::getXMLFromResponse($response);
+		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		
+		$this->assertEquals($version, $json->version);
 	}
 	
 	
