@@ -249,8 +249,7 @@ class Zotero_Libraries {
 			Zotero_DB::query($sql, $libraryID, $shardID);
 		}
 		
-		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID=?";
-		Zotero_DB::query($sql, $libraryID);
+		self::updateTimestamps($libraryID);
 		
 		Zotero_DB::commit();
 	}
