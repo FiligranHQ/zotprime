@@ -24,6 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
+require_once 'HTTP/Request2.php';
+
 class HTTP {
 	private static $config;
 	
@@ -58,7 +60,12 @@ class HTTP {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
 		//$req->setConfig('ssl_verify_peer', false);
-		$req->setBody($data);
+		if (is_array($data)) {
+			$req->addPostParameter($data);
+		}
+		else {
+			$req->setBody($data);
+		}
 		$response = $req->send();
 		return $response;
 	}

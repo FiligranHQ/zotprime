@@ -12,6 +12,7 @@ $config = array(
 	
 	// User
 	'userID' => 0,
+	'libraryID' => 0,
 	'username' => "", // user used for sync tests
 	'password' => "",
 	'apiKey' => "",

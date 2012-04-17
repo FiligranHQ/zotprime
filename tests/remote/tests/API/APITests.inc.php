@@ -26,7 +26,6 @@
 
 require_once 'HTTP/Request2.php';
 require_once 'include/api.inc.php';
-require_once 'include/sync.inc.php';
 
 //
 // Helper functions
