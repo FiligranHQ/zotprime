@@ -37,14 +37,14 @@ $controllerName = Z_String::under2camel($routes['controller']);
 $action = !empty($routes['action']) ? $routes['action'] : 'index';
 $pass = !empty($routes['pass']) ? $routes['pass'] : array();
 
-$settings['directory'] = !empty($routes['directory']) ? $routes['directory'] : false;
+$settings['directory'] = !empty($routes['directory']) ? $routes['directory'] . '/' : false;
 
 $suffix = '';
 
 $extra = !empty($routes['extra']) ? $routes['extra'] : array();
 
 // Attempt to load controller
-$controllerFile = Z_ENV_CONTROLLER_PATH . $settings['directory'] . '/' . $controllerName . $suffix . 'Controller.php';
+$controllerFile = Z_ENV_CONTROLLER_PATH . $settings['directory'] . $controllerName . $suffix . 'Controller.php';
 Z_Core::debug("Attempting to include controller $controllerFile");
 
 if ($controllerName != 404 && file_exists($controllerFile)) {
