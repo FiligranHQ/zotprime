@@ -641,8 +641,16 @@ class Zotero_Item {
 		
 		$copiedFields = array();
 		
-		// If there's an existing type
-		if ($this->itemTypeID) {
+		$oldItemTypeID = $this->itemTypeID;
+		
+		if ($oldItemTypeID) {
+			if ($loadIn) {
+				throw new Exception('Cannot change type in loadIn mode');
+			}
+			if (!$this->loaded['itemData'] && $this->id) {
+				$this->loadItemData();
+			}
+			
 			$obsoleteFields = $this->getFieldsNotInType($itemTypeID);
 			if ($obsoleteFields) {
 				foreach($obsoleteFields as $oldFieldID) {
@@ -665,16 +673,18 @@ class Zotero_Item {
 				}
 			}
 			
-			if (!$loadIn) {
-				foreach ($this->itemData as $fieldID=>$value) {
-					if ($this->itemData[$fieldID] && // why?
-							(!$obsoleteFields || !in_array($fieldID, $obsoleteFields))) {
-						$copiedFields[] = array($fieldID, $this->getField($fieldID));
-					}
+			foreach ($this->itemData as $fieldID => $value) {
+				if (!is_null($this->itemData[$fieldID]) &&
+						(!$obsoleteFields || !in_array($fieldID, $obsoleteFields))) {
+					$copiedFields[] = array($fieldID, $this->getField($fieldID));
 				}
 			}
-			
-			// And reset custom creator types to the default
+		}
+		
+		$this->itemTypeID = $itemTypeID;
+		
+		if ($oldItemTypeID) {
+			// Reset custom creator types to the default
 			$creators = $this->getCreators();
 			if ($creators) {
 				foreach ($creators as $orderIndex=>$creator) {
@@ -689,9 +699,8 @@ class Zotero_Item {
 					}
 				}
 			}
+			
 		}
-		
-		$this->itemTypeID = $itemTypeID;
 		
 		// If not custom item type, initialize $this->itemData with type-specific fields
 		$this->itemData = array();
@@ -743,7 +752,6 @@ class Zotero_Item {
 						}
 					}
 				}
-				
 				$fieldIDs[] = $fieldID;
 			}
 		}
@@ -1560,7 +1568,7 @@ class Zotero_Item {
 						$value = $this->getField($fieldID, true, false, true);
 						
 						// If field changed and is empty, mark row for deletion
-						if ($value === false) {
+						if ($value === "") {
 							$del[] = $fieldID;
 							continue;
 						}
