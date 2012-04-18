@@ -63,11 +63,13 @@ class ItemTests extends APITests {
 		$json = json_decode($newItemData['content']);
 		
 		$newTitle = "New Title";
+		$numPages = 100;
 		$creatorType = "author";
 		$firstName = "Firstname";
 		$lastName = "Lastname";
 		
 		$json->title = $newTitle;
+		$json->numPages = $numPages;
 		$json->creators[] = array(
 			'creatorType' => $creatorType,
 			'firstName' => $firstName,
@@ -89,9 +91,57 @@ class ItemTests extends APITests {
 		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
 		
 		$this->assertEquals($newTitle, $json->title);
+		$this->assertEquals($numPages, $json->numPages);
 		$this->assertEquals($creatorType, $json->creators[0]->creatorType);
 		$this->assertEquals($firstName, $json->creators[0]->firstName);
 		$this->assertEquals($lastName, $json->creators[0]->lastName);
+		
+		return API::parseDataFromItemEntry($xml);
+	}
+	
+	
+	public function testChangeItemType() {
+		$json = API::getItemTemplate("book");
+		$json->title = "Foo";
+		$json->numPages = 100;
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$key = $data['key'];
+		$etag = $data['etag'];
+		$json1 = json_decode($data['content']);
+		
+		$json2 = API::getItemTemplate("bookSection");
+		unset($json2->attachments);
+		unset($json2->notes);
+		
+		foreach ($json2 as $field => &$val) {
+			if ($field != "itemType" && isset($json1->$field)) {
+				$val = $json1->$field;
+			}
+		}
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json2),
+			array(
+				"Content-Type: application/json",
+				"If-Match: $etag"
+			)
+		);
+		$this->assert200($response);
+		$json = json_decode(API::getContentFromResponse($response));
+		$this->assertEquals("bookSection", $json->itemType);
+		$this->assertEquals("Foo", $json->title);
+		$this->assertObjectNotHasAttribute("numPages", $json);
 	}
 	
 	
