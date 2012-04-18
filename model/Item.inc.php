@@ -237,7 +237,7 @@ class Zotero_Item {
 		
 		if ($includeBaseMapped) {
 			$fieldID = Zotero_ItemFields::getFieldIDFromTypeAndBase(
-				$this->getField('itemTypeID'), $field
+				$this->itemTypeID, $field
 			);
 		}
 		
@@ -253,7 +253,7 @@ class Zotero_Item {
 			if (!$skipValidation) {
 				throw new Exception($msg);
 			}
-			Z_Core::debug($msg . "—returning ''", 4);
+			Z_Core::debug($msg . " -- returning ''", 4);
 			return '';
 		}
 		
