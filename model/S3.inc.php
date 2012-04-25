@@ -732,8 +732,10 @@ class Zotero_S3 {
 			return;
 		}
 		
+		// If changing quota, make sure it's not less than current usage
+		$current = self::getUserValues();
 		$usage = self::getUserUsage($userID);
-		if ($quota < $usage['total']) {
+		if ($current['quota'] != $quota && $quota < $usage['total']) {
 			throw new Exception("Cannot set quota below current usage", Z_ERROR_GROUP_QUOTA_SET_BELOW_USAGE);
 		}
 		
