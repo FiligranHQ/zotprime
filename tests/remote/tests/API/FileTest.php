@@ -103,6 +103,21 @@ class FileTests extends APITests {
 			$this->assert400($response);
 		}
 		
+		// Seconds-based mtime
+		$fileParams2 = $fileParams;
+		$fileParams2['mtime'] = round($mtime / 1000);
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
+			$this->implodeParams($fileParams2),
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert400($response);
+		$this->assertEquals('mtime must be specified in milliseconds', $response->getBody());
+		
 		$fileParams = $this->implodeParams($fileParams);
 		
 		// Invalid If-Match
