@@ -676,6 +676,180 @@ class FileTests extends APITests {
 	}
 	
 	
+	public function testAddFileClientZip() {
+		API::userClear(self::$config['userID']);
+		
+		$auth = array(
+			'username' => self::$config['username'],
+			'password' => self::$config['password']
+		);
+		
+		// Get last storage sync
+		$response = API::userGet(
+			self::$config['userID'],
+			"laststoragesync?auth=1",
+			array(),
+			$auth
+		);
+		$this->assert404($response);
+		
+		$xml = API::createItem("book", $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$key = $data['key'];
+		
+		$fileContentType = "text/html";
+		$fileCharset = "UTF-8";
+		$fileFilename = "file.html";
+		$fileModtime = time();
+		
+		$xml = API::createAttachmentItem("imported_url", $key, $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$key = $data['key'];
+		$etag = $data['etag'];
+		$json = json_decode($data['content']);
+		$json->contentType = $fileContentType;
+		$json->charset = $fileCharset;
+		$json->filename = $fileFilename;
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: $etag"
+			)
+		);
+		$this->assert200($response);
+		
+		// Get file info
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$data['key']}/file?auth=1&iskey=1&version=1&info=1",
+			array(),
+			$auth
+		);
+		$this->assert404($response);
+		
+		$zip = new ZipArchive();
+		$file = "work/$key.zip";
+		
+		if ($zip->open($file, ZIPARCHIVE::CREATE) !== TRUE) {
+			throw new Exception("Cannot open ZIP file");
+		}
+		
+		$zip->addFromString($fileFilename, self::getRandomUnicodeString());
+		$zip->addFromString("file.css", self::getRandomUnicodeString());
+		$zip->close();
+		
+		$hash = md5_file($file);
+		$filename = $key . ".zip";
+		$size = filesize($file);
+		$fileContents = file_get_contents($file);
+		
+		// Get upload authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => $filename,
+				"filesize" => $size,
+				"mtime" => $fileModtime,
+				"zip" => 1
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded"
+			),
+			$auth
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/xml", $response);
+		$xml = new SimpleXMLElement($response->getBody());
+		
+		self::$toDelete[] = "$hash/$filename";
+		
+		$boundary = "---------------------------" . rand();
+		$postData = "";
+		foreach ($xml->params->children() as $key => $val) {
+			$postData .= "--" . $boundary . "\r\nContent-Disposition: form-data; "
+				. "name=\"$key\"\r\n\r\n$val\r\n";
+		}
+		$postData .= "--" . $boundary . "\r\nContent-Disposition: form-data; "
+				. "name=\"file\"\r\n\r\n" . $fileContents . "\r\n";
+		$postData .= "--" . $boundary . "--";
+		
+		// Upload to S3
+		$response = HTTP::post(
+			(string) $xml->url,
+			$postData,
+			array(
+				"Content-Type: multipart/form-data; boundary=" . $boundary
+			)
+		);
+		$this->assert201($response);
+		
+		//
+		// Register upload
+		//
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
+			"update=" . $xml->key . "&mtime=" . $fileModtime,
+			array(
+				"Content-Type: application/x-www-form-urlencoded"
+			),
+			$auth
+		);
+		$this->assert204($response);
+		
+		// Verify attachment item metadata
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		
+		$this->assertEquals($hash, $json->md5);
+		$this->assertEquals($fileFilename, $json->filename);
+		$this->assertEquals($fileModtime, $json->mtime);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"laststoragesync?auth=1",
+			array(),
+			array(
+				'username' => self::$config['username'],
+				'password' => self::$config['password']
+			)
+		);
+		$this->assert200($response);
+		$mtime = $response->getBody();
+		$this->assertRegExp('/^[0-9]{10}$/', $mtime);
+		
+		// File exists
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => $filename,
+				"filesize" => $size,
+				"mtime" => $fileModtime + 1000,
+				"zip" => 1
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded"
+			),
+			$auth
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/xml", $response);
+		$this->assertEquals("<exists/>", $response->getBody());
+	}
+	
+	
 	public function testAddFileLinkedAttachment() {
 		$xml = API::createAttachmentItem("linked_file", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
