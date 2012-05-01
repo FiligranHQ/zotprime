@@ -453,7 +453,10 @@ class Zotero_S3 {
 			Zotero_Shards::getByLibraryID($item->libraryID)
 		);
 		
-		$item->attachmentFilename = $info->filename;
+		// TODO: allow main filename to be passed for ZIP files?
+		if (!$info->zip) {
+			$item->attachmentFilename = $info->filename;
+		}
 		$item->attachmentStorageHash = $info->hash;
 		$item->attachmentStorageModTime = $info->mtime;
 		$item->attachmentMIMEType = $info->contentType;
