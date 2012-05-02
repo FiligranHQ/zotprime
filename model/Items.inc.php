@@ -857,7 +857,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions=null) {
+	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions=null, $sharedData=null) {
 		$content = $queryParams['content'];
 		$contentIsHTML = sizeOf($content) == 1 && $content[0] == 'html';
 		$contentParamString = urlencode(implode(',', $content));
@@ -1042,7 +1042,15 @@ class Zotero_Items extends Zotero_DataObjects {
 				if (!$multiFormat) {
 					$target->setAttribute('type', 'xhtml');
 				}
-				$html = Zotero_Cite::getCitationFromCiteServer($item, $style);
+				if (isset($sharedData[$type][$item->libraryID . "/" . $item->key])) {
+					$html = $sharedData[$type][$item->libraryID . "/" . $item->key];
+				}
+				else {
+					if ($sharedData !== null) {
+						error_log("Citation not found in sharedData -- retrieving individually");
+					}
+					$html = Zotero_Cite::getCitationFromCiteServer($item, $style);
+				}
 				$html = new SimpleXMLElement($html);
 				$html['xmlns'] = Zotero_Atom::$nsXHTML;
 				$subNode = dom_import_simplexml($html);
@@ -1053,7 +1061,15 @@ class Zotero_Items extends Zotero_DataObjects {
 				if (!$multiFormat) {
 					$target->setAttribute('type', 'xhtml');
 				}
-				$html = Zotero_Cite::getBibliographyFromCitationServer(array($item), $style);
+				if (isset($sharedData[$type][$item->libraryID . "/" . $item->key])) {
+					$html = $sharedData[$type][$item->libraryID . "/" . $item->key];
+				}
+				else {
+					if ($sharedData !== null) {
+						error_log("Bibliography not found in sharedData -- retrieving individually");
+					}
+					$html = Zotero_Cite::getBibliographyFromCitationServer(array($item), $style);
+				}
 				$html = new SimpleXMLElement($html);
 				$html['xmlns'] = Zotero_Atom::$nsXHTML;
 				$subNode = dom_import_simplexml($html);

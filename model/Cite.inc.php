@@ -6,127 +6,86 @@ class Zotero_Cite {
 	public static function getCitationFromCiteServer($item, $style='chicago-note-bibliography') {
 		$json = self::getJSONFromItems(array($item));
 		$response = self::makeRequest($style, 'citation', $json);
-		if (strpos($response->citations[0][1], "[CSL STYLE ERROR: ") !== false) {
-			return false;
-		}
-		return "<span>" . $response->citations[0][1] . "</span>";
+		return self::processCitationResponse($response);
 	}
 	
 	
 	public static function getBibliographyFromCitationServer($items, $style='chicago-note-bibliography', $css='inline') {
 		$json = self::getJSONFromItems($items);
 		$response = self::makeRequest($style, 'bibliography', $json);
+		return self::processBibliographyResponse($response);
+	}
+	
+	
+	public static function multiGetFromCiteServer($mode, $sets, $style='chicago-note-bibliography') {
+		require_once("../include/RollingCurl.inc.php");
 		
-		//
-		// Ported from Zotero.Cite.makeFormattedBibliography() in Zotero client
-		//
-		$bib = $response->bibliography;
-		$html = $bib[0]->bibstart . implode("", $bib[1]) . $bib[0]->bibend;
+		$t = microtime(true);
 		
-		if ($css == "none") {
-			return $html;
-		}
+		$setIDs = array();
+		$data = array();
 		
-		$sfa = "second-field-align";
-		
-		//if (!empty($_GET['citedebug'])) {
-		//	echo "<!--\n";
-		//	echo("maxoffset: " . $bib[0]->maxoffset . "\n");
-		//	echo("entryspacing: " . $bib[0]->entryspacing . "\n");
-		//	echo("linespacing: " . $bib[0]->linespacing . "\n");
-		//	echo("hangingindent: " . (isset($bib[0]->hangingindent) ? $bib[0]->hangingindent : "false") . "\n");
-		//	echo("second-field-align: " . $bib[0]->$sfa . "\n");
-		//	echo "-->\n\n";
-		//}
-		
-		// Validate input
-		if (!is_numeric($bib[0]->maxoffset)) throw new Exception("Invalid maxoffset");
-		if (!is_numeric($bib[0]->entryspacing)) throw new Exception("Invalid entryspacing");
-		if (!is_numeric($bib[0]->linespacing)) throw new Exception("Invalid linespacing");
-		
-		$maxOffset = (int) $bib[0]->maxoffset;
-		$entrySpacing = (int) $bib[0]->entryspacing;
-		$lineSpacing = (int) $bib[0]->linespacing;
-		$hangingIndent = !empty($bib[0]->hangingindent) ? (int) $bib[0]->hangingindent : 0;
-		$secondFieldAlign = !empty($bib[0]->$sfa); // 'flush' and 'margin' are the same for HTML
-		
-		$xml = new SimpleXMLElement($html);
-		
-		$multiField = !!$xml->xpath("//div[@class = 'csl-left-margin']");
-		
-		// One of the characters is usually a period, so we can adjust this down a bit
-		$maxOffset = max(1, $maxOffset - 2);
-		
-		// Force a minimum line height
-		if ($lineSpacing <= 1.35) $lineSpacing = 1.35;
-		
-		$xml['style'] .= "line-height: " . $lineSpacing . "; ";
-		
-		if ($hangingIndent) {
-			if ($multiField && !$secondFieldAlign) {
-				throw new Exception("second-field-align=false and hangingindent=true combination is not currently supported");
-			}
-			// If only one field, apply hanging indent on root
-			else if (!$multiField) {
-				$xml['style'] .= "padding-left: {$hangingIndent}em; text-indent:-{$hangingIndent}em;";
-			}
-		}
-		
-		$leftMarginDivs = $xml->xpath("//div[@class = 'csl-left-margin']");
-		$clearEntries = sizeOf($leftMarginDivs) > 0;
-		
-		// csl-entry
-		$divs = $xml->xpath("//div[@class = 'csl-entry']");
-		$num = sizeOf($divs);
-		$i = 0;
-		foreach ($divs as $div) {
-			$first = $i == 0;
-			$last = $i == $num - 1;
-			
-			if ($clearEntries) {
-				$div['style'] .= "clear: left; ";
+		$requestCallback = function ($response, $info) use ($mode, &$setIDs, &$data) {
+			if ($info['http_code'] != 200) {
+				error_log("WARNING: HTTP {$info['http_code']} from citeserver $mode request: " . $response);
+				return;
 			}
 			
-			if ($entrySpacing) {
-				if (!$last) {
-					$div['style'] .= "margin-bottom: " . $entrySpacing . "em;";
-				}
+			$response = json_decode($response);
+			if (!$response) {
+				error_log("WARNING: Invalid response from citeserver $mode request: " . $response);
+				return;
 			}
 			
-			$i++;
-		}
-		
-		// Padding on the label column, which we need to include when
-		// calculating offset of right column
-		$rightPadding = .5;
-		
-		// div.csl-left-margin
-		foreach ($leftMarginDivs as $div) {
-			$div['style'] = "float: left; padding-right: " . $rightPadding . "em; ";
+			$str = parse_url($info['url']);
+			$str = parse_str($str['query']);
 			
-			// Right-align the labels if aligning second line, since it looks
-			// better and we don't need the second line of text to align with
-			// the left edge of the label
-			if ($secondFieldAlign) {
-				$div['style'] .= "text-align: right; width: " . $maxOffset . "em;";
+			if ($mode == 'citation') {
+				$data[$setIDs[$setID]] = Zotero_Cite::processCitationResponse($response);
 			}
-		}
+			else if ($mode == "bib") {
+				$data[$setIDs[$setID]] = Zotero_Cite::processBibliographyResponse($response);
+			}
+		};
 		
-		// div.csl-right-inline
-		foreach ($xml->xpath("//div[@class = 'csl-right-inline']") as $div) {
-			$div['style'] .= "margin: 0 .4em 0 " . ($secondFieldAlign ? $maxOffset + $rightPadding : "0") . "em;";
+		$rc = new RollingCurl($requestCallback);
+		// Number of simultaneous requests
+		$rc->window_size = 20;
+		foreach ($sets as $key => $items) {
+			$json = self::getJSONFromItems($items);
 			
-			if ($hangingIndent) {
-				$div['style'] .= "padding-left: {$hangingIndent}em; text-indent:-{$hangingIndent}em;";
+			$server = Z_CONFIG::$CITATION_SERVERS[array_rand(Z_CONFIG::$CITATION_SERVERS)];
+			
+			$url = "http://$server/?responseformat=json&style=$style";
+			if ($mode == 'citation') {
+				$url .= "&citations=1&bibliography=0";
 			}
+			// Include array position in URL so that the callback can figure
+			// out what request this was
+			$url .= "&setID=" . $key;
+			// TODO: support multiple items per set, if necessary
+			if (!($items instanceof Zotero_Item)) {
+				throw new Exception("items is not a Zotero_Item");
+			}
+			$setIDs[$key] = $items->libraryID . "/" . $items->key;
+			
+			$request = new RollingCurlRequest($url);
+			$request->options = array(
+				CURLOPT_POST => 1,
+				CURLOPT_POSTFIELDS => $json,
+				CURLOPT_HTTPHEADER => array("Expect:"),
+				CURLOPT_CONNECTTIMEOUT => 1,
+				CURLOPT_TIMEOUT => 4,
+				CURLOPT_HEADER => 0, // do not return HTTP headers
+				CURLOPT_RETURNTRANSFER => 1
+			); 
+			$rc->add($request);
 		}
+		$rc->execute();
 		
-		// div.csl-indent
-		foreach ($xml->xpath("//div[@class = 'csl-indent']") as $div) {
-			$div['style'] = "margin: .5em 0 0 2em; padding: 0 0 .2em .5em; border-left: 5px solid #ccc;";
-		}
+		error_log(sizeOf($sets) . " $mode requests in " . round(microtime(true) - $t, 3));
 		
-		return $xml->asXML();
+		return $data;
 	}
 	
 	
@@ -243,7 +202,7 @@ class Zotero_Cite {
 				&& self::$citePaperJournalArticleURL);
 		
 		$cslItem = array(
-			'id' => $zoteroItem->key,
+			'id' => $zoteroItem->libraryID . "/" . $zoteroItem->key,
 			'type' => $cslType
 		);
 		
@@ -325,6 +284,11 @@ class Zotero_Cite {
 	
 	
 	public static function getJSONFromItems($items, $asArray=false) {
+		// Allow a single item to be passed
+		if ($items instanceof Zotero_Item) {
+			$items = array($items);
+		}
+		
 		$cslItems = array();
 		foreach ($items as $item) {
 			$cslItems[] = $item->toCSLItem();
@@ -370,6 +334,7 @@ class Zotero_Cite {
 			$response = curl_exec($ch);
 			
 			$time = microtime(true) - $start;
+			error_log("Bib request took " . round($time, 3));
 			
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			
@@ -395,6 +360,128 @@ class Zotero_Cite {
 		}
 		
 		return $response;
+	}
+	
+	
+	public static function processCitationResponse($response) {
+		if (strpos($response->citations[0][1], "[CSL STYLE ERROR: ") !== false) {
+			return false;
+		}
+		return "<span>" . $response->citations[0][1] . "</span>";
+	}
+	
+	
+	public static function processBibliographyResponse($response, $css='inline') {
+		//
+		// Ported from Zotero.Cite.makeFormattedBibliography() in Zotero client
+		//
+		$bib = $response->bibliography;
+		$html = $bib[0]->bibstart . implode("", $bib[1]) . $bib[0]->bibend;
+		
+		if ($css == "none") {
+			return $html;
+		}
+		
+		$sfa = "second-field-align";
+		
+		//if (!empty($_GET['citedebug'])) {
+		//	echo "<!--\n";
+		//	echo("maxoffset: " . $bib[0]->maxoffset . "\n");
+		//	echo("entryspacing: " . $bib[0]->entryspacing . "\n");
+		//	echo("linespacing: " . $bib[0]->linespacing . "\n");
+		//	echo("hangingindent: " . (isset($bib[0]->hangingindent) ? $bib[0]->hangingindent : "false") . "\n");
+		//	echo("second-field-align: " . $bib[0]->$sfa . "\n");
+		//	echo "-->\n\n";
+		//}
+		
+		// Validate input
+		if (!is_numeric($bib[0]->maxoffset)) throw new Exception("Invalid maxoffset");
+		if (!is_numeric($bib[0]->entryspacing)) throw new Exception("Invalid entryspacing");
+		if (!is_numeric($bib[0]->linespacing)) throw new Exception("Invalid linespacing");
+		
+		$maxOffset = (int) $bib[0]->maxoffset;
+		$entrySpacing = (int) $bib[0]->entryspacing;
+		$lineSpacing = (int) $bib[0]->linespacing;
+		$hangingIndent = !empty($bib[0]->hangingindent) ? (int) $bib[0]->hangingindent : 0;
+		$secondFieldAlign = !empty($bib[0]->$sfa); // 'flush' and 'margin' are the same for HTML
+		
+		$xml = new SimpleXMLElement($html);
+		
+		$multiField = !!$xml->xpath("//div[@class = 'csl-left-margin']");
+		
+		// One of the characters is usually a period, so we can adjust this down a bit
+		$maxOffset = max(1, $maxOffset - 2);
+		
+		// Force a minimum line height
+		if ($lineSpacing <= 1.35) $lineSpacing = 1.35;
+		
+		$xml['style'] .= "line-height: " . $lineSpacing . "; ";
+		
+		if ($hangingIndent) {
+			if ($multiField && !$secondFieldAlign) {
+				throw new Exception("second-field-align=false and hangingindent=true combination is not currently supported");
+			}
+			// If only one field, apply hanging indent on root
+			else if (!$multiField) {
+				$xml['style'] .= "padding-left: {$hangingIndent}em; text-indent:-{$hangingIndent}em;";
+			}
+		}
+		
+		$leftMarginDivs = $xml->xpath("//div[@class = 'csl-left-margin']");
+		$clearEntries = sizeOf($leftMarginDivs) > 0;
+		
+		// csl-entry
+		$divs = $xml->xpath("//div[@class = 'csl-entry']");
+		$num = sizeOf($divs);
+		$i = 0;
+		foreach ($divs as $div) {
+			$first = $i == 0;
+			$last = $i == $num - 1;
+			
+			if ($clearEntries) {
+				$div['style'] .= "clear: left; ";
+			}
+			
+			if ($entrySpacing) {
+				if (!$last) {
+					$div['style'] .= "margin-bottom: " . $entrySpacing . "em;";
+				}
+			}
+			
+			$i++;
+		}
+		
+		// Padding on the label column, which we need to include when
+		// calculating offset of right column
+		$rightPadding = .5;
+		
+		// div.csl-left-margin
+		foreach ($leftMarginDivs as $div) {
+			$div['style'] = "float: left; padding-right: " . $rightPadding . "em; ";
+			
+			// Right-align the labels if aligning second line, since it looks
+			// better and we don't need the second line of text to align with
+			// the left edge of the label
+			if ($secondFieldAlign) {
+				$div['style'] .= "text-align: right; width: " . $maxOffset . "em;";
+			}
+		}
+		
+		// div.csl-right-inline
+		foreach ($xml->xpath("//div[@class = 'csl-right-inline']") as $div) {
+			$div['style'] .= "margin: 0 .4em 0 " . ($secondFieldAlign ? $maxOffset + $rightPadding : "0") . "em;";
+			
+			if ($hangingIndent) {
+				$div['style'] .= "padding-left: {$hangingIndent}em; text-indent:-{$hangingIndent}em;";
+			}
+		}
+		
+		// div.csl-indent
+		foreach ($xml->xpath("//div[@class = 'csl-indent']") as $div) {
+			$div['style'] = "margin: .5em 0 0 2em; padding: 0 0 .2em .5em; border-left: 5px solid #ccc;";
+		}
+		
+		return $xml->asXML();
 	}
 	
 	

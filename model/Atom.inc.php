@@ -219,6 +219,17 @@ class Zotero_Atom {
 		
 		$latestUpdated = '';
 		
+		// Get bib data using parallel requests
+		$sharedData = array();
+		if ($entries && $entries[0] instanceof Zotero_Item) {
+			if (in_array('citation', $queryParams['content'])) {
+				$sharedData["citation"] = Zotero_Cite::multiGetFromCiteServer("citation", $entries);
+			}
+			if (in_array('bib', $queryParams['content'])) {
+				$sharedData["bib"] = Zotero_Cite::multiGetFromCiteServer("bib", $entries);
+			}
+		}
+		
 		$xmlEntries = array();
 		foreach ($entries as $entry) {
 			if ($entry->dateModified > $latestUpdated) {
@@ -237,7 +248,7 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Item) {
-				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $apiVersion, $permissions);
+				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $apiVersion, $permissions, $sharedData);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Search) {
