@@ -693,7 +693,7 @@ class FileTests extends APITests {
 		);
 		$this->assert404($response);
 		
-		$xml = API::createItem("book", $this);
+		$xml = API::createItem("book", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		$key = $data['key'];
 		

@@ -166,7 +166,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testNewComputerProgramItem() {
-		$xml = API::createItem("computerProgram", $this);
+		$xml = API::createItem("computerProgram", false, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromItemEntry($xml);
@@ -267,7 +267,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testNewEmptyLinkAttachmentItem() {
-		$xml = API::createItem("book", $this);
+		$xml = API::createItem("book", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
 		$xml = API::createAttachmentItem("linked_url", $data['key'], $this);
@@ -276,7 +276,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testNewEmptyImportedURLAttachmentItem() {
-		$xml = API::createItem("book", $this);
+		$xml = API::createItem("book", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
 		$xml = API::createAttachmentItem("imported_url", $data['key'], $this);

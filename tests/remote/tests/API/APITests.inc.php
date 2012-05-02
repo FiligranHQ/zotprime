@@ -24,7 +24,6 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'HTTP/Request2.php';
 require_once 'include/api.inc.php';
 
 //

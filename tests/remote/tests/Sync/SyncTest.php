@@ -130,6 +130,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	}
 	
 	
+	
 	private function req($path, $params=array(), $gzip=false) {
 		$url = self::$config['syncURLPrefix'] . $path;
 		

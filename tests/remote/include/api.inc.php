@@ -38,6 +38,7 @@ class API {
 		self::$nsZAPI = 'http://zotero.org/ns/api';
 	}
 	
+	
 	//
 	// Item modification methods
 	//
@@ -46,11 +47,18 @@ class API {
 		return json_decode($response->getBody());
 	}
 	
-	public function createItem($itemType, $context=null) {
+	
+	public function createItem($itemType, $data=array(), $context=null) {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=$itemType");
 		$json = json_decode($response->getBody());
+		
+		if ($data) {
+			foreach ($data as $field => $val) {
+				$json->$field = $val;
+			}
+		}
 		
 		$response = API::userPost(
 			self::$config['userID'],
@@ -300,7 +308,15 @@ class API {
 	public static function parseDataFromItemEntry($itemEntryXML) {
 		$key = (string) array_shift($itemEntryXML->xpath('//atom:entry/zapi:key'));
 		$etag = (string) array_shift($itemEntryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
-		$content = (string) array_shift($itemEntryXML->xpath('//atom:entry/atom:content'));
+		$content = array_shift($itemEntryXML->xpath('//atom:entry/atom:content'));
+		// If 'content' contains XML, serialize all subnodes
+		if ($content->count()) {
+			$content = $content->asXML();
+		}
+		// Otherwise just get string content
+		else {
+			$content = (string) $content;
+		}
 		
 		return array(
 			"key" => $key,
