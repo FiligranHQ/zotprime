@@ -29,6 +29,7 @@ require_once 'include/api.inc.php';
 
 class BibTests extends APITests {
 	private static $items;
+	private static $styles = array("default", "apa");
 	
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
@@ -47,8 +48,14 @@ class BibTests extends APITests {
 		));
 		$data = API::parseDataFromItemEntry($xml);
 		self::$items[$data['key']] = array(
-			"citation" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title</i>.</span></content>',
-			"bib" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, n.d.</div></div></content>'
+			"citation" => array(
+				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title</i>.</span></content>',
+				"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, n.d.)</span></content>'
+			),
+			"bib" => array(
+				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, n.d.</div></div></content>',
+				"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (n.d.). <i>Title</i>.</div></div></content>'
+			)
 		);
 		
 		$xml = API::createItem("book", array(
@@ -68,8 +75,14 @@ class BibTests extends APITests {
 		));
 		$data = API::parseDataFromItemEntry($xml);
 		self::$items[$data['key']] = array(
-			"citation" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title 2</i>.</span></content>',
-			"bib" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title 2</i>. Edited by Ed McEditor, n.d.</div></div></content>'
+			"citation" => array(
+				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title 2</i>.</span></content>',
+				"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, n.d.)</span></content>'
+			),
+			"bib" => array(
+				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title 2</i>. Edited by Ed McEditor, n.d.</div></div></content>',
+				"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (n.d.). <i>Title 2</i>. (E. McEditor, Ed.).</div></div></content>'
+			)
 		);
 	}
 	
@@ -80,16 +93,20 @@ class BibTests extends APITests {
 	
 	
 	public function testContentCitationSingle() {
-		foreach (self::$items as $key => $expected) {
-			$response = API::userGet(
-				self::$config['userID'],
-				"items/$key?key=" . self::$config['apiKey'] . "&content=citation"
-			);
-			$this->assert200($response);
-			$content = API::getContentFromResponse($response);
-			// Add zapi namespace
-			$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
-			$this->assertXmlStringEqualsXmlString($expected['citation'], $content);
+		foreach (self::$styles as $style) {
+			foreach (self::$items as $key => $expected) {
+				$response = API::userGet(
+					self::$config['userID'],
+					"items/$key?key=" . self::$config['apiKey']
+						. "&content=citation"
+						. ($style == "default" ? "" : "&style=$style")
+				);
+				$this->assert200($response);
+				$content = API::getContentFromResponse($response);
+				// Add zapi namespace
+				$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
+				$this->assertXmlStringEqualsXmlString($expected['citation'][$style], $content);
+			}
 		}
 	}
 	
@@ -98,37 +115,44 @@ class BibTests extends APITests {
 		$keys = array_keys(self::$items);
 		$keyStr = implode(',', $keys);
 		
-		$response = API::userGet(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'] . "&itemKey=$keyStr&content=citation"
-		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(sizeOf($keys), (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		
-		$entries = $xml->xpath('//atom:entry');
-		foreach ($entries as $entry) {
-			$key = (string) $entry->children("http://zotero.org/ns/api")->key;
-			$content = $entry->content->asXML();
+		foreach (self::$styles as $style) {
+			$response = API::userGet(
+				self::$config['userID'],
+				"items?key=" . self::$config['apiKey']
+					. "&itemKey=$keyStr&content=citation"
+					. ($style == "default" ? "" : "&style=$style")
+			);
+			$this->assert200($response);
+			$xml = API::getXMLFromResponse($response);
+			$this->assertEquals(sizeOf($keys), (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 			
-			// Add zapi namespace
-			$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
-			$this->assertXmlStringEqualsXmlString(self::$items[$key]['citation'], $content);
+			$entries = $xml->xpath('//atom:entry');
+			foreach ($entries as $entry) {
+				$key = (string) $entry->children("http://zotero.org/ns/api")->key;
+				$content = $entry->content->asXML();
+				
+				// Add zapi namespace
+				$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
+				$this->assertXmlStringEqualsXmlString(self::$items[$key]['citation'][$style], $content);
+			}
 		}
 	}
 	
 	
 	public function testContentBibSingle() {
-		foreach (self::$items as $key => $expected) {
-			$response = API::userGet(
-				self::$config['userID'],
-				"items/$key?key=" . self::$config['apiKey'] . "&content=bib"
-			);
-			$this->assert200($response);
-			$content = API::getContentFromResponse($response);
-			// Add zapi namespace
-			$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
-			$this->assertXmlStringEqualsXmlString($expected['bib'], $content);
+		foreach (self::$styles as $style) {
+			foreach (self::$items as $key => $expected) {
+				$response = API::userGet(
+					self::$config['userID'],
+					"items/$key?key=" . self::$config['apiKey'] . "&content=bib"
+						. ($style == "default" ? "" : "&style=$style")
+				);
+				$this->assert200($response);
+				$content = API::getContentFromResponse($response);
+				// Add zapi namespace
+				$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
+				$this->assertXmlStringEqualsXmlString($expected['bib'][$style], $content);
+			}
 		}
 	}
 	
@@ -137,22 +161,26 @@ class BibTests extends APITests {
 		$keys = array_keys(self::$items);
 		$keyStr = implode(',', $keys);
 		
-		$response = API::userGet(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'] . "&itemKey=$keyStr&content=bib"
-		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(sizeOf($keys), (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		
-		$entries = $xml->xpath('//atom:entry');
-		foreach ($entries as $entry) {
-			$key = (string) $entry->children("http://zotero.org/ns/api")->key;
-			$content = $entry->content->asXML();
+		foreach (self::$styles as $style) {
+			$response = API::userGet(
+				self::$config['userID'],
+				"items?key=" . self::$config['apiKey']
+					. "&itemKey=$keyStr&content=bib"
+					. ($style == "default" ? "" : "&style=$style")
+			);
+			$this->assert200($response);
+			$xml = API::getXMLFromResponse($response);
+			$this->assertEquals(sizeOf($keys), (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 			
-			// Add zapi namespace
-			$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
-			$this->assertXmlStringEqualsXmlString(self::$items[$key]['bib'], $content);
+			$entries = $xml->xpath('//atom:entry');
+			foreach ($entries as $entry) {
+				$key = (string) $entry->children("http://zotero.org/ns/api")->key;
+				$content = $entry->content->asXML();
+				
+				// Add zapi namespace
+				$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
+				$this->assertXmlStringEqualsXmlString(self::$items[$key]['bib'][$style], $content);
+			}
 		}
 	}
 }
