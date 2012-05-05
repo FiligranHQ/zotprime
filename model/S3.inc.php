@@ -444,6 +444,8 @@ class Zotero_S3 {
 		
 		Zotero_DB::beginTransaction();
 		
+		self::updateLastAdded($storageFileID);
+		
 		// Note: We set the size on the shard so that usage queries are instantaneous
 		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?)
 				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?, size=?";
@@ -465,6 +467,7 @@ class Zotero_S3 {
 		
 		Zotero_DB::commit();
 	}
+	
 	
 	public static function getPathPrefix($hash, $zip=false) {
 		return "$hash/" . ($zip ? "c/" : '');
@@ -858,6 +861,12 @@ class Zotero_S3 {
 		
 		$usage['total'] = round(($libraryBytes + $groupBytes) / 1024 / 1024, 1);
 		return $usage;
+	}
+	
+	
+	private static function updateLastAdded($storageFileID) {
+		$sql = "UPDATE storageFiles SET lastAdded=NOW() WHERE storageFileID=?";
+		Zotero_DB::query($sql, $storageFileID);
 	}
 	
 	

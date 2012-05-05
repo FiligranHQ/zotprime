@@ -262,11 +262,9 @@ CREATE TABLE `storageFiles` (
   `filename` varchar(255) NOT NULL,
   `size` int(10) unsigned NOT NULL,
   `zip` tinyint(1) unsigned NOT NULL,
-  `uploaded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `lastDeleted` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `lastAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`storageFileID`),
-  UNIQUE KEY `hash` (`hash`,`filename`,`zip`),
-  KEY `zip` (`zip`)
+  UNIQUE KEY `hash` (`hash`,`filename`,`zip`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
 
 
