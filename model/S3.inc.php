@@ -367,7 +367,7 @@ class Zotero_S3 {
 	
 	
 	public static function getFileByHash($hash, $zip) {
-		$sql = "SELECT storageFileID FROM storageFiles WHERE hash=? AND zip=?";
+		$sql = "SELECT storageFileID FROM storageFiles WHERE hash=? AND zip=? LIMIT 1";
 		return Zotero_DB::valueQuery($sql, array($hash, (int) $zip));
 	}
 	
