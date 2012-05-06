@@ -1,0 +1,33 @@
+#!/usr/bin/php
+<?
+// Populate storageFilesExisting with the ids of all files on all shards
+
+set_include_path("../include");
+require("header.inc.php");
+
+$startShardID = empty($argv[1]) ? 0 : $argv[1];
+
+$shardIDs = Zotero_DB::columnQuery("SELECT shardID FROM shards S JOIN shardHosts SH USING (shardHostID) WHERE SH.state='up' AND S.state='up' AND shardID>=? ORDER BY shardID", array($startShardID));
+
+$maxInsertGroups = 150;
+
+foreach ($shardIDs as $shardID) {
+	echo "Shard: $shardID\n";
+	
+	$sql = "SELECT DISTINCT storageFileID FROM storageFileItems";
+	$ids = Zotero_DB::columnQuery($sql, false, $shardID);
+	
+	$inserted = 0;
+	$origInsertSQL = "INSERT IGNORE INTO storageFilesExisting VALUES ";
+	
+	while ($insertIDs = array_splice($ids, 0, $maxInsertGroups)) {
+		$num = sizeOf($insertIDs);
+		$insertSQL = $origInsertSQL . implode(',', array_fill(0, $num, '(?)'));
+		$stmt = Zotero_DB::getStatement($insertSQL, true);
+		Zotero_DB::queryFromStatement($stmt, $insertIDs);
+		$inserted += $num;
+	}
+	
+	echo "Inserted " . $inserted . " storageFileIDs\n";
+}
+?>

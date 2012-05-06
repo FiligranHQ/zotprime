@@ -1,0 +1,49 @@
+#!/usr/bin/php
+<?
+
+set_include_path("../include");
+require("header.inc.php");
+require("AWS-SDK/sdk.class.php");
+$S3 = new AmazonS3;
+
+if (empty($argv[1])) {
+	die("lastAdded timestamp not provided\n");
+}
+
+$lastAdded = $argv[1];
+
+$sql = "SELECT * FROM storageFiles LEFT JOIN storageFilesExisting SFE USING (storageFileID) WHERE SFE.storageFileID IS NULL AND lastAdded < ? LIMIT 1000";
+$rows = Zotero_DB::query($sql, $lastAdded);
+
+$total = 0;
+
+while ($files = array_splice($rows, 0, 1000)) {
+	$ids = array();
+	$objects = array();
+	foreach ($files as $file) {
+		$objects[] = array(
+			"key" => Zotero_S3::getPathPrefix($file['hash'], $file['zip']) . $file['filename']
+		);
+		$ids[] = $file['storageFileID'];
+	}
+	
+	$response = $S3->deleteObjects(Z_CONFIG::$S3_BUCKET, array(
+		"quiet" => true,
+		"objects" => $objects
+	));
+	
+	if (!$response->isOK()) {
+		var_dump($response->status);
+		die ($response->body->asXML());
+	}
+	
+	$sql = "DELETE FROM storageFiles WHERE storageFileID IN "
+			. "(" . implode(', ', array_fill(0, sizeOf($ids), '?')) . ")";
+	Zotero_DB::query($sql, $ids);
+	
+	echo "Deleted " . sizeOf($ids) . " files\n";
+	$total += sizeOf($ids);
+}
+
+echo "===============================\n";
+echo "Deleted $total files in total\n";

@@ -269,6 +269,13 @@ CREATE TABLE `storageFiles` (
 
 
 
+CREATE TABLE `storageFilesExisting` (
+  `storageFileID` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`storageFileID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `storageLastSync` (
   `userID` int(10) unsigned NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
