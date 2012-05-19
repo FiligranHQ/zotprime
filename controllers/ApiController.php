@@ -1568,7 +1568,7 @@ class ApiController extends Controller {
 						if ($this->scopeObjectID) {
 							$collection = Zotero_Collections::get($this->objectLibraryID, $this->scopeObjectID);
 							if (!$collection) {
-								$this->e404("Scope collection not found");
+								$this->e404("Collection not found");
 							}
 							$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
 							header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
@@ -1576,6 +1576,9 @@ class ApiController extends Controller {
 						}
 						
 						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
+						if (!$collection) {
+							$this->e404("Collection not found");
+						}
 						$title = "Child Collections of ‘$collection->name'’";
 						$collectionIDs = $collection->getChildCollections();
 						break;
