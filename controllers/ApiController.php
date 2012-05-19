@@ -1636,15 +1636,15 @@ class ApiController extends Controller {
 					$key = 'name';
 				}
 				$dir = $this->queryParams['sort'];
-				$cmp = create_function(
-					'$a, $b',
-					'$dir = "'.$dir.'" == "asc" ? 1 : -1;
-					if ($a->'.$key.' == $b->'.$key.') {
+				usort($collections, function ($a, $b) use ($key, $dir) {
+					$dir = $dir == "asc" ? 1 : -1;
+					if ($a->$key == $b->$key) {
 						return 0;
 					}
 					else {
-						return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
-				usort($collections, $cmp);
+						return ($a->$key > $b->$key) ? $dir : ($dir * -1);
+					}
+				});
 				$collections = array_slice(
 					$collections,
 					$this->queryParams['start'],
