@@ -1632,6 +1632,9 @@ class ApiController extends Controller {
 				// Fake sorting and limiting
 				$totalResults = sizeOf($collections);
 				$key = $this->queryParams['order'];
+				if ($key == 'title') {
+					$key = 'name';
+				}
 				$dir = $this->queryParams['sort'];
 				$cmp = create_function(
 					'$a, $b',
