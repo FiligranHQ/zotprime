@@ -494,6 +494,9 @@ class FileTests extends APITests {
 			);
 			$this->assert204($response);
 			
+			unlink($patchFilename);
+			rename($newFilename, $oldFilename);
+			
 			// Verify attachment item metadata
 			$response = API::userGet(
 				self::$config['userID'],
@@ -507,8 +510,22 @@ class FileTests extends APITests {
 			$this->assertEquals($fileParams['contentType'], $json->contentType);
 			$this->assertEquals($fileParams['charset'], $json->charset);
 			
-			unlink($patchFilename);
-			rename($newFilename, $oldFilename);
+			// Verify file on S3
+			$response = API::userGet(
+				self::$config['userID'],
+				"items/{$getFileData['key']}/file?key=" . self::$config['apiKey']
+			);
+			$this->assert302($response);
+			$location = $response->getHeader("Location");
+			
+			$response = HTTP::get($location);
+			$this->assert200($response);
+			$this->assertEquals($fileParams['md5'], md5($response->getBody()));
+			$t = $fileParams['contentType'];
+			$this->assertEquals(
+				$t . (($t && $fileParams['charset']) ? "; charset={$fileParams['charset']}" : ""),
+				$response->getHeader("Content-Type")
+			);
 		}
 	}
 	
