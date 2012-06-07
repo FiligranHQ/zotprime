@@ -37,8 +37,8 @@ class DateTests extends PHPUnit_Framework_TestCase {
 		
 		foreach ($patterns as $pattern) {
 			$parts = Zotero_Date::strToDate($pattern);
-			$this->assertEquals(2, $parts['month']);
 			$this->assertEquals(2011, $parts['year']);
+			$this->assertEquals(2, $parts['month']);
 			$this->assertEquals(28, $parts['day']);
 			$this->assertFalse(isset($parts['part']));
 		}
@@ -59,11 +59,28 @@ class DateTests extends PHPUnit_Framework_TestCase {
 		
 		foreach ($patterns as $pattern) {
 			$parts = Zotero_Date::strToDate($pattern);
-			$this->assertEquals(9, $parts['month']);
 			$this->assertEquals(2010, $parts['year']);
+			$this->assertEquals(9, $parts['month']);
 			$this->assertFalse(isset($parts['day']));
 			$this->assertFalse(isset($parts['part']));
 		}
+	}
+	
+	
+	public function test_strToDate_yearRange() {
+		$pattern = "1983-84";
+		$parts = Zotero_Date::strToDate($pattern);
+		$this->assertEquals(1983, $parts['year']);
+		$this->assertFalse(isset($parts['month']));
+		$this->assertFalse(isset($parts['day']));
+		$this->assertEquals("84", $parts['part']);
+		
+		$pattern = "1983-1984";
+		$parts = Zotero_Date::strToDate($pattern);
+		$this->assertEquals(1983, $parts['year']);
+		$this->assertFalse(isset($parts['month']));
+		$this->assertFalse(isset($parts['day']));
+		$this->assertEquals("1984", $parts['part']);
 	}
 	
 	

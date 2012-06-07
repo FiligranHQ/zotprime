@@ -147,8 +147,8 @@ class Zotero_Date {
 			}
 			else {
 				// give up; we failed the sanity check
-				//Zotero.debug("DATE: algorithms failed sanity check");
-				$date["part"] = $string;
+				Z_Core::debug("DATE: algorithms failed sanity check");
+				$date = array("part" => $string);
 			}
 		}
 		else {
