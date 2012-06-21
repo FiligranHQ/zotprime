@@ -12,15 +12,30 @@ if (empty($argv[1])) {
 
 $lastAdded = $argv[1];
 
-$sql = "SELECT * FROM storageFiles LEFT JOIN storageFilesExisting SFE USING (storageFileID) WHERE SFE.storageFileID IS NULL AND lastAdded < ? LIMIT 1000";
+$sql = "SELECT * FROM storageFiles LEFT JOIN storageFilesExisting SFE USING (storageFileID) WHERE SFE.storageFileID IS NULL AND lastAdded < ? LIMIT 100000";
 $rows = Zotero_DB::query($sql, $lastAdded);
 
 $total = 0;
 
+$shardIDs = Zotero_DB::columnQuery("SELECT shardID FROM shards S JOIN shardHosts SH USING (shardHostID) WHERE SH.state='up' AND S.state='up' ORDER BY shardID");
+
 while ($files = array_splice($rows, 0, 1000)) {
 	$ids = array();
 	$objects = array();
+	$check = false; // enable for sanity check
 	foreach ($files as $file) {
+		// Check all shards for each 1000th file
+		if ($check && $total % 1000 == 0) {
+			echo "Checking shards for file {$file['storageFileID']}\n";
+			foreach ($shardIDs as $shardID) {
+				$sql = "SELECT COUNT(*) FROM storageFileItems WHERE storageFileID=?";
+				if (Zotero_DB::columnQuery($sql, $file['storageFileID'], $shardID)) {
+					throw new Exception("FOUND!");
+				}
+			}
+			$check = false;
+		}
+		
 		$objects[] = array(
 			"key" => Zotero_S3::getPathPrefix($file['hash'], $file['zip']) . $file['filename']
 		);
