@@ -62,7 +62,7 @@ class Zotero_S3 {
 	
 	public static function getDownloadURL($item, $ttl=false) {
 		self::requireLibrary();
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		
 		if (!$item->isAttachment()) {
 			throw new Exception("Item $item->id is not an attachment");
@@ -88,7 +88,7 @@ class Zotero_S3 {
 	
 	public static function downloadFile(array $localFileItemInfo, $savePath, $filename=false) {
 		Zotero_S3::requireLibrary();
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		
 		if (!file_exists($savePath)) {
 			throw new Exception("Path '$savePath' does not exist");
@@ -126,7 +126,7 @@ class Zotero_S3 {
 	
 	public static function uploadFile(Zotero_StorageFileInfo $info, $file, $contentType) {
 		Zotero_S3::requireLibrary();
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		
 		if (!file_exists($file)) {
 			throw new Exception("File '$file' does not exist");
@@ -343,7 +343,7 @@ class Zotero_S3 {
 			throw new Exception("File $storageFileID not found");
 		}
 		
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		$success = S3::copyObject(
 			Z_CONFIG::$S3_BUCKET,
 			self::getPathPrefix($localInfo['hash'], $localInfo['zip']) . $localInfo['filename'],
@@ -383,7 +383,7 @@ class Zotero_S3 {
 	
 	public static function getRemoteFileInfo(Zotero_StorageFileInfo $info) {
 		self::requireLibrary();
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		
 		$url = self::getPathPrefix($info->hash, $info->zip) . $info->filename;
 		
@@ -519,7 +519,7 @@ class Zotero_S3 {
 		$signature = urlencode(self::getHash($stringToSign));
 		
 		return self::getUploadBaseURL() . substr($path, 1) . $filename
-			. "?Signature=$signature&Expires=$expires&AWSAccessKey=" . Z_CONFIG::$S3_ACCESS_KEY;
+			. "?Signature=$signature&Expires=$expires&AWSAccessKey=" . Z_CONFIG::$AWS_ACCESS_KEY;
 	}
 	
 	
@@ -568,7 +568,7 @@ class Zotero_S3 {
 			"Content-Type" => $contentType,
 			"Content-MD5" => $contentMD5,
 			"Date" => $date,
-			"Authorization" => "AWS " . Z_CONFIG::$S3_ACCESS_KEY . ":" . self::getHash($stringToSign)
+			"Authorization" => "AWS " . Z_CONFIG::$AWS_ACCESS_KEY . ":" . self::getHash($stringToSign)
 		);
 		
 		return $params;
@@ -649,7 +649,7 @@ class Zotero_S3 {
 		);
 		
 		self::requireLibrary();
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		$params = S3::getHttpUploadPostParams(
 			Z_CONFIG::$S3_BUCKET,
 			$path,
@@ -678,7 +678,7 @@ class Zotero_S3 {
 					WHERE lastDeleted > NOW() - INTERVAL 1 MONTH";
 		$files = Zotero_DB::columnQuery($sql);
 		
-		S3::setAuth(Z_CONFIG::$S3_ACCESS_KEY, Z_CONFIG::$S3_SECRET_KEY);
+		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
 		$s3Files = S3::getBucket(Z_CONFIG::$S3_BUCKET);
 		
 		$toPurge = array();
@@ -764,7 +764,8 @@ class Zotero_S3 {
 		
 		// Get maximum institutional quota by e-mail domain
 		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
-				JOIN $databaseName.storage_institutions ON (SUBSTRING_INDEX(email, '@', -1)=domain)
+				JOIN $databaseName.storage_institutions
+				ON (SUBSTR(email, LENGTH(domain) * -1)=domain AND domain!='')
 				WHERE userID=?";
 		try {
 			$institutionalDomainQuota = Zotero_WWW_DB_2::valueQuery($sql, $userID);
@@ -871,7 +872,7 @@ class Zotero_S3 {
 	
 	
 	private static function getHash($stringToSign) {
-		return base64_encode(hash_hmac('sha1', $stringToSign, Z_CONFIG::$S3_SECRET_KEY, true));
+		return base64_encode(hash_hmac('sha1', $stringToSign, Z_CONFIG::$AWS_SECRET_KEY, true));
 	}
 }
 ?>
