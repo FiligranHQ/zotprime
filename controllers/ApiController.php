@@ -539,7 +539,7 @@ class ApiController extends Controller {
 					break;
 			
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCitationServer(array($item), $this->queryParams['style'], $this->queryParams['css']);
+					echo Zotero_Cite::getBibliographyFromCitationServer(array($item), $this->queryParams);
 					exit;
 				
 				case 'csljson':
@@ -878,7 +878,7 @@ class ApiController extends Controller {
 					break;
 				
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams['style'], $this->queryParams['css']);
+					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams);
 					exit;
 				
 				case 'csljson':

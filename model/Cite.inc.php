@@ -3,21 +3,21 @@ class Zotero_Cite {
 	private static $citePaperJournalArticleURL = false;
 	
 	
-	public static function getCitationFromCiteServer($item, $style='chicago-note-bibliography') {
+	public static function getCitationFromCiteServer($item, array $queryParams) {
 		$json = self::getJSONFromItems(array($item));
-		$response = self::makeRequest($style, 'citation', $json);
+		$response = self::makeRequest($queryParams, 'citation', $json);
 		return self::processCitationResponse($response);
 	}
 	
 	
-	public static function getBibliographyFromCitationServer($items, $style='chicago-note-bibliography', $css='inline') {
+	public static function getBibliographyFromCitationServer($items, array $queryParams) {
 		$json = self::getJSONFromItems($items);
-		$response = self::makeRequest($style, 'bibliography', $json);
+		$response = self::makeRequest($queryParams, 'bibliography', $json);
 		return self::processBibliographyResponse($response);
 	}
 	
 	
-	public static function multiGetFromCiteServer($mode, $sets, $style='chicago-note-bibliography') {
+	public static function multiGetFromCiteServer($mode, $sets, array $queryParams) {
 		require_once("../include/RollingCurl.inc.php");
 		
 		$t = microtime(true);
@@ -56,7 +56,21 @@ class Zotero_Cite {
 			
 			$server = Z_CONFIG::$CITATION_SERVERS[array_rand(Z_CONFIG::$CITATION_SERVERS)];
 			
-			$url = "http://$server/?responseformat=json&style=$style";
+			$url = "http://$server/?responseformat=json";
+			foreach ($queryParams as $param=>$value) {
+				switch ($param) {
+				case 'style':
+					if (!is_string($value) || !preg_match('/^[a-zA-Z0-9\-]+$/', $value)) {
+						throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+					}
+					$url .= "&" . $param . "=" . urlencode($value);
+					break;
+					
+				case 'linkwrap':
+					$url .= "&" . $param . "=" . ($value ? "1" : "0");
+					break;
+				}
+			}
 			if ($mode == 'citation') {
 				$url .= "&citations=1&bibliography=0";
 			}
@@ -306,17 +320,27 @@ class Zotero_Cite {
 	}
 	
 	
-	private static function makeRequest($style, $mode, $json) {
-		if (!is_string($style) || !preg_match('/^[a-zA-Z0-9\-]+$/', $style)) {
-			throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
-		}
-		
+	private static function makeRequest($queryParams, $mode, $json) {
 		$servers = Z_CONFIG::$CITATION_SERVERS;
 		// Try servers in a random order
 		shuffle($servers);
 		
 		foreach ($servers as $server) {
-			$url = "http://$server/?responseformat=json&style=$style";
+			$url = "http://$server/?responseformat=json";
+			foreach ($queryParams as $param=>$value) {
+				switch ($param) {
+				case 'style':
+					if (!is_string($value) || !preg_match('/^[a-zA-Z0-9\-]+$/', $value)) {
+						throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+					}
+					$url .= "&" . $param . "=" . urlencode($value);
+					break;
+					
+				case 'linkwrap':
+					$url .= "&" . $param . "=" . ($value ? "1" : "0");
+					break;
+				}
+			}
 			if ($mode == 'citation') {
 				$url .= "&citations=1&bibliography=0";
 			}
