@@ -52,7 +52,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testSyncEmpty() {
-		$response = $this->updated();
+		$response = self::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		$this->assertEquals("0", (string) $xml['earliest']);
 		$this->assertFalse(isset($xml->updated->items));
@@ -64,18 +64,18 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	 * @depends testSyncEmpty
 	 */
 	public function testSync() {
-		$response = $this->updated();
+		$response = self::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		
 		// Upload
 		$data = file_get_contents("data/sync1upload.xml");
 		$data = str_replace('libraryID=""', 'libraryID="' . self::$config['libraryID'] . '"', $data);
 		
-		$response = $this->updated();
+		$response = self::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		$updateKey = (string) $xml['updateKey'];
 		
-		$response = $this->upload($updateKey, $data);
+		$response = self::upload(self::$sessionID, $updateKey, $data);
 		
 		$xml = Sync::getXMLFromResponse($response);
 		$this->assertTrue(isset($xml->queued));
@@ -85,7 +85,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 			$wait = (int) $xml->queued['wait'];
 			sleep($wait / 1000);
 			
-			$response = $this->uploadstatus();
+			$response = self::uploadStatus(self::$sessionID);
 			$xml = Sync::getXMLFromResponse($response);
 			
 			$max--;
@@ -99,7 +99,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		$this->assertTrue(isset($xml->uploaded));
 		
 		// Download
-		$response = $this->updated();
+		$response = self::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		
 		$max = 5;
@@ -107,7 +107,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 			$wait = (int) $xml->locked['wait'];
 			sleep($wait / 1000);
 			
-			$response = $this->updated();
+			$response = self::updated(self::$sessionID);
 			$xml = Sync::getXMLFromResponse($response);
 			
 			//var_dump($response->getBody());
@@ -127,61 +127,5 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		$xml['earliest'] = "";
 		
 		$this->assertXmlStringEqualsXmlFile("data/sync1download.xml", $xml->asXML());
-	}
-	
-	
-	
-	private function req($path, $params=array(), $gzip=false) {
-		$url = self::$config['syncURLPrefix'] . $path;
-		
-		$params = array_merge(
-			array(
-				"sessionid" => self::$sessionID,
-				"version" => self::$config['apiVersion']
-			),
-			$params
-		);
-		
-		if ($gzip) {
-			$data = "";
-			foreach ($params as $key => $val) {
-				$data .= $key . "=" . urlencode($val) . "&";
-			}
-			$data = gzdeflate(substr($data, 0, -1));
-			$headers = array(
-				"Content-Type: application/octet-stream",
-				"Content-Encoding: gzip"
-			);
-		}
-		else {
-			$data = $params;
-			$headers = array();
-		}
-		
-		$response = HTTP::post($url, $data, $headers);
-		Sync::checkResponse($response);
-		return $response;
-	}
-	
-	
-	private function updated($lastsync=1) {
-		return $this->req("updated", array("lastsync" => $lastsync));
-	}
-	
-	
-	private function upload($updateKey, $data) {
-		return $this->req(
-			"upload",
-			array(
-				"updateKey" => $updateKey,
-				"data" => $data,
-			),
-			true
-		);
-	}
-	
-	
-	private function uploadstatus() {
-		return $this->req("uploadstatus");
 	}
 }

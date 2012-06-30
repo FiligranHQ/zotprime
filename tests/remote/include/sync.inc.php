@@ -30,6 +30,9 @@ class Sync {
 	private static $config;
 	
 	private static function loadConfig() {
+		if (self::$config) {
+			return;
+		}
 		require 'include/config.inc.php';
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
@@ -53,6 +56,29 @@ class Sync {
 		$sessionID = (string) $xml->sessionID;
 		self::checkSessionID($sessionID);
 		return $sessionID;
+	}
+	
+	
+	public static function updated($sessionID, $lastsync=1) {
+		return self::req($sessionID, "updated", array("lastsync" => $lastsync));
+	}
+	
+	
+	public static function upload($sessionID, $updateKey, $data) {
+		return self::req(
+			$sessionID,
+			"upload",
+			array(
+				"updateKey" => $updateKey,
+				"data" => $data,
+			),
+			true
+		);
+	}
+	
+	
+	public static function uploadstatus($sessionID) {
+		return self::req($sessionID, "uploadstatus");
 	}
 	
 	
@@ -106,6 +132,41 @@ class Sync {
 	
 	public static function getXMLFromResponse($response) {
 		return new SimpleXMLElement($response->getBody());
+	}
+	
+	
+	private static function req($sessionID, $path, $params=array(), $gzip=false) {
+		self::loadConfig();
+		
+		$url = self::$config['syncURLPrefix'] . $path;
+		
+		$params = array_merge(
+			array(
+				"sessionid" => $sessionID,
+				"version" => self::$config['apiVersion']
+			),
+			$params
+		);
+		
+		if ($gzip) {
+			$data = "";
+			foreach ($params as $key => $val) {
+				$data .= $key . "=" . urlencode($val) . "&";
+			}
+			$data = gzdeflate(substr($data, 0, -1));
+			$headers = array(
+				"Content-Type: application/octet-stream",
+				"Content-Encoding: gzip"
+			);
+		}
+		else {
+			$data = $params;
+			$headers = array();
+		}
+		
+		$response = HTTP::post($url, $data, $headers);
+		self::checkResponse($response);
+		return $response;
 	}
 	
 	

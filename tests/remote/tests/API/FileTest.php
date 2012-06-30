@@ -269,6 +269,18 @@ class FileTests extends APITests {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
+		// Get serverDateModified
+		$serverDateModified = array_shift($xml->xpath('/atom:entry/atom:updated'));
+		sleep(1);
+		
+		// Get a sync timestamp from before the file is updated
+		require_once 'include/sync.inc.php';
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$lastsync = (int) $xml['timestamp'];
+		Sync::logout($sessionID);
+		
 		$file = "work/file";
 		$fileContents = self::getRandomUnicodeString();
 		file_put_contents($file, $fileContents);
@@ -352,6 +364,16 @@ class FileTests extends APITests {
 		$this->assertEquals($mtime, $json->mtime);
 		$this->assertEquals($contentType, $json->contentType);
 		$this->assertEquals($charset, $json->charset);
+		
+		// Make sure serverDateModified has changed
+		$this->assertNotEquals($serverDateModified, array_shift($xml->xpath('/atom:entry/atom:updated')));
+		
+		// Make sure new attachment is passed via sync
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID, $lastsync);
+		$xml = Sync::getXMLFromResponse($response);
+		Sync::logout($sessionID);
+		$this->assertGreaterThan(0, $xml->updated[0]->count());
 	}
 	
 	
@@ -424,6 +446,23 @@ class FileTests extends APITests {
 	 * @depends testGetFile
 	 */
 	public function testAddFilePartial($getFileData) {
+		// Get serverDateModified
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=none"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$serverDateModified = array_shift($xml->xpath('/atom:entry/atom:updated'));
+		sleep(1);
+		
+		// Get a sync timestamp from before the file is updated
+		require_once 'include/sync.inc.php';
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$lastsync = (int) $xml['timestamp'];
+		Sync::logout($sessionID);
+		
 		$oldFilename = "work/old";
 		$fileContents = $getFileData['response']->getBody();
 		file_put_contents($oldFilename, $fileContents);
@@ -504,11 +543,20 @@ class FileTests extends APITests {
 			);
 			$xml = API::getXMLFromResponse($response);
 			$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
-			
 			$this->assertEquals($fileParams['md5'], $json->md5);
 			$this->assertEquals($fileParams['mtime'], $json->mtime);
 			$this->assertEquals($fileParams['contentType'], $json->contentType);
 			$this->assertEquals($fileParams['charset'], $json->charset);
+			
+			// Make sure serverDateModified has changed
+			$this->assertNotEquals($serverDateModified, array_shift($xml->xpath('/atom:entry/atom:updated')));
+			
+			// Make sure new attachment is passed via sync
+			$sessionID = Sync::login();
+			$response = Sync::updated($sessionID, $lastsync);
+			$xml = Sync::getXMLFromResponse($response);
+			Sync::logout($sessionID);
+			$this->assertGreaterThan(0, $xml->updated[0]->count());
 			
 			// Verify file on S3
 			$response = API::userGet(
