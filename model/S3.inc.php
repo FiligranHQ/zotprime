@@ -444,6 +444,9 @@ class Zotero_S3 {
 		
 		Zotero_DB::beginTransaction();
 		
+		$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
+		Zotero_DB::registerTransactionTimestamp($timestamp);
+		
 		self::updateLastAdded($storageFileID);
 		
 		// Note: We set the size on the shard so that usage queries are instantaneous
