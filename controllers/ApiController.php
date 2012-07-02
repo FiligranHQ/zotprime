@@ -1190,7 +1190,7 @@ class ApiController extends Controller {
 				
 				// If we already have a file, add/update storageFileItems row and stop
 				if (!empty($storageFileID)) {
-					Zotero_S3::updateFileItemInfo($item, $storageFileID, $info);
+					Zotero_S3::updateFileItemInfo($item, $storageFileID, $info, $this->httpAuth);
 					Zotero_DB::commit();
 					
 					if ($this->httpAuth) {
