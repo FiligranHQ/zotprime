@@ -437,15 +437,17 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function updateFileItemInfo($item, $storageFileID, Zotero_StorageFileInfo $info) {
+	public static function updateFileItemInfo($item, $storageFileID, Zotero_StorageFileInfo $info, $client=false) {
 		if (!$item->isImportedAttachment()) {
 			throw new Exception("Cannot add storage file for linked file/URL");
 		}
 		
 		Zotero_DB::beginTransaction();
 		
-		$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
-		Zotero_DB::registerTransactionTimestamp($timestamp);
+		if (!$client) {
+			$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
+			Zotero_DB::registerTransactionTimestamp($timestamp);
+		}
 		
 		self::updateLastAdded($storageFileID);
 		

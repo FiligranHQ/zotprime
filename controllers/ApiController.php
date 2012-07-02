@@ -1360,7 +1360,7 @@ class ApiController extends Controller {
 					$storageFileID = Zotero_S3::addFile($info);
 				}
 				
-				Zotero_S3::updateFileItemInfo($item, $storageFileID, $info);
+				Zotero_S3::updateFileItemInfo($item, $storageFileID, $info, true);
 				
 				Zotero_S3::logUpload($this->userID, $item, $uploadKey, IPAddress::getIP());
 				
