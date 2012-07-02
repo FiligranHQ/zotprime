@@ -598,6 +598,15 @@ class FileTests extends APITests {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
 		$data = API::parseDataFromItemEntry($xml);
 		
+		// Get a sync timestamp from before the file is updated
+		sleep(1);
+		require_once 'include/sync.inc.php';
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$lastsync = (int) $xml['timestamp'];
+		Sync::logout($sessionID);
+		
 		// Get file info
 		$response = API::userGet(
 			self::$config['userID'],
@@ -707,6 +716,14 @@ class FileTests extends APITests {
 		$this->assertEquals($filename, $json->filename);
 		$this->assertEquals($mtime, $json->mtime);
 		
+		// Make sure attachment item wasn't updated (or else the client
+		// will get a conflict when it tries to update the metadata)
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID, $lastsync);
+		$xml = Sync::getXMLFromResponse($response);
+		Sync::logout($sessionID);
+		$this->assertEquals(0, $xml->updated[0]->count());
+		
 		$response = API::userGet(
 			self::$config['userID'],
 			"laststoragesync?auth=1",
@@ -786,6 +803,15 @@ class FileTests extends APITests {
 			)
 		);
 		$this->assert200($response);
+		
+		// Get a sync timestamp from before the file is updated
+		sleep(1);
+		require_once 'include/sync.inc.php';
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$lastsync = (int) $xml['timestamp'];
+		Sync::logout($sessionID);
 		
 		// Get file info
 		$response = API::userGet(
@@ -879,6 +905,14 @@ class FileTests extends APITests {
 		$this->assertEquals($hash, $json->md5);
 		$this->assertEquals($fileFilename, $json->filename);
 		$this->assertEquals($fileModtime, $json->mtime);
+		
+		// Make sure attachment item wasn't updated (or else the client
+		// will get a conflict when it tries to update the metadata)
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID, $lastsync);
+		$xml = Sync::getXMLFromResponse($response);
+		Sync::logout($sessionID);
+		$this->assertEquals(0, $xml->updated[0]->count());
 		
 		$response = API::userGet(
 			self::$config['userID'],
