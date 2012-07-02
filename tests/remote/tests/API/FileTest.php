@@ -755,6 +755,13 @@ class FileTests extends APITests {
 		$this->assert200($response);
 		$this->assertContentType("application/xml", $response);
 		$this->assertEquals("<exists/>", $response->getBody());
+		
+		// Make sure attachment item still wasn't updated
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID, $lastsync);
+		$xml = Sync::getXMLFromResponse($response);
+		Sync::logout($sessionID);
+		$this->assertEquals(0, $xml->updated[0]->count());
 	}
 	
 	
@@ -946,6 +953,13 @@ class FileTests extends APITests {
 		$this->assert200($response);
 		$this->assertContentType("application/xml", $response);
 		$this->assertEquals("<exists/>", $response->getBody());
+		
+		// Make sure attachment item still wasn't updated
+		$sessionID = Sync::login();
+		$response = Sync::updated($sessionID, $lastsync);
+		$xml = Sync::getXMLFromResponse($response);
+		Sync::logout($sessionID);
+		$this->assertEquals(0, $xml->updated[0]->count());
 	}
 	
 	
