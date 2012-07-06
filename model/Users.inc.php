@@ -302,7 +302,7 @@ class Zotero_Users {
 		
 		$valid = !!self::getValidUsersDB(array($userID));
 		
-		Z_Core::$MC->set($cacheKey, $valid ? 1 : 0, 86400);
+		Z_Core::$MC->set($cacheKey, $valid ? 1 : 0, 3600);
 		
 		return $valid;
 	}
