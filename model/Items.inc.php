@@ -1049,7 +1049,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					if ($sharedData !== null) {
 						error_log("Citation not found in sharedData -- retrieving individually");
 					}
-					$html = Zotero_Cite::getCitationFromCiteServer($item, $style);
+					$html = Zotero_Cite::getCitationFromCiteServer($item, $queryParams);
 				}
 				$html = new SimpleXMLElement($html);
 				$html['xmlns'] = Zotero_Atom::$nsXHTML;
