@@ -293,6 +293,25 @@ CREATE TABLE `tags` (
 
 
 
+CREATE TABLE `tmpCreatedByUsers` (
+  `userID` int unsigned NOT NULL,
+  `username` varchar(255) NOT NULL,
+  PRIMARY KEY (userID),
+  INDEX (username)
+);
+
+
+
+CREATE TABLE `tmpItemTypeNames` (
+  `itemTypeID` smallint(4) unsigned NOT NULL,
+  `locale` char(5) NOT NULL,
+  `itemTypeName` varchar(255) NOT NULL,
+  PRIMARY KEY (itemTypeID, locale),
+  INDEX (itemTypeName)
+);
+
+
+
 ALTER TABLE `collectionItems`
   ADD CONSTRAINT `collectionItems_ibfk_1` FOREIGN KEY (`collectionID`) REFERENCES `collections` (`collectionID`) ON DELETE CASCADE,
   ADD CONSTRAINT `collectionItems_ibfk_2` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;

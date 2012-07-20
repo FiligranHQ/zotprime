@@ -119,7 +119,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$itemIDs = array();
 		$keys = array();
-		$deleteTempTable = array();
 		
 		// Pass a list of itemIDs, for when the initial search is done via SQL
 		if (!empty($params['itemIDs'])) {
@@ -177,43 +176,28 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'itemType':
-					// Create temporary table to store item type names
-					//
-					// We use IF NOT EXISTS just to make sure there are
-					// no problems with restoration from the binary log
-					$sql2 = "CREATE TEMPORARY TABLE IF NOT EXISTS tmpItemTypeNames$rnd
-							(itemTypeID SMALLINT UNSIGNED NOT NULL,
-							itemTypeName VARCHAR(255) NOT NULL,
-							PRIMARY KEY (itemTypeID),
-							INDEX (itemTypeName))";
-					Zotero_DB::query($sql2, false, $shardID);
-					$deleteTempTable['tmpItemTypeNames'] = true;
-				
-					$types = Zotero_ItemTypes::getAll('en-US');
+					$locale = 'en-US';
+					$types = Zotero_ItemTypes::getAll($locale);
 					foreach ($types as $type) {
-						$sql2 = "INSERT INTO tmpItemTypeNames$rnd VALUES (?, ?)";
-						Zotero_DB::query($sql2, array($type['id'], $type['localized']), $shardID);
+						$sql2 = "INSERT IGNORE INTO tmpItemTypeNames VALUES (?, ?, ?)";
+						Zotero_DB::query(
+							$sql2,
+							array(
+								$type['id'],
+								$locale,
+								$type['localized']
+							),
+							$shardID
+						);
 					}
 					
 					// Join temp table to query
-					$sql .= "JOIN tmpItemTypeNames$rnd TITN ON (TITN.itemTypeID=I.itemTypeID) ";
+					$sql .= "JOIN tmpItemTypeNames TITN ON (TITN.itemTypeID=I.itemTypeID) ";
 					break;
 				
 				case 'addedBy':
 					$isGroup = Zotero_Libraries::getType($libraryID) == 'group';
 					if ($isGroup) {
-						// Create temporary table to store usernames
-						//
-						// We use IF NOT EXISTS just to make sure there are
-						// no problems with restoration from the binary log
-						$sql2 = "CREATE TEMPORARY TABLE IF NOT EXISTS tmpCreatedByUsers$rnd
-								(userID INT UNSIGNED NOT NULL,
-								username VARCHAR(255) NOT NULL,
-								PRIMARY KEY (userID),
-								INDEX (username))";
-						Zotero_DB::query($sql2, false, $shardID);
-						$deleteTempTable['tmpCreatedByUsers'] = true;
-						
 						$sql2 = "SELECT DISTINCT createdByUserID FROM items
 								JOIN groupItems USING (itemID) WHERE
 								createdByUserID IS NOT NULL AND ";
@@ -238,12 +222,12 @@ class Zotero_Items extends Zotero_DataObjects {
 								);
 							}
 							
-							$sql2 = "INSERT IGNORE INTO tmpCreatedByUsers$rnd VALUES ";
+							$sql2 = "INSERT IGNORE INTO tmpCreatedByUsers VALUES ";
 							Zotero_DB::bulkInsert($sql2, $toAdd, 50, false, $shardID);
 							
 							// Join temp table to query
 							$sql .= "JOIN groupItems GI ON (GI.itemID=I.itemID)
-									JOIN tmpCreatedByUsers$rnd TCBU ON (TCBU.userID=GI.createdByUserID) ";
+									JOIN tmpCreatedByUsers TCBU ON (TCBU.userID=GI.createdByUserID) ";
 						}
 					}
 					break;
@@ -466,15 +450,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			else {
 				$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
 			}
-		}
-		
-		if (!empty($deleteTempTable['tmpCreatedByUsers'])) {
-			$sql = "DROP TEMPORARY TABLE IF EXISTS tmpCreatedByUsers$rnd";
-			Zotero_DB::query($sql, false, $shardID);
-		}
-		if (!empty($deleteTempTable['tmpItemTypeNames'])) {
-			$sql = "DROP TEMPORARY TABLE IF EXISTS tmpItemTypeNames$rnd";
-			Zotero_DB::query($sql, false, $shardID);
 		}
 		
 		return $results;
