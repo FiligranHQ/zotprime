@@ -232,8 +232,8 @@ class Zotero_Items extends Zotero_DataObjects {
 							Zotero_DB::bulkInsert($sql2, $toAdd, 50, false, $shardID);
 							
 							// Join temp table to query
-							$sql .= "JOIN groupItems GI ON (GI.itemID=I.itemID)
-									JOIN tmpCreatedByUsers TCBU ON (TCBU.userID=GI.createdByUserID) ";
+							$sql .= "LEFT JOIN groupItems GI ON (GI.itemID=I.itemID)
+									LEFT JOIN tmpCreatedByUsers TCBU ON (TCBU.userID=GI.createdByUserID) ";
 						}
 					}
 					break;
