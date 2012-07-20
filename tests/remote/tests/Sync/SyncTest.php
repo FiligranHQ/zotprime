@@ -52,7 +52,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testSyncEmpty() {
-		$response = self::updated(self::$sessionID);
+		$response = Sync::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		$this->assertEquals("0", (string) $xml['earliest']);
 		$this->assertFalse(isset($xml->updated->items));
@@ -64,18 +64,18 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	 * @depends testSyncEmpty
 	 */
 	public function testSync() {
-		$response = self::updated(self::$sessionID);
+		$response = Sync::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		
 		// Upload
 		$data = file_get_contents("data/sync1upload.xml");
 		$data = str_replace('libraryID=""', 'libraryID="' . self::$config['libraryID'] . '"', $data);
 		
-		$response = self::updated(self::$sessionID);
+		$response = Sync::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		$updateKey = (string) $xml['updateKey'];
 		
-		$response = self::upload(self::$sessionID, $updateKey, $data);
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		
 		$xml = Sync::getXMLFromResponse($response);
 		$this->assertTrue(isset($xml->queued));
@@ -85,7 +85,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 			$wait = (int) $xml->queued['wait'];
 			sleep($wait / 1000);
 			
-			$response = self::uploadStatus(self::$sessionID);
+			$response = Sync::uploadStatus(self::$sessionID);
 			$xml = Sync::getXMLFromResponse($response);
 			
 			$max--;
@@ -99,7 +99,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		$this->assertTrue(isset($xml->uploaded));
 		
 		// Download
-		$response = self::updated(self::$sessionID);
+		$response = Sync::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		
 		$max = 5;
@@ -107,7 +107,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 			$wait = (int) $xml->locked['wait'];
 			sleep($wait / 1000);
 			
-			$response = self::updated(self::$sessionID);
+			$response = Sync::updated(self::$sessionID);
 			$xml = Sync::getXMLFromResponse($response);
 			
 			//var_dump($response->getBody());
