@@ -178,6 +178,12 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'itemType':
 					$locale = 'en-US';
 					$types = Zotero_ItemTypes::getAll($locale);
+					// TEMP: get localized string
+					// DEBUG: Why is attachment skipped in getAll()?
+					$types[] = array(
+						'id' => 14,
+						'localized' => 'Attachment'
+					);
 					foreach ($types as $type) {
 						$sql2 = "INSERT IGNORE INTO tmpItemTypeNames VALUES (?, ?, ?)";
 						Zotero_DB::query(
