@@ -952,6 +952,12 @@ class Zotero_Group {
 		$link['href'] = Zotero_URI::getGroupURI($this);
 		
 		$xml->addChild(
+			'zapi:groupID',
+			$this->id,
+			Zotero_Atom::$nsZoteroAPI
+		);
+		
+		$xml->addChild(
 			'zapi:numItems',
 			$this->numItems(),
 			Zotero_Atom::$nsZoteroAPI
