@@ -135,7 +135,7 @@ class ApiController extends Controller {
 			}
 		}
 		
-		if (!isset($userID)) {
+		if (!isset($this->userID)) {
 			if (isset($_GET['key'])) {
 				$keyObj = Zotero_Keys::authenticate($_GET['key']);
 				if (!$keyObj) {
@@ -145,7 +145,7 @@ class ApiController extends Controller {
 				$this->userID = $keyObj->userID;
 				$this->permissions = $keyObj->getPermissions();
 				
-				// Check X-Zotero-Write-Token if it exists to make sure 
+				// Check X-Zotero-Write-Token if it exists to make sure
 				// this isn't a duplicate request
 				if ($this->method == 'POST' || $this->method == 'PUT') {
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
