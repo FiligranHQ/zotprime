@@ -33,12 +33,12 @@ echo "CREATE USER zoterotest_ids@localhost IDENTIFIED BY 'pass1';" | $ID1
 echo "CREATE USER zoterotest_ids@localhost IDENTIFIED BY 'pass2';" | $ID2
 echo "CREATE USER zoterotest_www@localhost IDENTIFIED BY 'pass';" | $WWW
 
-echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest_master.* TO zoterotest0@localhost;" | $MASTER
+echo "GRANT SELECT, INSERT, UPDATE, DELETE ON zoterotest_master.* TO zoterotest0@localhost;" | $MASTER
 
 echo "GRANT SELECT ON zoterotest_master.* TO zoterotest1@localhost;" | $SHARD
 echo "GRANT SELECT ON zoterotest_master.* TO zoterotest2@localhost;" | $SHARD
-echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest1.* TO zoterotest1@localhost;" | $SHARD
-echo "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE TEMPORARY TABLES ON zoterotest2.* TO zoterotest2@localhost;" | $SHARD
+echo "GRANT SELECT, INSERT, UPDATE, DELETE ON zoterotest1.* TO zoterotest1@localhost;" | $SHARD
+echo "GRANT SELECT, INSERT, UPDATE, DELETE ON zoterotest2.* TO zoterotest2@localhost;" | $SHARD
 
 echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_ids@localhost;" | $ID1
 echo "GRANT SELECT,INSERT,DELETE ON zoterotest_ids.* TO zoterotest_ids@localhost;" | $ID2

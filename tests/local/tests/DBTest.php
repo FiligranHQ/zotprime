@@ -27,53 +27,59 @@ require_once 'include/bootstrap.inc.php';
 
 class DBTests extends PHPUnit_Framework_TestCase {
 	/*public function testLastInsertIDFromStatement() {
-		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, bar2 INTEGER NOT NULL)");
+		Zotero_DB::query("DROP TABLE IF EXISTS foo");
+		Zotero_DB::query("CREATE TABLE foo (bar INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT, bar2 INTEGER NOT NULL)");
 		$sql = "INSERT INTO foo VALUES (NULL, ?)";
 		$stmt = Zotero_DB::getStatement($sql, true);
 		$insertID = Zotero_DB::queryFromStatement($stmt, array(1));
 		$this->assertEquals($insertID, 1);
 		$insertID = Zotero_DB::queryFromStatement($stmt, array(2));
 		$this->assertEquals($insertID, 2);
-		Zotero_DB::query("DROP TEMPORARY TABLE foo");
+		Zotero_DB::query("DROP TABLE foo");
 	}
 	
 	public function testNull() {
-		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER NULL, bar2 INTEGER NULL DEFAULT NULL)");
+		Zotero_DB::query("DROP TABLE IF EXISTS foo");
+		Zotero_DB::query("CREATE TABLE foo (bar INTEGER NULL, bar2 INTEGER NULL DEFAULT NULL)");
 		Zotero_DB::query("INSERT INTO foo VALUES (?,?)", array(null, 3));
 		$result = Zotero_DB::query("SELECT * FROM foo WHERE bar=?", null);
 		$this->assertNull($result[0]['bar']);
 		$this->assertEquals($result[0]['bar2'], 3);
-		Zotero_DB::query("DROP TEMPORARY TABLE foo");
+		Zotero_DB::query("DROP TABLE foo");
 	}
 	
 	public function testPreparedStatement() {
-		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER NULL, bar2 INTEGER NULL DEFAULT NULL)");
+		Zotero_DB::query("DROP TABLE IF EXISTS foo");
+		Zotero_DB::query("CREATE TABLE foo (bar INTEGER NULL, bar2 INTEGER NULL DEFAULT NULL)");
 		$stmt = Zotero_DB::getStatement("INSERT INTO foo (bar) VALUES (?)");
 		$stmt->execute(array(1));
 		$stmt->execute(array(2));
 		$result = Zotero_DB::columnQuery("SELECT bar FROM foo");
 		$this->assertEquals($result[0], 1);
 		$this->assertEquals($result[1], 2);
-		Zotero_DB::query("DROP TEMPORARY TABLE foo");
+		Zotero_DB::query("DROP TABLE foo");
 	}
 	
 	public function testValueQuery_Null() {
-		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER NULL)");
+		Zotero_DB::query("DROP TABLE IF EXISTS foo");
+		Zotero_DB::query("CREATE TABLE foo (bar INTEGER NULL)");
 		Zotero_DB::query("INSERT INTO foo VALUES (NULL)");
 		$val = Zotero_DB::valueQuery("SELECT * FROM foo");
 		$this->assertNull($val);
-		Zotero_DB::query("DROP TEMPORARY TABLE foo");
+		Zotero_DB::query("DROP TABLE foo");
 	}
 	
 	public function testQuery_boundZero() {
-		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER, bar2 INTEGER)");
+		Zotero_DB::query("DROP TABLE IF EXISTS foo");
+		Zotero_DB::query("CREATE TABLE foo (bar INTEGER, bar2 INTEGER)");
 		Zotero_DB::query("INSERT INTO foo VALUES (1, 0)");
 		$this->assertEquals(Zotero_DB::valueQuery("SELECT bar FROM foo WHERE bar2=?", 0), 1);
-		Zotero_DB::query("DROP TEMPORARY TABLE foo");
+		Zotero_DB::query("DROP TABLE foo");
 	}
 	
 	public function testBulkInsert() {
-		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER, bar2 INTEGER)");
+		Zotero_DB::query("DROP TABLE IF EXISTS foo");
+		Zotero_DB::query("CREATE TABLE foo (bar INTEGER, bar2 INTEGER)");
 		$sql = "INSERT INTO foo VALUES ";
 		$sets = array(
 			array(1,2),
@@ -114,7 +120,7 @@ class DBTests extends PHPUnit_Framework_TestCase {
 		}
 		$this->assertEquals($rowVals, $sets2Comp);
 		
-		Zotero_DB::query("DROP TEMPORARY TABLE foo");
+		Zotero_DB::query("DROP TABLE foo");
 	}
 	
 	public function testIDDB() {
@@ -126,7 +132,9 @@ class DBTests extends PHPUnit_Framework_TestCase {
 	}
 	
 	public function testCloseDB() {
-		// Create a temporary table and close the connection
+		throw new Exception("Reimplement without temporary tables");
+		
+		// Create a table and close the connection
 		Zotero_DB::query("CREATE TEMPORARY TABLE foo (bar INTEGER)");
 		Zotero_DB::query("INSERT INTO foo VALUES (1)");
 		
