@@ -133,54 +133,54 @@ class ApiController extends Controller {
 				$this->userID = $userID;
 				$this->grantUserPermissions($userID);
 			}
-			
-			else {
-				$this->e401('Invalid login');
-			}
 		}
-		else if (isset($_GET['key'])) {
-			$keyObj = Zotero_Keys::authenticate($_GET['key']);
-			if (!$keyObj) {
-				$this->e403('Invalid key');
-			}
-			$this->apiKey = $_GET['key'];
-			$this->userID = $keyObj->userID;
-			$this->permissions = $keyObj->getPermissions();
-			
-			// Check X-Zotero-Write-Token if it exists to make sure 
-			if ($this->method == 'POST' || $this->method == 'PUT') {
-				if ($cacheKey = $this->getWriteTokenCacheKey()) {
-					if (Z_Core::$MC->get($cacheKey)) {
-						$this->e412("Write token already used");
+		
+		if (!isset($userID)) {
+			if (isset($_GET['key'])) {
+				$keyObj = Zotero_Keys::authenticate($_GET['key']);
+				if (!$keyObj) {
+					$this->e403('Invalid key');
+				}
+				$this->apiKey = $_GET['key'];
+				$this->userID = $keyObj->userID;
+				$this->permissions = $keyObj->getPermissions();
+				
+				// Check X-Zotero-Write-Token if it exists to make sure 
+				// this isn't a duplicate request
+				if ($this->method == 'POST' || $this->method == 'PUT') {
+					if ($cacheKey = $this->getWriteTokenCacheKey()) {
+						if (Z_Core::$MC->get($cacheKey)) {
+							$this->e412("Write token already used");
+						}
 					}
 				}
 			}
-		}
-		// Website cookie authentication
-		else if (!empty($_COOKIE) && !empty($_GET['session']) &&
-				($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE, $_GET['session']))) {
-			$this->grantUserPermissions($this->userID);
-			$this->cookieAuth = true;
-		}
-		// No credentials provided
-		else {
-			if (!empty($_GET['auth'])) {
-				$this->e401();
+			// Website cookie authentication
+			else if (!empty($_COOKIE) && !empty($_GET['session']) &&
+					($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE, $_GET['session']))) {
+				$this->grantUserPermissions($this->userID);
+				$this->cookieAuth = true;
 			}
-			
-			// Always challenge a 'me' request
-			if (!empty($extra['userID']) && $extra['userID'] == 'me') {
-				$this->e403('You must specify a key when making a /me request.');
+			// No credentials provided
+			else {
+				if (!empty($_GET['auth'])) {
+					$this->e401();
+				}
+				
+				// Always challenge a 'me' request
+				if (!empty($extra['userID']) && $extra['userID'] == 'me') {
+					$this->e403('You must specify a key when making a /me request.');
+				}
+				
+				// Explicit auth request or not a GET request
+				if ($this->method != "GET") {
+					$this->e403('You must specify a key to access the Zotero API.');
+				}
+				
+				// Anonymous request
+				$this->permissions = new Zotero_Permissions;
+				$this->permissions->setAnonymous();
 			}
-			
-			// Explicit auth request or not a GET request
-			if ($this->method != "GET") {
-				$this->e403('You must specify a key to access the Zotero API.');
-			}
-			
-			// Anonymous request
-			$this->permissions = new Zotero_Permissions;
-			$this->permissions->setAnonymous();
 		}
 		
 		// Get the API version
@@ -292,10 +292,7 @@ class ApiController extends Controller {
 		
 		// Can be either id or key
 		if (!empty($extra['key'])) {
-			if (!empty($_GET['key']) && strlen($_GET['key']) == 8) {
-				$this->objectKey = $extra['key'];
-			}
-			else if (!empty($_GET['iskey'])) {
+			if (!empty($_GET['iskey'])) {
 				$this->objectKey = $extra['key'];
 			}
 			else if (preg_match('/^[0-9]+$/', $extra['key'])) {
