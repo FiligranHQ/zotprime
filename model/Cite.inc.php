@@ -266,6 +266,9 @@ class Zotero_Cite {
 		foreach (self::$zoteroDateMap as $key=>$val) {
 			$date = $zoteroItem->getField($val, false, true, true);
 			if ($date) {
+				if (Zotero_Date::isSQLDateTime($date)) {
+					$date = substr($date, 0, 10);
+				}
 				$cslItem[$key] = array("raw" => $date);
 				continue;
 				
