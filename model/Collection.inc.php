@@ -855,6 +855,12 @@ class Zotero_Collection {
 					$this->invalidValueError($field, $value);
 				}
 				break;
+			
+			case 'name':
+				if (mb_strlen($value) > Zotero_Collections::$maxLength) {
+					throw new Exception("Collection '" . $value . "' too long", Z_ERROR_COLLECTION_TOO_LONG);
+				}
+				break;
 		}
 	}
 	

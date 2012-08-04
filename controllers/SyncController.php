@@ -674,6 +674,7 @@ class SyncController extends Controller {
 		
 		switch ($e->getCode()) {
 			case Z_ERROR_TAG_TOO_LONG:
+			case Z_ERROR_COLLECTION_TOO_LONG:
 				break;
 			
 			default:

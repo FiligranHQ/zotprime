@@ -25,6 +25,8 @@
 */
 
 class Zotero_Collections extends Zotero_DataObjects {
+	public static $maxLength = 255;
+	
 	protected static $ZDO_object = 'collection';
 	
 	protected static $primaryFields = array(
@@ -36,8 +38,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 		'dateModified' => '',
 		'parent' => 'parentCollectionID'
 	);
-	
-	private static $maxLength = 255;
 	
 	
 	public static function get($libraryID, $id, $skipCheck=false) {
