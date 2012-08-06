@@ -47,6 +47,9 @@ class Zotero_Permissions {
 			throw new Exception('libraryID not provided');
 		}
 		
+		// TEMP: necessary?
+		$libraryID = (int) $libraryID;
+		
 		// If requested permission is explicitly set
 		//
 		// This assumes that permissions can't be incorrectly set

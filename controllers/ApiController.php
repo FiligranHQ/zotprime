@@ -1964,11 +1964,6 @@ class ApiController extends Controller {
 		// Multiple groups
 		else {
 			if ($this->objectUserID) {
-				// Users (or their keys) can see only their own groups
-				if (!$this->permissions->isSuper() && $this->userID != $this->objectUserID) {
-					$this->e403();
-				}
-				
 				$title = Zotero_Users::getUsername($this->objectUserID) . "’s Groups";
 			}
 			else {
