@@ -52,8 +52,8 @@ class APITests extends PHPUnit_Framework_TestCase {
 	}
 	
 	
-	protected function assertHasResults($req) {
-		$xml = $req->getBody();
+	protected function assertHasResults($res) {
+		$xml = $res->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
 		$zapiNodes = $xml->children(self::$nsZAPI);
@@ -61,8 +61,8 @@ class APITests extends PHPUnit_Framework_TestCase {
 		$this->assertNotEquals(0, count($xml->entry));
 	}
 	
-	protected function assertNumResults($num, $req) {
-		$xml = $req->getBody();
+	protected function assertNumResults($num, $res) {
+		$xml = $res->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
 		$zapiNodes = $xml->children(self::$nsZAPI);
@@ -70,8 +70,8 @@ class APITests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals($num, count($xml->entry));
 	}
 	
-	protected function assertNoResults($req) {
-		$xml = $req->getBody();
+	protected function assertNoResults($res) {
+		$xml = $res->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
 		$zapiNodes = $xml->children(self::$nsZAPI);
