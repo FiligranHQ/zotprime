@@ -105,8 +105,9 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false, $asKeys=false) {
+	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
 		$rnd = "_" . uniqid($libraryID . "_");
+		$asKeys = $params['format'] == 'keys';
 		
 		if ($asKeys) {
 			$results = array('keys' => array(), 'total' => 0);
@@ -410,6 +411,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					else {
 						$orderSQL = "1";
 					}
+					break;
+				
+				case 'itemKeyList':
+					$orderSQL = "FIELD(I.key,"
+						. implode(',', array_fill(0, sizeOf($keys), '?')) . ")";
+					$sqlParams = array_merge($sqlParams, $keys);
 					break;
 				
 				default:

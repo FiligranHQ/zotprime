@@ -229,12 +229,23 @@ class Zotero_API {
 						case 'addedBy':
 						case 'numItems':
 						case 'serverDateModified':
+						
+						case 'itemKeyList':
 							
 							// numItems is valid only for tags requests
 							switch ($getParams[$key]) {
 								case 'numItems':
 									if ($action != 'tags') {
 										throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+									}
+									break;
+								
+								case 'itemKeyList':
+									if ($action != 'items') {
+										throw new Exception("order=itemKeyList is valid only for items requests");
+									}
+									if (!isset($getParams['itemKey'])) {
+										throw new Exception("order=itemKeyList requires the itemKey parameter");
 									}
 									break;
 							}
@@ -362,6 +373,7 @@ class Zotero_API {
 		switch ($field) {
 			case 'title':
 			case 'date':
+			case 'itemKeyList':
 				return true;
 		}
 		

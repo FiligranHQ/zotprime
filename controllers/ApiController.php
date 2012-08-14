@@ -685,7 +685,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams, false, $formatAsKeys);
+					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
 				}
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
@@ -738,7 +738,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getItemURI($item) . "/children";
 						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
-								. "&content=json";
+								. "&content=json&order=itemKeyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
@@ -799,7 +799,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
 						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
-								. "&content=json";
+								. "&content=json&order=itemKeyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
@@ -810,7 +810,7 @@ class ApiController extends Controller {
 					}
 					
 					$title = "Items";
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, false, $formatAsKeys);
+					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
 				}
 				
 				if (!empty($results)) {
@@ -832,7 +832,7 @@ class ApiController extends Controller {
 			
 			if ($itemIDs) {
 				$this->queryParams['itemIDs'] = $itemIDs;
-				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $formatAsKeys);
+				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				
 				if ($formatAsKeys) {
 					$responseKeys = $results['keys'];
