@@ -51,8 +51,7 @@ class API {
 	public function createItem($itemType, $data=array(), $context=null) {
 		self::loadConfig();
 		
-		$response = API::get("items/new?itemType=$itemType");
-		$json = json_decode($response->getBody());
+		$json = self::getItemTemplate($itemType);
 		
 		if ($data) {
 			foreach ($data as $field => $val) {
@@ -80,11 +79,20 @@ class API {
 	 * and return the response
 	 */
 	public static function postItem($json) {
+		return API::postItem(array($json));
+	}
+	
+	
+	/**
+	 * POST a JSON items object to the main test user's account
+	 * and return the response
+	 */
+	public static function postItems($json) {
 		return API::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"items" => array($json)
+				"items" => $json
 			)),
 			array("Content-Type: application/json")
 		);

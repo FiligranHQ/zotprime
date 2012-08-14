@@ -54,6 +54,33 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testNewEmptyBookItemMultiple() {
+		$json = API::getItemTemplate("book");
+		
+		$data = array();
+		$json->title = "A";
+		$data[] = $json;
+		$json2 = clone $json;
+		$json2->title = "B";
+		$data[] = $json2;
+		$json3 = clone $json;
+		$json3->title = "C";
+		$data[] = $json3;
+		
+		$response = API::postItems($data);
+		$this->assert201($response);
+		$xml = API::getXMLFromResponse($response);
+		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
+		
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals("A", $content->title);
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals("B", $content->title);
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals("C", $content->title);
+	}
+	
+	
 	/**
 	 * @depends testNewEmptyBookItem
 	 */
