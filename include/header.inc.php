@@ -182,6 +182,7 @@ Z_Core::$MC = new Z_MemcachedClientLocal(
 require('interfaces/IAuthenticationPlugin.inc.php');
 
 require('log.inc.php');
+Z_Core::$debug = !empty(Z_CONFIG::$DEBUG_LOG);
 
 // Load in functions
 require('functions/string.inc.php');

@@ -8,6 +8,8 @@ class Z_CONFIG {
 	public static $TESTING_SITE = true;
 	public static $DEV_SITE = true;
 	
+	public static $DEBUG_LOG = false;
+	
 	public static $BASE_URI = '';
 	
 	public static $AUTH_SALT = '';
