@@ -670,64 +670,6 @@ class Zotero_S3 {
 	}
 	
 	
-	public static function purgeUnusedFiles() {
-		throw new Exception("Now sharded");
-		
-		self::requireLibrary();
-		
-		// Get all used files and files that were last deleted more than a month ago
-		$sql = "SELECT MD5(CONCAT(hash, filename, zip)) AS file FROM storageFiles
-					JOIN storageFileItems USING (storageFileID)
-				UNION
-				SELECT MD5(CONCAT(hash, filename, zip)) AS file FROM storageFiles
-					WHERE lastDeleted > NOW() - INTERVAL 1 MONTH";
-		$files = Zotero_DB::columnQuery($sql);
-		
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		$s3Files = S3::getBucket(Z_CONFIG::$S3_BUCKET);
-		
-		$toPurge = array();
-		
-		foreach ($s3Files as $s3File) {
-			preg_match('/^([0-9a-g]{32})\/(c\/)?(.+)$/', $s3File['name'], $matches);
-			if (!$matches) {
-				throw new Exception("Invalid filename '" . $s3File['name'] . "'");
-			}
-			
-			$zip = $matches[2] ? '1' : '0';
-			
-			// Compressed file
-			$hash = md5($matches[1] . $matches[3] . $zip);
-			
-			if (!in_array($hash, $files)) {
-				$toPurge[] = array(
-					'hash' => $matches[1],
-					'filename' => $matches[3],
-					'zip' => $zip
-				);
-			}
-		}
-		
-		Zotero_DB::beginTransaction();
-		
-		foreach ($toPurge as $info) {
-			S3::deleteObject(
-				Z_CONFIG::$S3_BUCKET,
-				self::getPathPrefix($info['hash'], $info['zip']) . $info['filename']
-			);
-			
-			$sql = "DELETE FROM storageFiles WHERE hash=? AND filename=? AND zip=?";
-			Zotero_DB::query($sql, array($info['hash'], $info['filename'], $info['zip']));
-			
-			// TODO: maybe check to make sure associated files haven't just been created?
-		}
-		
-		Zotero_DB::commit();
-		
-		return sizeOf($toPurge);
-	}
-	
-	
 	public static function getUserValues($userID) {
 		$sql = "SELECT quota, UNIX_TIMESTAMP(expiration) AS expiration FROM storageAccounts WHERE userID=?";
 		return Zotero_DB::rowQuery($sql, $userID);

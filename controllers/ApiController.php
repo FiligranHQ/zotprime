@@ -1444,21 +1444,6 @@ class ApiController extends Controller {
 	}
 	
 	
-	public function storagepurge() {
-		if (!$this->permissions->isSuper()) {
-			$this->e404();
-		}
-		
-		$this->allowMethods(array('POST'));
-		
-		$purged = Zotero_S3::purgeUnusedFiles();
-		
-		header('application/xml');
-		echo "<purged>{$purged}</purged>";
-		exit;
-	}
-	
-	
 	public function storagetransferbucket() {
 		// DISABLED
 		$this->e404();
