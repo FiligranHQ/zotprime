@@ -412,7 +412,9 @@ class SyncController extends Controller {
 			}
 			$str .= "Error: RELAX NG validation failed\n\n";
 			$str .= $xmldata;
-			file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
+			if (!file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str)) {
+				error_log("Unable to save error report to " . Z_CONFIG::$SYNC_ERROR_PATH . $id);
+			}
 			$this->error(500, 'INVALID_UPLOAD_DATA', "Uploaded data not well-formed (Report ID: $id)");
 		}
 		restore_error_handler();
@@ -652,7 +654,9 @@ class SyncController extends Controller {
 			}
 			$str .= "Error: " . $e;
 			$str .= $this->responseXML->saveXML();
-			file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
+			if (!file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str)) {
+				error_log("Unable to save error report to " . Z_CONFIG::$SYNC_ERROR_PATH . $id);
+			}
 			
 			$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
 		}
@@ -714,7 +718,9 @@ class SyncController extends Controller {
 					default:
 						$str .= "\n\n" . $xmldata;
 				}
-				file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str);
+				if (!file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str)) {
+					error_log("Unable to save error report to " . Z_CONFIG::$SYNC_ERROR_PATH . $id);
+				}
 			}
 		}
 		
