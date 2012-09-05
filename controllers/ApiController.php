@@ -1398,7 +1398,7 @@ class ApiController extends Controller {
 				if ($e->getCode() == Z_ERROR_GROUP_QUOTA_SET_BELOW_USAGE) {
 					$this->e409("Cannot set quota below current usage");
 				}
-				$this->e500($e->getMessage());
+				$this->handleException($e);
 			}
 		}
 		
@@ -1818,7 +1818,7 @@ class ApiController extends Controller {
 						$this->e400($e->getMessage());
 					
 					default:
-						$this->e500($e->getMessage());
+						$this->handleException($e);
 				}
 			}
 			
@@ -1884,7 +1884,7 @@ class ApiController extends Controller {
 				else if ($e->getCode() == Z_ERROR_GROUP_DESCRIPTION_TOO_LONG) {
 					$this->e400($e->getMessage());
 				}
-				$this->e500($e->getMessage());
+				$this->handleException($e);
 			}
 			
 			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
@@ -2083,7 +2083,7 @@ class ApiController extends Controller {
 					if (strpos($e->getMessage(), "Invalid role") === 0) {
 						$this->e400("Invalid role '$role' in " . $user->asXML() . "'");
 					}
-					$this->e500($e->getMessage());
+					$this->handleException($e);
 				}
 				
 				if ($added) {
@@ -2161,7 +2161,7 @@ class ApiController extends Controller {
 									$this->e400($e->getMessage());
 								
 								default:
-									$this->e500($e->getMessage());
+									$this->handleException($e);
 							}
 						}
 						if ($updated) {
@@ -2180,7 +2180,7 @@ class ApiController extends Controller {
 				if (strpos($e->getMessage(), "Invalid role") === 0) {
 					$this->e400("Invalid role '$role' in '$this->body'");
 				}
-				$this->e500($e->getMessage());
+				$this->handleException($e);
 			}
 			
 			// Response after adding
@@ -2224,7 +2224,7 @@ class ApiController extends Controller {
 						$this->e404($e->getMessage());
 					
 					default:
-						$this->e500($e->getMessage());
+						$this->handleException($e);
 				}
 			}
 			
@@ -2363,7 +2363,7 @@ class ApiController extends Controller {
 					if ($e->getCode() == Z_ERROR_KEY_NAME_TOO_LONG) {
 						$this->e400($e->getMessage());
 					}
-					$this->e500($e->getMessage());
+					$this->handleException($e);
 				}
 				
 				$this->responseXML = $keyObj->toXML();
@@ -2416,7 +2416,7 @@ class ApiController extends Controller {
 					if ($e->getCode() == Z_ERROR_KEY_NAME_TOO_LONG) {
 						$this->e400($e->getMessage());
 					}
-					$this->e500($e->getMessage());
+					$this->handleException($e);
 				}
 				
 				$this->responseXML = $keyObj->toXML();
