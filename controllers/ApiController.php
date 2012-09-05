@@ -2882,10 +2882,6 @@ class ApiController extends Controller {
 	
 	
 	private function end() {
-		if (!($this->responseXML instanceof SimpleXMLElement)) {
-			throw new Exception("Response XML not provided");
-		}
-		
 		if ($this->profile) {
 			Zotero_DB::profileEnd($this->profileShard, false);
 		}
@@ -2900,53 +2896,56 @@ class ApiController extends Controller {
 					throw new Exception("Unsupported response code");
 			}
 		}
-		else {
-			$updated = (string) $this->responseXML->updated;
-			if ($updated) {
-				$updated = strtotime($updated);
-				
-				$ifModifiedSince = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false;
-				$ifModifiedSince = strtotime($ifModifiedSince);
-				if ($ifModifiedSince >= $updated) {
-					header('HTTP/1.1 304 Not Modified');
-					exit;
+		
+		if ($this->responseXML instanceof SimpleXMLElement) {
+			if (!$this->responseCode) {
+				$updated = (string) $this->responseXML->updated;
+				if ($updated) {
+					$updated = strtotime($updated);
+					
+					$ifModifiedSince = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false;
+					$ifModifiedSince = strtotime($ifModifiedSince);
+					if ($ifModifiedSince >= $updated) {
+						header('HTTP/1.1 304 Not Modified');
+						exit;
+					}
+					
+					$lastModified = substr(date('r', $updated), 0, -5) . "GMT";
+					header("Last-Modified: $lastModified");
 				}
-				
-				$lastModified = substr(date('r', $updated), 0, -5) . "GMT";
-				header("Last-Modified: $lastModified");
 			}
+			
+			$xmlstr = $this->responseXML->asXML();
+			
+			$doc = new DOMDocument('1.0');
+			
+			$doc->loadXML($xmlstr);
+			$doc->formatOutput = true;
+			
+			if ($this->queryParams['pprint']) {
+				$ppdoc = new DOMDocument('1.0');
+				// Zero-width spaces to push <feed> beyond Firefox's
+				// feed auto-detection boundary
+				$comment = $ppdoc->createComment("​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​");
+				$ppdoc->appendChild($comment);
+				$ppdoc->formatOutput = true;
+				$rootElem = $doc->firstChild;
+				$importedNode = $ppdoc->importNode($rootElem, true);
+				$ppdoc->appendChild($importedNode);
+				$doc = $ppdoc;
+			}
+			
+			$xmlstr = $doc->saveXML();
+			
+			if ($this->queryParams['pprint']) {
+				header("Content-Type: text/xml");
+			}
+			else {
+				header("Content-Type: application/atom+xml");
+			}
+			
+			echo $xmlstr;
 		}
-		
-		$xmlstr = $this->responseXML->asXML();
-		
-		$doc = new DOMDocument('1.0');
-		
-		$doc->loadXML($xmlstr);
-		$doc->formatOutput = true;
-		
-		if ($this->queryParams['pprint']) {
-			$ppdoc = new DOMDocument('1.0');
-			// Zero-width spaces to push <feed> beyond Firefox's
-			// feed auto-detection boundary
-			$comment = $ppdoc->createComment("​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​");
-			$ppdoc->appendChild($comment);
-			$ppdoc->formatOutput = true;
-			$rootElem = $doc->firstChild;
-			$importedNode = $ppdoc->importNode($rootElem, true);
-			$ppdoc->appendChild($importedNode);
-			$doc = $ppdoc;
-		}
-		
-		$xmlstr = $doc->saveXML();
-		
-		if ($this->queryParams['pprint']) {
-			header("Content-Type: text/xml");
-		}
-		else {
-			header("Content-Type: application/atom+xml");
-		}
-		
-		echo $xmlstr;
 		
 		$this->logRequestTime();
 		echo ob_get_clean();
