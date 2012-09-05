@@ -845,7 +845,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $apiVersion=null, $permissions=null, $sharedData=null) {
+	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $permissions=null, $sharedData=null) {
+		$apiVersion = $queryParams['version'];
 		$content = $queryParams['content'];
 		$contentIsHTML = sizeOf($content) == 1 && $content[0] == 'html';
 		$contentParamString = urlencode(implode(',', $content));

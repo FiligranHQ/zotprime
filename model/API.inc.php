@@ -30,6 +30,9 @@ class Zotero_API {
 	public static $maxTranslateItems = 10;
 	
 	private static $defaultQueryParams = array(
+		// Default API version
+		'version' => 1,
+		
 		'format' => "atom",
 		'order' => "dateAdded",
 		'sort' => "desc",

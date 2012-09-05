@@ -25,7 +25,6 @@
 */
 
 class ApiController extends Controller {
-	private $defaultAPIVersion = 1;
 	private $validAPIVersions = array(1);
 	private $writeTokenCacheTime = 43200; // 12 hours
 	
@@ -41,7 +40,6 @@ class ApiController extends Controller {
 	private $apiKey;
 	private $responseXML;
 	private $responseCode;
-	private $apiVersion;
 	private $userID; // request user
 	private $permissions;
 	private $objectUserID; // userID of object owner
@@ -183,15 +181,9 @@ class ApiController extends Controller {
 			}
 		}
 		
-		// Get the API version
-		if (empty($_REQUEST['version'])) {
-			$this->apiVersion = $this->defaultAPIVersion;
-		}
-		else {
-			if (!in_array($_REQUEST['version'], $this->validAPIVersions)) {
-				$this->e400("Invalid request API version '{$_REQUEST['version']}'");
-			}
-			$this->apiVersion = (int) $_REQUEST['version'];
+		// Validate the API version
+		if (isset($_REQUEST['version']) && !in_array($_REQUEST['version'], $this->validAPIVersions)) {
+			$this->e400("Invalid request API version '{$_REQUEST['version']}'");
 		}
 		
 		$this->uri = Z_CONFIG::$API_BASE_URI . substr($_SERVER["REQUEST_URI"], 1);
@@ -527,11 +519,13 @@ class ApiController extends Controller {
 				}
 			}
 			
+			//header("Zotero-Timestamp: " . strtotime($item->serverDateModified) * 1000);
+			
 			// Display item
 			switch ($this->queryParams['format']) {
 				case 'atom':
 					$this->responseXML = Zotero_Items::convertItemToAtom(
-						$item, $this->queryParams, $this->apiVersion, $this->permissions
+						$item, $this->queryParams, $this->permissions
 					);
 					break;
 			
@@ -869,7 +863,6 @@ class ApiController extends Controller {
 						$responseItems,
 						$totalResults,
 						$this->queryParams,
-						$this->apiVersion,
 						$this->permissions
 					);
 					break;
@@ -1643,7 +1636,6 @@ class ApiController extends Controller {
 				$collections,
 				$totalResults,
 				$this->queryParams,
-				$this->apiVersion,
 				$this->permissions
 			);
 		}
@@ -1767,7 +1759,6 @@ class ApiController extends Controller {
 			$tags,
 			$totalResults,
 			$this->queryParams,
-			$this->apiVersion,
 			$this->permissions,
 			$fixedValues
 		);
@@ -1782,7 +1773,6 @@ class ApiController extends Controller {
 		}
 		
 		$groupID = $this->groupID;
-		
 		
 		//
 		// Add a group
@@ -1832,7 +1822,7 @@ class ApiController extends Controller {
 				}
 			}
 			
-			$this->responseXML = $group->toAtom(array('full'), $this->queryParams, $this->apiVersion);
+			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
 			
 			Zotero_DB::commit();
 			
@@ -1897,7 +1887,7 @@ class ApiController extends Controller {
 				$this->e500($e->getMessage());
 			}
 			
-			$this->responseXML = $group->toAtom(array('full'), $this->queryParams, $this->apiVersion);
+			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
 			
 			Zotero_DB::commit();
 			
@@ -1944,7 +1934,7 @@ class ApiController extends Controller {
 			if (!$group) {
 				$this->e404("Group not found");
 			}
-			$this->responseXML = $group->toAtom($this->queryParams['content'], $this->queryParams, $this->apiVersion);
+			$this->responseXML = $group->toAtom($this->queryParams['content'], $this->queryParams);
 		}
 		// Multiple groups
 		else {
@@ -1980,7 +1970,6 @@ class ApiController extends Controller {
 				$groups,
 				$totalResults,
 				$this->queryParams,
-				$this->apiVersion,
 				$this->permissions
 			);
 		}
@@ -2115,7 +2104,6 @@ class ApiController extends Controller {
 				$entries,
 				null,
 				$this->queryParams,
-				$this->apiVersion,
 				$this->permissions
 			);
 			
@@ -2208,7 +2196,6 @@ class ApiController extends Controller {
 				$entries,
 				null,
 				$this->queryParams,
-				$this->apiVersion,
 				$this->permissions
 			);
 			
@@ -2273,7 +2260,6 @@ class ApiController extends Controller {
 			$entries,
 			$totalResults,
 			$this->queryParams,
-			$this->apiVersion,
 			$this->permissions
 		);
 		

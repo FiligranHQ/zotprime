@@ -78,7 +78,7 @@ class Zotero_Atom {
 		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
 	
-	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $apiVersion=null, $permissions=null, $fixedValues=array()) {
+	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $permissions=null, $fixedValues=array()) {
 		if ($queryParams) {
 			$nonDefaultParams = Zotero_API::getNonDefaultQueryParams($queryParams);
 			// Convert 'content' array to sorted comma-separated string
@@ -214,7 +214,7 @@ class Zotero_Atom {
 		);
 		
 		$xml->addChild(
-			"zapi:apiVersion", $apiVersion, self::$nsZoteroAPI
+			"zapi:apiVersion", $queryParams['version'], self::$nsZoteroAPI
 		);
 		
 		$latestUpdated = '';
@@ -240,30 +240,30 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Collection) {
-				$entry = Zotero_Collections::convertCollectionToAtom($entry, $queryParams['content'], $apiVersion);
+				$entry = Zotero_Collections::convertCollectionToAtom($entry, $queryParams['content'], $queryParams['version']);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Creator) {
-				$entry = Zotero_Creators::convertCreatorToAtom($entry, $queryParams['content'], $apiVersion);
+				$entry = Zotero_Creators::convertCreatorToAtom($entry, $queryParams['content'], $queryParams['version']);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Item) {
-				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $apiVersion, $permissions, $sharedData);
+				$entry = Zotero_Items::convertItemToAtom($entry, $queryParams, $permissions, $sharedData);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Search) {
-				$entry = Zotero_Searches::convertSearchToAtom($entry, $queryParams['content'], $apiVersion);
+				$entry = Zotero_Searches::convertSearchToAtom($entry, $queryParams['content'], $queryParams['version']);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Tag) {
 				$xmlEntries[] = $entry->toAtom(
 					$queryParams['content'],
-					$apiVersion,
+					$queryParams['version'],
 					isset($fixedValues[$entry->id]) ? $fixedValues[$entry->id] : null
 				);
 			}
 			else if ($entry instanceof Zotero_Group) {
-				$entry = $entry->toAtom($queryParams['content'], $apiVersion);
+				$entry = $entry->toAtom($queryParams['content'], $queryParams['version']);
 				$xmlEntries[] = $entry;
 			}
 		}
