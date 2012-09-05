@@ -1076,17 +1076,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			else if ($type == 'csljson') {
 				$arr = $item->toCSLItem();
-				
-				$mask = JSON_HEX_TAG|JSON_HEX_AMP;
-				if ($queryParams['pprint']) {
-					$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
-				}
-				else {
-					$json = json_encode($arr, $mask);
-				}
-				// Until JSON_UNESCAPED_SLASHES is available
-				$json = str_replace('\\/', '/', $json);
-				
+				$json = Zotero_Utilities::formatJSON($arr, $queryParams['pprint']);
 				$textNode = $domDoc->createTextNode($json);
 				$target->appendChild($textNode);
 			}

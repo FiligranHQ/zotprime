@@ -109,6 +109,20 @@ class Zotero_Utilities {
 		return $str;
 	}
     
+	
+	public static function formatJSON($jsonObj, $pretty=false) {
+		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+		if ($pretty) {
+			$json = self::json_encode_pretty($jsonObj, $mask);
+		}
+		else {
+			$json = json_encode($jsonObj, $mask);
+		}
+		// Until JSON_UNESCAPED_SLASHES is available
+		$json = str_replace('\\/', '/', $json);
+		return $json;
+	}
+	
     
     // By umbrae on http://us2.php.net/json_encode
 	public static function json_encode_pretty($json_obj, $mask=false) {

@@ -869,20 +869,18 @@ class ApiController extends Controller {
 				
 				case 'bib':
 					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams);
-					exit;
+					break;
 				
 				case 'csljson':
-					$json = Zotero_Cite::getJSONFromItems($responseItems, true);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
-						$json = Zotero_Utilities::json_encode_pretty($json);
 					}
 					else {
 						header("Content-Type: application/vnd.citationstyles.csl+json");
-						$json = json_encode($json);
 					}
-					echo $json;
-					exit;
+					$json = Zotero_Cite::getJSONFromItems($responseItems, true);
+					echo Zotero_Utilities::formatJSON($json, $this->queryParams['pprint']);
+					break;
 				
 				case 'keys':
 					if (!$formatAsKeys) {
@@ -905,7 +903,6 @@ class ApiController extends Controller {
 						header("Content-Type: " . $export['mimeType']);
 					}
 					echo $export['body'];
-					exit;
 			}
 		}
 		
