@@ -145,12 +145,13 @@ CREATE TABLE `itemTypes` (
 
 
 
-CREATE TABLE `keyAccessLog` (
+CREATE TABLE IF NOT EXISTS `keyAccessLog` (
   `keyID` int(10) unsigned NOT NULL,
-  `ipAddress` int(10) unsigned DEFAULT NULL,
+  `ipAddress` int(10) unsigned NOT NULL DEFAULT '0',
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY `keyID` (`keyID`)
+  PRIMARY KEY (`keyID`,`ipAddress`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 
 

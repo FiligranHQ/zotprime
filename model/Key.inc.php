@@ -369,12 +369,17 @@ class Zotero_Key {
 			throw new Exception("Key not loaded");
 		}
 		
-		$sql = "UPDATE `keys` SET lastUsed=NOW() WHERE keyID=?";
-		Zotero_DB::query($sql, $this->id);
-		
-		$ip = IPAddress::getIP();
-		$sql = "INSERT INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
-		Zotero_DB::query($sql, array($this->id, $ip));
+		try {
+			$sql = "UPDATE `keys` SET lastUsed=NOW() WHERE keyID=?";
+			Zotero_DB::query($sql, $this->id);
+			
+			$ip = IPAddress::getIP();
+			$sql = "REPLACE INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
+			Zotero_DB::query($sql, array($this->id, $ip));
+		}
+		catch (Exception $e) {
+			error_log("WARNING: " . $e);
+		}
 	}
 	
 	
@@ -412,7 +417,7 @@ class Zotero_Key {
 	
 	
 	private function getRecentIPs() {
-		$sql = "SELECT DISTINCT INET_NTOA(ipAddress) FROM keyAccessLog WHERE keyID=?
+		$sql = "SELECT INET_NTOA(ipAddress) FROM keyAccessLog WHERE keyID=?
 				ORDER BY timestamp DESC LIMIT 5";
 		$ips = Zotero_DB::columnQuery($sql, $this->id);
 		if (!$ips) {
