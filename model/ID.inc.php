@@ -49,6 +49,11 @@ class Zotero_ID {
 	}
 	
 	
+	public static function isValidKey($key) {
+		return preg_match('/^[23456789ABCDEFGHIJKLMNPQRSTUVWXYZ]{8}$/', $key);
+	}
+	
+	
 	public static function getBigInt() {
 		return rand(1, 2147483647);
 	}
