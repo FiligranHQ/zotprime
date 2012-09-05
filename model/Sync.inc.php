@@ -870,6 +870,33 @@ class Zotero_Sync {
 				Z_Core::logError("Warning: '" . $e->getMessage() . "' updating cached download");
 			}
 		}
+		// If not found, try timestamp-based update key
+		else {
+			$key2 = md5(
+				Zotero_Users::getUpdateKey($userID, true)
+				. "_" . $lastsync
+				// Remove after 2.1 sync cutoff
+				. ($apiVersion >= 9 ? "_" . $apiVersion : "")
+				. "_" . self::$cacheVersion
+				);
+			
+			$suffix2 = "_" . $key2[0];
+			
+			try {
+				$sql = "SELECT xmldata FROM syncDownloadCache$suffix2 WHERE hash=?";
+				$xmldata = Zotero_Cache_DB::valueQuery($sql, $key2);
+			}
+			catch (Exception $e) {
+				Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
+				$xmldata = false;
+			}
+			
+			// If found with old-style key, insert a row with the new one
+			if ($xmldata) {
+				$sql = "INSERT IGNORE INTO syncDownloadCache$suffix (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
+				Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
+			}
+		}
 		
 		// Close cache db to avoid sleeping thread
 		Zotero_Cache_DB::close();
