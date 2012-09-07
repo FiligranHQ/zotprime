@@ -43,6 +43,11 @@ class Z_CONFIG {
 	public static $ATTACHMENT_SERVER_URL = "https://files.example.net";
 	public static $ATTACHMENT_SERVER_DOCROOT = "/var/www/attachments/";
 	
+	public static $STATSD_ENABLED = false;
+	public static $STATSD_PREFIX = "";
+	public static $STATSD_HOST = "monitor.localdomain";
+	public static $STATSD_PORT = 8125;
+	
 	public static $LOG_TO_SCRIBE = false;
 	public static $LOG_ADDRESS = '';
 	public static $LOG_PORT = 1463;
