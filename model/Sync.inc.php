@@ -263,15 +263,23 @@ class Zotero_Sync {
 		if (!$error) {
 			$timestamp = $doc->documentElement->getAttribute('timestamp');
 			
+			$xmldata = $doc->saveXML();
+			$size = strlen($xmldata);
+			
 			$sql = "UPDATE syncDownloadQueue SET finished=FROM_UNIXTIME(?), xmldata=? WHERE syncDownloadQueueID=?";
 			Zotero_DB::query(
 				$sql,
 				array(
 					$timestamp,
-					$doc->saveXML(),
+					$xmldata,
 					$row['syncDownloadQueueID']
 				)
 			);
+			
+			StatsD::increment("sync.process.download.queued.success");
+			StatsD::updateStats("sync.process.download.queued.size", $size);
+			StatsD::timing("sync.process.download.process", round((microtime(true) - $startedTimestamp) * 1000));
+			StatsD::timing("sync.process.download.total", max(0, time() - strtotime($row['added'])) * 1000);
 			
 			self::logDownload(
 				$row['userID'],
@@ -297,6 +305,7 @@ class Zotero_Sync {
 			$sql = "UPDATE syncDownloadQueue SET started=NULL, tries=tries+1 WHERE syncDownloadQueueID=?";
 			Zotero_DB::query($sql, $row['syncDownloadQueueID']);
 			$lockError = true;
+			StatsD::increment("sync.process.download.queued.errorTemporary");
 		}
 		// Save error
 		else {
@@ -312,6 +321,8 @@ class Zotero_Sync {
 					$row['syncDownloadQueueID']
 				)
 			);
+			
+			StatsD::increment("sync.process.download.queued.errorPermanent");
 			
 			self::logDownload(
 				$row['userID'],
@@ -432,6 +443,11 @@ class Zotero_Sync {
 				)
 			);
 			
+			StatsD::increment("sync.process.upload.success");
+			StatsD::updateStats("sync.process.upload.size", $row['dataLength']);
+			StatsD::timing("sync.process.upload.process", round((microtime(true) - $startedTimestamp) * 1000));
+			StatsD::timing("sync.process.upload.total", max(0, time() - strtotime($row['added'])) * 1000);
+			
 			try {
 				$sql = "INSERT INTO syncUploadProcessLog
 						(userID, dataLength, processorHost, processDuration, totalDuration, error)
@@ -481,6 +497,7 @@ class Zotero_Sync {
 			$sql = "UPDATE syncUploadQueue SET started=NULL, tries=tries+1 WHERE syncUploadQueueID=?";
 			Zotero_DB::query($sql, $row['syncUploadQueueID']);
 			$lockError = true;
+			StatsD::increment("sync.process.upload.errorTemporary");
 		}
 		// Save error
 		else {
@@ -507,6 +524,8 @@ class Zotero_Sync {
 					$row['syncUploadQueueID']
 				)
 			);
+			
+			StatsD::increment("sync.process.upload.errorPermanent");
 			
 			try {
 				$sql = "INSERT INTO syncUploadProcessLog
@@ -1054,10 +1073,15 @@ class Zotero_Sync {
 	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null) {
 		$apiVersion = (int) $doc->documentElement->getAttribute('version');
 		
+		if ($lastsync == 1) {
+			StatsD::increment("sync.process.download.full");
+		}
+		
 		try {
 			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion);
 			if ($cached) {
 				$doc->loadXML($cached);
+				StatsD::increment("sync.process.download.cache.hit");
 				return;
 			}
 		}
@@ -1070,6 +1094,7 @@ class Zotero_Sync {
 				$msg = "'$msg'";
 			}
 			Z_Core::logError("Warning: $msg getting cached download");
+			StatsD::increment("sync.process.download.cache.error");
 		}
 		
 		set_time_limit(1800);

@@ -141,11 +141,14 @@ class SyncController extends Controller {
 		
 		$userID = Zotero_Users::authenticate('password', $authData);
 		if (!$userID) {
+			StatsD::increment("sync.login.failure");
 			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION']) && $_SERVER['HTTP_X_ZOTERO_VERSION'] == "2.0b6") {
 				die ("Username/password not accepted");
 			}
 			$this->error(403, 'INVALID_LOGIN', "Username/password not accepted");
 		}
+		
+		StatsD::increment("sync.login.success");
 		
 		$sessionID = md5($userID . uniqid(rand(), true) . $password);
 		$ip = IPAddress::getIP();
@@ -300,6 +303,8 @@ class SyncController extends Controller {
 						0
 					);
 					
+					StatsD::increment("sync.process.download.cache.hit");
+					
 					$this->end();
 				}
 			}
@@ -312,6 +317,7 @@ class SyncController extends Controller {
 					$msg = "'$msg'";
 				}
 				Z_Core::logError("Warning: $msg getting cached download");
+				StatsD::increment("sync.process.download.cache.error");
 			}
 			
 			try {
@@ -345,8 +351,12 @@ class SyncController extends Controller {
 				try {
 					Zotero_Sync::processDownload($this->userID, $lastsync, $doc);
 					$this->responseXML = simplexml_import_dom($doc);
+					
+					StatsD::increment("sync.process.download.immediate.success");
 				}
 				catch (Exception $e) {
+					StatsD::increment("sync.process.download.immediate.error");
+					
 					$this->handleUpdatedError($e);
 				}
 			}
@@ -507,6 +517,8 @@ class SyncController extends Controller {
 			$this->error(400, 'SYNC_LOCKED', $message);
 		}
 		
+		StatsD::increment("sync.clear");
+		
 		Zotero_Users::clearAllData($this->userID);
 		$this->responseXML->addChild('cleared');
 		$this->end();
@@ -660,7 +672,6 @@ class SyncController extends Controller {
 			
 			$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
 		}
-
 	}
 	
 	

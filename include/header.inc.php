@@ -169,6 +169,8 @@ require('IPAddress.inc.php');
 require('Shards.inc.php');
 require('config/dbconnect.inc.php');
 
+require('StatsD.inc.php');
+
 // Memcached
 require('Memcached.inc.php');
 Z_Core::$MC = new Z_MemcachedClientLocal(

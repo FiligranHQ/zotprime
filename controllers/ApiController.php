@@ -72,6 +72,7 @@ class ApiController extends Controller {
 		require_once('../model/Error.inc.php');
 		
 		$this->startTime = microtime(true);
+		register_shutdown_function(array($this, 'onShutdown'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		/*if (isset($_SERVER['REMOTE_ADDR'])
@@ -84,6 +85,8 @@ class ApiController extends Controller {
 			header("HTTP/1.1 501 Not Implemented");
 			die("Method is not implemented");
 		}
+		
+		StatsD::increment("api.request.method." . strtolower($this->method), 0.25);
 		
 		// There doesn't seem to be a way for PHP to start processing the request
 		// before the entire body is sent, so an Expect: 100 Continue will,
@@ -857,6 +860,7 @@ class ApiController extends Controller {
 			
 			switch ($this->queryParams['format']) {
 				case 'atom':
+					$t = microtime(true);
 					$this->responseXML = Zotero_Atom::createAtomFeed(
 						$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 						$this->uri,
@@ -865,6 +869,7 @@ class ApiController extends Controller {
 						$this->queryParams,
 						$this->permissions
 					);
+					StatsD::timing("api.items.multiple.createAtomFeed." . implode("-", $this->queryParams['content']), (microtime(true) - $t) * 1000);
 					break;
 				
 				case 'bib':
@@ -3051,6 +3056,10 @@ class ApiController extends Controller {
 	public function handleError($no, $str, $file, $line) {
 		$e = new ErrorException($str, $no, 0, $file, $line);
 		$this->handleException($e);
+	}
+	
+	public function onShutdown() {
+		StatsD::timing("api.request.total", (microtime(true) - $this->startTime) * 1000, 0.25);
 	}
 }
 ?>
