@@ -219,14 +219,14 @@ class Zotero_Atom {
 		
 		$latestUpdated = '';
 		
-		// Get bib data using parallel requests
+		// Check memcached for bib data
 		$sharedData = array();
 		if ($entries && $entries[0] instanceof Zotero_Item) {
 			if (in_array('citation', $queryParams['content'])) {
-				$sharedData["citation"] = Zotero_Cite::multiGetFromCiteServer("citation", $entries, $queryParams);
+				$sharedData["citation"] = Zotero_Cite::multiGetFromMemcached("citation", $entries, $queryParams);
 			}
 			if (in_array('bib', $queryParams['content'])) {
-				$sharedData["bib"] = Zotero_Cite::multiGetFromCiteServer("bib", $entries, $queryParams);
+				$sharedData["bib"] = Zotero_Cite::multiGetFromMemcached("bib", $entries, $queryParams);
 			}
 		}
 		

@@ -1036,7 +1036,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				}
 				else {
 					if ($sharedData !== null) {
-						error_log("Citation not found in sharedData -- retrieving individually");
+						//error_log("Citation not found in sharedData -- retrieving individually");
 					}
 					$html = Zotero_Cite::getCitationFromCiteServer($item, $queryParams);
 				}
@@ -1055,7 +1055,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				}
 				else {
 					if ($sharedData !== null) {
-						error_log("Bibliography not found in sharedData -- retrieving individually");
+						//error_log("Bibliography not found in sharedData -- retrieving individually");
 					}
 					$html = Zotero_Cite::getBibliographyFromCitationServer(array($item), $queryParams);
 				}

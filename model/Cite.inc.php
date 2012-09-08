@@ -31,14 +31,40 @@ class Zotero_Cite {
 	public static function getCitationFromCiteServer($item, array $queryParams) {
 		$json = self::getJSONFromItems(array($item));
 		$response = self::makeRequest($queryParams, 'citation', $json);
-		return self::processCitationResponse($response);
+		$response = self::processCitationResponse($response);
+		if ($response) {
+			$key = self::getCacheKey('citation', $item, $queryParams);
+			Z_Core::$MC->set($key, $response);
+		}
+		return $response;
 	}
 	
 	
 	public static function getBibliographyFromCitationServer($items, array $queryParams) {
 		$json = self::getJSONFromItems($items);
 		$response = self::makeRequest($queryParams, 'bibliography', $json);
-		return self::processBibliographyResponse($response);
+		$response = self::processBibliographyResponse($response);
+		if ($response && sizeOf($items) == 1) {
+			$key = self::getCacheKey('bib', $items[0], $queryParams);
+			Z_Core::$MC->set($key, $response);
+		}
+		return $response;
+	}
+	
+	
+	public static function multiGetFromMemcached($mode, $items, array $queryParams) {
+		$keys = array();
+		foreach ($items as $item) {
+			$keys[] = self::getCacheKey($mode, $item, $queryParams);
+		}
+		$results = Z_Core::$MC->get($keys);
+		
+		$response = array();
+		foreach ($results as $key => $val) {
+			$lk = self::extractLibraryKeyFromCacheKey($key);
+			$response[$lk] = $val;
+		}
+		return $response;
 	}
 	
 	
@@ -63,15 +89,17 @@ class Zotero_Cite {
 			}
 			
 			$str = parse_url($info['url']);
-			$str = parse_str($str['query']);
+			parse_str($str['query']);
 			
 			if ($mode == 'citation') {
 				$data[$setIDs[$setID]] = Zotero_Cite::processCitationResponse($response);
 			}
-			else if ($mode == "bib") {
+			else if ($mode == 'bib') {
 				$data[$setIDs[$setID]] = Zotero_Cite::processBibliographyResponse($response);
 			}
 		};
+		
+		$origURLPath = self::buildURLPath($queryParams, $mode);
 		
 		$rc = new RollingCurl($requestCallback);
 		// Number of simultaneous requests
@@ -79,29 +107,12 @@ class Zotero_Cite {
 		foreach ($sets as $key => $items) {
 			$json = self::getJSONFromItems($items);
 			
-			$server = Z_CONFIG::$CITATION_SERVERS[array_rand(Z_CONFIG::$CITATION_SERVERS)];
+			$server = "http://"
+				. Z_CONFIG::$CITATION_SERVERS[array_rand(Z_CONFIG::$CITATION_SERVERS)];
 			
-			$url = "http://$server/?responseformat=json";
-			foreach ($queryParams as $param=>$value) {
-				switch ($param) {
-				case 'style':
-					if (!is_string($value) || !preg_match('/^[a-zA-Z0-9\-]+$/', $value)) {
-						throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
-					}
-					$url .= "&" . $param . "=" . urlencode($value);
-					break;
-					
-				case 'linkwrap':
-					$url .= "&" . $param . "=" . ($value ? "1" : "0");
-					break;
-				}
-			}
-			if ($mode == 'citation') {
-				$url .= "&citations=1&bibliography=0";
-			}
 			// Include array position in URL so that the callback can figure
 			// out what request this was
-			$url .= "&setID=" . $key;
+			$url = $server . $origURLPath . "&setID=" . $key;
 			// TODO: support multiple items per set, if necessary
 			if (!($items instanceof Zotero_Item)) {
 				throw new Exception("items is not a Zotero_Item");
@@ -348,30 +359,50 @@ class Zotero_Cite {
 	}
 	
 	
-	private static function makeRequest($queryParams, $mode, $json) {
+	private static function getCacheKey($mode, $item, array $queryParams) {
+		$lk = $item->libraryID . "/" . $item->key;
+		return $mode . "_" . $lk . "_"
+				. md5($item->etag . json_encode($queryParams))
+				. "_" . Z_CONFIG::$CACHE_VERSION_BIB;
+	}
+	
+	
+	private static function extractLibraryKeyFromCacheKey($cacheKey) {
+		preg_match('"[^_]+_([^_]+)_"', $cacheKey, $matches);
+		return $matches[1];
+	}
+	
+	
+	private static function buildURLPath(array $queryParams, $mode) {
+		$url = "/?responseformat=json";
+		foreach ($queryParams as $param => $value) {
+			switch ($param) {
+			case 'style':
+				if (!is_string($value) || !preg_match('/^[a-zA-Z0-9\-]+$/', $value)) {
+					throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+				}
+				$url .= "&" . $param . "=" . urlencode($value);
+				break;
+				
+			case 'linkwrap':
+				$url .= "&" . $param . "=" . ($value ? "1" : "0");
+				break;
+			}
+		}
+		if ($mode == 'citation') {
+			$url .= "&citations=1&bibliography=0";
+		}
+		return $url;
+	}
+	
+	
+	private static function makeRequest(array $queryParams, $mode, $json) {
 		$servers = Z_CONFIG::$CITATION_SERVERS;
 		// Try servers in a random order
 		shuffle($servers);
 		
 		foreach ($servers as $server) {
-			$url = "http://$server/?responseformat=json";
-			foreach ($queryParams as $param=>$value) {
-				switch ($param) {
-				case 'style':
-					if (!is_string($value) || !preg_match('/^[a-zA-Z0-9\-]+$/', $value)) {
-						throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
-					}
-					$url .= "&" . $param . "=" . urlencode($value);
-					break;
-					
-				case 'linkwrap':
-					$url .= "&" . $param . "=" . ($value ? "1" : "0");
-					break;
-				}
-			}
-			if ($mode == 'citation') {
-				$url .= "&citations=1&bibliography=0";
-			}
+			$url = "http://" . $server . self::buildURLPath($queryParams, $mode);
 			
 			$start = microtime(true);
 			
