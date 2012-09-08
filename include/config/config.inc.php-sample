@@ -23,6 +23,7 @@ class Z_CONFIG {
 	public static $AWS_ACCESS_KEY = '';
 	public static $AWS_SECRET_KEY = '';
 	public static $S3_BUCKET = '';
+	public static $S3_BUCKET_CACHE = '';
 	
 	public static $MEMCACHED_ENABLED = true;
 	public static $MEMCACHED_SERVERS = array(
