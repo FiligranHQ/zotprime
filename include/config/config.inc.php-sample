@@ -73,5 +73,7 @@ class Z_CONFIG {
 	
 	public static $SYNC_ERROR_PATH = '/var/log/httpd/sync-errors/';
 	public static $API_ERROR_PATH = '/var/log/httpd/api-errors/';
+	
+	public static $CACHE_VERSION_BIB = 1;
 }
 ?>

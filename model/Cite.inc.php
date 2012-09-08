@@ -363,7 +363,9 @@ class Zotero_Cite {
 		$lk = $item->libraryID . "/" . $item->key;
 		return $mode . "_" . $lk . "_"
 				. md5($item->etag . json_encode($queryParams))
-				. "_" . Z_CONFIG::$CACHE_VERSION_BIB;
+				. (isset(Z_CONFIG::$CACHE_VERSION_BIB)
+					? "_" . Z_CONFIG::$CACHE_VERSION_BIB
+					: "");
 	}
 	
 	
