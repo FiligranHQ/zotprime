@@ -133,7 +133,7 @@ class Zotero_Cite {
 		}
 		$rc->execute();
 		
-		error_log(sizeOf($sets) . " $mode requests in " . round(microtime(true) - $t, 3));
+		//error_log(sizeOf($sets) . " $mode requests in " . round(microtime(true) - $t, 3));
 		
 		return $data;
 	}
@@ -417,7 +417,8 @@ class Zotero_Cite {
 			$response = curl_exec($ch);
 			
 			$time = microtime(true) - $start;
-			error_log("Bib request took " . round($time, 3));
+			//error_log("Bib request took " . round($time, 3));
+			StatsD::timing("api.cite.$mode", $time * 1000);
 			
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			
