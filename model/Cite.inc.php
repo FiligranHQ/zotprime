@@ -64,6 +64,12 @@ class Zotero_Cite {
 			$lk = self::extractLibraryKeyFromCacheKey($key);
 			$response[$lk] = $val;
 		}
+		
+		$hits = sizeOf($results);
+		$misses = sizeOf($items) - $hits;
+		StatsD::updateStats("memcached.cite.$mode.hits", $hits);
+		StatsD::updateStats("memcached.cite.$mode.misses", $misses);
+		
 		return $response;
 	}
 	
