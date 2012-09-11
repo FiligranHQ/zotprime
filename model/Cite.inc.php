@@ -367,8 +367,18 @@ class Zotero_Cite {
 	
 	private static function getCacheKey($mode, $item, array $queryParams) {
 		$lk = $item->libraryID . "/" . $item->key;
+		
+		// Any query parameters that have an effect on the output
+		// need to be added here
+		$allowedParams = array(
+			'style',
+			'css',
+			'linkwrap'
+		);
+		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
+		
 		return $mode . "_" . $lk . "_"
-				. md5($item->etag . json_encode($queryParams))
+				. md5($item->etag . json_encode($cachedParams))
 				. (isset(Z_CONFIG::$CACHE_VERSION_BIB)
 					? "_" . Z_CONFIG::$CACHE_VERSION_BIB
 					: "");

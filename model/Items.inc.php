@@ -856,10 +856,22 @@ class Zotero_Items extends Zotero_DataObjects {
 		$canAccessFiles = $permissions->canAccess($item->libraryID, 'files');
 		$canAccessNotes = $permissions->canAccess($item->libraryID, 'notes');
 		
+		// Any query parameters that have an effect on the output
+		// need to be added here
+		$allowedParams = array(
+			'version',
+			'content',
+			'pprint',
+			'style',
+			'css',
+			'linkwrap'
+		);
+		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
+		
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
 			. md5(
 				$item->etag
-				. json_encode($queryParams)
+				. json_encode($cachedParams)
 				. 'files' . (int) $canAccessFiles
 				. 'notes' . (int) $canAccessNotes
 			)

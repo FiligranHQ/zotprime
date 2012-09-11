@@ -40,5 +40,13 @@ class Z_Array {
 	public static function array_remove_empty($array){
 		return array_filter($array, create_function('$val', 'return $val===0 || $val==="0" || !empty($val);'));
 	}
+	
+	
+	public static function filterKeys($array, $keysToKeep) {
+		return array_intersect_key(
+			$array,
+			array_flip($keysToKeep)
+		);
+	}
 }
 ?>
