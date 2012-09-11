@@ -79,7 +79,7 @@ class API {
 	 * and return the response
 	 */
 	public static function postItem($json) {
-		return API::postItem(array($json));
+		return API::postItems(array($json));
 	}
 	
 	
