@@ -841,11 +841,45 @@ class Zotero_Items extends Zotero_DataObjects {
 	/**
 	 * Converts a Zotero_Item object to a SimpleXMLElement Atom object
 	 *
+	 * Note: Increment Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY when changing
+	 * the response.
+	 *
 	 * @param	object				$item		Zotero_Item object
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $permissions=null, $sharedData=null) {
+	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $permissions, $sharedData=null) {
+		$t = microtime(true);
+		
+		$parent = $item->getSource();
+		$isRegularItem = !$parent && $item->isRegularItem();
+		$canAccessFiles = $permissions->canAccess($item->libraryID, 'files');
+		$canAccessNotes = $permissions->canAccess($item->libraryID, 'notes');
+		
+		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
+			. md5(
+				$item->etag
+				. json_encode($queryParams)
+				. 'files' . (int) $canAccessFiles
+				. 'notes' . (int) $canAccessNotes
+			)
+			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
+				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
+				: "");
+		
+		if ($xmlstr = Z_Core::$MC->get($cacheKey)) {
+			/*
+			try {
+				$xml = new SimpleXMLElement($xmlstr);
+				StatsD::timing("api.items.itemToAtom.cached", (microtime(true) - $t) * 1000);
+				return $xml;
+			}
+			catch (Exception $e) {
+				error_log("WARNING: " . $e);
+			}
+			*/
+		}
+		
 		$apiVersion = $queryParams['version'];
 		$content = $queryParams['content'];
 		$contentIsHTML = sizeOf($content) == 1 && $content[0] == 'html';
@@ -893,7 +927,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		$link['href'] = $href;
 		
-		$parent = $item->getSource();
 		if ($parent) {
 			// TODO: handle group items?
 			$parentItem = Zotero_Items::get($item->libraryID, $parent);
@@ -913,7 +946,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$link['href'] = Zotero_URI::getItemURI($item);
 		
 		// If appropriate permissions and the file is stored in ZFS, get file request link
-		if ($permissions && $permissions->canAccess($item->libraryID, 'files')) {
+		if ($canAccessFiles) {
 			$details = Zotero_S3::getDownloadDetails($item);
 			if ($details) {
 				$link = $xml->addChild('link');
@@ -938,7 +971,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			Zotero_ItemTypes::getName($item->itemTypeID),
 			Zotero_Atom::$nsZoteroAPI
 		);
-		if ($item->isRegularItem()) {
+		if ($isRegularItem) {
 			$val = $item->creatorSummary;
 			if ($val !== '') {
 				$xml->addChild(
@@ -956,13 +989,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					Zotero_Atom::$nsZoteroAPI
 				);
 			}
-		}
-		if (!$parent && $item->isRegularItem()) {
-			if ($permissions && !$permissions->canAccess($item->libraryID, 'notes')) {
-				$numChildren = $item->numAttachments();
+			
+			if ($canAccessNotes) {
+				$numChildren = $item->numChildren();
 			}
 			else {
-				$numChildren = $item->numChildren();
+				$numChildren = $item->numAttachments();
 			}
 			
 			$xml->addChild(
@@ -1108,6 +1140,21 @@ class Zotero_Items extends Zotero_DataObjects {
 					$target->appendChild($textNode);
 				}
 			}
+		}
+		
+		// TEMP
+		if ($xmlstr) {
+			$uncached = $xml->saveXML();
+			if ($xmlstr != $uncached) {
+				error_log("Cached Atom item entry does not match");
+				error_log("Uncached: " . $xmlstr);
+				error_log("Cached: " . $uncached);
+			}
+		}
+		else {
+			$xmlstr = $xml->saveXML();
+			Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
+			StatsD::timing("api.items.itemToAtom.uncached", (microtime(true) - $t) * 1000);
 		}
 		
 		return $xml;
