@@ -42,7 +42,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testNewEmptyBookItem() {
-		$xml = API::createItem("book", $this);
+		$xml = API::createItem("book", false, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromItemEntry($xml);

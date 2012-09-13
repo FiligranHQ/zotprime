@@ -29,15 +29,15 @@ require_once 'include/api.inc.php';
 
 class TagTests extends APITests {
 	public static function setUpBeforeClass() {
+		parent::setUpBeforeClass();
 		require 'include/config.inc.php';
 		API::userClear($config['userID']);
-		API::groupClear($config['ownedPrivateGroupID']);
 	}
 	
 	public static function tearDownAfterClass() {
+		parent::tearDownAfterClass();
 		require 'include/config.inc.php';
 		API::userClear($config['userID']);
-		API::groupClear($config['ownedPrivateGroupID']);
 	}
 	
 	
@@ -50,5 +50,30 @@ class TagTests extends APITests {
 		
 		$response = API::postItem($json);
 		$this->assert400($response);
+	}
+	
+	
+	public function testTagItemModTime() {
+		$xml = API::createItem("book", false, $this);
+		$t = time();
+		$data = API::parseDataFromItemEntry($xml);
+		$etag = $data['etag'];
+		
+		$json = json_decode($data['content']);
+		$json->tags[] = array(
+			"tag" => "Test"
+		);
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: " . $etag
+			)
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$this->assertNotEquals($etag, (string) $data['etag']);
 	}
 }

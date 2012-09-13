@@ -82,6 +82,37 @@ class Sync {
 	}
 	
 	
+	public static function waitForUpload($sessionID, $response, $context) {
+		$xml = Sync::getXMLFromResponse($response);
+		
+		if (isset($xml->uploaded)) {
+			return $xml;
+		}
+		
+		$context->assertTrue(isset($xml->queued));
+		
+		$max = 5;
+		do {
+			$wait = (int) $xml->queued['wait'];
+			sleep($wait / 1000);
+			
+			$response = Sync::uploadStatus($sessionID);
+			$xml = Sync::getXMLFromResponse($response);
+			
+			$max--;
+		}
+		while (isset($xml->queued) && $max > 0);
+		
+		if (!$max) {
+			$context->fail("Upload did not finish after $max attempts");
+		}
+		
+		$context->assertTrue(isset($xml->uploaded));
+		
+		return $xml;
+	}
+	
+	
 	public static function logout($sessionID) {
 		self::loadConfig();
 		
