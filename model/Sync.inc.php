@@ -1629,6 +1629,7 @@ class Zotero_Sync {
 				// DOM
 				$xmlElements = dom_import_simplexml($xml->tags);
 				$xmlElements = $xmlElements->getElementsByTagName('tag');
+				$modifiedItems = array();
 				foreach ($xmlElements as $xmlElement) {
 					$key = $xmlElement->getAttribute('key');
 					if (isset($keys[$key])) {
@@ -1637,10 +1638,26 @@ class Zotero_Sync {
 					$keys[$key] = true;
 					
 					$tagObj = Zotero_Tags::convertXMLToTag($xmlElement);
+					
+					$modifiedItems = array_merge(
+						$modifiedItems, $tagObj->getLinkedItems()
+					);
+					
 					$tagObj->save(true);
 				}
 				unset($keys);
 				unset($xml->tags);
+				
+				// Update versions of affected items, since adding items
+				// to a Zotero_Tag doesn't do it automatically
+				$done = array();
+				foreach ($modifiedItems as $item) {
+					if (isset($done[$item->libraryID . "/" . $item->key])) {
+						continue;
+					}
+					$item->updateVersion();
+					$done[$item->libraryID . "/" . $item->key] = true;
+				}
 			}
 			
 			// Add/update relations

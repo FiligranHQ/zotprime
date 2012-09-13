@@ -106,7 +106,8 @@ class Zotero_Item {
 		$props = array(
 			'deleted',
 			'note',
-			'source'
+			'source',
+			'version' // for updating version/serverDateModified without changing data
 		);
 		foreach ($props as $prop) {
 			$this->changed[$prop] = false;
@@ -1991,6 +1992,15 @@ class Zotero_Item {
 	}
 	
 	
+	/**
+	 * Update the item's version without changing any data
+	 */
+	public function updateVersion() {
+		$this->changed['version'] = true;
+		$this->save();
+	}
+	
+	
 	/*
 	 * Returns the number of creators for this item
 	 */
@@ -2909,6 +2919,8 @@ class Zotero_Item {
 			$tag->removeItem($this->id);
 			$tag->save();
 		}
+		
+		$this->updateVersion();
 		
 		Zotero_DB::commit();
 		
