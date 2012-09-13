@@ -855,6 +855,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$isRegularItem = !$parent && $item->isRegularItem();
 		$canAccessFiles = $permissions->canAccess($item->libraryID, 'files');
 		$canAccessNotes = $permissions->canAccess($item->libraryID, 'notes');
+		$etag = $item->etag;
 		
 		// Any query parameters that have an effect on the output
 		// need to be added here
@@ -870,7 +871,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
 			. md5(
-				$item->etag
+				$etag
 				. json_encode($cachedParams)
 				. 'files' . (int) $canAccessFiles
 				. 'notes' . (int) $canAccessNotes
@@ -1113,7 +1114,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				$target->setAttributeNS(
 					Zotero_Atom::$nsZoteroAPI,
 					"zapi:etag",
-					$item->etag
+					$etag
 				);
 				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams['pprint'], true));
 				$target->appendChild($textNode);
@@ -1268,7 +1269,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			Zotero_DB::registerTransactionTimestamp($timestamp);
 		}
 		
-		$forceChange = false;
 		$twoStage = false;
 		
 		// Set itemType first
@@ -1377,9 +1377,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					}
 					
-					if ($item->setTags($val)) {
-						$forceChange = true;
-					}
+					$item->setTags($val);
 					break;
 				
 				case 'attachments':
@@ -1426,10 +1424,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$item->deleted = !empty($json->deleted);
 		
-		// For changes that don't register as changes internally, force a dateModified update
-		if ($forceChange) {
-			$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
-		}
 		$item->save($userID);
 		
 		// Additional steps that have to be performed on a saved object
@@ -1464,17 +1458,11 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					
 					case 'tags':
-						if ($item->setTags($val)) {
-							$forceChange = true;
-						}
+						$item->setTags($val);
 						break;
 				}
 			}
 			
-			// For changes that don't register as changes internally, force a dateModified update
-			if ($forceChange) {
-				$item->setField('dateModified', Zotero_DB::getTransactionTimestamp());
-			}
 			$item->save($userID);
 		}
 		
