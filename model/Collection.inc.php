@@ -374,9 +374,11 @@ class Zotero_Collection {
 		
 		$this->childItems = array_values(array_unique($itemIDs));
 		
-		$sql = "UPDATE collections SET dateModified=?, serverDateModified=? WHERE collectionID=?";
+		$sql = "UPDATE collections SET serverDateModified=? WHERE collectionID=?";
+		//$sql = "UPDATE collections SET dateModified=?, serverDateModified=? WHERE collectionID=?
 		$ts = Zotero_DB::getTransactionTimestamp();
-		Zotero_DB::query($sql, array($ts, $ts, $this->id), $shardID);
+		Zotero_DB::query($sql, array($ts, $this->id), $shardID);
+		//Zotero_DB::query($sql, array($ts, $ts, $this->id), $shardID);
 		
 		Zotero_DB::commit();
 	}

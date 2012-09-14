@@ -1487,26 +1487,27 @@ class Zotero_Sync {
 			}
 			
 			// Add/update items
+			$savedItems = array();
 			if ($xml->items) {
 				$childItems = array();
 				$relatedItemsStore = array();
 				
 				// DOM
-				$keys = array();
 				$xmlElements = dom_import_simplexml($xml->items);
 				$xmlElements = $xmlElements->getElementsByTagName('item');
 				foreach ($xmlElements as $xmlElement) {
+					$libraryID = (int) $xmlElement->getAttribute('libraryID');
 					$key = $xmlElement->getAttribute('key');
-					if (isset($keys[$key])) {
-						throw new Exception("Item $key already processed");
+					if (isset($savedItems[$libraryID . "/" . $key])) {
+						throw new Exception("Item $libraryID/$key already processed");
 					}
-					$keys[$key] = true;
+					$savedItems[$libraryID . "/" . $key] = true;
 					
 					$missing = Zotero_Items::removeMissingRelatedItems($xmlElement);
 					$itemObj = Zotero_Items::convertXMLToItem($xmlElement);
 					
 					if ($missing) {
-						$relatedItemsStore[$itemObj->libraryID . '_' . $itemObj->key] = $missing;
+						$relatedItemsStore[$libraryID . '_' . $key] = $missing;
 					}
 					
 					if (!$itemObj->getSourceKey()) {
@@ -1515,7 +1516,7 @@ class Zotero_Sync {
 						}
 						catch (Exception $e) {
 							if (strpos($e->getMessage(), 'libraryIDs_do_not_match') !== false) {
-								throw new Exception($e->getMessage() . " (" . $itemObj->key . ")");
+								throw new Exception($e->getMessage() . " ($key)");
 							}
 							throw ($e);
 						}
@@ -1524,7 +1525,6 @@ class Zotero_Sync {
 						$childItems[] = $itemObj;
 					}
 				}
-				unset($keys);
 				unset($xml->items);
 				
 				while ($childItem = array_shift($childItems)) {
@@ -1648,11 +1648,13 @@ class Zotero_Sync {
 				unset($keys);
 				unset($xml->tags);
 				
-				// Update versions of affected items, since adding items
-				// to a Zotero_Tag doesn't do it automatically
+				// Update versions of affected items not already updated in
+				// this sync process, since adding items to a Zotero_Tag
+				// doesn't do it automatically
 				$done = array();
 				foreach ($modifiedItems as $item) {
-					if (isset($done[$item->libraryID . "/" . $item->key])) {
+					$lk = $item->libraryID . "/" . $item->key;
+					if (isset($done[$lk]) || isset($savedItems[$lk])) {
 						continue;
 					}
 					$item->updateVersion();
@@ -1675,6 +1677,8 @@ class Zotero_Sync {
 				unset($keys);
 				unset($xml->relations);
 			}
+			
+			unset($savedItems);
 			
 			// TODO: loop
 			if ($xml->deleted) {
