@@ -53,6 +53,9 @@ class TagTests extends APITests {
 	}
 	
 	
+	/**
+	 * Adding a tag to an item should update the item's ETag
+	 */
 	public function testTagItemModTime() {
 		$xml = API::createItem("book", false, $this);
 		$t = time();

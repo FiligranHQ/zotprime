@@ -188,6 +188,41 @@ class API {
 	}
 	
 	
+	public function createNoteItem($text="", $parentKey=false, $context=false) {
+		self::loadConfig();
+		
+		$response = API::get("items/new?itemType=note");
+		$json = json_decode($response->getBody());
+		$json->note = $text;
+		
+		if ($parentKey) {
+			$url = "items/$parentKey/children";
+		}
+		else {
+			$url = "items";
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			$url . "?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert201($response);
+		}
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		if ($context) {
+			$json = json_decode($data['content']);
+			$context->assertEquals($text, $json->note);
+		}
+		return $xml;
+	}
+	
+	
 	//
 	// HTTP methods
 	//
@@ -306,7 +341,13 @@ class API {
 	}
 	
 	public static function getXMLFromResponse($response) {
-		$xml = new SimpleXMLElement($response->getBody());
+		try {
+			$xml = new SimpleXMLElement($response->getBody());
+		}
+		catch (Exception $e) {
+			var_dump($response->getBody());
+			throw $e;
+		}
 		$xml->registerXPathNamespace('atom', 'http://www.w3.org/2005/Atom');
 		$xml->registerXPathNamespace('zapi', 'http://zotero.org/ns/api');
 		return $xml;

@@ -513,4 +513,30 @@ class ItemTests extends APITests {
 			$this->assertEquals("Cannot change '$prop' directly in group library", $response->getBody());
 		}
 	}
+	
+	
+	public function testNumChildren() {
+		$xml = API::createItem("book", false, $this);
+		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+		$data = API::parseDataFromItemEntry($xml);
+		$key = $data['key'];
+		
+		API::createAttachmentItem("linked_url", $key, $this);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+		
+		API::createNoteItem("Test", $key, $this);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+	}
 }
