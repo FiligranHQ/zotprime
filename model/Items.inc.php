@@ -856,10 +856,13 @@ class Zotero_Items extends Zotero_DataObjects {
 		$etag = $item->etag;
 		$parent = $item->getSource();
 		$isRegularItem = !$parent && $item->isRegularItem();
-		$canAccessFiles = $permissions->canAccess($item->libraryID, 'files');
-		$canAccessNotes = $permissions->canAccess($item->libraryID, 'notes');
+		$downloadDetails = $permissions->canAccess($item->libraryID, 'files')
+								? Zotero_S3::getDownloadDetails($item)
+								: false;
 		if ($isRegularItem) {
-			$numChildren = $canAccessNotes ? $item->numChildren() : $item->numAttachments();
+			$numChildren = $permissions->canAccess($item->libraryID, 'notes')
+								? $item->numChildren()
+								: $item->numAttachments();
 		}
 		// <id> changes based on group visibility, for now
 		$id = Zotero_URI::getItemURI($item);
@@ -884,7 +887,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			. md5(
 				$etag
 				. json_encode($cachedParams)
-				. 'files' . (int) $canAccessFiles
+				. ($downloadDetails ? 'hasFile' : '')
 				. ($libraryType == 'group' ? 'id' . $id : '')
 			)
 			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
@@ -971,22 +974,20 @@ class Zotero_Items extends Zotero_DataObjects {
 		$link['href'] = Zotero_URI::getItemURI($item);
 		
 		// If appropriate permissions and the file is stored in ZFS, get file request link
-		if ($canAccessFiles) {
-			$details = Zotero_S3::getDownloadDetails($item);
-			if ($details) {
-				$link = $xml->addChild('link');
-				$link['rel'] = 'enclosure';
-				$type = $item->attachmentMIMEType;
-				if ($type) {
-					$link['type'] = $type;
-				}
-				$link['href'] = $details['url'];
-				if (!empty($details['filename'])) {
-					$link['title'] = $details['filename'];
-				}
-				if (!empty($details['size'])) {
-					$link['length'] = $details['size'];
-				}
+		if ($downloadDetails) {
+			$details = $downloadDetails;
+			$link = $xml->addChild('link');
+			$link['rel'] = 'enclosure';
+			$type = $item->attachmentMIMEType;
+			if ($type) {
+				$link['type'] = $type;
+			}
+			$link['href'] = $details['url'];
+			if (!empty($details['filename'])) {
+				$link['title'] = $details['filename'];
+			}
+			if (!empty($details['size'])) {
+				$link['length'] = $details['size'];
 			}
 		}
 		
