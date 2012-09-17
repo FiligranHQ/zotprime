@@ -409,7 +409,8 @@ class Zotero_Items extends Zotero_DataObjects {
 						$orderSQL = "TCBU.username";
 					}
 					else {
-						$orderSQL = "1";
+						$orderSQL = "I.dateAdded";
+						$params['sort'] = 'desc';
 					}
 					break;
 				
