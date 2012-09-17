@@ -236,8 +236,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 	 * @return	Zotero_Tag						Zotero tag object
 	 */
 	public static function convertXMLToTag(DOMElement $xml, $tag=false) {
+		$libraryID = (int) $xml->getAttribute('libraryID');
 		if (!$tag) {
-			$libraryID = (int) $xml->getAttribute('libraryID');
 			$tag = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
 			if (!$tag) {
 				$tag = new Zotero_Tag;
