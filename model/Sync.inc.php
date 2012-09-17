@@ -1631,14 +1631,27 @@ class Zotero_Sync {
 				$xmlElements = $xmlElements->getElementsByTagName('tag');
 				$modifiedItems = array();
 				foreach ($xmlElements as $xmlElement) {
+					$libraryID = (int) $xmlElement->getAttribute('libraryID');
 					$key = $xmlElement->getAttribute('key');
-					if (isset($keys[$key])) {
-						throw new Exception("Tag $key already processed");
+					
+					$lk = $libraryID . "/" . $key;
+					if (isset($keys[$lk])) {
+						throw new Exception("Tag $lk already processed");
 					}
-					$keys[$key] = true;
+					$keys[$lk] = true;
 					
-					$tagObj = Zotero_Tags::convertXMLToTag($xmlElement);
+					// Get the items that were on the tag before it was
+					// modified, since they need to be updated
+					$tagObj = Zotero_Tags::getByLibraryAndKey($libraryID, $key);
+					if ($tagObj) {
+						$modifiedItems = array_merge(
+							$modifiedItems, $tagObj->getLinkedItems()
+						);
+					}
 					
+					$tagObj = Zotero_Tags::convertXMLToTag($xmlElement, $tagObj);
+					
+					// And get all the new items
 					$modifiedItems = array_merge(
 						$modifiedItems, $tagObj->getLinkedItems()
 					);
@@ -1649,8 +1662,8 @@ class Zotero_Sync {
 				unset($xml->tags);
 				
 				// Update versions of affected items not already updated in
-				// this sync process, since adding items to a Zotero_Tag
-				// doesn't do it automatically
+				// this sync process, since adding items to (or removing
+				// tags from) a Zotero_Tag doesn't do it automatically
 				$done = array();
 				foreach ($modifiedItems as $item) {
 					$lk = $item->libraryID . "/" . $item->key;
