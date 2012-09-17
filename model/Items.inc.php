@@ -941,7 +941,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$xml->id = $id;
 		
 		$xml->published = Zotero_Date::sqlToISO8601($item->dateAdded);
-		$xml->updated = Zotero_Date::sqlToISO8601($item->serverDateModified);
+		$xml->updated = Zotero_Date::sqlToISO8601($item->dateModified);
 		
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
