@@ -851,11 +851,15 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static function convertItemToAtom(Zotero_Item $item, $queryParams, $permissions, $sharedData=null) {
 		$t = microtime(true);
 		
+		// Uncached stuff or parts of the cache key
+		$etag = $item->etag;
 		$parent = $item->getSource();
 		$isRegularItem = !$parent && $item->isRegularItem();
 		$canAccessFiles = $permissions->canAccess($item->libraryID, 'files');
 		$canAccessNotes = $permissions->canAccess($item->libraryID, 'notes');
-		$etag = $item->etag;
+		if ($isRegularItem) {
+			$numChildren = $canAccessNotes ? $item->numChildren() : $item->numAttachments();
+		}
 		
 		// Any query parameters that have an effect on the output
 		// need to be added here
@@ -874,7 +878,6 @@ class Zotero_Items extends Zotero_DataObjects {
 				$etag
 				. json_encode($cachedParams)
 				. 'files' . (int) $canAccessFiles
-				. 'notes' . (int) $canAccessNotes
 			)
 			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
 				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
@@ -884,6 +887,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			/*
 			try {
 				$xml = new SimpleXMLElement($xmlstr);
+				// Make sure numChildren reflects the current permissions
+				if ($isRegularItem) {
+					$zapi = $xml->children('http://zotero.org/ns/api');
+					$zapi->numChildren = $numChildren;
+				}
 				StatsD::timing("api.items.itemToAtom.cached", (microtime(true) - $t) * 1000);
 				return $xml;
 			}
@@ -1001,13 +1009,6 @@ class Zotero_Items extends Zotero_DataObjects {
 					$val,
 					Zotero_Atom::$nsZoteroAPI
 				);
-			}
-			
-			if ($canAccessNotes) {
-				$numChildren = $item->numChildren();
-			}
-			else {
-				$numChildren = $item->numAttachments();
 			}
 			
 			$xml->addChild(
