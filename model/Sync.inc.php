@@ -1498,21 +1498,23 @@ class Zotero_Sync {
 				foreach ($xmlElements as $xmlElement) {
 					$libraryID = (int) $xmlElement->getAttribute('libraryID');
 					$key = $xmlElement->getAttribute('key');
+					
 					if (isset($savedItems[$libraryID . "/" . $key])) {
 						throw new Exception("Item $libraryID/$key already processed");
 					}
-					$savedItems[$libraryID . "/" . $key] = true;
 					
 					$missing = Zotero_Items::removeMissingRelatedItems($xmlElement);
 					$itemObj = Zotero_Items::convertXMLToItem($xmlElement);
-					
 					if ($missing) {
 						$relatedItemsStore[$libraryID . '_' . $key] = $missing;
 					}
 					
 					if (!$itemObj->getSourceKey()) {
 						try {
-							$itemObj->save($userID);
+							$modified = $itemObj->save($userID);
+							if ($modified) {
+								$savedItems[$libraryID . "/" . $key] = true;
+							}
 						}
 						catch (Exception $e) {
 							if (strpos($e->getMessage(), 'libraryIDs_do_not_match') !== false) {
@@ -1528,7 +1530,16 @@ class Zotero_Sync {
 				unset($xml->items);
 				
 				while ($childItem = array_shift($childItems)) {
-					$childItem->save($userID);
+					$libraryID = $childItem->libraryID;
+					$key = $childItem->key;
+					if (isset($savedItems[$libraryID . "/" . $key])) {
+						throw new Exception("Item $libraryID/$key already processed");
+					}
+					
+					$modified = $childItem->save($userID);
+					if ($modified) {
+						$savedItems[$libraryID . "/" . $key] = true;
+					}
 				}
 				
 				// Add back related items (which now exist)
