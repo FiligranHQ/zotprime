@@ -53,10 +53,7 @@ class TagTests extends APITests {
 	}
 	
 	
-	/**
-	 * Adding a tag to an item should update the item's ETag
-	 */
-	public function testTagItemModTime() {
+	public function testTagAddItemETag() {
 		$xml = API::createItem("book", false, $this);
 		$t = time();
 		$data = API::parseDataFromItemEntry($xml);
@@ -76,7 +73,33 @@ class TagTests extends APITests {
 			)
 		);
 		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$data = API::parseDataFromItemEntry($xml);
 		$this->assertNotEquals($etag, (string) $data['etag']);
+		
+		return $data;
+	}
+	
+	
+	/**
+	 * @depends testTagAddItemETag
+	 */
+	public function testTagRemoveItemETag($data) {
+		$originalETag = $data['etag'];
+		$json = json_decode($data['content']);
+		$json->tags = array();
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: " . $data['etag']
+			)
+		);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
+		$data = API::parseDataFromItemEntry($xml);
+		$this->assertNotEquals($originalETag, (string) $data['etag']);
 	}
 }
