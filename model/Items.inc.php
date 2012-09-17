@@ -860,6 +860,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($isRegularItem) {
 			$numChildren = $canAccessNotes ? $item->numChildren() : $item->numAttachments();
 		}
+		// <id> changes based on group visibility, for now
+		$id = Zotero_URI::getItemURI($item);
+		/*if (!$contentIsHTML) {
+			$id .= "?content=$content";
+		}*/
+		$libraryType = Zotero_Libraries::getType($item->libraryID);
 		
 		// Any query parameters that have an effect on the output
 		// need to be added here
@@ -878,6 +884,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				$etag
 				. json_encode($cachedParams)
 				. 'files' . (int) $canAccessFiles
+				. ($libraryType == 'group' ? 'id' . $id : '')
 			)
 			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
 				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
@@ -930,10 +937,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			$author->uri = Zotero_URI::getLibraryURI($item->libraryID);
 		}
 		
-		$id = Zotero_URI::getItemURI($item);
-		/*if (!$contentIsHTML) {
-			$id .= "?content=$content";
-		}*/
 		$xml->id = $id;
 		
 		$xml->published = Zotero_Date::sqlToISO8601($item->dateAdded);
