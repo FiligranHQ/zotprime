@@ -1675,14 +1675,13 @@ class Zotero_Sync {
 				// Update versions of affected items not already updated in
 				// this sync process, since adding items to (or removing
 				// tags from) a Zotero_Tag doesn't do it automatically
-				$done = array();
 				foreach ($modifiedItems as $item) {
 					$lk = $item->libraryID . "/" . $item->key;
-					if (isset($done[$lk]) || isset($savedItems[$lk])) {
+					if (isset($savedItems[$lk])) {
 						continue;
 					}
 					$item->updateVersion();
-					$done[$item->libraryID . "/" . $item->key] = true;
+					$savedItems[$lk] = true;
 				}
 			}
 			
@@ -1728,10 +1727,40 @@ class Zotero_Sync {
 				
 				// Delete tags
 				if ($xml->deleted->tags) {
+					$modifiedItems = array();
+					$xmlElements = dom_import_simplexml($xml->deleted->tags);
+					$xmlElements = $xmlElements->getElementsByTagName('tag');
+					foreach ($xmlElements as $xmlElement) {
+						$libraryID = (int) $xmlElement->getAttribute('libraryID');
+						$key = $xmlElement->getAttribute('key');
+						
+						$lk = $libraryID . "/" . $key;
+						
+						$tagObj = Zotero_Tags::getByLibraryAndKey($libraryID, $key);
+						if (!$tagObj) {
+							continue;
+						}
+						$modifiedItems = array_merge(
+							$modifiedItems, $tagObj->getLinkedItems()
+						);
+					}
+					
 					Zotero_Tags::deleteFromXML($xml->deleted->tags);
+					
+					// Update versions of affected items not already updated in
+					// this sync process, since deleting a Zotero_Tag doesn't
+					// do it automatically
+					foreach ($modifiedItems as $item) {
+						$lk = $item->libraryID . "/" . $item->key;
+						if (isset($savedItems[$lk])) {
+							continue;
+						}
+						$item->updateVersion();
+						$savedItems[$lk] = true;
+					}
 				}
 				
-				// Delete tags
+				// Delete relations
 				if ($xml->deleted->relations) {
 					Zotero_Relations::deleteFromXML($xml->deleted->relations);
 				}
