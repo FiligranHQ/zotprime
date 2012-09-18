@@ -77,5 +77,6 @@ class Z_CONFIG {
 	
 	public static $CACHE_VERSION_ATOM_ENTRY = 1;
 	public static $CACHE_VERSION_BIB = 1;
+	public static $CACHE_VERSION_ITEM_DATA = 1;
 }
 ?>

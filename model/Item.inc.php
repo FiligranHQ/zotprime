@@ -3499,7 +3499,7 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$cacheKey = $this->getCacheKey("itemData");
+		$cacheKey = $this->getCacheKey("itemData", Z_CONFIG::$CACHE_VERSION_ITEM_DATA);
 		$fields = Z_Core::$MC->get($cacheKey);
 		if ($fields === false) {
 			$sql = "SELECT fieldID, value FROM itemData WHERE itemID=?";
@@ -3718,7 +3718,7 @@ class Zotero_Item {
 	}
 	
 	
-	private function getCacheKey($mode) {
+	private function getCacheKey($mode, $cacheVersion=false) {
 		if (!$this->loaded['primaryData']) {
 			$this->loadPrimaryData();
 		}
@@ -3729,7 +3729,8 @@ class Zotero_Item {
 		if (!$mode) {
 			throw new Exception('$mode not provided');
 		}
-		return $mode . "_" . $this->id . "_" . self::getETag() . "_" . Zotero_Items::$cacheVersion;
+		return $mode . "_" . $this->id . "_" . self::getETag() . "_"
+			. ($cacheVersion ? $cacheVersion : Zotero_Items::$cacheVersion);
 	}
 	
 	
