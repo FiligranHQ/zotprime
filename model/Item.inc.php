@@ -3503,7 +3503,11 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$cacheKey = $this->getCacheKey("itemData", Z_CONFIG::$CACHE_VERSION_ITEM_DATA);
+		$cacheKey = $this->getCacheKey("itemData",
+			isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
+				? Z_CONFIG::$CACHE_VERSION_ITEM_DATA
+				: false
+		);
 		$fields = Z_Core::$MC->get($cacheKey);
 		if ($fields === false) {
 			$sql = "SELECT fieldID, value FROM itemData WHERE itemID=?";
