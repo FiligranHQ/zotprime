@@ -64,7 +64,7 @@ class Sync {
 	}
 	
 	
-	public static function upload($sessionID, $updateKey, $data) {
+	public static function upload($sessionID, $updateKey, $data, $allowError=false) {
 		return self::req(
 			$sessionID,
 			"upload",
@@ -72,17 +72,18 @@ class Sync {
 				"updateKey" => $updateKey,
 				"data" => $data,
 			),
-			true
+			true,
+			$allowError
 		);
 	}
 	
 	
-	public static function uploadstatus($sessionID) {
-		return self::req($sessionID, "uploadstatus");
+	public static function uploadstatus($sessionID, $allowError=false) {
+		return self::req($sessionID, "uploadstatus", false, false, true);
 	}
 	
 	
-	public static function waitForUpload($sessionID, $response, $context) {
+	public static function waitForUpload($sessionID, $response, $context, $allowError=false) {
 		$xml = Sync::getXMLFromResponse($response);
 		
 		if (isset($xml->uploaded)) {
@@ -96,7 +97,7 @@ class Sync {
 			$wait = (int) $xml->queued['wait'];
 			sleep($wait / 1000);
 			
-			$response = Sync::uploadStatus($sessionID);
+			$response = Sync::uploadStatus($sessionID, $allowError);
 			$xml = Sync::getXMLFromResponse($response);
 			
 			$max--;
@@ -107,7 +108,9 @@ class Sync {
 			$context->fail("Upload did not finish after $max attempts");
 		}
 		
-		$context->assertTrue(isset($xml->uploaded));
+		if (!$allowError) {
+			$context->assertTrue(isset($xml->uploaded));
+		}
 		
 		return $xml;
 	}
@@ -132,7 +135,7 @@ class Sync {
 	}
 	
 	
-	public static function checkResponse($response) {
+	public static function checkResponse($response, $allowError=false) {
 		$responseText = $response->getBody();
 		
 		if (empty($responseText)) {
@@ -151,7 +154,7 @@ class Sync {
 			throw new Exception("Invalid XML output: " . $responseText);
 		}
 		
-		if ($domdoc->firstChild->firstChild->tagName == "error") {
+		if (!$allowError && $domdoc->firstChild->firstChild->tagName == "error") {
 			if ($domdoc->firstChild->firstChild->getAttribute('code') == "INVALID_LOGIN") {
 				throw new Exception("Invalid login");
 			}
@@ -166,7 +169,7 @@ class Sync {
 	}
 	
 	
-	private static function req($sessionID, $path, $params=array(), $gzip=false) {
+	private static function req($sessionID, $path, $params=array(), $gzip=false, $allowError=false) {
 		self::loadConfig();
 		
 		$url = self::$config['syncURLPrefix'] . $path;
@@ -176,7 +179,7 @@ class Sync {
 				"sessionid" => $sessionID,
 				"version" => self::$config['apiVersion']
 			),
-			$params
+			$params ? $params : array()
 		);
 		
 		if ($gzip) {
@@ -196,7 +199,7 @@ class Sync {
 		}
 		
 		$response = HTTP::post($url, $data, $headers);
-		self::checkResponse($response);
+		self::checkResponse($response, $allowError);
 		return $response;
 	}
 	
