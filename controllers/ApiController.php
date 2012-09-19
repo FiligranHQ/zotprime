@@ -531,7 +531,7 @@ class ApiController extends Controller {
 						$item, $this->queryParams, $this->permissions
 					);
 					break;
-			
+				
 				case 'bib':
 					echo Zotero_Cite::getBibliographyFromCitationServer(array($item), $this->queryParams);
 					exit;
@@ -3005,16 +3005,23 @@ class ApiController extends Controller {
 	
 	
 	public function handleException(Exception $e) {
+		$msg = $e->getMessage();
+		if ($msg[0] == '=') {
+			$msg = substr($msg, 1);
+			$explicit = true;
+		}
+		else {
+			$explicit = false;
+		}
+		
 		switch ($e->getCode()) {
 			case Z_ERROR_INVALID_INPUT:
 			case Z_ERROR_CITESERVER_INVALID_STYLE:
-				$msg = $e->getMessage();
 				error_log($msg);
 				$this->e400(htmlspecialchars($msg));
 				break;
 			
 			case Z_ERROR_UPLOAD_TOO_LARGE:
-				$msg = $e->getMessage();
 				error_log($msg);
 				$this->e413(htmlspecialchars($msg));
 				break;
