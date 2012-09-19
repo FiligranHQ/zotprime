@@ -2430,6 +2430,10 @@ class Zotero_Item {
 			return;
 		}
 		
+		if (mb_strlen($text) > Zotero_Notes::$MAX_NOTE_LENGTH) {
+			throw new Exception("=Note '" . Zotero_Notes::noteToTitle($text) . "...' too long");
+		}
+		
 		$this->noteText = $text;
 		$this->noteTextSanitized = null;
 		$this->changed['note'] = true;
