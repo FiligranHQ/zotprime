@@ -539,4 +539,24 @@ class ItemTests extends APITests {
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
 	}
+	
+	
+	public function testDate() {
+		$date = "Sept 18, 2012";
+		
+		$xml = API::createItem("book", array(
+			"date" => $date
+		), $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$key = $data['key'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals($date, $json->date);
+	}
 }
