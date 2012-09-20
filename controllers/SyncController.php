@@ -696,42 +696,40 @@ class SyncController extends Controller {
 				Z_Core::logError($msg);
 		}
 		
-		if (true || !$explicit) {
-			if (Z_ENV_TESTING_SITE) {
-				switch ($e->getCode()) {
-					case Z_ERROR_COLLECTION_NOT_FOUND:
-					case Z_ERROR_CREATOR_NOT_FOUND:
-					case Z_ERROR_ITEM_NOT_FOUND:
-					case Z_ERROR_TAG_TOO_LONG:
-					case Z_ERROR_LIBRARY_ACCESS_DENIED:
-					case Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND:
-						break;
-					
-					default:
-						throw ($e);
-				}
+		if (!$explicit && Z_ENV_TESTING_SITE) {
+			switch ($e->getCode()) {
+				case Z_ERROR_COLLECTION_NOT_FOUND:
+				case Z_ERROR_CREATOR_NOT_FOUND:
+				case Z_ERROR_ITEM_NOT_FOUND:
+				case Z_ERROR_TAG_TOO_LONG:
+				case Z_ERROR_LIBRARY_ACCESS_DENIED:
+				case Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND:
+					break;
 				
-				$id = 'N/A';
+				default:
+					throw ($e);
 			}
-			else {
-				$id = substr(md5(uniqid(rand(), true)), 0, 8);
-				$str = date("D M j G:i:s T Y") . "\n";
-				$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
-				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-					$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
-				}
-				$str .= $e;
-				switch ($e->getCode()) {
-					// Don't log uploaded data for some errors
-					case Z_ERROR_TAG_TOO_LONG:
-						break;
-					
-					default:
-						$str .= "\n\n" . $xmldata;
-				}
-				if (!file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str)) {
-					error_log("Unable to save error report to " . Z_CONFIG::$SYNC_ERROR_PATH . $id);
-				}
+			
+			$id = 'N/A';
+		}
+		else {
+			$id = substr(md5(uniqid(rand(), true)), 0, 8);
+			$str = date("D M j G:i:s T Y") . "\n";
+			$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
+			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
+			}
+			$str .= $e;
+			switch ($e->getCode()) {
+				// Don't log uploaded data for some errors
+				case Z_ERROR_TAG_TOO_LONG:
+					break;
+				
+				default:
+					$str .= "\n\n" . $xmldata;
+			}
+			if (!file_put_contents(Z_CONFIG::$SYNC_ERROR_PATH . $id, $str)) {
+				error_log("Unable to save error report to " . Z_CONFIG::$SYNC_ERROR_PATH . $id);
 			}
 		}
 		
