@@ -894,8 +894,8 @@ class Zotero_Items extends Zotero_DataObjects {
 				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
 				: "");
 		
-		if ($xmlstr = Z_Core::$MC->get($cacheKey)) {
-			/*
+		$xmlstr = Z_Core::$MC->get($cacheKey);
+		if ($xmlstr) {
 			try {
 				$xml = new SimpleXMLElement($xmlstr);
 				// Make sure numChildren reflects the current permissions
@@ -903,13 +903,96 @@ class Zotero_Items extends Zotero_DataObjects {
 					$zapi = $xml->children('http://zotero.org/ns/api');
 					$zapi->numChildren = $numChildren;
 				}
+				
+				$doc = new DOMDocument;
+				$doc->loadXML($xmlstr);
+				$xpath = new DOMXpath($doc);
+				$xpath->registerNamespace('atom', Zotero_Atom::$nsAtom);
+				$xpath->registerNamespace('zapi', Zotero_Atom::$nsZoteroAPI);
+				$xpath->registerNamespace('xhtml', Zotero_Atom::$nsXHTML);
+				
+				// Make sure numChildren reflects the current permissions
+				if ($isRegularItem) {
+					$xpath->query('/atom:entry/zapi:numChildren')
+								->item(0)->nodeValue = $numChildren;
+				}
+				
+				// To prevent PHP from messing with namespace declarations,
+				// we have to extract, remove, and then add back <content>
+				// subelements. Otherwise the subelements become, say,
+				// <default:span xmlns="http://www.w3.org/1999/xhtml"> instead
+				// of just <span xmlns="http://www.w3.org/1999/xhtml">, and
+				// xmlns:default="http://www.w3.org/1999/xhtml" gets added to
+				// the parent <entry>. While you might reasonably think that
+				//
+				// echo $xml->saveXML();
+				//
+				// and
+				//
+				// $xml = new SimpleXMLElement($xml->saveXML());
+				// echo $xml->saveXML();
+				//
+				// would be identical, you would be wrong.
+				$contentParts = array();
+				$contentNode = $xpath->query('/atom:entry/atom:content')->item(0);
+				while ($contentNode->hasChildNodes()) {
+					$contentParts[] = $doc->saveXML($contentNode->firstChild);
+					$contentNode->removeChild($contentNode->firstChild);
+				}
+				
+				foreach ($contentParts as $part) {
+					$part = trim($part);
+					if (!$part) {
+						continue;
+					}
+					
+					// Strip the namespace and add it back via SimpleXMLElement,
+					// which keeps it from being changed later
+					if (preg_match('%^<[^>]+xmlns="http://www.w3.org/1999/xhtml"%', $part)) {
+						$part = preg_replace(
+							'%^(<[^>]+)xmlns="http://www.w3.org/1999/xhtml"%', '$1', $part
+						);
+						$html = new SimpleXMLElement($part);
+						$html['xmlns'] = "http://www.w3.org/1999/xhtml";
+						$subNode = dom_import_simplexml($html);
+						$importedNode = $doc->importNode($subNode, true);
+						$contentNode->appendChild($importedNode);
+					}
+					else if (preg_match('%^<[^>]+xmlns="http://zotero.org/ns/transfer"%', $part)) {
+						$part = preg_replace(
+							'%^(<[^>]+)xmlns="http://zotero.org/ns/transfer"%', '$1', $part
+						);
+						$html = new SimpleXMLElement($part);
+						$html['xmlns'] = "http://zotero.org/ns/transfer";
+						$subNode = dom_import_simplexml($html);
+						$importedNode = $doc->importNode($subNode, true);
+						$contentNode->appendChild($importedNode);
+					}
+					// Non-XML blocks get added back as-is
+					else {
+						$docFrag = $doc->createDocumentFragment();
+						$docFrag->appendXML($part);
+						$contentNode->appendChild($docFrag);
+					}
+				}
+				
+				$xml = simplexml_import_dom($doc);
+				
 				StatsD::timing("api.items.itemToAtom.cached", (microtime(true) - $t) * 1000);
-				return $xml;
+				
+				// Skip the cache every 10 times for now, to ensure cache sanity
+				// TEMP: Always skip cache
+				if (true || Z_Core::probability(10)) {
+					$xmlstr = $xml->saveXML();
+				}
+				else {
+					return $xml;
+				}
 			}
 			catch (Exception $e) {
+				error_log($xmlstr);
 				error_log("WARNING: " . $e);
 			}
-			*/
 		}
 		
 		$apiVersion = $queryParams['version'];
@@ -1070,8 +1153,9 @@ class Zotero_Items extends Zotero_DataObjects {
 				if (!$multiFormat) {
 					$target->setAttribute('type', 'xhtml');
 				}
-				$div = $domDoc->createElement('div');
-				$div->setAttribute('xmlns', Zotero_Atom::$nsXHTML);
+				$div = $domDoc->createElementNS(
+					Zotero_Atom::$nsXHTML, 'div'
+				);
 				$target->appendChild($div);
 				$html = $item->toHTML(true);
 				$subNode = dom_import_simplexml($html);
@@ -1165,15 +1249,27 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($xmlstr) {
 			$uncached = $xml->saveXML();
 			if ($xmlstr != $uncached) {
-				error_log("Cached Atom item entry does not match");
-				error_log("Uncached: " . $xmlstr);
-				error_log("Cached: " . $uncached);
+				$uncached = str_replace(
+					'<zapi:year></zapi:year>', '<zapi:year/>', $uncached
+				);
+				$uncached = str_replace(
+					'<content zapi:type="none"></content>',
+					'<content zapi:type="none"/>',
+					$uncached
+				);
+				
+				if ($xmlstr != $uncached) {
+					error_log("Cached Atom item entry does not match");
+					error_log("  Cached: " . $xmlstr);
+					error_log("Uncached: " . $uncached);
+				}
 			}
 		}
 		else {
 			$xmlstr = $xml->saveXML();
 			Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
 			StatsD::timing("api.items.itemToAtom.uncached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.items.itemToAtom.miss");
 		}
 		
 		return $xml;
