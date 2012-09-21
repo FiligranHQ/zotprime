@@ -953,8 +953,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					foreach ($contentParts as $part) {
-						$part = trim($part);
-						if (!$part) {
+						if (!trim($part)) {
 							continue;
 						}
 						
