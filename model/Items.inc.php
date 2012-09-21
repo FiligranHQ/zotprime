@@ -933,46 +933,59 @@ class Zotero_Items extends Zotero_DataObjects {
 				// echo $xml->saveXML();
 				//
 				// would be identical, you would be wrong.
-				$contentParts = array();
-				$contentNode = $xpath->query('/atom:entry/atom:content')->item(0);
-				while ($contentNode->hasChildNodes()) {
-					$contentParts[] = $doc->saveXML($contentNode->firstChild);
-					$contentNode->removeChild($contentNode->firstChild);
+				$multiFormat = !!$xpath
+					->query('/atom:entry/atom:content/zapi:subcontent')
+					->length;
+				
+				$contentNodes = array();
+				if ($multiFormat) {
+					$contentNodes = $xpath->query('/atom:entry/atom:content/zapi:subcontent');
+				}
+				else {
+					$contentNodes = $xpath->query('/atom:entry/atom:content');
 				}
 				
-				foreach ($contentParts as $part) {
-					$part = trim($part);
-					if (!$part) {
-						continue;
+				foreach ($contentNodes as $contentNode) {
+					$contentParts = array();
+					while ($contentNode->hasChildNodes()) {
+						$contentParts[] = $doc->saveXML($contentNode->firstChild);
+						$contentNode->removeChild($contentNode->firstChild);
 					}
 					
-					// Strip the namespace and add it back via SimpleXMLElement,
-					// which keeps it from being changed later
-					if (preg_match('%^<[^>]+xmlns="http://www.w3.org/1999/xhtml"%', $part)) {
-						$part = preg_replace(
-							'%^(<[^>]+)xmlns="http://www.w3.org/1999/xhtml"%', '$1', $part
-						);
-						$html = new SimpleXMLElement($part);
-						$html['xmlns'] = "http://www.w3.org/1999/xhtml";
-						$subNode = dom_import_simplexml($html);
-						$importedNode = $doc->importNode($subNode, true);
-						$contentNode->appendChild($importedNode);
-					}
-					else if (preg_match('%^<[^>]+xmlns="http://zotero.org/ns/transfer"%', $part)) {
-						$part = preg_replace(
-							'%^(<[^>]+)xmlns="http://zotero.org/ns/transfer"%', '$1', $part
-						);
-						$html = new SimpleXMLElement($part);
-						$html['xmlns'] = "http://zotero.org/ns/transfer";
-						$subNode = dom_import_simplexml($html);
-						$importedNode = $doc->importNode($subNode, true);
-						$contentNode->appendChild($importedNode);
-					}
-					// Non-XML blocks get added back as-is
-					else {
-						$docFrag = $doc->createDocumentFragment();
-						$docFrag->appendXML($part);
-						$contentNode->appendChild($docFrag);
+					foreach ($contentParts as $part) {
+						$part = trim($part);
+						if (!$part) {
+							continue;
+						}
+						
+						// Strip the namespace and add it back via SimpleXMLElement,
+						// which keeps it from being changed later
+						if (preg_match('%^<[^>]+xmlns="http://www.w3.org/1999/xhtml"%', $part)) {
+							$part = preg_replace(
+								'%^(<[^>]+)xmlns="http://www.w3.org/1999/xhtml"%', '$1', $part
+							);
+							$html = new SimpleXMLElement($part);
+							$html['xmlns'] = "http://www.w3.org/1999/xhtml";
+							$subNode = dom_import_simplexml($html);
+							$importedNode = $doc->importNode($subNode, true);
+							$contentNode->appendChild($importedNode);
+						}
+						else if (preg_match('%^<[^>]+xmlns="http://zotero.org/ns/transfer"%', $part)) {
+							$part = preg_replace(
+								'%^(<[^>]+)xmlns="http://zotero.org/ns/transfer"%', '$1', $part
+							);
+							$html = new SimpleXMLElement($part);
+							$html['xmlns'] = "http://zotero.org/ns/transfer";
+							$subNode = dom_import_simplexml($html);
+							$importedNode = $doc->importNode($subNode, true);
+							$contentNode->appendChild($importedNode);
+						}
+						// Non-XML blocks get added back as-is
+						else {
+							$docFrag = $doc->createDocumentFragment();
+							$docFrag->appendXML($part);
+							$contentNode->appendChild($docFrag);
+						}
 					}
 				}
 				
