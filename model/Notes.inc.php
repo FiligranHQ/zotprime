@@ -26,7 +26,7 @@
 
 class Zotero_Notes {
 	public static $MAX_TITLE_LENGTH = 79;
-	public static $MAX_NOTE_LENGTH = 100000;
+	public static $MAX_NOTE_LENGTH = 250000;
 	
 	private static $noteCache = array();
 	private static $hashCache = array();
@@ -92,7 +92,7 @@ class Zotero_Notes {
 	 *
 	 * input should be sanitized already
 	 */
-	public static function noteToTitle($text) {
+	public static function noteToTitle($text, $ignoreNewline=false) {
 		if (!$text) {
 			return '';
 		}
@@ -107,9 +107,14 @@ class Zotero_Notes {
 		$text = html_entity_decode($text);
 		
 		$t = mb_strcut($text, 0, $max);
-		$ln = mb_strpos($t, "\n");
-		if ($ln !== false && $ln < $max) {
-			$t = mb_strcut($t, 0, $ln);
+		if ($ignoreNewline) {
+			$t = preg_replace('/\s+/', ' ', $t);
+		}
+		else {
+			$ln = mb_strpos($t, "\n");
+			if ($ln !== false && $ln < $max) {
+				$t = mb_strcut($t, 0, $ln);
+			}
 		}
 		return $t;
 	}
