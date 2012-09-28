@@ -62,6 +62,7 @@ class NoteTests extends APITests {
 			$response->getBody()
 		);
 		
+		// Blank first line
 		$content = "\n" . $content;
 		
 		$json = API::getItemTemplate("note");
@@ -80,6 +81,29 @@ class NoteTests extends APITests {
 		
 		$this->assertEquals(
 			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long",
+			$response->getBody()
+		);
+		
+		// Title and then more after newlines
+		// Blank first line
+		$content = "Full Text:\n\n" . $content;
+		
+		$json = API::getItemTemplate("note");
+		$json->note = $content;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert400($response);
+		//$this->assertRegExp('/^Note \'.+\' too long$/', (string) $response->getBody());
+		
+		$this->assertEquals(
+			"Note 'Full Text: 123456789012345678901234567890123456789012345678901234567890123456...' too long",
 			$response->getBody()
 		);
 	}
