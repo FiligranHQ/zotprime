@@ -1443,6 +1443,8 @@ class Zotero_Sync {
 				throw new Exception("Library timestamp already used", Z_ERROR_LIBRARY_TIMESTAMP_ALREADY_USED);
 			}
 			
+			$creatorLinkedItems = array();
+			
 			// Add/update creators
 			if ($xml->creators) {
 				// DOM
@@ -1462,6 +1464,11 @@ class Zotero_Sync {
 						
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
 						$addedLibraryIDs[] = $creatorObj->libraryID;
+						
+						$creatorLinkedItems = array_merge(
+							$creatorLinkedItems, $creatorObj->getLinkedItems()
+						);
+						
 						$creatorObj->save();
 					}
 				}
@@ -1555,6 +1562,20 @@ class Zotero_Sync {
 					$item->save();
 				}
 				unset($relatedItemsStore);
+			}
+			
+			if ($creatorLinkedItems) {
+				// Update versions of affected creator items not already
+				// updated in this sync process, since modifying a creator
+				// doesn't do it automatically
+				foreach ($creatorLinkedItems as $item) {
+					$lk = $item->libraryID . "/" . $item->key;
+					if (isset($savedItems[$lk])) {
+						continue;
+					}
+					$item->updateVersion();
+					$savedItems[$lk] = true;
+				}
 			}
 			
 			// Add/update collections

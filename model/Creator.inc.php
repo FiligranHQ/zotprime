@@ -265,6 +265,24 @@ class Zotero_Creator {
 	}
 	
 	
+	public function getLinkedItems() {
+		$items = array();
+		$sql = "SELECT itemID FROM itemCreators WHERE creatorID=?";
+		$itemIDs = Zotero_DB::columnQuery(
+			$sql,
+			$this->id,
+			Zotero_Shards::getByLibraryID($this->libraryID)
+		);
+		if (!$itemIDs) {
+			return $items;
+		}
+		foreach ($itemIDs as $itemID) {
+			$items[] = Zotero_Items::get($this->libraryID, $itemID);
+		}
+		return $items;
+	}
+	
+	
 	public function equals($creator) {
 		if (!$this->loaded) {
 			$this->load();
