@@ -266,6 +266,10 @@ class Zotero_Creator {
 	
 	
 	public function getLinkedItems() {
+		if (!$this->id) {
+			return array();
+		}
+		
 		$items = array();
 		$sql = "SELECT itemID FROM itemCreators WHERE creatorID=?";
 		$itemIDs = Zotero_DB::columnQuery(
