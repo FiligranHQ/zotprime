@@ -1262,11 +1262,28 @@ class Zotero_Items extends Zotero_DataObjects {
 			$uncached = $xml->saveXML();
 			if ($xmlstr != $uncached) {
 				$uncached = str_replace(
-					'<zapi:year></zapi:year>', '<zapi:year/>', $uncached
+					'<zapi:year></zapi:year>',
+					'<zapi:year/>',
+					$uncached
 				);
 				$uncached = str_replace(
 					'<content zapi:type="none"></content>',
 					'<content zapi:type="none"/>',
+					$uncached
+				);
+				$uncached = str_replace(
+					'<zapi:subcontent zapi:type="coins" type="text/html"></zapi:subcontent>',
+					'<zapi:subcontent zapi:type="coins" type="text/html"/>',
+					$uncached
+				);
+				$uncached = str_replace(
+					'<note></note>',
+					'<note/>',
+					$uncached
+				);
+				$uncached = str_replace(
+					'<path></path>',
+					'<path/>',
 					$uncached
 				);
 				
