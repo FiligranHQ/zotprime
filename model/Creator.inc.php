@@ -123,7 +123,7 @@ class Zotero_Creator {
 		}
 		
 		$sql = "SELECT COUNT(*) FROM creators WHERE creatorID=?";
-		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getShardIDByLibraryID($this->libraryID));
+		return !!Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 	}
 	
 	
@@ -166,7 +166,7 @@ class Zotero_Creator {
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
-			$dateModified = $this->changed['dateModified'] ? $this->dateModified : $timestamp;
+			$dateModified = !empty($this->changed['dateModified']) ? $this->dateModified : $timestamp;
 			
 			$fields = "firstName=?, lastName=?, fieldMode=?,
 						libraryID=?, `key`=?, dateAdded=?, dateModified=?, serverDateModified=?";
