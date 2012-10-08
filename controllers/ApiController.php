@@ -258,6 +258,7 @@ class ApiController extends Controller {
 			case 'DELETE':
 				switch ($action) {
 					// Library lock doesn't matter for some admin requests
+					case 'keys':
 					case 'storageadmin':
 						break;
 					
