@@ -2431,7 +2431,14 @@ class Zotero_Item {
 		}
 		
 		if (mb_strlen($text) > Zotero_Notes::$MAX_NOTE_LENGTH) {
-			throw new Exception("=Note '" . Zotero_Notes::noteToTitle(trim($text), true) . "...' too long", Z_ERROR_INVALID_INPUT);
+			throw new Exception(
+				"=Note '"
+				. iconv(
+					"UTF-8",
+					"UTF-8//IGNORE",
+					Zotero_Notes::noteToTitle(trim($text), true)
+				) . "...' too long", Z_ERROR_INVALID_INPUT
+			);
 		}
 		
 		$this->noteText = $text;
