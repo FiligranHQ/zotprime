@@ -2431,13 +2431,27 @@ class Zotero_Item {
 		}
 		
 		if (mb_strlen($text) > Zotero_Notes::$MAX_NOTE_LENGTH) {
-			throw new Exception(
-				"=Note '"
-				. iconv(
+			$excerpt = iconv(
+				"UTF-8",
+				"UTF-8//IGNORE",
+				Zotero_Notes::noteToTitle(trim($text), true)
+			);
+			// If tag-stripped version is empty, just return raw HTML
+			if ($excerpt == '') {
+				$excerpt = iconv(
 					"UTF-8",
 					"UTF-8//IGNORE",
-					Zotero_Notes::noteToTitle(trim($text), true)
-				) . "...' too long", Z_ERROR_INVALID_INPUT
+					preg_replace(
+						'/\s+/',
+						' ',
+						mb_substr(trim($text), 0, Zotero_Notes::$MAX_TITLE_LENGTH)
+					)
+				);
+				$excerpt = html_entity_decode($excerpt);
+			}
+			
+			throw new Exception(
+				"=Note '" . $excerpt . "...' too long", Z_ERROR_INVALID_INPUT
 			);
 		}
 		
