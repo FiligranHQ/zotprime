@@ -863,7 +863,7 @@ class Zotero_Sync {
 		require_once 'AWS-SDK/sdk.class.php';
 		$s3 = new AmazonS3();
 		
-		$key = md5(
+		$s3Key = $apiVersion . "/" . md5(
 			Zotero_Users::getUpdateKey($userID)
 			. "_" . $lastsync
 			// Remove after 2.1 sync cutoff
@@ -872,9 +872,16 @@ class Zotero_Sync {
 		);
 		
 		// Check S3 for file
-		$s3Key = $apiVersion . "/" . $key;
 		try {
-			$response = $s3->get_object(Z_CONFIG::$S3_BUCKET_CACHE, $s3Key);
+			$response = $s3->get_object(
+				Z_CONFIG::$S3_BUCKET_CACHE,
+				$s3Key,
+				array(
+					'curlopts' => array(
+						CURLOPT_FORBID_REUSE => true
+					)
+				)
+			);
 			if ($response->isOK()) {
 				$xmldata = $response->body;
 			}
@@ -890,114 +897,29 @@ class Zotero_Sync {
 			$xmldata = false;
 		}
 		
-		// Update the last-used timestamp
+		// Update the last-used timestamp in S3
 		if ($xmldata) {
 			$response = $s3->update_object(Z_CONFIG::$S3_BUCKET_CACHE, $s3Key, array(
 				'meta' => array(
 					'last-used' => time()
 				)
 			));
-			
-			// Add to S3
-			/*$response = $s3->create_object(
-				Z_CONFIG::$S3_BUCKET_CACHE,
-				$s3Key,
-				array(
-					'body' => $xmldata
-				)
-			);
-			if (!$response->isOK()) {
-				error_log("WARNING: " . $response->status . " "
-					. $response->body . " caching download in S3");
-			}*/
-		}
-		
-		// If not found, fall back to MySQL
-		if (!$xmldata) {
-			$suffix = "_" . $key[0];
-			
-			try {
-				$sql = "SELECT xmldata FROM syncDownloadCache$suffix WHERE hash=?";
-				$xmldata = Zotero_Cache_DB::valueQuery($sql, $key);
-			}
-			catch (Exception $e) {
-				Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
-			}
-			
-			if ($xmldata) {
-				try {
-					// Update the last-used timestamp
-					$sql = "UPDATE syncDownloadCache$suffix SET lastUsed=NOW() WHERE hash=?";
-					Zotero_Cache_DB::query($sql, $key);
-				}
-				catch (Exception $e) {
-					Z_Core::logError("Warning: '" . $e->getMessage() . "' updating cached download");
-				}
-			}
-			// If not found, try timestamp-based update key
-			else {
-				$key2 = md5(
-					Zotero_Users::getUpdateKey($userID, true)
-					. "_" . $lastsync
-					// Remove after 2.1 sync cutoff
-					. ($apiVersion >= 9 ? "_" . $apiVersion : "")
-					. "_" . self::$cacheVersion
-					);
-				
-				$suffix2 = "_" . $key2[0];
-				
-				try {
-					$sql = "SELECT xmldata FROM syncDownloadCache$suffix2 WHERE hash=?";
-					$xmldata = Zotero_Cache_DB::valueQuery($sql, $key2);
-				}
-				catch (Exception $e) {
-					Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download");
-					$xmldata = false;
-				}
-				
-				// If found with old-style key, insert a row with the new one
-				if ($xmldata) {
-					$sql = "INSERT IGNORE INTO syncDownloadCache$suffix (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
-					Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
-				}
-			}
-			
-			// Add to S3
-			if ($xmldata) {
-				// Add to S3
-				$response = $s3->create_object(
-					Z_CONFIG::$S3_BUCKET_CACHE,
-					$s3Key,
-					array(
-						'body' => $xmldata
-					)
-				);
-				if (!$response->isOK()) {
-					error_log("WARNING: " . $response->status . " "
-						. $response->body . " caching download in S3");
-				}
-			}
-			
-			// Close cache db to avoid sleeping thread
-			Zotero_Cache_DB::close();
 		}
 		
 		return $xmldata;
 	}
 	
 	
-	public static function cacheDownload($userID, $lastsync, $apiVersion, $xmldata) {
+	public static function cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $xmldata) {
 		require_once 'AWS-SDK/sdk.class.php';
 		$s3 = new AmazonS3();
 		
-		$key = md5(
-			Zotero_Users::getUpdateKey($userID)
-			. "_" . $lastsync
+		$s3Key = $apiVersion . "/" . md5(
+			$updateKey . "_" . $lastsync
 			// Remove after 2.1 sync cutoff
 			. ($apiVersion >= 9 ? "_" . $apiVersion : "")
 			. "_" . self::$cacheVersion
 		);
-		$s3Key = $apiVersion . "/" . $key;
 		
 		// Add to S3
 		$response = $s3->create_object(
@@ -1010,12 +932,6 @@ class Zotero_Sync {
 		if (!$response->isOK()) {
 			throw new Exception($response->status . " " . $response->body);
 		}
-		
-		// Add to MySQL
-		$suffix = "_" . $key[0];
-		
-		$sql = "INSERT IGNORE INTO syncDownloadCache$suffix (hash, userID, lastsync, xmldata) VALUES (?,?,?,?)";
-		Zotero_Cache_DB::query($sql, array($key, $userID, $lastsync, $xmldata));
 	}
 	
 	
@@ -1206,7 +1122,8 @@ class Zotero_Sync {
 			
 			$doc->documentElement->setAttribute('userID', $userID);
 			$doc->documentElement->setAttribute('defaultLibraryID', $userLibraryID);
-			$doc->documentElement->setAttribute('updateKey', Zotero_Users::getUpdateKey($userID));
+			$updateKey = Zotero_Users::getUpdateKey($userID);
+			$doc->documentElement->setAttribute('updateKey', $updateKey);
 			
 			// Get libraries with update times >= $timestamp
 			$updatedLibraryIDs = array();
@@ -1393,7 +1310,7 @@ class Zotero_Sync {
 		// Cache response if response isn't empty
 		try {
 			if ($doc->documentElement->firstChild->hasChildNodes()) {
-				self::cacheDownload($userID, $lastsync, $apiVersion, $doc->saveXML());
+				self::cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $doc->saveXML());
 			}
 		}
 		catch (Exception $e) {
