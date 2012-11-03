@@ -298,49 +298,46 @@ class Zotero_Items extends Zotero_DataObjects {
 		// ?tag=-foo // negation
 		// ?tag=\-foo // literal hyphen (only for first character)
 		// ?tag=foo&tag=bar // AND
-		// ?tag=foo&tagType=0
-		// ?tag=foo bar || bar&tagType=0
 		$tagSets = Zotero_API::getSearchParamValues($params, 'tag');
 		
 		if ($tagSets) {
-			$sql2 = "SELECT itemID FROM items WHERE 1 ";
+			$sql2 = "SELECT itemID FROM items WHERE 1\n";
 			$sqlParams2 = array();
 			
-			if ($tagSets) {
-				foreach ($tagSets as $set) {
-					$positives = array();
-					$negatives = array();
-					$tagIDs = array();
-					
-					foreach ($set['values'] as $tag) {
-						$ids = Zotero_Tags::getIDs($libraryID, $tag);
-						if (!$ids) {
-							$ids = array(0);
-						}
-						$tagIDs = array_merge($tagIDs, $ids);
+			$positives = array();
+			$negatives = array();
+			
+			foreach ($tagSets as $set) {
+				$tagIDs = array();
+				
+				foreach ($set['values'] as $tag) {
+					$ids = Zotero_Tags::getIDs($libraryID, $tag);
+					if (!$ids) {
+						$ids = array(0);
 					}
-					
-					$tagIDs = array_unique($tagIDs);
-					
-					if ($set['negation']) {
-						$negatives = array_merge($negatives, $tagIDs);
-					}
-					else {
-						$positives = array_merge($positives, $tagIDs);
-					}
-					
-					if ($positives) {
-						$sql2 .= "AND itemID IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
-								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($positives), '?')) . ")) ";
-						$sqlParams2 = array_merge($sqlParams2, $positives);
-					}
-					
-					if ($negatives) {
-						$sql2 .= "AND itemID NOT IN (SELECT itemID FROM items JOIN itemTags USING (itemID)
-								WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ")) ";
-						$sqlParams2 = array_merge($sqlParams2, $negatives);
-					}
+					$tagIDs = array_merge($tagIDs, $ids);
 				}
+				
+				$tagIDs = array_unique($tagIDs);
+				
+				$tmpSQL = "SELECT itemID FROM items JOIN itemTags USING (itemID) "
+						. "WHERE tagID IN (" . implode(',', array_fill(0, sizeOf($tagIDs), '?')) . ")";
+				$ids = Zotero_DB::columnQuery($tmpSQL, $tagIDs, $shardID);
+				
+				if (!$ids) {
+					// If no negative tags, skip this tag set
+					if ($set['negation']) {
+						continue;
+					}
+					
+					// If no positive tags, return no matches
+					return $results;
+				}
+				
+				$ids = $ids ? $ids : array();
+				$sql2 .= " AND itemID " . ($set['negation'] ? "NOT " : "") . " IN ("
+					. implode(',', array_fill(0, sizeOf($ids), '?')) . ")";
+				$sqlParams2 = array_merge($sqlParams2, $ids);
 			}
 			
 			$tagItems = Zotero_DB::columnQuery($sql2, $sqlParams2, $shardID);
