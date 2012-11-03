@@ -102,4 +102,130 @@ class TagTests extends APITests {
 		$data = API::parseDataFromItemEntry($xml);
 		$this->assertNotEquals($originalETag, (string) $data['etag']);
 	}
+	
+	
+	public function testItemTagSearch() {
+		// Create items with tags
+		$xml = API::createItem("book", array(
+			"tags" => array(
+				array("tag" => "a"),
+				array("tag" => "b")
+			)
+		), $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$key1 = $data['key'];
+		
+		$xml = API::createItem("book", array(
+			"tags" => array(
+				array("tag" => "a"),
+				array("tag" => "c")
+			)
+		), $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$key2 = $data['key'];
+		
+		//
+		// Searches
+		//
+		
+		// a (both)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=a"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
+		
+		// a and c (#2)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=a&tag=c"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(1, $keys);
+		$this->assertContains($key2, $keys);
+		
+		// b and c (none)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=b&tag=c"
+		);
+		$this->assert200($response);
+		$this->assertEmpty(trim($response->getBody()));
+		
+		// b or c (both)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=b%20||%20c"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
+		
+		// a or b or c (both)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=a%20||%20b%20||%20c"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
+		
+		// not a (none)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=-a"
+		);
+		$this->assert200($response);
+		$this->assertEmpty(trim($response->getBody()));
+		
+		// not b (#2)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=-b"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(1, $keys);
+		$this->assertContains($key2, $keys);
+		
+		// (b or c) and a (both)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=b%20||%20c&tag=a"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
+		
+		// not nonexistent (both)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=-z"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
+	}
 }
