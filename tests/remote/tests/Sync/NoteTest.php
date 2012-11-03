@@ -56,7 +56,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		$xml = Sync::getXMLFromResponse($response);
 		$updateKey = (string) $xml['updateKey'];
 		
-		$content = str_repeat("1234567890", 10001);
+		$content = str_repeat("1234567890", 25001);
 		
 		// Create too-long note via sync
 		$data = '<data version="9"><items><item libraryID="'
@@ -71,12 +71,27 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
 		$this->assertRegExp('/^Note \'.+\' too long$/', (string) $xml->error);
 		
+		// Create too-long note with content within HTML tags
+		$content = "<p><!-- $content --></p>";
+		
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" itemType="note" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="AAAAAAAA"><note>' . htmlentities($content) . '</note></item></items></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
+		$this->assertRegExp('/^Note \'<p><!-- 12345678901234567890123456789012345678901234567890123456789012345678901...\' too long$/', (string) $xml->error);
+		
 		// Create note under the length limit
 		$response = Sync::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
 		$updateKey = (string) $xml['updateKey'];
 		
-		$content = str_repeat("1234567890", 9999);
+		$content = str_repeat("1234567890", 24999);
 		
 		// Create item via sync
 		$data = '<data version="9"><items><item libraryID="'

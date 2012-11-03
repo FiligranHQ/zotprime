@@ -42,7 +42,7 @@ class NoteTests extends APITests {
 	
 	
 	public function testNoteTooLong() {
-		$content = str_repeat("1234567890", 10001);
+		$content = str_repeat("1234567890", 25001);
 		
 		$json = API::getItemTemplate("note");
 		$json->note = $content;
@@ -62,8 +62,8 @@ class NoteTests extends APITests {
 			$response->getBody()
 		);
 		
-		// Blank first line
-		$content = "\n" . $content;
+		// Blank first two lines
+		$content = " \n \n" . $content;
 		
 		$json = API::getItemTemplate("note");
 		$json->note = $content;
@@ -103,7 +103,28 @@ class NoteTests extends APITests {
 		//$this->assertRegExp('/^Note \'.+\' too long$/', (string) $response->getBody());
 		
 		$this->assertEquals(
-			"Note 'Full Text: 123456789012345678901234567890123456789012345678901234567890123456...' too long",
+			"Note 'Full Text: 123456789012345678901234567890123456789012345678901234567890123...' too long",
+			$response->getBody()
+		);
+		
+		// All content within HTML tags
+		$content = "<p><!-- $content --></p>";
+		
+		$json = API::getItemTemplate("note");
+		$json->note = $content;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert400($response);
+		
+		$this->assertEquals(
+			"Note '&amp;lt;p&amp;gt;&amp;lt;!-- Full Text: 1234567890123456789012345678901234567890123456789012345...' too long",
 			$response->getBody()
 		);
 	}
