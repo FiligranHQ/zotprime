@@ -61,7 +61,10 @@ class Zotero_DB {
 			'username' => $auth['user'],
 			'password' => $auth['pass'],
 			'dbname'   => $auth['db'],
-			'charset'  => 'utf8'
+			'charset'  => 'utf8',
+			'driver_options' => array(
+				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
+			)
 		));
 	}
 	
@@ -93,7 +96,10 @@ class Zotero_DB {
 			'username' => $auth['user'],
 			'password' => $auth['pass'],
 			'dbname'   => $shardInfo['db'],
-			'charset'  => 'utf8'
+			'charset'  => 'utf8',
+			'driver_options' => array(
+				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
+			)
 		);
 		
 		// For admin, use user/pass from master
@@ -104,6 +110,9 @@ class Zotero_DB {
 		}
 		
 		$this->links[$shardID] = new Zend_Db_Adapter_Mysqli($config);
+		
+		$conn = $this->links[$shardID]->getConnection();
+		$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
 		
 		return $this->links[$shardID];
 	}
