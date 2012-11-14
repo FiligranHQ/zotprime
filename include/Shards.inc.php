@@ -164,10 +164,10 @@ class Zotero_Shards {
 	}
 	
 	
-	public static function moveLibrary($libraryID, $newShardID) {
+	public static function moveLibrary($libraryID, $newShardID, $overrideLock=false) {
 		$currentShardID = self::getByLibraryID($libraryID);
 		
-		self::copyLibrary($libraryID, $newShardID);
+		self::copyLibrary($libraryID, $newShardID, $overrideLock);
 		
 		self::setShard($libraryID, $newShardID);
 		
@@ -175,7 +175,7 @@ class Zotero_Shards {
 	}
 	
 	
-	public static function copyLibrary($libraryID, $newShardID) {
+	public static function copyLibrary($libraryID, $newShardID, $overrideLock=false) {
 		$currentShardID = self::getByLibraryID($libraryID);
 		
 		if ($currentShardID == $newShardID) {
@@ -185,7 +185,7 @@ class Zotero_Shards {
 			throw new Exception("Shard $newShardID is not writeable");
 		}
 		
-		if (Zotero_Libraries::isLocked($libraryID)) {
+		if (!$overrideLock && Zotero_Libraries::isLocked($libraryID)) {
 			throw new Exception("Library $libraryID is locked");
 		}
 		
@@ -223,7 +223,7 @@ class Zotero_Shards {
 		);
 		
 		foreach ($tables as $table) {
-			if (Zotero_Libraries::isLocked($libraryID)) {
+			if (!$overrideLock && Zotero_Libraries::isLocked($libraryID)) {
 				Zotero_DB::rollback();
 				throw new Exception("Aborted due to library lock");
 			}
@@ -280,14 +280,14 @@ class Zotero_Shards {
 		
 		Zotero_DB::query("SET foreign_key_checks=1", false, $newShardID);
 		
-		if (Zotero_Libraries::isLocked($libraryID)) {
+		if (!$overrideLock && Zotero_Libraries::isLocked($libraryID)) {
 			Zotero_DB::rollback();
 			throw new Exception("Aborted due to library lock");
 		}
 		
 		Zotero_DB::commit();
 		
-		if (Zotero_Libraries::isLocked($libraryID)) {
+		if (!$overrideLock && Zotero_Libraries::isLocked($libraryID)) {
 			self::deleteLibrary($libraryID, $newShardID);
 			throw new Exception("Aborted due to library lock");
 		}
