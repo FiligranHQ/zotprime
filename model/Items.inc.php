@@ -1065,10 +1065,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				$xml = simplexml_import_dom($doc);
 				
 				StatsD::timing("api.items.itemToAtom.cached", (microtime(true) - $t) * 1000);
+				StatsD::increment("memcached.items.itemToAtom.hit");
 				
 				// Skip the cache every 10 times for now, to ensure cache sanity
-				// TEMP: Always skip cache
-				if (true || Z_Core::probability(10)) {
+				if (Z_Core::probability(10)) {
 					$xmlstr = $xml->saveXML();
 				}
 				else {
