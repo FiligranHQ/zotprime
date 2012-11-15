@@ -720,6 +720,16 @@ class ApiController extends Controller {
 						$this->e404("Item not found");
 					}
 					
+					if ($item->isAttachment()) {
+						$this->e400("/children cannot be called on attachment items");
+					}
+					if ($item->isNote()) {
+						$this->e400("/children cannot be called on note items");
+					}
+					if ($item->getSource()) {
+						$this->e400("/children cannot be called on child items");
+					}
+					
 					// Create new child items
 					if ($this->method == 'POST') {
 						if (!$this->permissions->canWrite($this->objectLibraryID)) {
