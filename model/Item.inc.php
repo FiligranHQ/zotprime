@@ -118,12 +118,27 @@ class Zotero_Item {
 	
 	
 	public function __get($field) {
-		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
+		// Inline id and key for performance
+		if ($field == 'id') {
+			if (!$this->id && $this->key && !$this->loaded['primaryData']) {
+				$this->loadPrimaryData(true);
+			}
+			return $this->id;
+		}
+		if ($field == 'key') {
+			if (!$this->key && $this->id && !$this->loaded['primaryData']) {
+				$this->loadPrimaryData(true);
+			}
+			return $this->key;
+		}
+		
+		if (in_array($field, Zotero_Items::$primaryFields)) {
 			if (!property_exists('Zotero_Item', $field)) {
 				trigger_error("Zotero_Item property '$field' doesn't exist", E_USER_ERROR);
 			}
 			return $this->getField($field);
 		}
+		
 		switch ($field) {
 			case 'creatorSummary':
 				return $this->getCreatorSummary();
