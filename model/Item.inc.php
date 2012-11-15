@@ -1204,7 +1204,7 @@ class Zotero_Item {
 				// Group item data
 				if (Zotero_Libraries::getType($this->libraryID) == 'group' && $userID) {
 					$sql = "INSERT INTO groupItems VALUES (?, ?, ?)";
-					Zotero_DB::query($sql, array($itemID, $userID, null), $shardID);
+					Zotero_DB::query($sql, array($itemID, $userID, $userID), $shardID);
 				}
 				
 				//
