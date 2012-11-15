@@ -39,16 +39,21 @@ class Sync {
 		}
 	}
 	
-	public static function login() {
+	public static function login($credentials=false) {
 		self::loadConfig();
+		
+		if (!$credentials) {
+			$credentials['username'] = self::$config['username'];
+			$credentials['password'] = self::$config['password'];
+		}
 		
 		$url = self::$config['syncURLPrefix'] . "login";
 		$response = HTTP::post(
 			$url,
 			array(
-				"version" => self::$config['apiVersion'],
-				"username" => self::$config['username'],
-				"password" => self::$config['password']
+				"version" => self::$config['syncVersion'],
+				"username" => $credentials['username'],
+				"password" => $credentials['password']
 			)
 		);
 		self::checkResponse($response);
@@ -123,7 +128,7 @@ class Sync {
 		$response = HTTP::post(
 			$url,
 			array(
-				"version" => self::$config['apiVersion'],
+				"version" => self::$config['syncVersion'],
 				"sessionid" => $sessionID
 			)
 		);
@@ -177,7 +182,7 @@ class Sync {
 		$params = array_merge(
 			array(
 				"sessionid" => $sessionID,
-				"version" => self::$config['apiVersion']
+				"version" => self::$config['syncVersion']
 			),
 			$params ? $params : array()
 		);

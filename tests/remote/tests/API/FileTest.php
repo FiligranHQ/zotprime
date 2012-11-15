@@ -464,7 +464,7 @@ class FileTests extends APITests {
 			"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=none"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$serverDateModified = array_shift($xml->xpath('/atom:entry/atom:updated'));
+		$serverDateModified = (string) array_shift($xml->xpath('/atom:entry/atom:updated'));
 		sleep(1);
 		
 		$data = API::parseDataFromItemEntry($xml);
@@ -565,7 +565,7 @@ class FileTests extends APITests {
 			$this->assertEquals($fileParams['charset'], $json->charset);
 			
 			// Make sure serverDateModified has changed
-			$this->assertNotEquals($serverDateModified, array_shift($xml->xpath('/atom:entry/atom:updated')));
+			$this->assertNotEquals($serverDateModified, (string) array_shift($xml->xpath('/atom:entry/atom:updated')));
 			
 			// Make sure ETag has changed
 			$this->assertNotEquals($originalETag, $data['etag']);

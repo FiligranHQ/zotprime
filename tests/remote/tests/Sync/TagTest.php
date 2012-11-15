@@ -41,6 +41,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -106,8 +107,99 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
 		$this->assertNotEquals($etag, $data['etag']);
+	}
+	
+	
+	// Also tests lastModifiedByUserID
+	public function testGroupTagAddItemChange() {
+		$key = 'AAAAAAAA';
 		
-		return $data;
+		$groupID = self::$config['ownedPrivateGroupID'];
+		$libraryID = self::$config['ownedPrivateGroupLibraryID'];
+		$sessionID2 = Sync::login(
+			array(
+				'username' => self::$config['username2'],
+				'password' => self::$config['password2']
+			)
+		);
+		$response = Sync::updated($sessionID2);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Create item via sync
+		$data = '<data version="9"><items><item libraryID="' . $libraryID . '" '
+			. 'itemType="book" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="' . $key . '"/></items></data>';
+		$response = Sync::upload($sessionID2, $updateKey, $data);
+		Sync::waitForUpload($sessionID2, $response, $this);
+		
+		// Get item ETag via API
+		$response = API::groupGet(
+			$groupID,
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$etag = $data['etag'];
+		
+		// Verify createdByUserID and lastModifiedByUserID
+		// TODO: get this without using content=full
+		$response = API::groupGet(
+			$groupID,
+			"items/$key?key=" . self::$config['apiKey'] . "&content=full"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
+		$createdByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@createdByUserID'));
+		$lastModifiedByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@lastModifiedByUserID'));
+		$this->assertEquals(self::$config['userID2'], $createdByUserID);
+		$this->assertEquals(self::$config['userID2'], $lastModifiedByUserID);
+		
+		// Get item via sync
+		$response = Sync::updated(self::$sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = (string) $xml['updateKey'];
+		$this->assertEquals(1, sizeOf($xml->updated->items->item));
+		
+		// Add tag to item via sync
+		$data = '<data version="9"><tags><tag libraryID="' . $libraryID . '" '
+			. 'name="Test" '
+			. 'dateAdded="2009-03-07 04:54:56" '
+			. 'dateModified="2009-03-07 04:54:56" '
+			. 'key="BBBBBBBB">'
+			. '<items>' . $key . '</items>'
+			. '</tag></tags></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get item via API
+		$response = API::groupGet(
+			$groupID,
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$json = json_decode($data['content']);
+		
+		$this->assertCount(1, $json->tags);
+		$this->assertTrue(isset($json->tags[0]->tag));
+		$this->assertEquals("Test", $json->tags[0]->tag);
+		$this->assertNotEquals($etag, $data['etag']);
+		
+		// Verify createdByUserID and lastModifiedByUserID
+		// TODO: get this without using content=full
+		$response = API::groupGet(
+			$groupID,
+			"items/$key?key=" . self::$config['apiKey'] . "&content=full"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
+		$createdByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@createdByUserID'));
+		$lastModifiedByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@lastModifiedByUserID'));
+		$this->assertEquals(self::$config['userID2'], $createdByUserID);
+		$this->assertEquals(self::$config['userID'], $lastModifiedByUserID);
 	}
 	
 	
@@ -171,8 +263,6 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
 		$this->assertNotEquals($etag, $data['etag']);
-		
-		return $data;
 	}
 	
 	

@@ -105,6 +105,8 @@ class TagTests extends APITests {
 	
 	
 	public function testItemTagSearch() {
+		API::userClear(self::$config['userID']);
+		
 		// Create items with tags
 		$xml = API::createItem("book", array(
 			"tags" => array(

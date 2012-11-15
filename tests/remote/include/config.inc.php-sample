@@ -8,9 +8,9 @@ $config = array(
 	's3Bucket' => "",
 	's3AccessKey' => "",
 	's3SecretKey' => "",
-	'apiVersion' => 9,
+	'syncVersion' => 9,
 	
-	// User
+	// User 1
 	'userID' => 0,
 	'libraryID' => 0,
 	'username' => "", // user used for sync tests
@@ -18,5 +18,10 @@ $config = array(
 	'apiKey' => "",
 	'ownedPrivateGroupID' => 0,
 	'ownedPublicGroupID' => 0
+	
+	// User 2 (should be in user 1's private group)
+	'userID2' => 0,
+	'username2' => "",
+	'password2' => ""
 );
 ?>
