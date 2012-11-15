@@ -1485,14 +1485,16 @@ class Zotero_Sync {
 				// Update versions of affected creator items not already
 				// updated in this sync process, since modifying a creator
 				// doesn't do it automatically
+				$toUpdate = array();
 				foreach ($creatorLinkedItems as $item) {
 					$lk = $item->libraryID . "/" . $item->key;
 					if (isset($savedItems[$lk])) {
 						continue;
 					}
-					$item->updateVersion();
+					$toUpdate[] = $item;
 					$savedItems[$lk] = true;
 				}
+				Zotero_Items::updateVersions($toUpdate, $userID);
 			}
 			
 			// Add/update collections
@@ -1613,14 +1615,16 @@ class Zotero_Sync {
 				// Update versions of affected items not already updated in
 				// this sync process, since adding items to (or removing
 				// tags from) a Zotero_Tag doesn't do it automatically
+				$toUpdate = array();
 				foreach ($modifiedItems as $item) {
 					$lk = $item->libraryID . "/" . $item->key;
 					if (isset($savedItems[$lk])) {
 						continue;
 					}
-					$item->updateVersion();
+					$toUpdate[] = $item;
 					$savedItems[$lk] = true;
 				}
+				Zotero_Items::updateVersions($toUpdate, $userID);
 			}
 			
 			// Add/update relations
@@ -1688,14 +1692,16 @@ class Zotero_Sync {
 					// Update versions of affected items not already updated in
 					// this sync process, since deleting a Zotero_Tag doesn't
 					// do it automatically
+					$toUpdate = array();
 					foreach ($modifiedItems as $item) {
 						$lk = $item->libraryID . "/" . $item->key;
 						if (isset($savedItems[$lk])) {
 							continue;
 						}
-						$item->updateVersion();
+						$toUpdate[] = $item;
 						$savedItems[$lk] = true;
 					}
+					Zotero_Items::updateVersions($toUpdate, $userID);
 				}
 				
 				// Delete relations

@@ -1147,7 +1147,7 @@ class Zotero_Item {
 			//
 			// New item, insert and return id
 			//
-			if (!$this->id || !$this->exists()) {
+			if (!$this->id || (!$this->changed['version'] && !$this->exists())) {
 				Z_Core::debug('Saving data for new item to database');
 				
 				$isNew = true;
@@ -1997,9 +1997,9 @@ class Zotero_Item {
 	/**
 	 * Update the item's version without changing any data
 	 */
-	public function updateVersion() {
+	public function updateVersion($userID) {
 		$this->changed['version'] = true;
-		$this->save();
+		$this->save($userID);
 	}
 	
 	
@@ -2873,7 +2873,7 @@ class Zotero_Item {
 	/**
 	 * $tags is an array of objects with properties 'tag' and 'type'
 	 */
-	public function setTags($newTags) {
+	public function setTags($newTags, $userID) {
 		if (!$this->id) {
 			throw new Exception('itemID not set');
 		}
@@ -2947,7 +2947,7 @@ class Zotero_Item {
 			$tag->save();
 		}
 		
-		$this->updateVersion();
+		$this->updateVersion($userID);
 		
 		Zotero_DB::commit();
 		

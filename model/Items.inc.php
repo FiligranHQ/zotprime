@@ -488,6 +488,83 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
+	public static function updateVersions($items, $userID=false) {
+		$libraryShards = array();
+		$libraryIsGroup = array();
+		$shardItemIDs = array();
+		$shardGroupItemIDs = array();
+		$libraryItems = array();
+		
+		foreach ($items as $item) {
+			$libraryID = $item->libraryID;
+			$itemID = $item->id;
+			
+			// Index items by shard
+			if (isset($libraryShards[$libraryID])) {
+				$shardID = $libraryShards[$libraryID];
+				$shardItemIDs[$shardID][] = $itemID;
+			}
+			else {
+				$shardID = Zotero_Shards::getByLibraryID($libraryID);
+				$libraryShards[$libraryID] = $shardID;
+				$shardItemIDs[$shardID] = array($itemID);
+			}
+			
+			// Separate out group items by shard
+			if (!isset($libraryIsGroup[$libraryID])) {
+				$libraryIsGroup[$libraryID] =
+					Zotero_Libraries::getType($libraryID) == 'group';
+			}
+			if ($libraryIsGroup[$libraryID]) {
+				if (isset($shardGroupItemIDs[$shardID])) {
+					$shardGroupItemIDs[$shardID][] = $itemID;
+				}
+				else {
+					$shardGroupItemIDs[$shardID] = array($itemID);
+				}
+			}
+			
+			// Index items by library
+			if (!isset($libraryItems[$libraryID])) {
+				$libraryItems[$libraryID] = array();
+			}
+			$libraryItems[$libraryID][] = $item;
+		}
+		
+		Zotero_DB::beginTransaction();
+		$timestamp = Zotero_DB::getTransactionTimestamp();
+		
+		foreach ($shardItemIDs as $shardID => $itemIDs) {
+			$sql = "UPDATE items SET serverDateModified=?, "
+				. "version=IF(version = 65535, 0, version + 1) "
+				. "WHERE itemID IN "
+				. "(" . implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
+			Zotero_DB::query($sql, array_merge(array($timestamp), $itemIDs), $shardID);
+			
+			// Group item data
+			if ($userID && isset($shardGroupItemIDs[$shardID])) {
+				$sql = "UPDATE groupItems SET lastModifiedByUserID=? "
+					. "WHERE itemID IN ("
+					. implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
+				Zotero_DB::query(
+					$sql,
+					array_merge(array($userID), $shardGroupItemIDs[$shardID]),
+					$shardID
+				);
+			}
+		}
+		
+		Zotero_DB::commit();
+		
+		foreach ($libraryItems as $libraryID => $items) {
+			$itemIDs = array_map(function ($item) {
+				return $item->id;
+			}, $items);
+			self::reload($libraryID, $itemIDs);
+		}
+	}
+	
+	
 	public static function getDataValuesFromXML(DOMDocument $doc) {
 		$xpath = new DOMXPath($doc);
 		$fields = $xpath->evaluate('//items/item/field');
@@ -1505,7 +1582,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					}
 					
-					$item->setTags($val);
+					$item->setTags($val, $userID);
 					break;
 				
 				case 'attachments':
@@ -1586,7 +1663,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					
 					case 'tags':
-						$item->setTags($val);
+						$item->setTags($val, $userID);
 						break;
 				}
 			}
