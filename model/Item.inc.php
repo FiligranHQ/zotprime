@@ -919,8 +919,9 @@ class Zotero_Item {
 	
 	
 	public function hasChanged() {
-		foreach ($this->changed as $changed) {
+		foreach ($this->changed as $key => $changed) {
 			if ($changed) {
+				Z_Core::debug("$key has changed for item {$this->libraryID}/{$this->key}");
 				return true;
 			}
 		}
@@ -1499,7 +1500,8 @@ class Zotero_Item {
 			// Existing item, update
 			//
 			else {
-				Z_Core::debug('Updating database with new item data', 4);
+				Z_Core::debug('Updating database with new item data for item '
+					. $this->libraryID . '/' . $this->key, 4);
 				
 				$isNew = false;
 				
