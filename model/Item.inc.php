@@ -1524,10 +1524,10 @@ class Zotero_Item {
 						$sql .= "`$updateField`=?, ";
 						$sqlValues[] = $this->$updateField;
 					}
-					else if ($updateField == 'dateModified') {
+					/*else if ($updateField == 'dateModified') {
 						$sql .= "`$updateField`=?, ";
 						$sqlValues[] = $timestamp;
-					}
+					}*/
 				}
 				
 				$sql .= "serverDateModified=?, version=IF(version = 65535, 0, version + 1) WHERE itemID=?";
