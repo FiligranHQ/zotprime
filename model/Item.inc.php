@@ -118,7 +118,10 @@ class Zotero_Item {
 	
 	
 	public function __get($field) {
-		// Inline id and key for performance
+		// Inline libraryID, id, and key for performance
+		if ($field == 'libraryID') {
+			return $this->libraryID;
+		}
 		if ($field == 'id') {
 			if (!$this->id && $this->key && !$this->loaded['primaryData']) {
 				$this->loadPrimaryData(true);
