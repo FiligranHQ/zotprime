@@ -1360,7 +1360,7 @@ class Zotero_Sync {
 				throw new Exception("Library timestamp already used", Z_ERROR_LIBRARY_TIMESTAMP_ALREADY_USED);
 			}
 			
-			$creatorLinkedItems = array();
+			$modifiedItems = array();
 			
 			// Add/update creators
 			if ($xml->creators) {
@@ -1382,11 +1382,15 @@ class Zotero_Sync {
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
 						$addedLibraryIDs[] = $creatorObj->libraryID;
 						
-						$creatorLinkedItems = array_merge(
-							$creatorLinkedItems, $creatorObj->getLinkedItems()
-						);
+						$changed = $creatorObj->save();
 						
-						$creatorObj->save();
+						// If the creator changed, we need to update all linked items
+						if ($changed) {
+							$modifiedItems = array_merge(
+								$modifiedItems,
+								$creatorObj->getLinkedItems()
+							);
+						}
 					}
 				}
 				catch (Exception $e) {
@@ -1481,22 +1485,6 @@ class Zotero_Sync {
 				unset($relatedItemsStore);
 			}
 			
-			if ($creatorLinkedItems) {
-				// Update versions of affected creator items not already
-				// updated in this sync process, since modifying a creator
-				// doesn't do it automatically
-				$toUpdate = array();
-				foreach ($creatorLinkedItems as $item) {
-					$lk = $item->libraryID . "/" . $item->key;
-					if (isset($savedItems[$lk])) {
-						continue;
-					}
-					$toUpdate[] = $item;
-					$savedItems[$lk] = true;
-				}
-				Zotero_Items::updateVersions($toUpdate, $userID);
-			}
-			
 			// Add/update collections
 			if ($xml->collections) {
 				$collections = array();
@@ -1580,7 +1568,6 @@ class Zotero_Sync {
 				// DOM
 				$xmlElements = dom_import_simplexml($xml->tags);
 				$xmlElements = $xmlElements->getElementsByTagName('tag');
-				$modifiedItems = array();
 				foreach ($xmlElements as $xmlElement) {
 					$libraryID = (int) $xmlElement->getAttribute('libraryID');
 					$key = $xmlElement->getAttribute('key');
@@ -1591,40 +1578,25 @@ class Zotero_Sync {
 					}
 					$keys[$lk] = true;
 					
-					// Get the items that were on the tag before it was
-					// modified, since they need to be updated
-					$tagObj = Zotero_Tags::getByLibraryAndKey($libraryID, $key);
-					if ($tagObj) {
-						$modifiedItems = array_merge(
-							$modifiedItems, $tagObj->getLinkedItems()
-						);
-					}
+					$itemKeysToUpdate = array();
+					$tagObj = Zotero_Tags::convertXMLToTag($xmlElement, $itemKeysToUpdate);
 					
-					$tagObj = Zotero_Tags::convertXMLToTag($xmlElement, $tagObj);
-					
-					// And get all the new items
+					// We need to update removed items, added items, and,
+					// if the tag itself has changed, existing items
 					$modifiedItems = array_merge(
-						$modifiedItems, $tagObj->getLinkedItems()
+						$modifiedItems,
+						array_map(
+							function ($key) use ($libraryID) {
+								return $libraryID . "/" . $key;
+							},
+							$itemKeysToUpdate
+						)
 					);
 					
 					$tagObj->save(true);
 				}
 				unset($keys);
 				unset($xml->tags);
-				
-				// Update versions of affected items not already updated in
-				// this sync process, since adding items to (or removing
-				// tags from) a Zotero_Tag doesn't do it automatically
-				$toUpdate = array();
-				foreach ($modifiedItems as $item) {
-					$lk = $item->libraryID . "/" . $item->key;
-					if (isset($savedItems[$lk])) {
-						continue;
-					}
-					$toUpdate[] = $item;
-					$savedItems[$lk] = true;
-				}
-				Zotero_Items::updateVersions($toUpdate, $userID);
 			}
 			
 			// Add/update relations
@@ -1642,8 +1614,6 @@ class Zotero_Sync {
 				unset($keys);
 				unset($xml->relations);
 			}
-			
-			unset($savedItems);
 			
 			// TODO: loop
 			if ($xml->deleted) {
@@ -1669,39 +1639,29 @@ class Zotero_Sync {
 				
 				// Delete tags
 				if ($xml->deleted->tags) {
-					$modifiedItems = array();
 					$xmlElements = dom_import_simplexml($xml->deleted->tags);
 					$xmlElements = $xmlElements->getElementsByTagName('tag');
 					foreach ($xmlElements as $xmlElement) {
 						$libraryID = (int) $xmlElement->getAttribute('libraryID');
 						$key = $xmlElement->getAttribute('key');
 						
-						$lk = $libraryID . "/" . $key;
-						
 						$tagObj = Zotero_Tags::getByLibraryAndKey($libraryID, $key);
 						if (!$tagObj) {
 							continue;
 						}
+						// We need to update all items on the deleted tag
 						$modifiedItems = array_merge(
-							$modifiedItems, $tagObj->getLinkedItems()
+							$modifiedItems,
+							array_map(
+								function ($key) use ($libraryID) {
+									return $libraryID . "/" . $key;
+								},
+								$tagObj->getLinkedItems(true)
+							)
 						);
 					}
 					
 					Zotero_Tags::deleteFromXML($xml->deleted->tags);
-					
-					// Update versions of affected items not already updated in
-					// this sync process, since deleting a Zotero_Tag doesn't
-					// do it automatically
-					$toUpdate = array();
-					foreach ($modifiedItems as $item) {
-						$lk = $item->libraryID . "/" . $item->key;
-						if (isset($savedItems[$lk])) {
-							continue;
-						}
-						$toUpdate[] = $item;
-						$savedItems[$lk] = true;
-					}
-					Zotero_Items::updateVersions($toUpdate, $userID);
 				}
 				
 				// Delete relations
@@ -1709,6 +1669,31 @@ class Zotero_Sync {
 					Zotero_Relations::deleteFromXML($xml->deleted->relations);
 				}
 			}
+			
+			$toUpdate = array();
+			foreach ($modifiedItems as $item) {
+				// libraryID/key string
+				if (is_string($item)) {
+					if (isset($savedItems[$item])) {
+						continue;
+					}
+					$savedItems[$item] = true;
+					list($libraryID, $key) = explode("/", $item);
+					$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
+				}
+				// Zotero_Item
+				else {
+					$lk = $item->libraryID . "/" . $item->key;
+					if (isset($savedItems[$lk])) {
+						continue;
+					}
+					$savedItems[$lk] = true;
+				}
+				$toUpdate[] = $item;
+			}
+			Zotero_Items::updateVersions($toUpdate, $userID);
+			unset($savedItems);
+			unset($modifiedItems);
 			
 			self::removeUploadProcess($processID);
 			

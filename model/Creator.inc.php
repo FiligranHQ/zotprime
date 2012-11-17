@@ -128,7 +128,7 @@ class Zotero_Creator {
 	
 	
 	public function hasChanged() {
-		return !!$this->changed;
+		return in_array(true, array_values($this->changed));
 	}
 	
 	

@@ -557,10 +557,13 @@ class Zotero_Items extends Zotero_DataObjects {
 		Zotero_DB::commit();
 		
 		foreach ($libraryItems as $libraryID => $items) {
-			$itemIDs = array_map(function ($item) {
-				return $item->id;
+			foreach ($items as $item) {
+				$item->reload();
+			}
+			
+			$libraryKeys = array_map(function ($item) use ($libraryID) {
+				return $libraryID . "/" . $item->key;
 			}, $items);
-			self::reload($libraryID, $itemIDs);
 		}
 	}
 	

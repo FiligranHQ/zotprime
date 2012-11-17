@@ -235,15 +235,13 @@ class Zotero_Tags extends Zotero_DataObjects {
 	 * @param	int					$libraryID	Library ID
 	 * @return	Zotero_Tag						Zotero tag object
 	 */
-	public static function convertXMLToTag(DOMElement $xml, $tag=false) {
+	public static function convertXMLToTag(DOMElement $xml, &$itemKeysToUpdate) {
 		$libraryID = (int) $xml->getAttribute('libraryID');
+		$tag = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
 		if (!$tag) {
-			$tag = self::getByLibraryAndKey($libraryID, $xml->getAttribute('key'));
-			if (!$tag) {
-				$tag = new Zotero_Tag;
-				$tag->libraryID = $libraryID;
-				$tag->key = $xml->getAttribute('key');
-			}
+			$tag = new Zotero_Tag;
+			$tag->libraryID = $libraryID;
+			$tag->key = $xml->getAttribute('key');
 		}
 		$tag->name = $xml->getAttribute('name');
 		$type = (int) $xml->getAttribute('type');
@@ -251,24 +249,29 @@ class Zotero_Tags extends Zotero_DataObjects {
 		$tag->dateAdded = $xml->getAttribute('dateAdded');
 		$tag->dateModified = $xml->getAttribute('dateModified');
 		
+		$dataChanged = $tag->hasChanged();
+		
 		$itemKeys = $xml->getElementsByTagName('items');
+		$oldKeys = $tag->getLinkedItems(true);
 		if ($itemKeys->length) {
-			$itemKeys = explode(' ', $itemKeys->item(0)->nodeValue);
-			$itemIDs = array();
-			foreach ($itemKeys as $key) {
-				$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
-				if (!$item) {
-					// Return a specific error for a wrong-library tag issue that I can't reproduce
-					throw new Exception("Linked item $key of tag $libraryID/$tag->key not found", Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND);
-					//throw new Exception("Linked item $key of tag $libraryID/$tag->key not found", Z_ERROR_ITEM_NOT_FOUND);
-				}
-				$itemIDs[] = $item->id;
-			}
-			$tag->setLinkedItems($itemIDs);
+			$newKeys = explode(' ', $itemKeys->item(0)->nodeValue);
 		}
 		else {
-			$tag->setLinkedItems(array());
+			$newKeys = array();
 		}
+		$addKeys = array_diff($newKeys, $oldKeys);
+		$removeKeys = array_diff($oldKeys, $newKeys);
+		
+		// If the data has changed, all old and new items need to change
+		if ($dataChanged) {
+			$itemKeysToUpdate = array_merge($oldKeys, $addKeys);
+		}
+		// Otherwise, only update items that are being added or removed
+		else {
+			$itemKeysToUpdate = array_merge($addKeys, $removeKeys);
+		}
+		
+		$tag->setLinkedItems($newKeys);
 		return $tag;
 	}
 	

@@ -63,6 +63,7 @@ class Zotero_Item {
 	private $loaded = array();
 	private $changed = array();
 	private $previousData = array();
+	private $reload = false;
 	
 	public function __construct($itemTypeOrID=false) {
 		$numArgs = func_num_args();
@@ -78,7 +79,7 @@ class Zotero_Item {
 	}
 	
 	
-	private function init() {
+	private function init($reload=false) {
 		$this->loaded = array();
 		$props = array(
 			'primaryData',
@@ -114,6 +115,10 @@ class Zotero_Item {
 		}
 		
 		$this->previousData = array();
+		
+		if ($reload) {
+			$this->reload = true;
+		}
 	}
 	
 	
@@ -196,7 +201,7 @@ class Zotero_Item {
 		
 		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
 			if (!property_exists('Zotero_Item', $field)) {
-				trigger_error("Zotero_Item property '$field' doesn't exist", E_USER_ERROR);
+				throw new Exception("Zotero_Item property '$field' doesn't exist");
 			}
 			return $this->setField($field, $val);
 		}
@@ -517,7 +522,9 @@ class Zotero_Item {
 		$columns = array();
 		foreach (Zotero_Items::$primaryFields as $field) {
 			$colSQL = '';
-			if (is_null($field == 'itemID' ? $this->id : $this->$field)) {
+			// Add unloaded primary fields to the query, or all if item
+			// is being reloaded
+			if ($this->reload || is_null($field == 'itemID' ? $this->id : $this->$field)) {
 				switch ($field) {
 					case 'itemID':
 					case 'itemTypeID':
@@ -565,6 +572,8 @@ class Zotero_Item {
 			Z_Core::debug("No primary columns to load");
 			return;
 		}
+		
+		$this->reload = false;
 		
 		$sql = 'SELECT ' . implode(', ', $columns) . " FROM items I WHERE ";
 		
@@ -791,7 +800,7 @@ class Zotero_Item {
 	 */
 	public function setField($field, $value, $loadIn=false) {
 		if (empty($field)) {
-			trigger_error("Field not specified", E_USER_ERROR);
+			throw new Exception("Field not specified");
 		}
 		
 		// Set id, libraryID, and key without loading data first
@@ -1999,8 +2008,7 @@ class Zotero_Item {
 			Zotero_Items::cacheLibraryKeyID($this->libraryID, $key, $itemID);
 		}
 		
-		// TODO: invalidate memcache
-		Zotero_Items::reload($this->libraryID, $this->id);
+		$this->reload();
 		
 		if ($isNew) {
 			//Zotero.Notifier.trigger('add', 'item', $this->getID());
@@ -2009,6 +2017,17 @@ class Zotero_Item {
 		
 		//Zotero.Notifier.trigger('modify', 'item', $this->getID(), { old: $this->_preChangeArray });
 		return true;
+	}
+	
+	
+	/**
+	 * Reinitialize item so that existing instances get reloaded
+	 *
+	 * This is called from save() and doesn't need to be called directly
+	 * unless the database is modified directly outside of this class.
+	 */
+	public function reload() {
+		$this->init(true);
 	}
 	
 	
@@ -2956,12 +2975,12 @@ class Zotero_Item {
 			}
 			
 			$tag = Zotero_Tags::get($this->libraryID, $tagID);
-			$tag->addItem($this->id);
+			$tag->addItem($this->key);
 			$tag->save();
 		}
 		
 		foreach ($toRemove as $tag) {
-			$tag->removeItem($this->id);
+			$tag->removeItem($this->key);
 			$tag->save();
 		}
 		
