@@ -974,13 +974,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		$xmlstr = Z_Core::$MC->get($cacheKey);
 		if ($xmlstr) {
 			try {
-				$xml = new SimpleXMLElement($xmlstr);
-				// Make sure numChildren reflects the current permissions
-				if ($isRegularItem) {
-					$zapi = $xml->children('http://zotero.org/ns/api');
-					$zapi->numChildren = $numChildren;
-				}
-				
 				$doc = new DOMDocument;
 				$doc->loadXML($xmlstr);
 				$xpath = new DOMXpath($doc);
