@@ -297,13 +297,13 @@ class Zotero_Tag {
 				}
 				
 				if ($removeKeys) {
-					$sql = "DELETE itemTags FROM itemTags JOIN items "
-						. "WHERE libraryID=? AND `key` IN ("
+					$sql = "DELETE itemTags FROM itemTags JOIN items USING (itemID) "
+						. "WHERE tagID=? AND items.key IN ("
 						. implode(', ', array_fill(0, sizeOf($removeKeys), '?'))
 						. ")";
 					Zotero_DB::query(
 						$sql,
-						array_merge(array($this->libraryID), $removeKeys),
+						array_merge(array($this->id), $removeKeys),
 						$shardID
 					);
 				}
