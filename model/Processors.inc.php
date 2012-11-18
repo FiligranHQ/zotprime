@@ -20,7 +20,6 @@ class Zotero_Processors {
 			case 'download':
 			case 'upload':
 			case 'error':
-			case 'index':
 				break;
 			
 			default:

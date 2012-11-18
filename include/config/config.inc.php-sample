@@ -58,12 +58,10 @@ class Z_CONFIG {
 	public static $PROCESSOR_PORT_DOWNLOAD = 3455;
 	public static $PROCESSOR_PORT_UPLOAD = 3456;
 	public static $PROCESSOR_PORT_ERROR = 3457;
-	public static $PROCESSOR_PORT_INDEX = 3458;
 	
 	public static $PROCESSOR_LOG_TARGET_DOWNLOAD = 'sync-processor-download';
 	public static $PROCESSOR_LOG_TARGET_UPLOAD = 'sync-processor-upload';
 	public static $PROCESSOR_LOG_TARGET_ERROR = 'sync-processor-error';
-	public static $PROCESSOR_LOG_TARGET_INDEX = 'processor-index';
 	
 	public static $SYNC_DOWNLOAD_SMALLEST_FIRST = false;
 	public static $SYNC_UPLOAD_SMALLEST_FIRST = false;

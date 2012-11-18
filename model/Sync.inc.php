@@ -474,14 +474,6 @@ class Zotero_Sync {
 			catch (Exception $e) {
 				Z_Core::logError($e);
 			}
-			
-			try {
-				// Index new items
-				Zotero_Processors::notifyProcessors('index');
-			}
-			catch (Exception $e) {
-				Z_Core::logError($e);
-			}
 		}
 		// Timeout/connection error
 		else if (
