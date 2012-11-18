@@ -285,6 +285,13 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			. 'dateModified="2009-03-07 04:54:56" '
 			. 'key="BBBBBBBB">'
 			. '<items>' . $key . '</items>'
+			. '</tag>'
+			. '<tag libraryID="'
+			. self::$config['libraryID'] . '" name="Test2" '
+			. 'dateAdded="2009-03-07 04:54:56" '
+			. 'dateModified="2009-03-07 04:54:56" '
+			. 'key="CCCCCCCC">'
+			. '<items>' . $key . '</items>'
 			. '</tag></tags></data>';
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
@@ -299,9 +306,11 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$json = json_decode($data['content']);
 		$originalETag = $data['etag'];
 		
-		$this->assertCount(1, $json->tags);
+		$this->assertCount(2, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
+		$this->assertTrue(isset($json->tags[1]->tag));
+		$this->assertEquals("Test2", $json->tags[1]->tag);
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -309,8 +318,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$updateKey = (string) $xml['updateKey'];
 		
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
-		$this->assertEquals(1, sizeOf($xml->updated->tags->tag));
+		$this->assertEquals(2, sizeOf($xml->updated->tags->tag));
 		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[0]->items));
+		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[1]->items));
 		
 		// Remove tag from item via sync
 		$data = '<data version="9"><tags><tag libraryID="'
@@ -325,8 +335,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
 		$xml = Sync::getXMLFromResponse($response);
-		$this->assertEquals(1, sizeOf(isset($xml->updated->tags->tag)));
+		$this->assertEquals(2, sizeOf($xml->updated->tags->tag));
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
+		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[1]->items));
 		
 		// Get item ETag via API
 		$response = API::userGet(
@@ -337,9 +348,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromItemEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
-		$this->assertCount(0, $json->tags);
 		$this->assertNotEquals($originalETag, $data['etag']);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
+		$this->assertCount(1, $json->tags);
 	}
 	
 	

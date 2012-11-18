@@ -63,6 +63,9 @@ class TagTests extends APITests {
 		$json->tags[] = array(
 			"tag" => "Test"
 		);
+		$json->tags[] = array(
+			"tag" => "Test2"
+		);
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}?key=" . self::$config['apiKey'],
@@ -73,7 +76,7 @@ class TagTests extends APITests {
 			)
 		);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
+		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$data = API::parseDataFromItemEntry($xml);
 		$this->assertNotEquals($etag, (string) $data['etag']);
 		
@@ -87,7 +90,11 @@ class TagTests extends APITests {
 	public function testTagRemoveItemETag($data) {
 		$originalETag = $data['etag'];
 		$json = json_decode($data['content']);
-		$json->tags = array();
+		$json->tags = array(
+			array(
+				"tag" => "Test2"
+			)
+		);
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}?key=" . self::$config['apiKey'],
@@ -98,7 +105,7 @@ class TagTests extends APITests {
 			)
 		);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$data = API::parseDataFromItemEntry($xml);
 		$this->assertNotEquals($originalETag, (string) $data['etag']);
 	}
