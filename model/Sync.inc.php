@@ -1699,7 +1699,20 @@ class Zotero_Sync {
 			unset($savedItems);
 			unset($modifiedItems);
 			
-			self::removeUploadProcess($processID);
+			try {
+				self::removeUploadProcess($processID);
+			}
+			catch (Exception $e) {
+				if (strpos($e->getMessage(), 'MySQL server has gone away') !== false) {
+					// Reconnect
+					error_log("Reconnecting to MySQL master");
+					Zotero_DB::close();
+					self::removeUploadProcess($processID);
+				}
+				else {
+					throw ($e);
+				}
+			}
 			
 			Zotero_DB::commit();
 			Z_Core::$MC->commit();
