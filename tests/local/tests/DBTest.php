@@ -54,8 +54,19 @@ class DBTests extends PHPUnit_Framework_TestCase {
 		
 		sleep(3);
 		
-		// If auto-reconnect isn't enabled, this will fail, and the
-		// false check ensures this is a different connection
+		try {
+			Zotero_DB::valueQuery("SELECT @foo");
+			$fail = true;
+		}
+		catch (Exception $e) {
+			$this->assertContains("MySQL server has gone away", $e->getMessage());
+		}
+		
+		if (isset($fail)) {
+			$this->fail("Reconnect should not be automatic");
+		}
+		
+		Zotero_DB::close();
 		$this->assertEquals(false, Zotero_DB::valueQuery("SELECT @foo"));
 	}
 	
