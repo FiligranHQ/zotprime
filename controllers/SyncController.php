@@ -110,6 +110,13 @@ class SyncController extends Controller {
 			else if (ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "2.0rc.r5716") < 0) {
 				$this->error(400, 'UPGRADE_REQUIRED', $upgradeMessage);
 			}
+			else if (isset($_SERVER['HTTP_USER_AGENT'])
+					&& (strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/17") !== false
+						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/18") !== false
+						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/19") !== false)
+					&& ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "3.0.9") < 0) {
+				$this->error(400, 'UPGRADE_REQUIRED', "Your version of Zotero is not compatible with Firefox 17 or later. Please upgrade to Zotero 3.0.10 or later from zotero.org.");
+			}
 		}
 		
 		if (!in_array($_REQUEST['version'], $this->validAPIVersions)) {
