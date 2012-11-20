@@ -1680,6 +1680,10 @@ class Zotero_Sync {
 					$savedItems[$item] = true;
 					list($libraryID, $key) = explode("/", $item);
 					$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
+					if (!$item) {
+						// Item was deleted
+						continue;
+					}
 				}
 				// Zotero_Item
 				else {
