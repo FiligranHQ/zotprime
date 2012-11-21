@@ -157,9 +157,12 @@ class Zotero_Cite {
 	private static $zoteroNameMap = array(
 		"author" => "author",
 		"editor" => "editor",
-		"translator" => "translator",
+		"bookAuthor" => "container-author",
+		"composer" => "composer",
+		"interviewer" => "interviewer",
+		"recipient" => "recipient",
 		"seriesEditor" => "collection-editor",
-		"bookAuthor" => "container-author"
+		"translator" => "translator"
 	);
 	
 	/**
@@ -182,7 +185,7 @@ class Zotero_Cite {
 		"version" => array("version"),
 		"section" => array("section"),
 		"genre" => array("type", "artworkSize"), /* artworkSize should move to SQL mapping tables, or added as a CSL variable */
-		"medium" => array("medium"),
+		"medium" => array("medium", "system"),
 		"archive" => array("archive"),
 		"archive_location" => array("archiveLocation"),
 		"event" => array("meetingName", "conferenceName"), /* these should be mapped to the same base field in SQL mapping tables */
@@ -196,7 +199,8 @@ class Zotero_Cite {
 		"number" => array("number"),
 		"references" => array("history"),
 		"shortTitle" => array("shortTitle"),
-		"journalAbbreviation" => array("journalAbbreviation")
+		"journalAbbreviation" => array("journalAbbreviation"),
+		"language" => array("language")
 	);
 	
 	private static $zoteroDateMap = array(
