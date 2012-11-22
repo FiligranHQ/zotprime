@@ -303,6 +303,10 @@ CREATE TABLE `storageUploadQueue` (
   `hash` char(32) NOT NULL,
   `filename` varchar(1024) NOT NULL,
   `zip` tinyint(1) unsigned NOT NULL,
+  `size` int(10) unsigned NOT NULL,
+  `mtime` bigint(13) unsigned NOT NULL,
+  `contentType` varchar(75) NOT NULL,
+  `charset` varchar(25) NOT NULL,
   `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`uploadKey`),
   KEY `userID` (`userID`)
