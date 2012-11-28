@@ -2470,11 +2470,15 @@ class Zotero_Item {
 		}
 		
 		if (mb_strlen($text) > Zotero_Notes::$MAX_NOTE_LENGTH) {
+			// UTF-8 &nbsp; (0xC2 0xA0) isn't trimmed by default
+			$whitespace = chr(0x20) . chr(0x09) . chr(0x0A) . chr(0x0D)
+							. chr(0x00) . chr(0x0B) . chr(0xC2) . chr(0xA0);
 			$excerpt = iconv(
 				"UTF-8",
 				"UTF-8//IGNORE",
 				Zotero_Notes::noteToTitle(trim($text), true)
 			);
+			$excerpt = trim($excerpt, $whitespace);
 			// If tag-stripped version is empty, just return raw HTML
 			if ($excerpt == '') {
 				$excerpt = iconv(
@@ -2487,6 +2491,7 @@ class Zotero_Item {
 					)
 				);
 				$excerpt = html_entity_decode($excerpt);
+				$excerpt = trim($excerpt, $whitespace);
 			}
 			
 			throw new Exception(

@@ -104,7 +104,7 @@ class Zotero_Notes {
 		// Clean and unencode
 		$text = preg_replace("/<\/p>[\s]*<p>/", "</p>\n<p>", $text);
 		$text = strip_tags($text);
-		$text = html_entity_decode($text);
+		$text = html_entity_decode($text, ENT_COMPAT, 'UTF-8');
 		
 		$t = mb_strcut($text, 0, $max);
 		if ($ignoreNewline) {
