@@ -28,6 +28,9 @@ require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
 class NoteTests extends APITests {
+	private $content;
+	private $json;
+	
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
 		require 'include/config.inc.php';
@@ -41,90 +44,106 @@ class NoteTests extends APITests {
 	}
 	
 	
+	public function setUp() {
+		// Create too-long note content
+		$this->content = str_repeat("1234567890", 25001);
+		
+		// Create JSON template
+		$this->json = API::getItemTemplate("note");
+		$this->json->note = $this->content;
+	}
+	
+	
 	public function testNoteTooLong() {
-		$content = str_repeat("1234567890", 25001);
-		
-		$json = API::getItemTemplate("note");
-		$json->note = $content;
-		
 		$response = API::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"items" => array($json)
+				"items" => array($this->json)
 			)),
 			array("Content-Type: application/json")
 		);
 		$this->assert400($response);
-		//$this->assertRegExp('/^Note \'.+\' too long$/', $response->getBody());
 		$this->assertEquals(
 			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long",
 			$response->getBody()
 		);
-		
-		// Blank first two lines
-		$content = " \n \n" . $content;
-		
-		$json = API::getItemTemplate("note");
-		$json->note = $content;
+	}
+	
+	// Blank first two lines
+	public function testNoteTooLongBlankFirstLines() {
+		$this->json->note = " \n \n" . $this->content;
 		
 		$response = API::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"items" => array($json)
+				"items" => array($this->json)
 			)),
 			array("Content-Type: application/json")
 		);
 		$this->assert400($response);
-		//$this->assertRegExp('/^Note \'.+\' too long$/', (string) $response->getBody());
-		
 		$this->assertEquals(
 			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long",
 			$response->getBody()
 		);
-		
-		// Title and then more after newlines
-		// Blank first line
-		$content = "Full Text:\n\n" . $content;
-		
-		$json = API::getItemTemplate("note");
-		$json->note = $content;
+	}
+	
+	
+	public function testNoteTooLongBlankFirstLinesHTML() {
+		$this->json->note = "\n<p>&nbsp;</p>\n<p>&nbsp;</p>\n" . $this->content;
 		
 		$response = API::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"items" => array($json)
+				"items" => array($this->json)
 			)),
 			array("Content-Type: application/json")
 		);
 		$this->assert400($response);
-		//$this->assertRegExp('/^Note \'.+\' too long$/', (string) $response->getBody());
-		
 		$this->assertEquals(
-			"Note 'Full Text: 123456789012345678901234567890123456789012345678901234567890123...' too long",
+			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123...' too long",
 			$response->getBody()
 		);
-		
-		// All content within HTML tags
-		$content = "<p><!-- $content --></p>";
-		
-		$json = API::getItemTemplate("note");
-		$json->note = $content;
+	}
+	
+	
+	public function testNoteTooLongTitlePlusNewlines() {
+		$this->json->note = "Full Text:\n\n" . $this->content;
 		
 		$response = API::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"items" => array($json)
+				"items" => array($this->json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert400($response);
+		$this->assertEquals(
+			"Note 'Full Text: 1234567890123456789012345678901234567890123456789012345678901234567...' too long",
+			$response->getBody()
+		);
+	}
+	
+	
+	// All content within HTML tags
+	public function testNoteTooLongWithinHTMLTags() {
+		$this->json->note = "&nbsp;\n<p><!-- " . $this->content . " --></p>";
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($this->json)
 			)),
 			array("Content-Type: application/json")
 		);
 		$this->assert400($response);
 		
 		$this->assertEquals(
-			"Note '&amp;lt;p&amp;gt;&amp;lt;!-- Full Text: 1234567890123456789012345678901234567890123456789012345...' too long",
+			"Note '&amp;lt;p&amp;gt;&amp;lt;!-- 1234567890123456789012345678901234567890123456789012345678901234...' too long",
 			$response->getBody()
 		);
 	}
