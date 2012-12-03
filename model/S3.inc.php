@@ -25,7 +25,7 @@
 */
 
 class Zotero_S3 {
-	public static $defaultQuota = 100;
+	public static $defaultQuota = 300;
 	public static $uploadQueueLimit = 10;
 	public static $uploadQueueTimeout = 300;
 	
