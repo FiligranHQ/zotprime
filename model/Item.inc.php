@@ -2632,6 +2632,11 @@ class Zotero_Item {
 		if (!$mimeType) {
 			$mimeType = '';
 		}
+		
+		// TEMP: Strip some invalid characters
+		$mimeType = iconv("UTF-8", "ASCII//IGNORE", $mimeType);
+		$mimeType = preg_replace('/[^\x{0009}\x{000a}\x{000d}\x{0020}-\x{D7FF}\x{E000}-\x{FFFD}]+/u', '', $mimeType);
+		
 		$this->attachmentData['mimeType'] = $mimeType;
 		return $mimeType;
 	}
