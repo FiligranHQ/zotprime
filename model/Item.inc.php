@@ -2831,7 +2831,8 @@ class Zotero_Item {
 		
 		// Don't allow changing of existing linkMode
 		if ($field == 'linkMode' && $this->$fieldName !== null) {
-			throw new Exception("Cannot change existing linkMode");
+			throw new Exception("Cannot change existing linkMode for item "
+				. $this->libraryID . "/" . $this->key);
 		}
 		
 		$this->changed['attachmentData'][$field] = true;
