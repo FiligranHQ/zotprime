@@ -308,10 +308,16 @@ class SyncController extends Controller {
 						0,
 						$duration,
 						$duration,
-						0
+						(int) !$this->responseXML
 					);
 					
 					StatsD::increment("sync.process.download.cache.hit");
+					
+					if (!$this->responseXML) {
+						$msg = "Error parsing cached XML for user " . $this->userID;
+						error_log($msg);
+						$this->handleUpdatedError(new Exception($msg));
+					}
 					
 					$this->end();
 				}
@@ -644,7 +650,12 @@ class SyncController extends Controller {
 	
 	
 	private function handleUpdatedError(Exception $e) {
-		unset($this->responseXML->updated);
+		if ($this->responseXML) {
+			unset($this->responseXML->updated);
+		}
+		else {
+			$this->responseXML = Zotero_Sync::getResponseXML($this->apiVersion);
+		}
 		
 		$msg = $e->getMessage();
 		
@@ -679,7 +690,7 @@ class SyncController extends Controller {
 				error_log("Unable to save error report to " . Z_CONFIG::$SYNC_ERROR_PATH . $id);
 			}
 			
-			$this->error(500, 'INVALID_OUTPUT', "Invalid output from server (Report ID: $id)");
+			$this->error(500, 'INVALID_OUTPUT', "Invalid response from server (Report ID: $id)");
 		}
 	}
 	
