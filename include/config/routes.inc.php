@@ -23,7 +23,8 @@ else {
 	$router->connect('/groups/:groupID/:action/top', array('controller' => 'Api', 'extra' => array('subset' => 'top')));
 	
 	// Attachment files
-	$router->connect('/users/:userID/laststoragesync', array('controller' => 'Api', 'action' => 'laststoragesync', 'extra' => array('allowHTTP' => true)));
+	$router->connect('/users/:userID/laststoragesync', array('controller' => 'Api', 'action' => 'laststoragesync', 'extra' => array('auth' => true)));
+	$router->connect('/groups/:groupID/laststoragesync', array('controller' => 'Api', 'action' => 'laststoragesync', 'extra' => array('auth' => true)));
 	$router->connect('/users/:userID/storageadmin', array('controller' => 'Api', 'action' => 'storageadmin'));
 	$router->connect('/storagepurge', array('controller' => 'Api', 'action' => 'storagepurge'));
 	$router->connect('/users/:userID/removestoragefiles', array('controller' => 'Api', 'action' => 'removestoragefiles', 'extra' => array('allowHTTP' => true)));

@@ -122,7 +122,7 @@ class ApiController extends Controller {
 			}
 			
 			// Allow HTTP Auth for file access
-			else if (!empty($extra['allowHTTP'])) {
+			else if (!empty($extra['allowHTTP']) || !empty($extra['auth'])) {
 				$userID = Zotero_Users::authenticate(
 					'password',
 					array('username' => $username, 'password' => $password)
@@ -164,7 +164,7 @@ class ApiController extends Controller {
 			}
 			// No credentials provided
 			else {
-				if (!empty($_GET['auth'])) {
+				if (!empty($_GET['auth']) || !empty($extra['auth'])) {
 					$this->e401();
 				}
 				
@@ -941,7 +941,13 @@ class ApiController extends Controller {
 			//Zotero_Users::setLastStorageSync($this->userID);
 		}
 		
-		$lastSync = Zotero_Users::getLastStorageSync($this->userID);
+		// Deprecated after 3.0.x, which used auth=1
+		if (!empty($_GET['auth'])) {
+			$lastSync = Zotero_Users::getLastStorageSync($this->objectUserID);
+		}
+		else {
+			$lastSync = Zotero_Libraries::getLastStorageSync($this->objectLibraryID);
+		}
 		if (!$lastSync) {
 			$this->e404();
 		}
