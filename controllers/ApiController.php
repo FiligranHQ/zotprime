@@ -343,6 +343,7 @@ class ApiController extends Controller {
 		}
 		
 		$itemIDs = array();
+		$itemKeys = array();
 		$responseItems = array();
 		$responseKeys = array();
 		$totalResults = null;
@@ -657,7 +658,6 @@ class ApiController extends Controller {
 							$this->e404("Tag not found");
 						}
 						
-						$itemIDs = array();
 						$title = '';
 						foreach ($tagIDs as $tagID) {
 							$tag = new Zotero_Tag;
@@ -667,9 +667,9 @@ class ApiController extends Controller {
 							if (!$title) {
 								$title = "Items of Tag ‘" . $tag->name . "’";
 							}
-							$itemIDs = array_merge($itemIDs, $tag->getLinkedItems(true));
+							$itemKeys = array_merge($itemKeys, $tag->getLinkedItems(true));
 						}
-						$itemIDs = array_unique($itemIDs);
+						$itemKeys = array_unique($itemKeys);
 						
 						break;
 					
@@ -838,8 +838,13 @@ class ApiController extends Controller {
 				}
 			}
 			
-			if ($itemIDs) {
-				$this->queryParams['itemIDs'] = $itemIDs;
+			if ($itemIDs || $itemKeys) {
+				if ($itemIDs) {
+					$this->queryParams['itemIDs'] = $itemIDs;
+				}
+				if ($itemKeys) {
+					$this->queryParams['itemKey'] = implode(',', $itemKeys);
+				}
 				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
 				
 				if ($formatAsKeys) {
