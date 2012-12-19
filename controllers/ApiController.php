@@ -904,16 +904,9 @@ class ApiController extends Controller {
 					break;
 				
 				case 'keys':
-					if (!$formatAsKeys) {
-						$responseKeys = array();
-						foreach ($responseItems as $item) {
-							$responseKeys[] = $item->key;
-						}
-					}
-					
 					header("Content-Type: text/plain");
 					echo implode("\n", $responseKeys) . "\n";
-					exit;
+					break;
 				
 				default:
 					$export = Zotero_Translate::doExport($responseItems, $this->queryParams['format']);
