@@ -318,7 +318,7 @@ class Zotero_API {
 	
 	
 	public static function getKeyURI(Zotero_Key $key) {
-		return self::getbaseURI() . $key->userID . "/keys/" . urlencode($key->key);
+		return self::getBaseURI() . $key->userID . "/keys/" . urlencode($key->key);
 	}
 	
 	
