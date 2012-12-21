@@ -77,8 +77,6 @@ class Zotero_Attachments {
 		
 		$docroot = Z_CONFIG::$ATTACHMENT_SERVER_DOCROOT;
 		
-		//Z_Core::$debug = true;
-		
 		// Check memcached to see if file is already extracted
 		$key = "attachmentServerString_" . $storageFileID . "_" . $mtime;
 		if ($randomStr = Z_Core::$MC->get($key)) {
