@@ -115,7 +115,7 @@ class FileTests extends APITests {
 				"If-None-Match: *"
 			)
 		);
-		// Disable this test for now, till the functionality is present in the dataserver
+		// TODO: Enable this test when the dataserver enforces it
 		//$this->assert400($response);
 		//$this->assertEquals('mtime must be specified in milliseconds', $response->getBody());
 		
