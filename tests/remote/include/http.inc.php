@@ -44,7 +44,7 @@ class HTTP {
 		if ($auth) {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
-		//$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig('ssl_verify_peer', false);
 		$response = $req->send();
 		if (self::$config['verbose']) {
 			echo "\n\n" . $response->getBody() . "\n";
@@ -59,7 +59,7 @@ class HTTP {
 		if ($auth) {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
-		//$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig('ssl_verify_peer', false);
 		if (is_array($data)) {
 			$req->addPostParameter($data);
 		}
@@ -77,7 +77,7 @@ class HTTP {
 		if ($auth) {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
-		//$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig('ssl_verify_peer', false);
 		$req->setBody($data);
 		$response = $req->send();
 		return $response;
@@ -87,7 +87,7 @@ class HTTP {
 		$req = new HTTP_Request2($url);
 		$req->setMethod("PATCH");
 		$req->setHeader($headers);
-		//$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig('ssl_verify_peer', false);
 		$req->setBody($data);
 		$response = $req->send();
 		return $response;
@@ -100,7 +100,7 @@ class HTTP {
 		if ($auth) {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
-		//$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig('ssl_verify_peer', false);
 		$response = $req->send();
 		return $response;
 	}
@@ -112,7 +112,7 @@ class HTTP {
 		if ($auth) {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
-		//$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig('ssl_verify_peer', false);
 		$response = $req->send();
 		return $response;
 	}
