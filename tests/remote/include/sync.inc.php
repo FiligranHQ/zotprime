@@ -91,7 +91,7 @@ class Sync {
 	public static function waitForUpload($sessionID, $response, $context, $allowError=false) {
 		$xml = Sync::getXMLFromResponse($response);
 		
-		if (isset($xml->uploaded)) {
+		if (isset($xml->uploaded) || (isset($xml->error) && $allowError))  {
 			return $xml;
 		}
 		
