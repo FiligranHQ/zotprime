@@ -462,7 +462,7 @@ class FileTests extends APITests {
 		// Get serverDateModified
 		$response = API::userGet(
 			self::$config['userID'],
-			"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=none"
+			"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$serverDateModified = (string) array_shift($xml->xpath('/atom:entry/atom:updated'));
