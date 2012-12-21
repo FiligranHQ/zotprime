@@ -98,11 +98,11 @@ class Zotero_API {
 							throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
 					}
 				}
-				else if ($getParams['format'] == 'keys') {
+				else if (in_array($getParams['format'], array('keys', 'versions'))) {
 					switch ($key) {
 						// Invalid parameters
 						case 'start':
-							throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
+							throw new Exception("'$key' is not valid for format={$getParams['format']}", Z_ERROR_INVALID_INPUT);
 					}
 				}
 			}
@@ -112,16 +112,14 @@ class Zotero_API {
 					$format = $getParams[$key];
 					$isExportFormat = in_array($format, Zotero_Translate::$exportFormats);
 					
-					// All actions other than items must be Atom
-					if ($action != 'items') {
-						if ($format != 'atom') {
-							throw new Exception("Invalid 'format' value '$format'", Z_ERROR_INVALID_INPUT);
-						}
+					if (!self::isValidFormatForAction($action, $format, $singleObject)) {
+						throw new Exception("Invalid 'format' value '$format'", Z_ERROR_INVALID_INPUT);
 					}
+					
 					// Since the export formats and csljson don't give a clear indication
 					// of limiting or rel="next" links, require an explicit limit
 					// for everything other than single items and itemKey queries
-					else if ($isExportFormat || $format == 'csljson') {
+					if ($isExportFormat || $format == 'csljson') {
 						if ($singleObject || !empty($getParams['itemKey'])) {
 							break;
 						}
@@ -134,19 +132,6 @@ class Zotero_API {
 						// TODO: Do this for all formats?
 						else if ($getParams['limit'] > $limitMax) {
 							throw new Exception("'limit' cannot be greater than $limitMax for format=$format", Z_ERROR_INVALID_INPUT);
-						}
-					}
-					else {
-						switch ($format) {
-							case 'atom':
-							case 'bib':
-								break;
-							
-							default:
-								if ($format == 'keys' && !$singleObject) {
-									break;
-								}
-								throw new Exception("Invalid 'format' value '$format' for request", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					break;
@@ -349,6 +334,42 @@ class Zotero_API {
 			default:
 				return 'asc';
 		}
+	}
+	
+	
+	public static function isValidFormatForAction($action, $format, $singleObject=false) {
+		$isExportFormat = in_array($format, Zotero_Translate::$exportFormats);
+		
+		if ($action == 'items') {
+			if ($isExportFormat) {
+				return true;
+			}
+			
+			switch ($format) {
+				case 'atom':
+				case 'bib':
+				case 'globalKeys':
+					return true;
+				
+				case 'keys':
+					if (!$singleObject) {
+						return true;
+					}
+					break;
+			}
+			
+			return false;
+		}
+		else if ($action == 'groups') {
+			switch ($format) {
+				case 'atom':
+				case 'etags':
+					return true;
+			}
+			return false;
+		}
+		// All other actions must be Atom
+		return $format == 'atom';
 	}
 	
 	

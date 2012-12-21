@@ -39,6 +39,7 @@ class Zotero_Group {
 	private $hasImage = false;
 	private $dateAdded;
 	private $dateModified;
+	private $version;
 	
 	private $loaded = false;
 	private $changed = array();
@@ -69,6 +70,7 @@ class Zotero_Group {
 			case 'hasImage':
 			case 'dateAdded':
 			case 'dateModified':
+			case 'version':
 			case 'erased':
 				break;
 			
@@ -77,6 +79,9 @@ class Zotero_Group {
 					return Zotero_Utilities::slugify($this->name);
 				}
 				return null;
+			
+			case 'etag':
+				return $this->getETag();
 			
 			default:
 				throw new Exception("Invalid group field '$field'");
@@ -607,7 +612,9 @@ class Zotero_Group {
 				$params[] = $this->$field;
 			}
 		}
-		$sql .= implode(", ", $q) . ", dateModified=CURRENT_TIMESTAMP";
+		$sql .= implode(", ", $q) . ", "
+			. "dateModified=CURRENT_TIMESTAMP, "
+			. "version=version=IF(version = 255, 1, version + 1)";
 		$insertID = Zotero_DB::query($sql, $params);
 		
 		if (!$this->id) {
@@ -975,6 +982,11 @@ class Zotero_Group {
 		}
 		else if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
+			$xml->content->addAttribute(
+				"zapi:etag",
+				$this->etag,
+				Zotero_Atom::$nsZoteroAPI
+			);
 			$xml->content = $this->toJSON(false, $queryParams['pprint'], true);
 		}
 		else if ($content == 'full') {
@@ -1155,6 +1167,14 @@ class Zotero_Group {
 		
 		$this->loaded = true;
 		$this->changed = array();
+	}
+	
+	
+	private function getETag() {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		return md5($this->dateModified . $this->version);
 	}
 	
 	

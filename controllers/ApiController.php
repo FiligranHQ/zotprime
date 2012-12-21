@@ -1942,6 +1942,7 @@ class ApiController extends Controller {
 			if (!$group) {
 				$this->e404("Group not found");
 			}
+			header("ETag: " . $group->etag);
 			$this->responseXML = $group->toAtom($this->queryParams['content'], $this->queryParams);
 		}
 		// Multiple groups
@@ -1972,14 +1973,32 @@ class ApiController extends Controller {
 			$groups = $results['groups'];
 			$totalResults = $results['totalResults'];
 			
-			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$title,
-				$this->uri,
-				$groups,
-				$totalResults,
-				$this->queryParams,
-				$this->permissions
-			);
+			switch ($this->queryParams['format']) {
+				case 'atom':
+					$this->responseXML = Zotero_Atom::createAtomFeed(
+						$title,
+						$this->uri,
+						$groups,
+						$totalResults,
+						$this->queryParams,
+						$this->permissions
+					);
+					break;
+				
+				case 'etags':
+					$json = array();
+					foreach ($groups as $group) {
+						$json[$group->id] = $group->etag;
+					}
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+					}
+					else {
+						header("Content-Type: application/json");
+					}
+					echo json_encode($json);
+					break;
+			}
 		}
 		
 		$this->end();
