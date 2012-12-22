@@ -74,7 +74,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$etag = $data['etag'];
 		
 		// Get item via sync
@@ -100,7 +100,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertCount(1, $json->tags);
@@ -141,7 +141,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$etag = $data['etag'];
 		
 		// Verify createdByUserID and lastModifiedByUserID
@@ -180,7 +180,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertCount(1, $json->tags);
@@ -225,7 +225,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$etag = $data['etag'];
 		
 		// Get item via sync
@@ -256,7 +256,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertCount(1, $json->tags);
@@ -302,7 +302,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$originalETag = $data['etag'];
 		
@@ -345,7 +345,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertNotEquals($originalETag, $data['etag']);
@@ -383,7 +383,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$originalETag = $data['etag'];
 		
@@ -419,7 +419,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
@@ -457,7 +457,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$originalETag = $data['etag'];
 		
@@ -498,7 +498,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));

@@ -145,7 +145,7 @@ class API {
 			$context->assert201($response);
 		}
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		if ($context) {
 			$json = json_decode($data['content']);
 			$context->assertEquals($linkMode, $json->linkMode);
@@ -179,7 +179,7 @@ class API {
 			$context->assert201($response);
 		}
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		if ($context) {
 			$json = json_decode($data['content']);
 			$context->assertEquals($linkMode, $json->linkMode);
@@ -214,7 +214,7 @@ class API {
 			$context->assert201($response);
 		}
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		if ($context) {
 			$json = json_decode($data['content']);
 			$context->assertEquals($text, $json->note);
@@ -377,13 +377,10 @@ class API {
 	}
 	
 	
-	public static function parseDataFromItemEntry($itemEntryXML) {
-		$key = (string) array_shift($itemEntryXML->xpath('//atom:entry/zapi:key'));
-		$etag = (string) array_shift($itemEntryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
-		$content = array_shift($itemEntryXML->xpath('//atom:entry/atom:content'));
-		if (!$content) {
-			throw new Exception("<content> does not exist");
-		}
+	public static function parseDataFromAtomEntry($entryXML) {
+		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
+		$etag = (string) array_shift($entryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
+		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
 		// If 'content' contains XML, serialize all subnodes
 		if ($content->count()) {
 			$content = $content->asXML();
@@ -403,7 +400,7 @@ class API {
 	
 	public static function getContentFromResponse($response) {
 		$xml = self::getXMLFromResponse($response);
-		$data = self::parseDataFromItemEntry($xml);
+		$data = self::parseDataFromAtomEntry($xml);
 		return $data['content'];
 	}
 	

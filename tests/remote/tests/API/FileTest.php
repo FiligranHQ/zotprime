@@ -66,7 +66,7 @@ class FileTests extends APITests {
 	
 	public function testNewEmptyImportedFileAttachmentItem() {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
-		return API::parseDataFromItemEntry($xml);
+		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
@@ -160,11 +160,11 @@ class FileTests extends APITests {
 	
 	public function testAddFileFull() {
 		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$parentKey = $data['key'];
 		
 		$xml = API::createAttachmentItem("imported_file", $parentKey, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$originalETag = $data['etag'];
 		
 		$file = "work/file";
@@ -255,7 +255,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -274,7 +274,7 @@ class FileTests extends APITests {
 	
 	public function testAddFileFullParams() {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		// Get serverDateModified
 		$serverDateModified = array_shift($xml->xpath('/atom:entry/atom:updated'));
@@ -366,7 +366,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -468,7 +468,7 @@ class FileTests extends APITests {
 		$serverDateModified = (string) array_shift($xml->xpath('/atom:entry/atom:updated'));
 		sleep(1);
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$originalETag = $data['etag'];
 		
 		// Get a sync timestamp from before the file is updated
@@ -558,7 +558,7 @@ class FileTests extends APITests {
 				"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=json"
 			);
 			$xml = API::getXMLFromResponse($response);
-			$data = API::parseDataFromItemEntry($xml);
+			$data = API::parseDataFromAtomEntry($xml);
 			$json = json_decode($data['content']);
 			$this->assertEquals($fileParams['md5'], $json->md5);
 			$this->assertEquals($fileParams['mtime'], $json->mtime);
@@ -616,7 +616,7 @@ class FileTests extends APITests {
 		$this->assert404($response);
 		
 		$xml = API::createAttachmentItem("imported_file", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$originalETag = $data['etag'];
 		
 		// Get a sync timestamp from before the file is updated
@@ -731,7 +731,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -805,7 +805,7 @@ class FileTests extends APITests {
 		$this->assert404($response);
 		
 		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
 		$fileContentType = "text/html";
@@ -814,7 +814,7 @@ class FileTests extends APITests {
 		$fileModtime = time();
 		
 		$xml = API::createAttachmentItem("imported_url", $key, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		$etag = $data['etag'];
 		$json = json_decode($data['content']);
@@ -929,7 +929,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -988,7 +988,7 @@ class FileTests extends APITests {
 	
 	public function testAddFileLinkedAttachment() {
 		$xml = API::createAttachmentItem("linked_file", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$file = "work/file";
 		$fileContents = self::getRandomUnicodeString();

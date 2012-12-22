@@ -56,7 +56,7 @@ class TagTests extends APITests {
 	public function testTagAddItemETag() {
 		$xml = API::createItem("book", false, $this);
 		$t = time();
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$etag = $data['etag'];
 		
 		$json = json_decode($data['content']);
@@ -77,7 +77,7 @@ class TagTests extends APITests {
 		);
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$this->assertNotEquals($etag, (string) $data['etag']);
 		
 		return $data;
@@ -106,7 +106,7 @@ class TagTests extends APITests {
 		);
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$this->assertNotEquals($originalETag, (string) $data['etag']);
 	}
 	
@@ -121,7 +121,7 @@ class TagTests extends APITests {
 				array("tag" => "b")
 			)
 		), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key1 = $data['key'];
 		
 		$xml = API::createItem("book", array(
@@ -130,7 +130,7 @@ class TagTests extends APITests {
 				array("tag" => "c")
 			)
 		), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key2 = $data['key'];
 		
 		//

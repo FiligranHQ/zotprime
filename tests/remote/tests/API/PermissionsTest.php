@@ -90,39 +90,39 @@ class PermissionsTest extends APITests {
 		$bookKeys = array();
 		
 		$xml = API::createItem('book', array("title" => "A"), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		$bookKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("B", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("C", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("D", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("E", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createItem('book', array("title" => "F"), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		$bookKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("G", $data['key'], $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		
 		// Create collection and add items to it
@@ -138,7 +138,7 @@ class PermissionsTest extends APITests {
 		// TEMP: should be 201
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$collectionKey = $data['key'];
 		
 		$response = API::userPost(

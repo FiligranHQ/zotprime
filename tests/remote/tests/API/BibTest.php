@@ -46,7 +46,7 @@ class BibTests extends APITests {
 				)
 			)
 		));
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		self::$items[$data['key']] = array(
 			"citation" => array(
 				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title</i>.</span></content>',
@@ -73,7 +73,7 @@ class BibTests extends APITests {
 				)
 			)
 		));
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		self::$items[$data['key']] = array(
 			"citation" => array(
 				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title 2</i>.</span></content>',

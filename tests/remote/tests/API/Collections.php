@@ -45,7 +45,7 @@ class ItemTests extends APITests {
 		$xml = API::createCollection($name, false, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
@@ -63,7 +63,7 @@ class ItemTests extends APITests {
 		
 		$xml = API::createCollection($name, $parent, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
 		$this->assertEquals($parent, (string) $json->parent);
@@ -98,7 +98,7 @@ class ItemTests extends APITests {
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:feed/zapi:numCollections')));
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
@@ -130,7 +130,7 @@ class ItemTests extends APITests {
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
@@ -164,7 +164,7 @@ class ItemTests extends APITests {
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
 	}

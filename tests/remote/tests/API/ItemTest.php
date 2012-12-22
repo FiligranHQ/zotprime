@@ -50,7 +50,7 @@ class ItemTests extends APITests {
 		$xml = API::createItem("book", false, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$json = json_decode($data['content']);
 		$this->assertEquals("book", (string) $json->itemType);
@@ -128,7 +128,7 @@ class ItemTests extends APITests {
 		$this->assertEquals($firstName, $json->creators[0]->firstName);
 		$this->assertEquals($lastName, $json->creators[0]->lastName);
 		
-		return API::parseDataFromItemEntry($xml);
+		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
@@ -145,7 +145,7 @@ class ItemTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		$etag = $data['etag'];
 		$json1 = json_decode($data['content']);
@@ -201,7 +201,7 @@ class ItemTests extends APITests {
 		$xml = API::createItem("computerProgram", false, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$json = json_decode($data['content']);
 		$this->assertEquals("computerProgram", (string) $json->itemType);
@@ -300,19 +300,19 @@ class ItemTests extends APITests {
 	
 	public function testNewEmptyLinkAttachmentItem() {
 		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$xml = API::createAttachmentItem("linked_url", $data['key'], $this);
-		return API::parseDataFromItemEntry($xml);
+		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
 	public function testNewEmptyImportedURLAttachmentItem() {
 		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$xml = API::createAttachmentItem("imported_url", $data['key'], $this);
-		return API::parseDataFromItemEntry($xml);
+		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
@@ -395,7 +395,7 @@ class ItemTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($contentType, $json->contentType);
 		$this->assertEquals($charset, $json->charset);
@@ -484,12 +484,12 @@ class ItemTests extends APITests {
 		$xml = API::groupCreateItem(
 			self::$config['ownedPrivateGroupID'], "book", $this
 		);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$xml = API::groupCreateAttachmentItem(
 			self::$config['ownedPrivateGroupID'], "imported_url", $data['key'], $this
 		);
-		return API::parseDataFromItemEntry($xml);
+		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
@@ -523,7 +523,7 @@ class ItemTests extends APITests {
 	public function testNumChildren() {
 		$xml = API::createItem("book", false, $this);
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
 		API::createAttachmentItem("linked_url", $key, $this);
@@ -552,7 +552,7 @@ class ItemTests extends APITests {
 		$xml = API::createItem("book", array(
 			"date" => $date
 		), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
 		$response = API::userGet(
@@ -560,7 +560,7 @@ class ItemTests extends APITests {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($date, $json->date);
 	}

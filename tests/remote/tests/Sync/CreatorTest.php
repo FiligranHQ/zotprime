@@ -80,7 +80,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$etag = $data['etag'];
 		
 		// Get item via sync
@@ -113,7 +113,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertTrue(isset($json->creators[0]->name));

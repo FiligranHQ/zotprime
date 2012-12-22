@@ -37,7 +37,7 @@ class ParamsTests extends APITests {
 		// Create test data
 		for ($i=0; $i<5; $i++) {
 			$xml = API::createItem("book");
-			$data = API::parseDataFromItemEntry($xml);
+			$data = API::parseDataFromAtomEntry($xml);
 			self::$keys[] = $data['key'];
 		}
 		
@@ -53,7 +53,7 @@ class ParamsTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		self::$keys[] = $data['key'];
 	}
 	
