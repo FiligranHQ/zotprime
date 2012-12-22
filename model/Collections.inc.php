@@ -70,22 +70,45 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		$sql = "SELECT SQL_CALC_FOUND_ROWS collectionID FROM collections
 				WHERE libraryID=? ";
+		$sqlParams = array($libraryID);
 		
 		if ($onlyTopLevel) {
 			$sql .= "AND parentCollectionID IS NULL ";
 		}
 		
+		$keys = array();
+		if (!empty($params['collectionKey'])) {
+			$keys = explode(',', $params['collectionKey']);
+		}
+		
+		if ($keys) {
+			$sql .= "AND `key` IN ("
+					. implode(', ', array_fill(0, sizeOf($keys), '?'))
+					. ") ";
+			$sqlParams = array_merge($sqlParams, $keys);
+		}
+		
 		if (!empty($params['order'])) {
-			$order = $params['order'];
-			if ($order == 'title') {
-				$order = 'collectionName';
+			switch ($params['order']) {
+			case 'title':
+				$orderSQL = 'collectionName';
+				break;
+			
+			case 'keyList':
+				$orderSQL = "FIELD(`key`,"
+						. implode(',', array_fill(0, sizeOf($keys), '?')) . ")";
+				$sqlParams = array_merge($sqlParams, $keys);
+				break;
+			
+			default:
+				$orderSQL = $params['order'];
 			}
-			$sql .= "ORDER BY $order ";
+			
+			$sql .= "ORDER BY $orderSQL ";
 			if (!empty($params['sort'])) {
 				$sql .= $params['sort'] . " ";
 			}
 		}
-		$sqlParams = array($libraryID);
 		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
@@ -272,13 +295,29 @@ class Zotero_Collections extends Zotero_DataObjects {
 	
 	
 	public static function addFromJSON($json, $libraryID) {
-		self::validateJSONCollection($json);
+		self::validateJSONCollections($json);
 		
-		$collection = new Zotero_Collection;
-		$collection->libraryID = $libraryID;
-		self::updateFromJSON($collection, $json, true);
+		// If single collection object, stuff in 'collections' array
+		if (!isset($json->collections)) {
+			$newJSON = new stdClass;
+			$newJSON->collections = array($json);
+			$json = $newJSON;
+		}
 		
-		return $collection;
+		$keys = array();
+		
+		Zotero_DB::beginTransaction();
+		
+		foreach ($json->collections as $jsonCollection) {
+			$collection = new Zotero_Collection;
+			$collection->libraryID = $libraryID;
+			self::updateFromJSON($collection, $jsonCollection, true);
+			$keys[] = $collection->key;
+		}
+		
+		Zotero_DB::commit();
+		
+		return $keys;
 	}
 	
 	
@@ -304,7 +343,30 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function validateJSONCollection($json) {
+	private static function validateJSONCollections($json) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object');
+		}
+		
+		if (isset($json->collections)) {
+			foreach ($json as $key=>$val) {
+				if ($key != 'collections') {
+					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+				}
+				if (sizeOf($val) > Zotero_API::$maxWriteCollections) {
+					throw new Exception("Cannot add more than "
+						. Zotero_API::$maxWriteCollections
+						. " collections at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+				}
+			}
+		}
+		else if (!isset($json->name)) {
+			throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
+		}
+	}
+	
+	
+	private static function validateJSONCollection($json) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}

@@ -26,6 +26,7 @@
 
 class Zotero_API {
 	public static $maxBibliographyItems = 150;
+	public static $maxWriteCollections = 50;
 	public static $maxWriteItems = 50;
 	public static $maxTranslateItems = 10;
 	
@@ -34,14 +35,6 @@ class Zotero_API {
 		'version' => 1,
 		
 		'format' => "atom",
-		'order' => "dateAdded",
-		'sort' => "desc",
-		'emptyFirst' => false,
-		'start' => 0,
-		'limit' => 50,
-		'fq' => '',
-		'q' => '',
-		'pprint' => false,
 		
 		// format='atom'
 		'content' => array("html"),
@@ -52,10 +45,24 @@ class Zotero_API {
 		'linkwrap' => 0,
 		
 		// search
-		'itemKey' => '',
+		'fq' => '',
+		'q' => '',
 		'itemType' => '',
+		'itemKey' => '',
+		'collectionKey' => '',
+		'searchKey' => '',
 		'tag' => '',
-		'tagType' => ''
+		'tagType' => '',
+		
+		'order' => "dateAdded",
+		'sort' => "desc",
+		'start' => 0,
+		'limit' => 50,
+		
+		'pprint' => false,
+		
+		// For internal use only
+		'emptyFirst' => false
 	);
 	
 	
@@ -218,7 +225,7 @@ class Zotero_API {
 						case 'numItems':
 						case 'serverDateModified':
 						
-						case 'itemKeyList':
+						case 'keyList':
 							
 							// numItems is valid only for tags requests
 							switch ($getParams[$key]) {
@@ -228,13 +235,24 @@ class Zotero_API {
 									}
 									break;
 								
-								case 'itemKeyList':
-									if ($action != 'items') {
-										throw new Exception("order=itemKeyList is valid only for items requests");
+								case 'keyList':
+									switch ($action) {
+									case 'items':
+										if (!isset($getParams['itemKey'])) {
+											throw new Exception("order=keyList requires the itemKey parameter");
+										}
+										break;
+										
+									case 'collections':
+										if (!isset($getParams['collectionKey'])) {
+											throw new Exception("order=keyList requires the collectionKey parameter");
+										}
+										break;
+									
+									default:
+										throw new Exception("order=keyList is not valid for this request");
 									}
-									if (!isset($getParams['itemKey'])) {
-										throw new Exception("order=itemKeyList requires the itemKey parameter");
-									}
+									
 									break;
 							}
 							
@@ -284,6 +302,11 @@ class Zotero_API {
 	
 	public static function getCollectionURI(Zotero_Collection $collection) {
 		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
+	}
+	
+	
+	public static function getCollectionsURI($libraryID) {
+		return self::getLibraryURI($libraryID) . "/collections";
 	}
 	
 	
@@ -397,7 +420,7 @@ class Zotero_API {
 		switch ($field) {
 			case 'title':
 			case 'date':
-			case 'itemKeyList':
+			case 'keyList':
 				return true;
 		}
 		

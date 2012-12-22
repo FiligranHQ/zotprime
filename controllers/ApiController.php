@@ -746,7 +746,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getItemURI($item) . "/children";
 						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
-								. "&content=json&order=itemKeyList&sort=asc";
+								. "&content=json&order=keyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
@@ -807,7 +807,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
 						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
-								. "&content=json&order=itemKeyList&sort=asc";
+								. "&content=json&order=keyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
@@ -1586,19 +1586,22 @@ class ApiController extends Controller {
 						}
 						
 						$obj = $this->jsonDecode($this->body);
-						$collection = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
+						$keys = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						$uri = Zotero_API::getCollectionURI($collection);
-						$queryString = "content=json";
+						$uri = Zotero_API::getCollectionsURI($this->objectLibraryID);
+						$queryString = "collectionKey="
+							. urlencode(implode(",", $keys))
+							. "&content=json&order=keyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
 						$uri .= "?" . $queryString;
 						
+						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
 					}
 					

@@ -223,6 +223,29 @@ class API {
 	}
 	
 	
+	public function createCollection($name, $parent=false, $context=null) {
+		self::loadConfig();
+		
+		$json = array(
+			'name' => $name,
+			'parent' => $parent
+		);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"collections" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert201($response);
+		}
+		return API::getXMLFromResponse($response);
+	}
+	
+	
 	//
 	// HTTP methods
 	//
