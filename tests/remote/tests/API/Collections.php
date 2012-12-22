@@ -144,6 +144,30 @@ class ItemTests extends APITests {
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numCollections')));
 	}
+	
+	
+	public function testNewSingleCollectionWithoutParentProperty() {
+		$name = "Test Collection";
+		
+		$json = array(
+			'name' => $name
+		);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		
+		$this->assert201($response);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		
+		$data = API::parseDataFromItemEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals($name, (string) $json->name);
+	}
 }
 
 ?>

@@ -330,9 +330,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		Zotero_DB::registerTransactionTimestamp($timestamp);
 		
 		$collection->name = $json->name;
-		$parentKey = $json->parent;
-		if ($parentKey) {
-			$collection->parentKey = $parentKey;
+		if (isset($json->parent)) {
+			$collection->parentKey = $json->parent;
 		}
 		else {
 			$collection->parent = false;
@@ -371,7 +370,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 			throw new Exception('$json must be a decoded JSON object');
 		}
 		
-		$requiredProps = array('name', 'parent');
+		$requiredProps = array('name');
 		
 		foreach ($requiredProps as $prop) {
 			if (!isset($json->$prop)) {
