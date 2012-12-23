@@ -27,7 +27,7 @@
 require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
-class ItemTests extends APITests {
+class CollectionTests extends APITests {
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
 		API::userClear(self::$config['userID']);
