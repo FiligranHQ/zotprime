@@ -168,6 +168,47 @@ class ItemTests extends APITests {
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
 	}
+	
+	
+	public function testNewMultipleCollections() {
+		$xml = API::createCollection("Test Collection 1", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		
+		$name1 = "Test Collection 2";
+		$name2 = "Test Subcollection";
+		$parent2 = $data['key'];
+		
+		$json = array(
+			"collections" => array(
+				array(
+					'name' => $name1
+				),
+				array(
+					'name' => $name2,
+					'parent' => $parent2
+				)
+			)
+		);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		
+		$this->assert201($response);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		
+		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals($name1, $content->name);
+		$this->assertFalse($content->parent);
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals($name2, $content->name);
+		$this->assertEquals($parent2, $content->parent);
+	}
 }
 
 ?>

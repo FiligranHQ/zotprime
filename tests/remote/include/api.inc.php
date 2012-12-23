@@ -227,16 +227,18 @@ class API {
 		self::loadConfig();
 		
 		$json = array(
-			'name' => $name,
-			'parent' => $parent
+			"collections" => array(
+				array(
+					'name' => $name,
+					'parent' => $parent
+				)
+			)
 		);
 		
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"collections" => array($json)
-			)),
+			json_encode($json),
 			array("Content-Type: application/json")
 		);
 		if ($context) {
