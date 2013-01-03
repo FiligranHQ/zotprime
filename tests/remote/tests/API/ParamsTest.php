@@ -74,7 +74,7 @@ class ParamsTests extends APITests {
 		sort($keys);
 		$this->assertEmpty(
 			array_merge(
-				array_diff(self::$keys, $keys, array_diff($keys, self::$keys))
+				array_diff(self::$keys, $keys), array_diff($keys, self::$keys)
 			)
 		);
 	}
@@ -91,7 +91,7 @@ class ParamsTests extends APITests {
 		sort($keys);
 		$this->assertEmpty(
 			array_merge(
-				array_diff(self::$keys, $keys, array_diff($keys, self::$keys))
+				array_diff(self::$keys, $keys), array_diff($keys, self::$keys)
 			)
 		);
 	}
