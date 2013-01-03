@@ -204,14 +204,14 @@ class Zotero_DB {
 	public static function rollback($all=false) {
 		$instance = self::getInstance();
 		
-		if ($all) {
-			$instance->transactionLevel = 1;
-			self::rollback();
+		if ($instance->transactionLevel == 0) {
+			Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
 			return;
 		}
 		
-		if ($instance->transactionLevel == 0) {
-			Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
+		if ($all) {
+			$instance->transactionLevel = 1;
+			self::rollback();
 			return;
 		}
 		
