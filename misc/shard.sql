@@ -48,7 +48,7 @@ CREATE TABLE `collections` (
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
+  `version` int(10) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`collectionID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
   KEY `parentCollection` (`libraryID`,`parentCollectionID`),
@@ -175,7 +175,7 @@ CREATE TABLE `items` (
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `version` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `version` int(10) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`itemID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
   KEY `itemTypeID` (`itemTypeID`)
@@ -237,7 +237,8 @@ CREATE TABLE `savedSearches` (
 CREATE TABLE IF NOT EXISTS `shardLibraries` (
   `libraryID` int(10) unsigned NOT NULL,
   `libraryType` enum('user','group') NOT NULL,
-  PRIMARY KEY (`libraryID`),
+  `lastUpdated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+  `version` int(10) unsigned NOT NULL DEFAULT '1',  PRIMARY KEY (`libraryID`),
   KEY `libraryType` (`libraryType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

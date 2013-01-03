@@ -177,6 +177,43 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testItemsLastModifiedVersion() {
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&limit=1"
+		);
+		$version = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version));
+		
+		// Version should be incremented on new item
+		$json = API::getItemTemplate("book");
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert201($response);
+		$version2 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version2));
+		$this->assertGreaterThan($version, $version2);
+		
+		// TODO: Version should be incremented on modified item
+		
+		// TODO: Version should be incremented on deleted item
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&limit=1"
+		);
+		$version3 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version3));
+		$this->assertEquals($version2, $version3);
+	}
+	
+	
 	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
 		$json = API::getItemTemplate("book");
 		

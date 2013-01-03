@@ -1194,9 +1194,11 @@ class Zotero_Item {
 					'key',
 					'dateAdded',
 					'dateModified',
-					'serverDateModified'
+					'serverDateModified',
+					'version'
 				);
 				$timestamp = Zotero_DB::getTransactionTimestamp();
+				$version = Zotero_Libraries::getVersion($this->libraryID);
 				$sqlValues = array(
 					$itemID,
 					$this->itemTypeID,
@@ -1204,7 +1206,8 @@ class Zotero_Item {
 					$key,
 					$this->dateAdded ? $this->dateAdded : $timestamp,
 					$this->dateModified ? $this->dateModified : $timestamp,
-					$timestamp
+					$timestamp,
+					$version
 				);
 				
 				//
@@ -1543,6 +1546,7 @@ class Zotero_Item {
 				$sqlValues = array();
 				
 				$timestamp = Zotero_DB::getTransactionTimestamp();
+				$version = Zotero_Libraries::getVersion($this->libraryID);
 				
 				$updateFields = array(
 					'itemTypeID',
@@ -1563,10 +1567,11 @@ class Zotero_Item {
 					}*/
 				}
 				
-				$sql .= "serverDateModified=?, version=IF(version = 65535, 0, version + 1) WHERE itemID=?";
+				$sql .= "serverDateModified=?, version=? WHERE itemID=?";
 				array_push(
 					$sqlValues,
 					$timestamp,
+					$version,
 					$this->id
 				);
 				

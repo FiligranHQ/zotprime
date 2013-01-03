@@ -1392,20 +1392,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$keys = array();
 		
-		Zotero_DB::beginTransaction();
-		
-		// Mark library as updated
-		$timestamp = Zotero_Libraries::updateTimestamps($libraryID);
-		Zotero_DB::registerTransactionTimestamp($timestamp);
-		
 		foreach ($json->items as $jsonItem) {
 			$item = new Zotero_Item;
 			$item->libraryID = $libraryID;
 			self::updateFromJSON($item, $jsonItem, true, $parentItem, $userID);
 			$keys[] = $item->key;
 		}
-		
-		Zotero_DB::commit();
 		
 		return $keys;
 	}
@@ -1470,14 +1462,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null, $userID=null) {
 		self::validateJSONItem($json, $item->libraryID, $isNew ? null : $item, !is_null($parentItem));
-		
-		Zotero_DB::beginTransaction();
-		
-		// Mark library as updated
-		if (!$isNew) {
-			$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
-			Zotero_DB::registerTransactionTimestamp($timestamp);
-		}
 		
 		$twoStage = false;
 		
@@ -1675,8 +1659,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			$item->save($userID);
 		}
-		
-		Zotero_DB::commit();
 	}
 	
 	

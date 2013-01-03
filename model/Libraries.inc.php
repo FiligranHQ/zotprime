@@ -26,8 +26,6 @@
 
 class Zotero_Libraries {
 	private static $libraryTypeCache = array();
-	private static $originalTimestamps = array();
-	private static $originalVersions = array();
 	
 	public static function add($type, $shardID) {
 		if (!$shardID) {
@@ -119,23 +117,18 @@ class Zotero_Libraries {
 	}
 	
 	
-	public static function getTimestamp($libraryID, $committedOnly=false) {
-		if ($committedOnly && isset(self::$originalTimestamps[$libraryID])) {
-			return self::$originalTimestamps[$libraryID];
-		}
-		
-		$sql = "SELECT lastUpdated FROM libraries WHERE libraryID=?";
-		return Zotero_DB::valueQuery($sql, $libraryID);
+	public static function updateVersionAndTimestamp($libraryID) {
+		self::updateVersion($libraryID);
+		$timestamp = self::updateTimestamps($libraryID);
+		Zotero_DB::registerTransactionTimestamp($timestamp);
 	}
 	
 	
-	public static function getVersion($libraryID, $committedOnly=false) {
-		if ($committedOnly && isset(self::$originalVersions[$libraryID])) {
-			return self::$originalVersions[$libraryID];
-		}
-		
-		$sql = "SELECT version FROM libraries WHERE libraryID=?";
-		return Zotero_DB::valueQuery($sql, $libraryID);
+	public static function getTimestamp($libraryID) {
+		$sql = "SELECT lastUpdated FROM shardLibraries WHERE libraryID=?";
+		return Zotero_DB::valueQuery(
+			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
+		);
 	}
 	
 	
@@ -164,22 +157,25 @@ class Zotero_Libraries {
 		
 		Zotero_DB::beginTransaction();
 		
-		// Record the existing timestamp, since getTimestamp() needs it in $committedOnly mode
-		foreach ($libraryIDs as $libraryID) {
-			if (isset(self::$originalTimestamps[$libraryID])) {
-				// TODO: limit to same transaction?
-				//throw new Exception("Library timestamp cannot be updated more than once");
-			}
-			self::$originalTimestamps[$libraryID] = self::getTimestamp($libraryID);
-			self::$originalVersions[$libraryID] = self::getVersion($libraryID);
-		}
-		
-		$sql = "UPDATE libraries SET lastUpdated=NOW(), version=version+1 WHERE libraryID IN "
+		// TODO: replace with just shardLibraries after sync code removal
+		$sql = "UPDATE libraries SET lastUpdated=NOW() WHERE libraryID IN "
 				. "(" . implode(',', array_fill(0, sizeOf($libraryIDs), '?')) . ")";
 		Zotero_DB::query($sql, $libraryIDs);
 		
 		$sql = "SELECT UNIX_TIMESTAMP(lastUpdated) FROM libraries WHERE libraryID=?";
 		$timestamp = Zotero_DB::valueQuery($sql, $libraryIDs[0]);
+		
+		$sql = "UPDATE shardLibraries SET lastUpdated=FROM_UNIXTIME(?) WHERE libraryID=?";
+		foreach ($libraryIDs as $libraryID) {
+			Zotero_DB::query(
+				$sql,
+				array(
+					$timestamp,
+					$libraryID
+				),
+				Zotero_Shards::getByLibraryID($libraryID)
+			);
+		}
 		
 		Zotero_DB::commit();
 		
@@ -209,6 +205,23 @@ class Zotero_Libraries {
 		}
 		
 		return true;
+	}
+	
+	
+	public static function getVersion($libraryID) {
+		$sql = "SELECT version FROM shardLibraries WHERE libraryID=?";
+		return Zotero_DB::valueQuery(
+			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
+		);
+	}
+	
+	
+	public static function updateVersion($libraryID) {
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		$sql = "UPDATE shardLibraries SET version=LAST_INSERT_ID(version+1)
+				WHERE libraryID=?";
+		Zotero_DB::query($sql, $libraryID, $shardID);
+		return Zotero_DB::valueQuery("SELECT LAST_INSERT_ID()", false, $shardID);
 	}
 	
 	

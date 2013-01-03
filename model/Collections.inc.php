@@ -306,8 +306,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		$keys = array();
 		
-		Zotero_DB::beginTransaction();
-		
 		foreach ($json->collections as $jsonCollection) {
 			$collection = new Zotero_Collection;
 			$collection->libraryID = $libraryID;
@@ -315,19 +313,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$keys[] = $collection->key;
 		}
 		
-		Zotero_DB::commit();
-		
 		return $keys;
 	}
 	
 	
 	public static function updateFromJSON(Zotero_Collection $collection, $json, $isNew=false) {
 		self::validateJSONCollection($json);
-		
-		Zotero_DB::beginTransaction();
-		
-		$timestamp = Zotero_Libraries::updateTimestamps($collection->libraryID);
-		Zotero_DB::registerTransactionTimestamp($timestamp);
 		
 		$collection->name = $json->name;
 		if (isset($json->parent)) {
@@ -337,8 +328,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$collection->parent = false;
 		}
 		$collection->save();
-		
-		Zotero_DB::commit();
 	}
 	
 	

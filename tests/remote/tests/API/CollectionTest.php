@@ -209,6 +209,65 @@ class CollectionTests extends APITests {
 		$this->assertEquals($name2, $content->name);
 		$this->assertEquals($parent2, $content->parent);
 	}
+	
+	
+	public function testCollectionsLastModifiedVersion() {
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey']
+		);
+		$version = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version));
+		
+		// Version should be incremented on new collection
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array(
+			"collections" => array(
+					array(
+						'name' => "Test"
+					)
+				)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert201($response);
+		$version2 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version2));
+		$this->assertGreaterThan($version, $version2);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		
+		// Version should be incremented on modified collection
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"collections" => array(
+					array(
+						'key' => $data['key'],
+						'name' => "Test 2"
+					)
+				)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$version3 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version3));
+		$this->assertGreaterThan($version2, $version3);
+		
+		// TODO: Version should be incremented on deleted collection
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey']
+		);
+		$version4 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertTrue(is_numeric($version4));
+		$this->assertEquals($version3, $version4);
+	}
 }
 
 ?>

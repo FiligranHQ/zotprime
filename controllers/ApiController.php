@@ -57,6 +57,7 @@ class ApiController extends Controller {
 	private $fileView;
 	private $httpAuth = false;
 	private $cookieAuth = false;
+	private $libraryVersion;
 	
 	private $startTime = false;
 	private $timeLogged = false;
@@ -338,9 +339,17 @@ class ApiController extends Controller {
 	
 	
 	public function items() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
+		Zotero_DB::beginTransaction();
+		
+		if ($this->isWriteMethod()) {
+			if (!$this->body) {
+				$this->e400("$this->method data not provided");
+			}
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
 		}
+		
+		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
 		
 		$itemIDs = array();
 		$itemKeys = array();
@@ -431,6 +440,7 @@ class ApiController extends Controller {
 			
 			// File access mode
 			if ($this->fileMode) {
+				Zotero_DB::commit();
 				$this->_handleFileRequest($item);
 			}
 			
@@ -440,6 +450,7 @@ class ApiController extends Controller {
 				
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
 				header("Location: " . Zotero_API::getItemURI($item) . $qs);
+				Zotero_DB::commit();
 				exit;
 			}
 			
@@ -462,15 +473,8 @@ class ApiController extends Controller {
 							$this->e404("Item not found in collection");
 						}
 						
-						Zotero_DB::beginTransaction();
-						
-						$timestamp = Zotero_Libraries::updateTimestamps($this->objectLibraryID);
-						Zotero_DB::registerTransactionTimestamp($timestamp);
-						
 						$collection->removeItem($item->id);
-						
 						Zotero_DB::commit();
-						
 						$this->e204();
 					
 					default:
@@ -519,6 +523,8 @@ class ApiController extends Controller {
 					catch (Exception $e) {
 						Z_Core::logError($e);
 					}
+					
+					Zotero_DB::commit();
 					
 					$this->e204();
 				}
@@ -609,11 +615,6 @@ class ApiController extends Controller {
 							if (!$this->permissions->canWrite($this->objectLibraryID)) {
 								$this->e403("Write access denied");
 							}
-							
-							Zotero_DB::beginTransaction();
-							
-							$timestamp = Zotero_Libraries::updateTimestamps($this->objectLibraryID);
-							Zotero_DB::registerTransactionTimestamp($timestamp);
 							
 							$itemKeys = explode(' ', $this->body);
 							$itemIDs = array();
@@ -910,6 +911,8 @@ class ApiController extends Controller {
 					echo $export['body'];
 			}
 		}
+		
+		Zotero_DB::commit();
 		
 		$this->end();
 	}
@@ -1461,9 +1464,17 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
+		Zotero_DB::beginTransaction();
+		
+		if ($this->isWriteMethod()) {
+			if (!$this->body) {
+				$this->e400("$this->method data not provided");
+			}
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
 		}
+		
+		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
 		
 		$collections = array();
 		
@@ -1534,7 +1545,7 @@ class ApiController extends Controller {
 				$collection, $this->queryParams['content']
 			);
 		}
-		// All collections
+		// Multiple collections
 		else {
 			$this->allowMethods(array('GET', 'POST'));
 			
@@ -1650,6 +1661,8 @@ class ApiController extends Controller {
 				$this->permissions
 			);
 		}
+		
+		Zotero_DB::commit();
 		
 		$this->end();
 	}
@@ -2862,6 +2875,11 @@ class ApiController extends Controller {
 	}
 	
 	
+	private function isWriteMethod() {
+		return in_array($this->method, array('POST', 'PUT', 'PATCH', 'DELETE'));
+	}
+	
+	
 	private function requireContentType($contentType) {
 		if ($_SERVER['CONTENT_TYPE'] != $contentType) {
 			throw new Exception("Content-Type must be '$contentType'", Z_ERROR_INVALID_INPUT);
@@ -2925,6 +2943,10 @@ class ApiController extends Controller {
 				default:
 					throw new Exception("Unsupported response code");
 			}
+		}
+		
+		if ($this->libraryVersion) {
+			header("Zotero-Last-Modified-Version: " . $this->libraryVersion);
 		}
 		
 		if ($this->responseXML instanceof SimpleXMLElement) {

@@ -156,6 +156,7 @@ class Zotero_Collection {
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
+			$version = Zotero_Libraries::getVersion($this->libraryID);
 			
 			// Verify parent
 			if ($this->_parent) {
@@ -189,7 +190,7 @@ class Zotero_Collection {
 			}
 			
 			$fields = "collectionName=?, parentCollectionID=?, libraryID=?, `key`=?,
-						dateAdded=?, dateModified=?, serverDateModified=?";
+						dateAdded=?, dateModified=?, serverDateModified=?, version=?";
 			$params = array(
 				$this->name,
 				$parent,
@@ -197,7 +198,8 @@ class Zotero_Collection {
 				$key,
 				$dateAdded,
 				$dateModified,
-				$timestamp
+				$timestamp,
+				$version
 			);
 			
 			$params = array_merge(array($collectionID), $params, $params);
