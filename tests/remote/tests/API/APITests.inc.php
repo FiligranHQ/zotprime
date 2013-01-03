@@ -65,9 +65,15 @@ class APITests extends PHPUnit_Framework_TestCase {
 		$xml = $res->getBody();
 		$xml = new SimpleXMLElement($xml);
 		
+		$this->assertEquals($num, count($xml->entry));
+	}
+	
+	protected function assertTotalResults($num, $res) {
+		$xml = $res->getBody();
+		$xml = new SimpleXMLElement($xml);
+		
 		$zapiNodes = $xml->children(self::$nsZAPI);
 		$this->assertEquals($num, (int) $zapiNodes->totalResults);
-		$this->assertEquals($num, count($xml->entry));
 	}
 	
 	protected function assertNoResults($res) {

@@ -105,7 +105,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false) {
+	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false, Zotero_Permissions $permissions=null) {
 		$rnd = "_" . uniqid($libraryID . "_");
 		$asKeys = $params['format'] == 'keys';
 		
@@ -120,6 +120,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$itemIDs = array();
 		$keys = array();
+		
+		$includeNotes = true;
+		if ($permissions && !$permissions->canAccess($libraryID, 'notes')) {
+			$includeNotes = false;
+		}
 		
 		// Pass a list of itemIDs, for when the initial search is done via SQL
 		if (!empty($params['itemIDs'])) {
@@ -289,6 +294,10 @@ class Zotero_Items extends Zotero_DataObjects {
 						. ") ";
 				$sqlParams = array_merge($sqlParams, $itemTypeIDs);
 			}
+		}
+		
+		if (!$includeNotes) {
+			$sql .= "AND I.itemTypeID != 1 ";
 		}
 		
 		// Tags

@@ -683,7 +683,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams);
+					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams, false, $this->permissions);
 				}
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
@@ -818,7 +818,7 @@ class ApiController extends Controller {
 					}
 					
 					$title = "Items";
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams);
+					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, false, $this->permissions);
 				}
 				
 				if (!empty($results)) {
@@ -845,7 +845,7 @@ class ApiController extends Controller {
 				if ($itemKeys) {
 					$this->queryParams['itemKey'] = implode(',', $itemKeys);
 				}
-				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed);
+				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $this->permissions);
 				
 				if ($formatAsKeys) {
 					$responseKeys = $results['keys'];
@@ -863,15 +863,6 @@ class ApiController extends Controller {
 					$responseItems = array();
 				}
 				$totalResults = 0;
-			}
-			
-			// Remove notes if not user and not public
-			for ($i=0; $i<sizeOf($responseItems); $i++) {
-				if ($responseItems[$i]->isNote() && !$this->permissions->canAccess($responseItems[$i]->libraryID, 'notes')) {
-					array_splice($responseItems, $i, 1);
-					$totalResults--;
-					$i--;
-				}
 			}
 			
 			switch ($this->queryParams['format']) {

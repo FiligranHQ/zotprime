@@ -33,7 +33,7 @@ class PermissionsTest extends APITests {
 		$this->assert200($response);
 		
 		// There should be only one public group
-		$this->assertNumResults(1, $response);
+		$this->assertTotalResults(1, $response);
 		
 		// Make sure it's the right group
 		$xml = API::getXMLFromResponse($response);
@@ -50,5 +50,182 @@ class PermissionsTest extends APITests {
 		$this->assert200($response);
 		
 		$this->assertNumResults(2, $response);
+		$this->assertTotalResults(2, $response);
+	}
+	
+	
+	public function testKeyNoteAccess() {
+		API::userClear(self::$config['userID']);
+		
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
+		);
+		
+		$keys = array();
+		$topLevelKeys = array();
+		$bookKeys = array();
+		
+		$xml = API::createItem('book', array("title" => "A"), $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		$topKeys[] = $data['key'];
+		$bookKeys[] = $data['key'];
+		
+		$xml = API::createNoteItem("B", false, $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		$topKeys[] = $data['key'];
+		
+		$xml = API::createNoteItem("C", false, $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		$topKeys[] = $data['key'];
+		
+		$xml = API::createNoteItem("D", false, $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		$topKeys[] = $data['key'];
+		
+		$xml = API::createNoteItem("E", false, $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		$topKeys[] = $data['key'];
+		
+		$xml = API::createItem('book', array("title" => "F"), $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		$topKeys[] = $data['key'];
+		$bookKeys[] = $data['key'];
+		
+		$xml = API::createNoteItem("G", $data['key'], $this);
+		$data = API::parseDataFromItemEntry($xml);
+		$keys[] = $data['key'];
+		
+		// Create collection and add items to it
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"name" => "Test",
+				"parent" => false
+			)),
+			array("Content-Type: application/json")
+		);
+		// TEMP: should be 201
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromItemEntry($xml);
+		$collectionKey = $data['key'];
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections/$collectionKey/items?key=" . self::$config['apiKey'],
+			implode(" ", $topKeys)
+		);
+		$this->assert204($response);
+		
+		//
+		// format=atom
+		//
+		// Root
+		$response = API::userGet(
+			self::$config['userID'], "items?key=" . self::$config['apiKey']
+		);
+		$this->assertNumResults(sizeOf($keys), $response);
+		$this->assertTotalResults(sizeOf($keys), $response);
+		
+		// Top
+		$response = API::userGet(
+			self::$config['userID'], "items/top?key=" . self::$config['apiKey']
+		);
+		$this->assertNumResults(sizeOf($topKeys), $response);
+		$this->assertTotalResults(sizeOf($topKeys), $response);
+		
+		// Collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items?key=" . self::$config['apiKey']
+		);
+		$this->assertNumResults(sizeOf($topKeys), $response);
+		$this->assertTotalResults(sizeOf($topKeys), $response);
+		
+		//
+		// format=keys
+		//
+		// Root
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assertCount(sizeOf($keys), explode("\n", trim($response->getBody())));
+		
+		// Top
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
+		
+		// Collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
+		
+		// Remove notes privilege from key
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 0
+		);
+		
+		//
+		// format=atom
+		//
+		// totalResults with limit
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&limit=1"
+		);
+		$this->assertNumResults(1, $response);
+		$this->assertTotalResults(sizeOf($bookKeys), $response);
+		
+		// And without limit
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey']
+		);
+		$this->assertNumResults(sizeOf($bookKeys), $response);
+		$this->assertTotalResults(sizeOf($bookKeys), $response);
+		
+		// Top
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey']
+		);
+		$this->assertNumResults(sizeOf($bookKeys), $response);
+		$this->assertTotalResults(sizeOf($bookKeys), $response);
+		
+		// Collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items?key=" . self::$config['apiKey']
+		);
+		$this->assertNumResults(sizeOf($bookKeys), $response);
+		$this->assertTotalResults(sizeOf($bookKeys), $response);
+		
+		//
+		// format=keys
+		//
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$keys = explode("\n", trim($response->getBody()));
+		sort($keys);
+		$this->assertEmpty(
+			array_merge(
+				array_diff($bookKeys, $keys), array_diff($keys, $bookKeys)
+			)
+		);
 	}
 }

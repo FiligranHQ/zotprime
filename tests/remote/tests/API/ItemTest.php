@@ -32,6 +32,11 @@ class ItemTests extends APITests {
 		parent::setUpBeforeClass();
 		API::userClear(self::$config['userID']);
 		API::groupClear(self::$config['ownedPrivateGroupID']);
+		
+		// Enable note access
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
+		);
 	}
 	
 	public static function tearDownAfterClass() {

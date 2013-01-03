@@ -358,6 +358,9 @@ class API {
 		$key = (string) array_shift($itemEntryXML->xpath('//atom:entry/zapi:key'));
 		$etag = (string) array_shift($itemEntryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
 		$content = array_shift($itemEntryXML->xpath('//atom:entry/atom:content'));
+		if (!$content) {
+			throw new Exception("<content> does not exist");
+		}
 		// If 'content' contains XML, serialize all subnodes
 		if ($content->count()) {
 			$content = $content->asXML();
@@ -379,5 +382,49 @@ class API {
 		$xml = self::getXMLFromResponse($response);
 		$data = self::parseDataFromItemEntry($xml);
 		return $data['content'];
+	}
+	
+	
+	public static function setKeyOption($userID, $key, $option, $val) {
+		self::loadConfig();
+		$response = API::get(
+			"users/$userID/keys/$key",
+			array(),
+			array(
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			)
+		);
+		if ($response->getStatus() != 200) {
+			var_dump($response->getBody());
+			throw new Exception("GET returned " . $response->getStatus());
+		}
+		
+		$xml = new SimpleXMLElement($response->getBody());
+		foreach ($xml->access as $access) {
+			switch ($option) {
+			case 'libraryNotes':
+				if (isset($access['library'])) {
+					$current = (int) $access['notes'];
+					if ($current != $val) {
+						$access['notes'] = (int) $val;
+						$response = API::put(
+							"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+							$xml->asXML(),
+							array(),
+							array(
+								"username" => self::$config['rootUsername'],
+								"password" => self::$config['rootPassword']
+							)
+						);
+						if ($response->getStatus() != 200) {
+							var_dump($response->getBody());
+							throw new Exception("PUT returned " . $response->getStatus());
+						}
+						break;
+					}
+				}
+			}
+		}
 	}
 }
