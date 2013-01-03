@@ -261,7 +261,7 @@ class Zotero_DB {
 			throw new Exception("Transaction not open");
 		}
 		
-		if (empty($instance->transactionTimestamp)) {
+		if (empty($instance->transactionTimestampUnix)) {
 			$ts = self::getTransactionTimestamp();
 			$instance->transactionTimestampUnix = strtotime($ts);
 		}
