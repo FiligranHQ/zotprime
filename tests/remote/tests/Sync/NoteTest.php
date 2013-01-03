@@ -69,7 +69,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertTrue(isset($xml->error));
 		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
-		$this->assertRegExp('/^Note \'.+\' too long$/', (string) $xml->error);
+		$this->assertRegExp('/^Note \'.+\' too long for item \'AAAAAAAA\'$/', (string) $xml->error);
 		
 		// Create too-long note with content within HTML tags
 		$content = "<p><!-- $content --></p>";
@@ -84,7 +84,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertTrue(isset($xml->error));
 		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
-		$this->assertRegExp('/^Note \'<p><!-- 12345678901234567890123456789012345678901234567890123456789012345678901...\' too long$/', (string) $xml->error);
+		$this->assertRegExp('/^Note \'<p><!-- 12345678901234567890123456789012345678901234567890123456789012345678901...\' too long for item \'AAAAAAAA\'$/', (string) $xml->error);
 		
 		// Create note under the length limit
 		$response = Sync::updated(self::$sessionID);

@@ -2494,9 +2494,11 @@ class Zotero_Item {
 				$excerpt = trim($excerpt, $whitespace);
 			}
 			
-			throw new Exception(
-				"=Note '" . $excerpt . "...' too long", Z_ERROR_INVALID_INPUT
-			);
+			$msg = "=Note '" . $excerpt . "...' too long";
+			if ($this->key) {
+				$msg .= " for item '" . $this->key . "'";
+			}
+			throw new Exception($msg, Z_ERROR_INVALID_INPUT);
 		}
 		
 		$this->noteText = $text;
