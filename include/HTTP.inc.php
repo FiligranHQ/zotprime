@@ -35,6 +35,12 @@ class Z_HTTP {
 	}
 	
 	
+	public static function e405($message="Not found") {
+		header("HTTP/1.1 405 Method Not Allowed");
+		die(htmlspecialchars($message));
+	}
+	
+	
 	public static function e409($message) {
 		header("HTTP/1.1 409 Conflict");
 		die(htmlspecialchars($message));
@@ -77,7 +83,7 @@ class Z_HTTP {
 	}
 	
 	
-	public static function e501($message="An error occurred") {
+	public static function e501($message="Method is not implemented") {
 		header("HTTP/1.1 501 Not Implemented");
 		die(htmlspecialchars($message));
 	}

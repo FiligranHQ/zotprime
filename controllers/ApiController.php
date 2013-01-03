@@ -73,7 +73,8 @@ class ApiController extends Controller {
 		require_once('../model/Error.inc.php');
 		
 		$this->startTime = microtime(true);
-		register_shutdown_function(array($this, 'onShutdown'));
+		register_shutdown_function(array($this, 'checkDBTransactionState'));
+		register_shutdown_function(array($this, 'logTotalRequestTime'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		/*if (isset($_SERVER['REMOTE_ADDR'])
@@ -83,8 +84,7 @@ class ApiController extends Controller {
 		}*/
 		
 		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE', 'PATCH'))) {
-			header("HTTP/1.1 501 Not Implemented");
-			die("Method is not implemented");
+			$this->e501();
 		}
 		
 		StatsD::increment("api.request.method." . strtolower($this->method), 0.25);
@@ -321,7 +321,18 @@ class ApiController extends Controller {
 	
 	
 	public function __call($name, $arguments) {
-		if (preg_match("/^e[1-5][0-9]{2}$/", $name)) {
+		if (preg_match("/^e([1-5])([0-9]{2})$/", $name, $matches)) {
+			// Send 2xx responses through closing function
+			if ($matches[1] == "2") {
+				$this->responseCode = (int) ($matches[1] . $matches[2]);
+				$this->end();
+			}
+			
+			// On 4xx or 5xx errors, rollback all open transactions
+			if ($matches[1] == "4" || $matches[1] == "5") {
+				Zotero_DB::rollback(true);
+			}
+			
 			if (isset($arguments[0])) {
 				Z_HTTP::$name($arguments[0]);
 			}
@@ -2866,11 +2877,10 @@ class ApiController extends Controller {
 	/**
 	 * Verify the HTTP method
 	 */
-	private function allowMethods($methods, $message=false) {
+	private function allowMethods($methods, $message="Method not allowed") {
 		if (!in_array($this->method, $methods)) {
-			header("HTTP/1.1 405 Method Not Allowed");
 			header("Allow: " . implode(", ", $methods));
-			die($message ? $message : "Method not allowed");
+			$this->e405($message);
 		}
 	}
 	
@@ -2938,6 +2948,10 @@ class ApiController extends Controller {
 			switch ($this->responseCode) {
 				case 201:
 					header("HTTP/1.1 201 Created");
+					break;
+				
+				case 204:
+					header("HTTP/1.1 204 No Content");
 					break;
 				
 				default:
@@ -3119,7 +3133,16 @@ class ApiController extends Controller {
 		$this->handleException($e);
 	}
 	
-	public function onShutdown() {
+	
+	public function checkDBTransactionState() {
+		if (Zotero_DB::transactionInProgress()) {
+			error_log("Transaction still in progress at request end! "
+				. "[" . $this->method . " " . $_SERVER['REQUEST_URI'] . "]");
+		}
+	}
+	
+	
+	public function logTotalRequestTime() {
 		StatsD::timing("api.request.total", (microtime(true) - $this->startTime) * 1000, 0.25);
 	}
 }

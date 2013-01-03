@@ -233,6 +233,12 @@ class Zotero_DB {
 	}
 	
 	
+	public static function transactionInProgress() {
+		$instance = self::getInstance();
+		return $instance->transactionLevel > 0;
+	}
+	
+	
 	public static function getTransactionTimestamp() {
 		$instance = self::getInstance();
 		
