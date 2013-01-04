@@ -1623,7 +1623,6 @@ class ApiController extends Controller {
 						}
 						$uri .= "?" . $queryString;
 						
-						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
 					}
 					

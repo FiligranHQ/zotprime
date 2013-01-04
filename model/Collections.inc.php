@@ -309,7 +309,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		foreach ($json->collections as $jsonCollection) {
 			$collection = new Zotero_Collection;
 			$collection->libraryID = $libraryID;
-			self::updateFromJSON($collection, $jsonCollection, true);
+			self::updateFromJSON($collection, $jsonCollection);
 			$keys[] = $collection->key;
 		}
 		
@@ -317,8 +317,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function updateFromJSON(Zotero_Collection $collection, $json, $isNew=false) {
+	public static function updateFromJSON(Zotero_Collection $collection, $json) {
 		self::validateJSONCollection($json);
+		
+		if (isset($json->collectionKey)) {
+			$collection->key = $json->collectionKey;
+		}
 		
 		$collection->name = $json->name;
 		if (isset($json->parent)) {
@@ -336,6 +340,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 			throw new Exception('$json must be a decoded JSON object');
 		}
 		
+		// Multiple-collection format
 		if (isset($json->collections)) {
 			foreach ($json as $key=>$val) {
 				if ($key != 'collections') {
@@ -348,6 +353,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 				}
 			}
 		}
+		// Single-collection format
 		else if (!isset($json->name)) {
 			throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
 		}
@@ -369,6 +375,17 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				case 'collectionKey':
+					if (!is_string($val)) {
+						throw new Exception("'collectionKey' must be a string", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (!Zotero_ID::isValidKey($val)) {
+						throw new Exception("Invalid collection key", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				
 				case 'name':
 					if (!is_string($val)) {
 						throw new Exception("'name' must be a string", Z_ERROR_INVALID_INPUT);

@@ -242,7 +242,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
 		return API::getXMLFromResponse($response);
 	}

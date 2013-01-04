@@ -92,7 +92,7 @@ class CollectionTests extends APITests {
 			json_encode($json),
 			array("Content-Type: application/json")
 		);
-		$this->assert201($response);
+		$this->assert200($response);
 		
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
@@ -125,7 +125,7 @@ class CollectionTests extends APITests {
 			json_encode($json),
 			array("Content-Type: application/json")
 		);
-		$this->assert201($response);
+		$this->assert200($response);
 		
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
@@ -160,7 +160,7 @@ class CollectionTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		
-		$this->assert201($response);
+		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
@@ -197,7 +197,7 @@ class CollectionTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		
-		$this->assert201($response);
+		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
@@ -208,6 +208,47 @@ class CollectionTests extends APITests {
 		$content = json_decode(array_shift($contents));
 		$this->assertEquals($name2, $content->name);
 		$this->assertEquals($parent2, $content->parent);
+	}
+	
+	
+	public function testEditMultipleCollections() {
+		$xml = API::createCollection("Test 1", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key1 = $data['key'];
+		$xml = API::createCollection("Test 2", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key2 = $data['key'];
+		
+		$newName1 = "Test 1 Modified";
+		$newName2 = "Test 2 Modified";
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"collections" => array(
+					array(
+						'collectionKey' => $key1,
+						'name' => $newName1
+					),
+					array(
+						'collectionKey' => $key2,
+						'name' => $newName2
+					)
+				)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		
+		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals($newName1, $content->name);
+		$this->assertFalse($content->parent);
+		$content = json_decode(array_shift($contents));
+		$this->assertEquals($newName2, $content->name);
+		$this->assertFalse($content->parent);
 	}
 	
 	
@@ -232,7 +273,7 @@ class CollectionTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert201($response);
+		$this->assert200($response);
 		$version2 = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertTrue(is_numeric($version2));
 		$this->assertGreaterThan($version, $version2);
@@ -246,7 +287,7 @@ class CollectionTests extends APITests {
 			json_encode(array(
 				"collections" => array(
 					array(
-						'key' => $data['key'],
+						'collectionKey' => $data['key'],
 						'name' => "Test 2"
 					)
 				)
