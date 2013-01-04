@@ -2954,7 +2954,7 @@ class ApiController extends Controller {
 					break;
 				
 				default:
-					throw new Exception("Unsupported response code");
+					throw new Exception("Unsupported response code " . $this->responseCode);
 			}
 		}
 		
