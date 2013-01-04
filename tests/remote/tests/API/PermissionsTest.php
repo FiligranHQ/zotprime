@@ -54,6 +54,30 @@ class PermissionsTest extends APITests {
 	}
 	
 	
+	/**
+	 * A key without note access shouldn't be able to create a note
+	 */
+	/*public function testKeyNoteAccessWriteError() {
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 0
+		);
+		
+		$response = API::get("items/new?itemType=note");
+		$json = json_decode($response->getBody());
+		$json->note = "Test";
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert403($response);
+	}*/
+	
+	
 	public function testKeyNoteAccess() {
 		API::userClear(self::$config['userID']);
 		
