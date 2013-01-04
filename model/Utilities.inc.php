@@ -39,7 +39,8 @@ class Zotero_Utilities {
 		$numbers = array('2','3','4','5','6','7','8','9');
 		
 		switch ($mode) {
-			// Special case for object ids, which are inadvertently missing 'L' and 'Y'
+			// Special case for object ids, which don't use 'O'
+			// (and are inadvertently missing 'L' and 'Y')
 			case 'key':
 				$characters = array_merge(
 					array('A','B','C','D','E','F','G','H','I','J','K','M','N','P','Q','R','S','T','U','V','W','X','Z'),
