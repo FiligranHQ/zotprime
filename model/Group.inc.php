@@ -1138,6 +1138,8 @@ class Zotero_Group {
 			switch ($field) {
 				case 'groupID':
 				case 'slug':
+				// TEMP
+				case 'version':
 					continue 2;
 			}
 			
