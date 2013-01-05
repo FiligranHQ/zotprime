@@ -430,6 +430,7 @@ class Zotero_Cite {
 			
 			$ch = curl_init($url);
 			curl_setopt($ch, CURLOPT_POST, 1);
+			//error_log("curl -d " . escapeshellarg($json) . " " . escapeshellarg($url));
 			curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
 			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
 			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
