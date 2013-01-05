@@ -36,7 +36,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		'name' => 'collectionName',
 		'dateAdded' => '',
 		'dateModified' => '',
-		'parent' => 'parentCollectionID'
+		'parent' => 'parentCollectionID',
+		'version' => ''
 	);
 	
 	

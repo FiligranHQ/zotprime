@@ -1531,7 +1531,6 @@ class ApiController extends Controller {
 				$this->e404("Collection not found");
 			}
 			
-			// In single-collection mode, require public pref to be enabled
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
 				$this->e403();
 			}
@@ -1542,16 +1541,31 @@ class ApiController extends Controller {
 				}
 				
 				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
-					if (empty($_SERVER['HTTP_IF_MATCH'])) {
-						$this->e400("If-Match header not provided");
+					// If-Match (deprecated)
+					if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+						if (empty($_SERVER['HTTP_IF_MATCH'])) {
+							$this->e400("Zotero-If-Unmodified-Since or If-Match header must be provided for write requests");
+						}
+						
+						if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+							$this->e400("Invalid ETag in If-Match header");
+						}
+						
+						if ($collection->etag != $matches[1]) {
+							$this->e412("ETag does not match current version of collection");
+						}
 					}
-					
-					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-						$this->e400("Invalid ETag in If-Match header");
-					}
-					
-					if ($collection->etag != $matches[1]) {
-						$this->e412("ETag does not match current version of collection");
+					// Zotero-If-Unmodified-Since-Version
+					else {
+						$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+						
+						if (!is_numeric($version)) {
+							$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+						}
+						
+						if ($collection->version != $version) {
+							$this->e412("Collection has been modified since specified version");
+						}
 					}
 				}
 				

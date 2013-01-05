@@ -40,7 +40,7 @@ class VersionTests extends APITests {
 	
 	
 	public function testSingleObjectLastModifiedVersion() {
-		//$this->_testSingleObjectLastModifiedVersion('collection');
+		$this->_testSingleObjectLastModifiedVersion('collection');
 		$this->_testSingleObjectLastModifiedVersion('item');
 	}
 	
@@ -61,12 +61,11 @@ class VersionTests extends APITests {
 		
 		switch ($objectType) {
 		case 'item':
-			$xml = API::createItem("book", false, $this);
+			$xml = API::createItem("book", array("title" => "Title"), $this);
 			break;
-			
+		
 		case 'collection':
-			// TODO
-			return;
+			$xml = API::createCollection("Name", false, $this);
 			break;
 		}
 		

@@ -32,6 +32,7 @@ class Zotero_Collection {
 	private $_parent = false;
 	private $_dateAdded;
 	private $_dateModified;
+	private $_version;
 	
 	private $loaded;
 	private $changed;
@@ -230,7 +231,8 @@ class Zotero_Collection {
 					'name' => $this->name,
 					'dateAdded' => $dateAdded,
 					'dateModified' => $dateModified,
-					'parent' => $parent
+					'parent' => $parent,
+					'version' => $version
 				)
 			);
 
