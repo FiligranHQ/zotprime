@@ -26,6 +26,7 @@
 
 class Zotero_Libraries {
 	private static $libraryTypeCache = array();
+	private static $originalVersions = array();
 	
 	public static function add($type, $shardID) {
 		if (!$shardID) {
@@ -208,7 +209,11 @@ class Zotero_Libraries {
 	}
 	
 	
-	public static function getVersion($libraryID) {
+	public static function getVersion($libraryID, $committedOnly=false) {
+		if ($committedOnly && isset(self::$originalVersions[$libraryID])) {
+			return self::$originalVersions[$libraryID];
+		}
+		
 		$sql = "SELECT version FROM shardLibraries WHERE libraryID=?";
 		return Zotero_DB::valueQuery(
 			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
@@ -217,6 +222,10 @@ class Zotero_Libraries {
 	
 	
 	public static function updateVersion($libraryID) {
+		if (!isset(self::$originalVersions[$libraryID])) {
+			self::$originalVersions[$libraryID] = self::getVersion($libraryID);
+		}
+		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		$sql = "UPDATE shardLibraries SET version=LAST_INSERT_ID(version+1)
 				WHERE libraryID=?";
@@ -272,6 +281,7 @@ class Zotero_Libraries {
 			Zotero_DB::query($sql, $libraryID, $shardID);
 		}
 		
+		self::updateVersion($libraryID);
 		self::updateTimestamps($libraryID);
 		
 		Zotero_DB::commit();

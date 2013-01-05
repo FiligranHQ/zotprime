@@ -133,7 +133,7 @@ class Zotero_DataObjects {
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
 			
-			$cacheKey = $type . 'IDsByKey_' . $libraryID . "_" . str_replace(" ", "_", Zotero_Libraries::getVersion($libraryID, true));
+			$cacheKey = $type . 'IDsByKey_' . $libraryID . "_" . Zotero_Libraries::getVersion($libraryID, true);
 			$ids = Z_Core::$MC->get($cacheKey);
 			if ($ids === false) {
 				if ($type == 'relation') {
@@ -242,20 +242,17 @@ class Zotero_DataObjects {
 		$type = static::field('object');
 		$types = static::field('objects');
 		
+		if (isset(self::$primaryDataByKey[$type][$libraryID])) {
+			Z_Core::debug("Primary $type data already cached for library $libraryID");
+			return;
+		}
+		
 		Z_Core::debug("Caching primary $type data for library $libraryID");
-		
-		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
-			self::$primaryDataByKey[$type][$libraryID] = array();
-		}
-		
-		if (!isset(self::$primaryDataByID[$type][$libraryID])) {
-			self::$primaryDataByID[$type][$libraryID] = array();
-		}
 		
 		self::$primaryDataByKey[$type][$libraryID] = array();
 		self::$primaryDataByID[$type][$libraryID] = array();
 		
-		$cacheKey = $type . "Data_" . $libraryID . "_" . str_replace(" ", "_", Zotero_Libraries::getVersion($libraryID, true)) . "_" . self::$cacheVersion;
+		$cacheKey = $type . "Data_" . $libraryID . "_" . Zotero_Libraries::getVersion($libraryID, true) . "_" . self::$cacheVersion;
 		$rows = Z_Core::$MC->get($cacheKey);
 		if ($rows === false) {
 			$className = "Zotero_" . ucwords($types);
@@ -490,8 +487,7 @@ class Zotero_DataObjects {
 		
 		// Needed for API deletes to get propagated via sync
 		if ($updateLibrary) {
-			$timestamp = Zotero_Libraries::updateTimestamps($obj->libraryID);
-			Zotero_DB::registerTransactionTimestamp($timestamp);
+			Zotero_Libraries::updateVersionAndTimestamp($obj->libraryID);
 		}
 		
 		// Delete child items

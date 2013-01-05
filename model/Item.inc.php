@@ -32,7 +32,7 @@ class Zotero_Item {
 	private $dateAdded;
 	private $dateModified;
 	private $serverDateModified;
-	private $itemVersion;
+	private $itemVersion; // computerProgram has a 'version' field
 	private $numNotes;
 	private $numAttachments;
 	

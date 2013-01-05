@@ -350,6 +350,7 @@ class ApiController extends Controller {
 	
 	
 	public function items() {
+		Z_Core::$MC->begin();
 		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
@@ -357,7 +358,12 @@ class ApiController extends Controller {
 				$this->e400("$this->method data not provided");
 			}
 			
-			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+			// We don't update the library version in file mode, because currently
+			// to avoid conflicts in the client the timestamp can't change
+			// when the client updates file metadata
+			if (!$this->fileMode) {
+				Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+			}
 		}
 		
 		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
@@ -499,16 +505,31 @@ class ApiController extends Controller {
 				}
 				
 				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
-					if (empty($_SERVER['HTTP_IF_MATCH'])) {
-						$this->e400("If-Match header not provided");
+					// If-Match (deprecated)
+					if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+						if (empty($_SERVER['HTTP_IF_MATCH'])) {
+							$this->e400("Zotero-If-Unmodified-Since or If-Match header must be provided for write requests");
+						}
+						
+						if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+							$this->e400("Invalid ETag in If-Match header");
+						}
+						
+						if ($item->etag != $matches[1]) {
+							$this->e412("ETag does not match current version of item");
+						}
 					}
-					
-					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-						$this->e400("Invalid ETag in If-Match header");
-					}
-					
-					if ($item->etag != $matches[1]) {
-						$this->e412("ETag does not match current version of item");
+					// Zotero-If-Unmodified-Since-Version
+					else {
+						$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+						
+						if (!is_numeric($version)) {
+							$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+						}
+						
+						if ($item->itemVersion != $version) {
+							$this->e412("Item has been modified since specified version");
+						}
 					}
 				}
 				
@@ -764,7 +785,6 @@ class ApiController extends Controller {
 						}
 						$uri .= "?" . $queryString;
 						
-						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
 					}
 					
@@ -825,7 +845,6 @@ class ApiController extends Controller {
 						}
 						$uri .= "?" . $queryString;
 						
-						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
 					}
 					
@@ -924,6 +943,7 @@ class ApiController extends Controller {
 		}
 		
 		Zotero_DB::commit();
+		Z_Core::$MC->commit();
 		
 		$this->end();
 	}
@@ -1475,6 +1495,7 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
+		Z_Core::$MC->begin();
 		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
@@ -1673,6 +1694,7 @@ class ApiController extends Controller {
 		}
 		
 		Zotero_DB::commit();
+		Z_Core::$MC->commit();
 		
 		$this->end();
 	}

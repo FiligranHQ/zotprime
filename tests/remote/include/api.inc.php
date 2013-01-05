@@ -68,7 +68,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
 		return API::getXMLFromResponse($response);
 	}
@@ -114,7 +114,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
 		return API::getXMLFromResponse($response);
 	}
@@ -142,7 +142,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
 		$xml = API::getXMLFromResponse($response);
 		$data = API::parseDataFromAtomEntry($xml);
@@ -176,7 +176,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
 		$xml = API::getXMLFromResponse($response);
 		$data = API::parseDataFromAtomEntry($xml);
@@ -211,7 +211,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
 		$xml = API::getXMLFromResponse($response);
 		$data = API::parseDataFromAtomEntry($xml);

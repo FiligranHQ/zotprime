@@ -445,8 +445,7 @@ class Zotero_S3 {
 		Zotero_DB::beginTransaction();
 		
 		if (!$client) {
-			$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
-			Zotero_DB::registerTransactionTimestamp($timestamp);
+			Zotero_Libraries::updateVersionAndTimestamp($item->libraryID);
 		}
 		
 		self::updateLastAdded($storageFileID);

@@ -1354,6 +1354,9 @@ class Zotero_Sync {
 			Zotero_DB::beginTransaction();
 			
 			// Mark libraries as updated
+			foreach ($affectedLibraries as $libraryID) {
+				Zotero_Libraries::updateVersion($libraryID);
+			}
 			$timestamp = Zotero_Libraries::updateTimestamps($affectedLibraries);
 			Zotero_DB::registerTransactionTimestamp($timestamp);
 			
