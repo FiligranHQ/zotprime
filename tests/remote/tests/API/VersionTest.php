@@ -51,13 +51,14 @@ class VersionTests extends APITests {
 	}
 	
 	
+	public function testNewerAndVersionsFormat() {
+		$this->_testNewerAndVersionsFormat('collection');
+		$this->_testNewerAndVersionsFormat('item');
+	}
+	
+	
 	private function _testSingleObjectLastModifiedVersion($objectType) {
-		if ($objectType == 'search') {
-			$objectTypePlural = $objectType . "es";
-		}
-		else {
-			$objectTypePlural = $objectType . "s";
-		}
+		$objectTypePlural = self::getPlural($objectType);
 		
 		switch ($objectType) {
 		case 'item':
@@ -127,12 +128,7 @@ class VersionTests extends APITests {
 	
 	
 	private function _testMultiObjectLastModifiedVersion($objectType) {
-		if ($objectType == 'search') {
-			$objectTypePlural = $objectType . "es";
-		}
-		else {
-			$objectTypePlural = $objectType . "s";
-		}
+		$objectTypePlural = self::getPlural($objectType);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -176,7 +172,7 @@ class VersionTests extends APITests {
 		);
 		$version = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertTrue(is_numeric($version));
-		$this->assertEquals($version2, $version);
+		$this->assertEquals($version, $version2);
 		
 		// Version should be incremented on modified object
 		switch ($objectType) {
@@ -209,7 +205,7 @@ class VersionTests extends APITests {
 		);
 		$version = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertTrue(is_numeric($version));
-		$this->assertEquals($version3, $version);
+		$this->assertEquals($version, $version3);
 		
 		// Check single-object request
 		$response = API::userGet(
@@ -218,8 +214,91 @@ class VersionTests extends APITests {
 		);
 		$version = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertTrue(is_numeric($version));
-		$this->assertEquals($version3, $version);
+		$this->assertEquals($version, $version3);
 		
 		// TODO: Version should be incremented on deleted item
+	}
+	
+	
+	private function _testNewerAndVersionsFormat($objectType) {
+		$objectTypePlural = self::getPlural($objectType);
+		
+		switch ($objectType) {
+		case 'item':
+			$xml = API::createItem("book", array("title" => "Title"), $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			
+			$xml = API::createItem("book", array("title" => "Title"), $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			
+			$xml = API::createItem("book", array("title" => "Title"), $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			break;
+		
+		case 'collection':
+			$xml = API::createCollection("Name", false, $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			
+			$xml = API::createCollection("Name", false, $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			
+			$xml = API::createCollection("Name", false, $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			break;
+		}
+		
+		$firstVersion = $objects[0]['version'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&format=versions&newer=$firstVersion"
+		);
+		
+		$this->assert200($response);
+		$json = json_decode($response->getBody(), true);
+		$this->assertNotNull($json);
+		
+		$keys = array_keys($json);
+		
+		$this->assertEquals($objects[2]['key'], array_shift($keys));
+		$this->assertEquals($objects[2]['version'], array_shift($json));
+		$this->assertEquals($objects[1]['key'], array_shift($keys));
+		$this->assertEquals($objects[1]['version'], array_shift($json));
+		$this->assertEmpty($json);
+	}
+	
+	
+	private function getPlural($objectType) {
+		if ($objectType == 'search') {
+			return $objectType . "es";
+		}
+		else {
+			return $objectType . "s";
+		}
 	}
 }

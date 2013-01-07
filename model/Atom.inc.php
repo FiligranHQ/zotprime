@@ -213,10 +213,6 @@ class Zotero_Atom {
 			self::$nsZoteroAPI
 		);
 		
-		$xml->addChild(
-			"zapi:apiVersion", $queryParams['version'], self::$nsZoteroAPI
-		);
-		
 		$latestUpdated = '';
 		
 		// Check memcached for bib data
@@ -240,11 +236,7 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Collection) {
-				$entry = Zotero_Collections::convertCollectionToAtom($entry, $queryParams['content'], $queryParams['version']);
-				$xmlEntries[] = $entry;
-			}
-			else if ($entry instanceof Zotero_Creator) {
-				$entry = Zotero_Creators::convertCreatorToAtom($entry, $queryParams['content'], $queryParams['version']);
+				$entry = Zotero_Collections::convertCollectionToAtom($entry, $queryParams);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Item) {
@@ -252,18 +244,17 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Search) {
-				$entry = Zotero_Searches::convertSearchToAtom($entry, $queryParams['content'], $queryParams['version']);
+				$entry = Zotero_Searches::convertSearchToAtom($entry, $queryParams);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Tag) {
 				$xmlEntries[] = $entry->toAtom(
-					$queryParams['content'],
-					$queryParams['version'],
+					$queryParams,
 					isset($fixedValues[$entry->id]) ? $fixedValues[$entry->id] : null
 				);
 			}
 			else if ($entry instanceof Zotero_Group) {
-				$entry = $entry->toAtom($queryParams['content'], $queryParams['version']);
+				$entry = $entry->toAtom($queryParams);
 				$xmlEntries[] = $entry;
 			}
 		}

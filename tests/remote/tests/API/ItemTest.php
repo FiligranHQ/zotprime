@@ -89,7 +89,7 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyBookItem
 	 */
-	public function testEditBookItem($newItemData) {
+	public function testEditBookItemWithETag($newItemData) {
 		$key = $newItemData['key'];
 		$etag = $newItemData['etag'];
 		$json = json_decode($newItemData['content']);
@@ -132,7 +132,53 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testChangeItemType() {
+	/**
+	 * @depends testEditBookItemWithETag
+	 */
+	public function testEditBookItemWithVersion($newItemData) {
+		$key = $newItemData['key'];
+		$version = $newItemData['version'];
+		$json = json_decode($newItemData['content']);
+		
+		$newTitle = "New Title";
+		$numPages = 100;
+		$creatorType = "author";
+		$firstName = "Firstname";
+		$lastName = "Lastname";
+		
+		$json->title = $newTitle;
+		$json->numPages = $numPages;
+		$json->creators[] = array(
+			'creatorType' => $creatorType,
+			'firstName' => $firstName,
+			'lastName' => $lastName
+		);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $version"
+			)
+		);
+		$this->assert200($response);
+		
+		$xml = API::getXMLFromResponse($response);
+		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		
+		$this->assertEquals($newTitle, $json->title);
+		$this->assertEquals($numPages, $json->numPages);
+		$this->assertEquals($creatorType, $json->creators[0]->creatorType);
+		$this->assertEquals($firstName, $json->creators[0]->firstName);
+		$this->assertEquals($lastName, $json->creators[0]->lastName);
+		
+		return API::parseDataFromAtomEntry($xml);
+	}
+	
+	
+	public function testChangeItemTypeWithETag() {
 		$json = API::getItemTemplate("book");
 		$json->title = "Foo";
 		$json->numPages = 100;
@@ -177,6 +223,51 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testChangeItemTypeWithVersion() {
+		$json = API::getItemTemplate("book");
+		$json->title = "Foo";
+		$json->numPages = 100;
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array("Content-Type: application/json")
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
+		$version = $data['version'];
+		$json1 = json_decode($data['content']);
+		
+		$json2 = API::getItemTemplate("bookSection");
+		unset($json2->attachments);
+		unset($json2->notes);
+		
+		foreach ($json2 as $field => &$val) {
+			if ($field != "itemType" && isset($json1->$field)) {
+				$val = $json1->$field;
+			}
+		}
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json2),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $version"
+			)
+		);
+		$this->assert200($response);
+		$json = json_decode(API::getContentFromResponse($response));
+		$this->assertEquals("bookSection", $json->itemType);
+		$this->assertEquals("Foo", $json->title);
+		$this->assertObjectNotHasAttribute("numPages", $json);
+	}
+	
+	
 	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
 		$json = API::getItemTemplate("book");
 		
@@ -197,7 +288,7 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testNewComputerProgramItem() {
+	public function testNewComputerProgramItemWithETag() {
 		$xml = API::createItem("computerProgram", false, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
@@ -216,6 +307,36 @@ class ItemTests extends APITests {
 			array(
 				"Content-Type: application/json",
 				"If-Match: {$data['etag']}"
+			)
+		);
+		$this->assert200($response);
+		
+		$xml = API::getXMLFromResponse($response);
+		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		
+		$this->assertEquals($version, $json->version);
+	}
+	
+	
+	public function testNewComputerProgramItemWithVersion() {
+		$xml = API::createItem("computerProgram", false, $this);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		
+		$data = API::parseDataFromAtomEntry($xml);
+		
+		$json = json_decode($data['content']);
+		$this->assertEquals("computerProgram", (string) $json->itemType);
+		
+		$version = "1.0";
+		$json->version = $version;
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: {$data['version']}"
 			)
 		);
 		$this->assert200($response);
@@ -319,7 +440,7 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyLinkAttachmentItem
 	 */
-	public function testEditEmptyLinkAttachmentItem($newItemData) {
+	public function testEditEmptyLinkAttachmentItemWithETag($newItemData) {
 		$key = $newItemData['key'];
 		$etag = $newItemData['etag'];
 		$json = json_decode($newItemData['content']);
@@ -338,6 +459,33 @@ class ItemTests extends APITests {
 		$newETag = (string) array_shift($xml->xpath('/atom:entry/atom:content/@zapi:etag'));
 		// Item shouldn't change
 		$this->assertEquals($etag, $newETag);
+		
+		return $newItemData;
+	}
+	
+	
+	/**
+	 * @depends testEditEmptyLinkAttachmentItemWithETag
+	 */
+	public function testEditEmptyLinkAttachmentItemWithVersion($newItemData) {
+		$key = $newItemData['key'];
+		$version = $newItemData['version'];
+		$json = json_decode($newItemData['content']);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $version"
+			)
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$newVersion = (string) array_shift($xml->xpath('/atom:entry/atom:content/@version'));
+		// Item shouldn't change
+		$this->assertEquals($version, $newVersion);
 		
 		return $newItemData;
 	}
@@ -346,7 +494,7 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyImportedURLAttachmentItem
 	 */
-	public function testEditEmptyImportedURLAttachmentItem($newItemData) {
+	public function testEditEmptyImportedURLAttachmentItemWithETag($newItemData) {
 		$key = $newItemData['key'];
 		$etag = $newItemData['etag'];
 		$json = json_decode($newItemData['content']);
@@ -371,11 +519,38 @@ class ItemTests extends APITests {
 	
 	
 	/**
-	 * @depends testEditEmptyLinkAttachmentItem
+	 * @depends testEditEmptyImportedURLAttachmentItemWithETag
+	 */
+	public function testEditEmptyImportedURLAttachmentItemWithVersion($newItemData) {
+		$key = $newItemData['key'];
+		$version = $newItemData['version'];
+		$json = json_decode($newItemData['content']);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $version"
+			)
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$newVersion = (string) array_shift($xml->xpath('/atom:entry/atom:content/@version'));
+		// Item shouldn't change
+		$this->assertEquals($version, $newVersion);
+		
+		return $newItemData;
+	}
+	
+	
+	/**
+	 * @depends testEditEmptyLinkAttachmentItemWithVersion
 	 */
 	public function testEditLinkAttachmentItem($newItemData) {
 		$key = $newItemData['key'];
-		$etag = $newItemData['etag'];
+		$version = $newItemData['version'];
 		$json = json_decode($newItemData['content']);
 		
 		$contentType = "text/xml";
@@ -390,7 +565,7 @@ class ItemTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"If-Match: $etag"
+				"Zotero-If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert200($response);
@@ -498,7 +673,7 @@ class ItemTests extends APITests {
 	 */
 	public function testEditImportedURLAttachmentItemGroup($newItemData) {
 		$key = $newItemData['key'];
-		$etag = $newItemData['etag'];
+		$version = $newItemData['version'];
 		$json = json_decode($newItemData['content']);
 		
 		$props = array("contentType", "charset", "filename", "md5", "mtime");
@@ -511,7 +686,7 @@ class ItemTests extends APITests {
 				json_encode($json2),
 				array(
 					"Content-Type: application/json",
-					"If-Match: $etag"
+					"Zotero-If-Unmodified-Since-Version: $version"
 				)
 			);
 			$this->assert400($response);

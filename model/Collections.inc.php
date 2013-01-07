@@ -65,28 +65,48 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function getAllAdvanced($libraryID, $onlyTopLevel=false, $params) {
-		$results = array('collections' => array(), 'total' => 0);
+	public static function search($libraryID, $onlyTopLevel=false, $params) {
+		$results = array('results' => array(), 'total' => 0);
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		$sql = "SELECT SQL_CALC_FOUND_ROWS collectionID FROM collections
-				WHERE libraryID=? ";
+		
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
+		if ($params['format'] == 'versions') {
+			$sql .= "`key`, version";
+		}
+		else {
+			$sql .= "collectionID";
+		}
+		$sql .= " FROM collections WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
 		
 		if ($onlyTopLevel) {
 			$sql .= "AND parentCollectionID IS NULL ";
 		}
 		
-		$keys = array();
-		if (!empty($params['collectionKey'])) {
-			$keys = explode(',', $params['collectionKey']);
+		// Pass a list of collectionIDs, for when the initial search is done via SQL
+		$collectionIDs = !empty($params['collectionIDs'])
+			? $params['collectionIDs'] : array();
+		$collectionKeys = !empty($params['collectionKey'])
+			? explode(',', $params['collectionKey']): array();
+		
+		if (!empty($params['newer'])) {
+			$sql .= "AND version > ? ";
+			$sqlParams[] = $params['newer'];
 		}
 		
-		if ($keys) {
-			$sql .= "AND `key` IN ("
-					. implode(', ', array_fill(0, sizeOf($keys), '?'))
+		if ($collectionIDs) {
+			$sql .= "AND collectionID IN ("
+					. implode(', ', array_fill(0, sizeOf($collectionIDs), '?'))
 					. ") ";
-			$sqlParams = array_merge($sqlParams, $keys);
+			$sqlParams = array_merge($sqlParams, $collectionIDs);
+		}
+		
+		if ($collectionKeys) {
+			$sql .= "AND `key` IN ("
+					. implode(', ', array_fill(0, sizeOf($collectionKeys), '?'))
+					. ") ";
+			$sqlParams = array_merge($sqlParams, $collectionKeys);
 		}
 		
 		if (!empty($params['order'])) {
@@ -97,35 +117,51 @@ class Zotero_Collections extends Zotero_DataObjects {
 			
 			case 'keyList':
 				$orderSQL = "FIELD(`key`,"
-						. implode(',', array_fill(0, sizeOf($keys), '?')) . ")";
-				$sqlParams = array_merge($sqlParams, $keys);
+						. implode(',', array_fill(0, sizeOf($collectionKeys), '?')) . ")";
+				$sqlParams = array_merge($sqlParams, $collectionKeys);
 				break;
 			
 			default:
 				$orderSQL = $params['order'];
 			}
 			
-			$sql .= "ORDER BY $orderSQL ";
+			$sql .= "ORDER BY $orderSQL";
 			if (!empty($params['sort'])) {
-				$sql .= $params['sort'] . " ";
+				$sql .= " {$params['sort']}";
 			}
+			$sql .= ", ";
 		}
+		$sql .= "version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
+			. ", collectionID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
 		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
 			$sqlParams[] = $params['limit'];
 		}
-		$ids = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
-		if ($ids) {
+		if ($params['format'] == 'versions') {
+			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
+		}
+		else {
+			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
+		}
+		
+		if ($rows) {
 			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 			
-			$collections = array();
-			foreach ($ids as $id) {
-				$collections[] = self::get($libraryID, $id);
+			if ($params['format'] == 'versions') {
+				foreach ($rows as $row) {
+					$results['results'][$row['key']] = $row['version'];
+				}
 			}
-			$results['collections'] = $collections;
+			else {
+				$collections = array();
+				foreach ($rows as $id) {
+					$collections[] = self::get($libraryID, $id);
+				}
+				$results['results'] = $collections;
+			}
 		}
 		
 		return $results;
@@ -213,8 +249,14 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 * @param	string				$content
 	 * @return	SimpleXMLElement					Collection data as SimpleXML element
 	 */
-	public static function convertCollectionToAtom(Zotero_Collection $collection, $content=array('none')) {
+	public static function convertCollectionToAtom(Zotero_Collection $collection, $queryParams) {
 		// TEMP: multi-format support
+		if (!empty($queryParams['content'])) {
+			$content = $queryParams['content'];
+		}
+		else {
+			$content = array('none');
+		}
 		$content = $content[0];
 		
 		$xml = new SimpleXMLElement(
@@ -269,13 +311,15 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
+			// Deprecated
 			$xml->content->addAttribute(
 				'zapi:etag',
 				$collection->etag,
 				Zotero_Atom::$nsZoteroAPI
 			);
-			// TODO: remove non-namespaced attribute
+			// Deprecated
 			$xml->content['etag'] = $collection->etag;
+			$xml->content['version'] = $collection->version;
 			$xml->content = $collection->toJSON();
 		}
 		else if ($content == 'full') {

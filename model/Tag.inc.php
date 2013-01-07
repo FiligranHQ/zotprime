@@ -481,11 +481,15 @@ class Zotero_Tag {
 	/**
 	 * Converts a Zotero_Tag object to a SimpleXMLElement Atom object
 	 *
-	 * @param	object				$tag		Zotero_Tag object
-	 * @param	string				$content
 	 * @return	SimpleXMLElement					Tag data as SimpleXML element
 	 */
-	public function toAtom($content=array('none'), $apiVersion=null, $fixedValues=null) {
+	public function toAtom($queryParams, $fixedValues=null) {
+		if (!empty($queryParams['content'])) {
+			$content = $queryParams['content'];
+		}
+		else {
+			$content = array('none');
+		}
 		// TEMP: multi-format support
 		$content = $content[0];
 		

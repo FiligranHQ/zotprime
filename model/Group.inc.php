@@ -921,8 +921,14 @@ class Zotero_Group {
 	}
 	
 	
-	public function toAtom($content=array('none'), $queryParams) {
-		// TODO: multi-format support
+	public function toAtom($queryParams) {
+		if (!empty($queryParams['content'])) {
+			$content = $queryParams['content'];
+		}
+		else {
+			$content = array('none');
+		}
+		// TEMP: multi-format support
 		$content = $content[0];
 		
 		if (!$this->loaded) {
@@ -982,6 +988,8 @@ class Zotero_Group {
 		}
 		else if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
+			$xml->content['etag'] = $this->etag;
+			// Deprecated
 			$xml->content->addAttribute(
 				"zapi:etag",
 				$this->etag,
@@ -1002,7 +1010,7 @@ class Zotero_Group {
 	}
 	
 	
-	public function memberToAtom($userID, $apiVersion=null) {
+	public function memberToAtom($userID) {
 		if (!is_int($userID)) {
 			throw new Exception("userID must be an integer (was " . gettype($userID) . ")");
 		}
@@ -1070,7 +1078,7 @@ class Zotero_Group {
 	}
 	
 	
-	public function itemToAtom($itemID, $apiVersion=null) {
+	public function itemToAtom($itemID) {
 		if (!is_int($itemID)) {
 			throw new Exception("itemID must be an integer (was " . gettype($itemID) . ")");
 		}

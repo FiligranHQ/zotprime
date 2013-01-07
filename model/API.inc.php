@@ -31,9 +31,6 @@ class Zotero_API {
 	public static $maxTranslateItems = 10;
 	
 	private static $defaultQueryParams = array(
-		// Default API version
-		'version' => 1,
-		
 		'format' => "atom",
 		
 		// format='atom'
@@ -53,6 +50,7 @@ class Zotero_API {
 		'searchKey' => '',
 		'tag' => '',
 		'tagType' => '',
+		'newer' => 0,
 		
 		'order' => "dateAdded",
 		'sort' => "desc",
@@ -88,7 +86,12 @@ class Zotero_API {
 			// Fill defaults
 			$queryParams[$key] = $val;
 			
-			// If no parameter passed, used default
+			// Ignore private parameters in the URL
+			if (in_array($key, self::getPrivateQueryParams($key)) && isset($getParams[$key])) {
+				continue;
+			}
+			
+			// If no parameter passed, use default
 			if (!isset($getParams[$key])) {
 				continue;
 			}
@@ -140,6 +143,12 @@ class Zotero_API {
 						else if ($getParams['limit'] > $limitMax) {
 							throw new Exception("'limit' cannot be greater than $limitMax for format=$format", Z_ERROR_INVALID_INPUT);
 						}
+					}
+					break;
+				
+				case 'newer':
+					if (!is_numeric($getParams[$key])) {
+						throw new Exception("Invalid value for 'newer' parameter", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
@@ -375,6 +384,7 @@ class Zotero_API {
 					return true;
 				
 				case 'keys':
+				case 'versions':
 					if (!$singleObject) {
 						return true;
 					}
@@ -382,6 +392,11 @@ class Zotero_API {
 			}
 			
 			return false;
+		}
+		else if ($action == 'collections' || $action == 'searches') {
+			if ($format == 'versions') {
+				return !$singleObject;
+			}
 		}
 		else if ($action == 'groups') {
 			switch ($format) {
@@ -399,6 +414,7 @@ class Zotero_API {
 	public static function getDefaultLimit($format="") {
 		switch ($format) {
 			case 'keys':
+			case 'versions':
 				return 0;
 		}
 		
@@ -409,6 +425,7 @@ class Zotero_API {
 	public static function getLimitMax($format="") {
 		switch ($format) {
 			case 'keys':
+			case 'versions':
 				return 0;
 		}
 		
@@ -466,6 +483,11 @@ class Zotero_API {
 		}
 		
 		return $sets;
+	}
+	
+	
+	private static function getPrivateQueryParams() {
+		return array('emptyFirst');
 	}
 	
 	

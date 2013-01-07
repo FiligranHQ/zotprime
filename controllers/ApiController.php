@@ -25,7 +25,6 @@
 */
 
 class ApiController extends Controller {
-	private $validAPIVersions = array(1);
 	private $writeTokenCacheTime = 43200; // 12 hours
 	
 	private $profile = false;
@@ -185,11 +184,6 @@ class ApiController extends Controller {
 			}
 		}
 		
-		// Validate the API version
-		if (isset($_REQUEST['version']) && !in_array($_REQUEST['version'], $this->validAPIVersions)) {
-			$this->e400("Invalid request API version '{$_REQUEST['version']}'");
-		}
-		
 		$this->uri = Z_CONFIG::$API_BASE_URI . substr($_SERVER["REQUEST_URI"], 1);
 		
 		// Get object user
@@ -316,6 +310,7 @@ class ApiController extends Controller {
 		$this->fileView = !empty($extra['view']);
 		
 		$singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
+		
 		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $singleObject);
 	}
 	
@@ -370,9 +365,8 @@ class ApiController extends Controller {
 		
 		$itemIDs = array();
 		$itemKeys = array();
-		$responseItems = array();
-		$responseKeys = array();
-		$totalResults = null;
+		$results = array();
+		$totalResults = 0;
 		
 		//
 		// Single item
@@ -851,16 +845,6 @@ class ApiController extends Controller {
 					$title = "Items";
 					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, false, $this->permissions);
 				}
-				
-				if (!empty($results)) {
-					if ($formatAsKeys) {
-						$responseKeys = $results['keys'];
-					}
-					else {
-						$responseItems = $results['items'];
-					}
-					$totalResults = $results['total'];
-				}
 			}
 			
 			if ($this->queryParams['format'] == 'bib') {
@@ -877,23 +861,11 @@ class ApiController extends Controller {
 					$this->queryParams['itemKey'] = implode(',', $itemKeys);
 				}
 				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $this->permissions);
-				
-				if ($formatAsKeys) {
-					$responseKeys = $results['keys'];
-				}
-				else {
-					$responseItems = $results['items'];
-				}
-				$totalResults = $results['total'];
 			}
-			else if (!isset($results)) {
-				if ($formatAsKeys) {
-					$responseKeys = array();
-				}
-				else {
-					$responseItems = array();
-				}
-				$totalResults = 0;
+			
+			if ($results) {
+				 $totalResults = $results['total'];
+				 $results = $results['results'];
 			}
 			
 			switch ($this->queryParams['format']) {
@@ -902,7 +874,7 @@ class ApiController extends Controller {
 					$this->responseXML = Zotero_Atom::createAtomFeed(
 						$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 						$this->uri,
-						$responseItems,
+						$results,
 						$totalResults,
 						$this->queryParams,
 						$this->permissions
@@ -911,7 +883,7 @@ class ApiController extends Controller {
 					break;
 				
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams);
+					echo Zotero_Cite::getBibliographyFromCitationServer($results, $this->queryParams);
 					break;
 				
 				case 'csljson':
@@ -921,17 +893,27 @@ class ApiController extends Controller {
 					else {
 						header("Content-Type: application/vnd.citationstyles.csl+json");
 					}
-					$json = Zotero_Cite::getJSONFromItems($responseItems, true);
+					$json = Zotero_Cite::getJSONFromItems($results, true);
 					echo Zotero_Utilities::formatJSON($json, $this->queryParams['pprint']);
 					break;
 				
 				case 'keys':
 					header("Content-Type: text/plain");
-					echo implode("\n", $responseKeys) . "\n";
+					echo implode("\n", $results) . "\n";
+					break;
+				
+				case 'versions':
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+					}
+					else {
+						header("Content-Type: application/json");
+					}
+					echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
 					break;
 				
 				default:
-					$export = Zotero_Translate::doExport($responseItems, $this->queryParams['format']);
+					$export = Zotero_Translate::doExport($results, $this->queryParams['format']);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
 					}
@@ -1508,7 +1490,10 @@ class ApiController extends Controller {
 		
 		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
 		
-		$collections = array();
+		$collectionIDs = array();
+		$collectionKeys = array();
+		$results = array();
+		$totalResults = 0;
 		
 		// Single collection
 		if (($this->objectID || $this->objectKey) && $this->subset != 'collections') {
@@ -1588,7 +1573,7 @@ class ApiController extends Controller {
 			}
 			
 			$this->responseXML = Zotero_Collections::convertCollectionToAtom(
-				$collection, $this->queryParams['content']
+				$collection, $this->queryParams
 			);
 		}
 		// Multiple collections
@@ -1633,7 +1618,7 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Collections";
-					$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
+					$results = Zotero_Collections::search($this->objectLibraryID, true, $this->queryParams);
 				}
 				else {
 					// Create a collection
@@ -1662,49 +1647,46 @@ class ApiController extends Controller {
 					}
 					
 					$title = "Collections";
-					$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
+					$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
 				}
-				
-				$collections = $results['collections'];
+			}
+			
+			if (isset($collectionIDs)) {
+				$this->queryParams['collectionIDs'] = $collectionIDs;
+				$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
+			}
+			
+			if ($results) {
 				$totalResults = $results['total'];
+				$results = $results['results'];
 			}
-			
-			if (!empty($collectionIDs)) {
-				foreach ($collectionIDs as $collectionID) {
-					$collections[] = Zotero_Collections::get($this->objectLibraryID, $collectionID);
-				}
 				
-				// Fake sorting and limiting
-				$totalResults = sizeOf($collections);
-				$key = $this->queryParams['order'];
-				if ($key == 'title') {
-					$key = 'name';
-				}
-				$dir = $this->queryParams['sort'];
-				usort($collections, function ($a, $b) use ($key, $dir) {
-					$dir = $dir == "asc" ? 1 : -1;
-					if ($a->$key == $b->$key) {
-						return 0;
-					}
-					else {
-						return ($a->$key > $b->$key) ? $dir : ($dir * -1);
-					}
-				});
-				$collections = array_slice(
-					$collections,
-					$this->queryParams['start'],
-					$this->queryParams['limit']
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = Zotero_Atom::createAtomFeed(
+					$this->getFeedNamePrefix($this->objectLibraryID) . $title,
+					$this->uri,
+					$results,
+					$totalResults,
+					$this->queryParams,
+					$this->permissions
 				);
-			}
+				break;
 			
-			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-				$this->uri,
-				$collections,
-				$totalResults,
-				$this->queryParams,
-				$this->permissions
-			);
+			case 'versions':
+				if ($this->queryParams['pprint']) {
+					header("Content-Type: text/plain");
+				}
+				else {
+					header("Content-Type: application/json");
+				}
+				echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
+				break;
+			
+			default:
+				throw new Exception("Invalid 'format' value '"
+					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
+			}
 		}
 		
 		Zotero_DB::commit();

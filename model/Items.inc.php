@@ -107,19 +107,10 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false, Zotero_Permissions $permissions=null) {
 		$rnd = "_" . uniqid($libraryID . "_");
-		$asKeys = $params['format'] == 'keys';
 		
-		if ($asKeys) {
-			$results = array('keys' => array(), 'total' => 0);
-		}
-		else {
-			$results = array('items' => array(), 'total' => 0);
-		}
+		$results = array('results' => array(), 'total' => 0);
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		$itemIDs = array();
-		$keys = array();
 		
 		$includeNotes = true;
 		if ($permissions && !$permissions->canAccess($libraryID, 'notes')) {
@@ -127,19 +118,22 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Pass a list of itemIDs, for when the initial search is done via SQL
-		if (!empty($params['itemIDs'])) {
-			$itemIDs = $params['itemIDs'];
-		}
-		
-		if (!empty($params['itemKey'])) {
-			$keys = explode(',', $params['itemKey']);
-		}
+		$itemIDs = !empty($params['itemIDs']) ? $params['itemIDs'] : array();
+		$itemKeys = !empty($params['itemKey']) ? explode(',', $params['itemKey']) : array();
 		
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT "
-				. ($asKeys ? "I.key" : "I.itemID")
-				. " FROM items I ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
+		if ($params['format'] == 'keys') {
+			$sql .= "I.key";
+		}
+		else if ($params['format'] == 'versions') {
+			$sql .= "I.key, I.version";
+		}
+		else {
+			$sql .= "I.itemID";
+		}
+		$sql .= " FROM items I ";
 		$sqlParams = array($libraryID);
 		
 		if (!empty($params['q']) || $titleSort) {
@@ -300,6 +294,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "AND I.itemTypeID != 1 ";
 		}
 		
+		if (!empty($params['newer'])) {
+			$sql .= "AND version > ? ";
+			$sqlParams[] = $params['newer'];
+		}
+		
 		// Tags
 		//
 		// ?tag=foo
@@ -356,10 +355,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				return $results;
 			}
 			
-			// Combine with passed keys
+			// Combine with passed ids
 			if ($itemIDs) {
 				$itemIDs = array_intersect($itemIDs, $tagItems);
-				// None of the tag matches match the passed keys
+				// None of the tag matches match the passed ids
 				if (!$itemIDs) {
 					return $results;
 				}
@@ -376,11 +375,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams = array_merge($sqlParams, $itemIDs);
 		}
 		
-		if ($keys) {
+		if ($itemKeys) {
 			$sql .= "AND `key` IN ("
-					. implode(', ', array_fill(0, sizeOf($keys), '?'))
+					. implode(', ', array_fill(0, sizeOf($itemKeys), '?'))
 					. ") ";
-			$sqlParams = array_merge($sqlParams, $keys);
+			$sqlParams = array_merge($sqlParams, $itemKeys);
 		}
 		
 		$sql .= "ORDER BY ";
@@ -422,8 +421,8 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'keyList':
 					$orderSQL = "FIELD(I.key,"
-						. implode(',', array_fill(0, sizeOf($keys), '?')) . ")";
-					$sqlParams = array_merge($sqlParams, $keys);
+						. implode(',', array_fill(0, sizeOf($itemKeys), '?')) . ")";
+					$sqlParams = array_merge($sqlParams, $itemKeys);
 					break;
 				
 				default:
@@ -445,30 +444,41 @@ class Zotero_Items extends Zotero_DataObjects {
 				$dir = "ASC";
 			}
 			
-			
 			if (!$params['emptyFirst']) {
 				$sql .= "IFNULL($orderSQL, '') = '' $dir, ";
 			}
 			
-			$sql .= $orderSQL;
-			
-			$sql .= " $dir, ";
+			$sql .= $orderSQL . " $dir, ";
 		}
-		$sql .= "I.itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
+		$sql .= "I.version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
+			. ", I.itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
 			$sqlParams[] = $params['limit'];
 		}
-		$itemIDs = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
-		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
-		if ($itemIDs) {
-			if ($asKeys) {
-				$results['keys'] = $itemIDs;
+		if ($params['format'] == 'versions') {
+			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
+		}
+		// keys and itemIDs
+		else {
+			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
+		}
+		
+		if ($rows) {
+			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
+			
+			if ($params['format'] == 'keys') {
+				$results['results'] = $rows;
+			}
+			else if ($params['format'] == 'versions') {
+				foreach ($rows as $row) {
+					$results['results'][$row['key']] = $row['version'];
+				}
 			}
 			else {
-				$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
+				$results['results'] = Zotero_Items::get($libraryID, $rows);
 			}
 		}
 		
@@ -785,7 +795,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	array				$data
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToXML(Zotero_Item $item, $data=array(), $apiVersion=null) {
+	public static function convertItemToXML(Zotero_Item $item, $data=array()) {
 		$xml = new SimpleXMLElement('<item/>');
 		
 		// Primary fields
@@ -857,17 +867,17 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($item->isAttachment()) {
 			$xml['linkMode'] = $item->attachmentLinkMode;
 			$xml['mimeType'] = $item->attachmentMIMEType;
-			if ($apiVersion == 1 || $item->attachmentCharset) {
+			if ($item->attachmentCharset) {
 				$xml['charset'] = $item->attachmentCharset;
 			}
 			
 			$storageModTime = $item->attachmentStorageModTime;
-			if ($apiVersion > 1 && $storageModTime) {
+			if ($storageModTime) {
 				$xml['storageModTime'] = $storageModTime;
 			}
 			
 			$storageHash = $item->attachmentStorageHash;
-			if ($apiVersion > 1 && $storageHash) {
+			if ($storageHash) {
 				$xml['storageHash'] = $storageHash;
 			}
 			
@@ -939,7 +949,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$t = microtime(true);
 		
 		// Uncached stuff or parts of the cache key
-		$etag = $item->etag;
+		$version = $item->itemVersion;
 		$parent = $item->getSource();
 		$isRegularItem = !$parent && $item->isRegularItem();
 		$downloadDetails = $permissions->canAccess($item->libraryID, 'files')
@@ -971,7 +981,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
 			. md5(
-				$etag
+				$version
 				. json_encode($cachedParams)
 				. ($downloadDetails ? 'hasFile' : '')
 				. ($libraryType == 'group' ? 'id' . $id : '')
@@ -1086,7 +1096,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
-		$apiVersion = $queryParams['version'];
 		$content = $queryParams['content'];
 		$contentIsHTML = sizeOf($content) == 1 && $content[0] == 'html';
 		$contentParamString = urlencode(implode(',', $content));
@@ -1292,11 +1301,13 @@ class Zotero_Items extends Zotero_DataObjects {
 				$target->appendChild($importedNode);
 			}
 			else if ($type == 'json') {
+				// Deprecated
 				$target->setAttributeNS(
 					Zotero_Atom::$nsZoteroAPI,
 					"zapi:etag",
-					$etag
+					$item->etag
 				);
+				$target->setAttribute("version", $version);
 				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams['pprint'], true));
 				$target->appendChild($textNode);
 			}
@@ -1311,7 +1322,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				if (!$multiFormat) {
 					$target->setAttribute('type', 'xhtml');
 				}
-				$fullXML = Zotero_Items::convertItemToXML($item, array(), $apiVersion);
+				$fullXML = Zotero_Items::convertItemToXML($item, array());
 				$fullXML->addAttribute("xmlns", Zotero_Atom::$nsZoteroTransfer);
 				$subNode = dom_import_simplexml($fullXML);
 				$importedNode = $domDoc->importNode($subNode, true);

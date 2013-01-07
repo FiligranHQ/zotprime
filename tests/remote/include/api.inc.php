@@ -382,7 +382,12 @@ class API {
 	public static function parseDataFromAtomEntry($entryXML) {
 		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
 		$etag = (string) array_shift($entryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
+		$version = $entryXML->xpath('//atom:entry/atom:content/@version');
+		$version = $version ? (string) array_shift($version) : null;
 		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
+		if (!$content) {
+			throw new Exception("Atom response does not contain <content>");
+		}
 		// If 'content' contains XML, serialize all subnodes
 		if ($content->count()) {
 			$content = $content->asXML();
@@ -395,6 +400,7 @@ class API {
 		return array(
 			"key" => $key,
 			"etag" => $etag,
+			"version" => $version,
 			"content" => $content
 		);
 	}
