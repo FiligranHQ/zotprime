@@ -115,7 +115,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 				$orderSQL = 'collectionName';
 				break;
 			
-			case 'keyList':
+			case 'collectionKeyList':
 				$orderSQL = "FIELD(`key`,"
 						. implode(',', array_fill(0, sizeOf($collectionKeys), '?')) . ")";
 				$sqlParams = array_merge($sqlParams, $collectionKeys);

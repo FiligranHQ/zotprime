@@ -64,7 +64,7 @@ class VersionTests extends APITests {
 	
 	
 	private function _testSingleObjectLastModifiedVersion($objectType) {
-		$objectTypePlural = self::getPlural($objectType);
+		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		switch ($objectType) {
 		case 'item':
@@ -134,7 +134,7 @@ class VersionTests extends APITests {
 	
 	
 	private function _testMultiObjectLastModifiedVersion($objectType) {
-		$objectTypePlural = self::getPlural($objectType);
+		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -227,7 +227,7 @@ class VersionTests extends APITests {
 	
 	
 	private function _testMultiObject304NotModified($objectType) {
-		$objectTypePlural = self::getPlural($objectType);
+		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -247,7 +247,7 @@ class VersionTests extends APITests {
 	
 	
 	private function _testNewerAndVersionsFormat($objectType) {
-		$objectTypePlural = self::getPlural($objectType);
+		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		switch ($objectType) {
 		case 'item':
@@ -316,15 +316,5 @@ class VersionTests extends APITests {
 		$this->assertEquals($objects[1]['key'], array_shift($keys));
 		$this->assertEquals($objects[1]['version'], array_shift($json));
 		$this->assertEmpty($json);
-	}
-	
-	
-	private function getPlural($objectType) {
-		if ($objectType == 'search') {
-			return $objectType . "es";
-		}
-		else {
-			return $objectType . "s";
-		}
 	}
 }

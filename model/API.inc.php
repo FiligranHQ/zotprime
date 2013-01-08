@@ -234,34 +234,43 @@ class Zotero_API {
 						case 'numItems':
 						case 'serverDateModified':
 						
-						case 'keyList':
+						case 'collectionKeyList':
+						case 'itemKeyList':
+						case 'searchKeyList':
 							
-							// numItems is valid only for tags requests
 							switch ($getParams[$key]) {
+								// numItems is valid only for tags requests
 								case 'numItems':
 									if ($action != 'tags') {
 										throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 									}
 									break;
 								
-								case 'keyList':
-									switch ($action) {
-									case 'items':
-										if (!isset($getParams['itemKey'])) {
-											throw new Exception("order=keyList requires the itemKey parameter");
-										}
-										break;
-										
-									case 'collections':
-										if (!isset($getParams['collectionKey'])) {
-											throw new Exception("order=keyList requires the collectionKey parameter");
-										}
-										break;
-									
-									default:
-										throw new Exception("order=keyList is not valid for this request");
+								case 'collectionKeyList':
+									if ($action != 'collections') {
+										throw new Exception("order=collectionKeyList is not valid for this request");
 									}
-									
+									if (!isset($getParams['collectionKey'])) {
+										throw new Exception("order=collectionKeyList requires the collectionKey parameter");
+									}
+									break;
+								
+								case 'itemKeyList':
+									if ($action != 'items') {
+										throw new Exception("order=itemKeyList is not valid for this request");
+									}
+									if (!isset($getParams['itemKey'])) {
+										throw new Exception("order=itemKeyList requires the itemKey parameter");
+									}
+									break;
+								
+								case 'searchKeyList':
+									if ($action != 'searches') {
+										throw new Exception("order=searchKeyList is not valid for this request");
+									}
+									if (!isset($getParams['searchKey'])) {
+										throw new Exception("order=searchKeyList requires the searchKey parameter");
+									}
 									break;
 							}
 							
@@ -437,7 +446,9 @@ class Zotero_API {
 		switch ($field) {
 			case 'title':
 			case 'date':
-			case 'keyList':
+			case 'collectionKeyList':
+			case 'itemKeyList':
+			case 'searchKeyList':
 				return true;
 		}
 		

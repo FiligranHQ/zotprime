@@ -723,7 +723,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getItemURI($item) . "/children";
 						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
-								. "&content=json&order=keyList&sort=asc";
+								. "&content=json&order=itemKeyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
@@ -783,7 +783,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
 						$queryString = "itemKey="
 								. urlencode(implode(",", $keys))
-								. "&content=json&order=keyList&sort=asc";
+								. "&content=json&order=itemKeyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
@@ -1558,7 +1558,7 @@ class ApiController extends Controller {
 						$uri = Zotero_API::getCollectionsURI($this->objectLibraryID);
 						$queryString = "collectionKey="
 							. urlencode(implode(",", $keys))
-							. "&content=json&order=keyList&sort=asc";
+							. "&content=json&order=collectionKeyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}

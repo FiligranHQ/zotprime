@@ -455,4 +455,12 @@ class API {
 			}
 		}
 	}
+	
+	
+	public static function getPluralObjectType($objectType) {
+		if ($objectType == 'search') {
+			return $objectType . "es";
+		}
+		return $objectType . "s";
+	}
 }

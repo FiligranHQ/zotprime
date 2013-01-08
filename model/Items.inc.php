@@ -419,7 +419,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
-				case 'keyList':
+				case 'itemKeyList':
 					$orderSQL = "FIELD(I.key,"
 						. implode(',', array_fill(0, sizeOf($itemKeys), '?')) . ")";
 					$sqlParams = array_merge($sqlParams, $itemKeys);
