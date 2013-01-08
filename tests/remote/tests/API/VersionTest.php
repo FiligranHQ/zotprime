@@ -67,12 +67,12 @@ class VersionTests extends APITests {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		switch ($objectType) {
-		case 'item':
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			break;
-		
 		case 'collection':
 			$xml = API::createCollection("Name", false, $this);
+			break;
+		
+		case 'item':
+			$xml = API::createItem("book", array("title" => "Title"), $this);
 			break;
 		}
 		
@@ -101,12 +101,12 @@ class VersionTests extends APITests {
 		
 		// Modifying object should increase its version
 		switch ($objectType) {
-		case 'item':
-			$json->title = "New Title";
-			break;
-		
 		case 'collection':
 			$json->name = "New Name";
+			break;
+		
+		case 'item':
+			$json->title = "New Title";
 			break;
 		}
 		
@@ -144,13 +144,13 @@ class VersionTests extends APITests {
 		$this->assertTrue(is_numeric($version));
 		
 		switch ($objectType) {
-		case 'item':
-			$json = API::getItemTemplate("book");
-			break;
-			
 		case 'collection':
 			$json = new stdClass();
 			$json->name = "Name";
+			break;
+		
+		case 'item':
+			$json = API::getItemTemplate("book");
 			break;
 		}
 		
@@ -182,12 +182,12 @@ class VersionTests extends APITests {
 		
 		// Version should be incremented on modified object
 		switch ($objectType) {
-		case 'item':
-			$json->title = "New Title";
-			break;
-		
 		case 'collection':
 			$json->name = "New Name";
+			break;
+		
+		case 'item':
+			$json->title = "New Title";
 			break;
 		}
 		
@@ -250,29 +250,6 @@ class VersionTests extends APITests {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		switch ($objectType) {
-		case 'item':
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			break;
-		
 		case 'collection':
 			$xml = API::createCollection("Name", false, $this);
 			$data = API::parseDataFromAtomEntry($xml);
@@ -289,6 +266,29 @@ class VersionTests extends APITests {
 			);
 			
 			$xml = API::createCollection("Name", false, $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			break;
+		
+		case 'item':
+			$xml = API::createItem("book", array("title" => "Title"), $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			
+			$xml = API::createItem("book", array("title" => "Title"), $this);
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
+			
+			$xml = API::createItem("book", array("title" => "Title"), $this);
 			$data = API::parseDataFromAtomEntry($xml);
 			$objects[] = array(
 				"key" => $data['key'],
