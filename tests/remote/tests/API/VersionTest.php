@@ -51,6 +51,12 @@ class VersionTests extends APITests {
 	}
 	
 	
+	public function testMultiObject304NotModified() {
+		$this->_testMultiObject304NotModified('collection');
+		$this->_testMultiObject304NotModified('item');
+	}
+	
+	
 	public function testNewerAndVersionsFormat() {
 		$this->_testNewerAndVersionsFormat('collection');
 		$this->_testNewerAndVersionsFormat('item');
@@ -217,6 +223,26 @@ class VersionTests extends APITests {
 		$this->assertEquals($version, $version3);
 		
 		// TODO: Version should be incremented on deleted item
+	}
+	
+	
+	private function _testMultiObject304NotModified($objectType) {
+		$objectTypePlural = self::getPlural($objectType);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+		);
+		$version = $response->getHeader("Zotero-Last-Modified-Version");
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey'],
+			array(
+				"Zotero-If-Modified-Since-Version: $version"
+			)
+		);
+		$this->assert304($response);
 	}
 	
 	

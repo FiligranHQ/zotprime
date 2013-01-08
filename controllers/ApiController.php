@@ -311,6 +311,8 @@ class ApiController extends Controller {
 		
 		$singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
 		
+		$this->checkLibraryIfModifiedSinceVersion($action, $singleObject);
+		
 		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $singleObject);
 	}
 	
@@ -473,34 +475,7 @@ class ApiController extends Controller {
 					$this->e403("Write access denied");
 				}
 				
-				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
-					// If-Match (deprecated)
-					if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
-						if (empty($_SERVER['HTTP_IF_MATCH'])) {
-							$this->e400("Zotero-If-Unmodified-Since or If-Match header must be provided for write requests");
-						}
-						
-						if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-							$this->e400("Invalid ETag in If-Match header");
-						}
-						
-						if ($item->etag != $matches[1]) {
-							$this->e412("ETag does not match current version of item");
-						}
-					}
-					// Zotero-If-Unmodified-Since-Version
-					else {
-						$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
-						
-						if (!is_numeric($version)) {
-							$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
-						}
-						
-						if ($item->itemVersion != $version) {
-							$this->e412("Item has been modified since specified version");
-						}
-					}
-				}
+				$this->checkObjectIfUnmodifiedSinceVersion($item);
 				
 				// Update existing item
 				if ($this->method == 'PUT') {
@@ -1499,34 +1474,7 @@ class ApiController extends Controller {
 					$this->e403("Write access denied");
 				}
 				
-				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
-					// If-Match (deprecated)
-					if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
-						if (empty($_SERVER['HTTP_IF_MATCH'])) {
-							$this->e400("Zotero-If-Unmodified-Since or If-Match header must be provided for write requests");
-						}
-						
-						if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-							$this->e400("Invalid ETag in If-Match header");
-						}
-						
-						if ($collection->etag != $matches[1]) {
-							$this->e412("ETag does not match current version of collection");
-						}
-					}
-					// Zotero-If-Unmodified-Since-Version
-					else {
-						$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
-						
-						if (!is_numeric($version)) {
-							$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
-						}
-						
-						if ($collection->version != $version) {
-							$this->e412("Collection has been modified since specified version");
-						}
-					}
-				}
+				$this->checkObjectIfUnmodifiedSinceVersion($collection);
 				
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
@@ -2878,6 +2826,69 @@ class ApiController extends Controller {
 	
 	private function isWriteMethod() {
 		return in_array($this->method, array('POST', 'PUT', 'PATCH', 'DELETE'));
+	}
+	
+	
+	/**
+	 * For multi-object requests for some actions, return 304 Not Modified
+	 * if the library hasn't been updated since Zotero-If-Modified-Since-Version
+	 */
+	private function checkObjectIfUnmodifiedSinceVersion($object) {
+		if (!preg_match("/(Item|Collection|Search)$/", get_class($object), $matches)) {
+			throw new Exception("Invalid object type");
+		}
+		$objectType = strtolower($matches[0]);
+		
+		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
+			continue;
+		}
+		
+		// If-Match (deprecated)
+		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+			if (empty($_SERVER['HTTP_IF_MATCH'])) {
+				$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+			}
+			
+			if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+				$this->e400("Invalid ETag in If-Match header");
+			}
+			
+			if ($object->etag != $matches[1]) {
+				$this->e412("ETag does not match current version of $objectType");
+			}
+		}
+		// Zotero-If-Unmodified-Since-Version
+		else {
+			$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+			
+			if (!is_numeric($version)) {
+				$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+			}
+			
+			// Zotero_Item requires 'itemVersion'
+			$prop = $objectType == 'item' ? 'itemVersion' : 'version';
+			
+			if ($object->$prop != $version) {
+				$this->e412(ucwords($objectType) . " has been modified since specified version");
+			}
+		}
+	}
+	
+	
+	/**
+	 * For multi-object requests for some actions, return 304 Not Modified
+	 * if the library hasn't been updated since Zotero-If-Modified-Since-Version
+	 */
+	private function checkLibraryIfModifiedSinceVersion($action, $singleObject) {
+		if (!$singleObject
+				&& in_array($action, array("items", "collections", "searches"))
+				&& !empty($_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION'])
+				&& !$this->isWriteMethod()
+				&& $this->permissions->canAccess($this->objectLibraryID)
+				&& Zotero_Libraries::getVersion($this->objectLibraryID)
+					<= $_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION']) {
+			$this->e304("Library has not been modified");
+		}
 	}
 	
 	
