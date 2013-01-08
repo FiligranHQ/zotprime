@@ -38,7 +38,7 @@ class ApiController extends Controller {
 	private $body;
 	private $apiKey;
 	private $responseXML;
-	private $responseCode;
+	private $responseCode = 200;
 	private $userID; // request user
 	private $permissions;
 	private $objectUserID; // userID of object owner
@@ -315,30 +315,6 @@ class ApiController extends Controller {
 	}
 	
 	
-	public function __call($name, $arguments) {
-		if (preg_match("/^e([1-5])([0-9]{2})$/", $name, $matches)) {
-			// Send 2xx responses through closing function
-			if ($matches[1] == "2") {
-				$this->responseCode = (int) ($matches[1] . $matches[2]);
-				$this->end();
-			}
-			
-			// On 4xx or 5xx errors, rollback all open transactions
-			if ($matches[1] == "4" || $matches[1] == "5") {
-				Zotero_DB::rollback(true);
-			}
-			
-			if (isset($arguments[0])) {
-				Z_HTTP::$name($arguments[0]);
-			}
-			else {
-				Z_HTTP::$name();
-			}
-		}
-		throw new Exception("Invalid function $name");
-	}
-	
-	
 	public function index() {
 		$this->e400("Invalid Request");
 	}
@@ -460,9 +436,8 @@ class ApiController extends Controller {
 				$this->allowMethods(array('GET'));
 				
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-				header("Location: " . Zotero_API::getItemURI($item) . $qs);
 				Zotero_DB::commit();
-				exit;
+				$this->redirect(Zotero_API::getItemURI($item) . $qs);
 			}
 			
 			if ($this->scopeObject) {
@@ -625,8 +600,8 @@ class ApiController extends Controller {
 					}
 					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
 					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-					header("Location: " . $base . "/items" . $qs);
-					exit;
+					Zotero_DB::commit();
+					$this->redirect($base . "/items" . $qs);
 				}
 				
 				switch ($this->scopeObject) {
@@ -738,7 +713,7 @@ class ApiController extends Controller {
 							$this->e404("Item not found");
 						}
 						$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-						header("Location: " . Zotero_API::getItemURI($item) . '/children' . $qs);
+						$this->redirect(Zotero_API::getItemURI($item) . '/children' . $qs);
 						exit;
 					}
 					
@@ -1027,7 +1002,7 @@ class ApiController extends Controller {
 					if (!$url) {
 						$this->e500();
 					}
-					header("Location: $url");
+					$this->redirect($url);
 					exit;
 				}
 			}
@@ -1043,7 +1018,7 @@ class ApiController extends Controller {
 				$this->userID,
 				IPAddress::getIP()
 			);
-			header("Location: $url");
+			$this->redirect($url);
 			exit;
 		}
 		
@@ -1507,8 +1482,7 @@ class ApiController extends Controller {
 					$this->e404("Collection not found");
 				}
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-				header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
-				exit;
+				$this->redirect(Zotero_API::getCollectionURI($collection) . $qs);
 			}
 			
 			$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
@@ -1596,8 +1570,7 @@ class ApiController extends Controller {
 								$this->e404("Collection not found");
 							}
 							$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-							header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
-							exit;
+							$this->redirect(Zotero_API::getCollectionURI($collection) . $qs);
 						}
 						
 						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
@@ -1732,8 +1705,7 @@ class ApiController extends Controller {
 					}
 					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
 					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-					header("Location: " . $base . "/tags" . $qs);
-					exit;
+					$this->redirect($base . "/tags" . $qs);
 				}
 				
 				switch ($this->scopeObject) {
@@ -1879,8 +1851,8 @@ class ApiController extends Controller {
 			Zotero_DB::commit();
 			
 			$url = Zotero_Atom::getGroupURI($group);
+			$this->responseCode = 201;
 			header("Location: " . $url, false, 201);
-			
 			$this->end();
 		}
 		
@@ -2442,7 +2414,9 @@ class ApiController extends Controller {
 				Zotero_DB::commit();
 				
 				$url = Zotero_API::getKeyURI($keyObj);
+				$this->responseCode = 201;
 				header("Location: " . $url, false, 201);
+				$this->end();
 			}
 			
 			if ($this->method == 'PUT') {
@@ -2956,24 +2930,130 @@ class ApiController extends Controller {
 	}
 	
 	
+	/**
+	 * Handler for HTTP shortcut functions (e404(), e500())
+	 */
+	public function __call($name, $arguments) {
+		if (!preg_match("/^e([1-5])([0-9]{2})$/", $name, $matches)) {
+			throw new Exception("Invalid function $name");
+		}
+		
+		$this->responseCode = (int) ($matches[1] . $matches[2]);
+		
+		// On 4xx or 5xx errors, rollback all open transactions
+		// and don't send Zotero-Last-Modified-Version
+		if ($matches[1] == "4" || $matches[1] == "5") {
+			$this->libraryVersion = null;
+			Zotero_DB::rollback(true);
+		}
+		
+		if (isset($arguments[0])) {
+			echo htmlspecialchars($arguments[0]);
+		}
+		else {
+			// Default messages for some codes
+			switch ($this->responseCode) {
+				case 401:
+					echo "Access denied";
+					break;
+				
+				case 403:
+					echo "Forbidden";
+					break;
+				
+				case 404:
+					echo "Not found";
+					break;
+				
+				case 405:
+					echo "Method not allowed";
+					break;
+				
+				case 429:
+					echo "Too many requests";
+					break;
+				
+				case 500:
+					echo "An error occurred";
+					break;
+				
+				case 501:
+					echo "Method is not implemented";
+					break;
+				
+				case 503:
+					echo "Service unavailable";
+					break;
+			}
+		}
+		
+		$this->end();
+	}
+	
+	
+	private function redirect($url, $httpCode=302) {
+		if (!in_array($httpCode, array(301, 302, 303))) {
+			throw new Exception("Invalid redirect code");
+		}
+		
+		$this->libraryVersion = null;
+		$this->responseXML = null;
+		
+		$this->responseCode = $httpCode;
+		header("Location: " . $url, false, $httpCode);
+		$this->end();
+	}
+	
+	
 	private function end() {
 		if ($this->profile) {
 			Zotero_DB::profileEnd($this->profileShard, false);
 		}
 		
-		if ($this->responseCode) {
-			switch ($this->responseCode) {
-				case 201:
-					header("HTTP/1.1 201 Created");
-					break;
-				
-				case 204:
-					header("HTTP/1.1 204 No Content");
-					break;
-				
-				default:
-					throw new Exception("Unsupported response code " . $this->responseCode);
-			}
+		switch ($this->responseCode) {
+			case 200:
+				break;
+			
+			case 301:
+			case 302:
+			case 303:
+				// Handled in $this->redirect()
+				break;
+			
+			case 401:
+				header('WWW-Authenticate: Basic realm="Zotero API"');
+				header('HTTP/1.1 401 Unauthorized');
+				break;
+			
+			// PHP completes these automatically
+			case 201:
+			case 204:
+			case 300:
+			case 304:
+			case 400:
+			case 403:
+			case 404:
+			case 405:
+			case 409:
+			case 412:
+			case 413:
+			case 422:
+			case 500:
+			case 501:
+			case 503:
+				header("HTTP/1.1 " . $this->responseCode);
+				break;
+			
+			case 428:
+				header("HTTP/1.1 428 Precondition Required");
+				break;
+			
+			case 429:
+				header("HTTP/1.1 429 Too Many Requests");
+				break;
+			
+			default:
+				throw new Exception("Unsupported response code " . $this->responseCode);
 		}
 		
 		if ($this->libraryVersion) {
@@ -3104,6 +3184,10 @@ class ApiController extends Controller {
 			case Z_ERROR_CITESERVER_INVALID_STYLE:
 				error_log($msg);
 				$this->e400(htmlspecialchars($msg));
+				break;
+			
+			case Z_ERROR_FILE_UPLOAD_PATCH_MISMATCH:
+				$this->e409(htmlspecialchars($msg));
 				break;
 			
 			case Z_ERROR_UPLOAD_TOO_LARGE:
