@@ -436,6 +436,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 						throw new Exception("'name' must be a string", Z_ERROR_INVALID_INPUT);
 					}
 					
+					if ($val === "") {
+						throw new Exception("Collection name cannot be empty", Z_ERROR_INVALID_INPUT);
+					}
+					
 					if (mb_strlen($val) > 255) {
 						throw new Exception("Collection name cannot be longer than 255 characters", Z_ERROR_INVALID_INPUT);
 					}
