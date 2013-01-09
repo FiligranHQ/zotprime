@@ -296,6 +296,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$link['href'] = Zotero_URI::getCollectionURI($collection);
 		
 		$xml->addChild('zapi:key', $collection->key, Zotero_Atom::$nsZoteroAPI);
+		$xml->addChild('zapi:version', $collection->version, Zotero_Atom::$nsZoteroAPI);
 		
 		$collections = $collection->getChildCollections();
 		$xml->addChild(
@@ -319,7 +320,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 			);
 			// Deprecated
 			$xml->content['etag'] = $collection->etag;
-			$xml->content['version'] = $collection->version;
 			$xml->content = $collection->toJSON();
 		}
 		else if ($content == 'full') {
@@ -373,23 +373,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Collection $collection,
 	                                      $json,
 	                                      $requireVersion=false) {
-		// Validate the collection key if present
-		// and determine if the collection is new
-		if (isset($json->collectionKey)) {
-			if (!is_string($json->collectionKey)) {
-				throw new Exception(
-					"'collectionKey' must be a string", Z_ERROR_INVALID_INPUT
-				);
-			}
-			if (!Zotero_ID::isValidKey($json->collectionKey)) {
-				throw new Exception("'" . $json->collectionKey . "' "
-					. "is not a valid collection key", Z_ERROR_INVALID_INPUT
-				);
-			}
-			
-			$collection->key = $json->collectionKey;
-		}
-		
+		Zotero_API::processJSONObjectKey($collection, $json);
 		Zotero_API::checkJSONObjectVersion($collection, $json, $requireVersion);
 		self::validateJSONCollection($json);
 		

@@ -699,6 +699,9 @@ class Zotero_Collection {
 			$this->load();
 		}
 		
+		$arr['collectionKey'] = $this->key;
+		$arr['collectionVersion'] = $this->version;
+		
 		$arr['name'] = $this->name;
 		$parentKey = $this->getParentKey();
 		$arr['parent'] = $parentKey ? $parentKey : false;

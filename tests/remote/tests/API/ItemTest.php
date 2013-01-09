@@ -483,9 +483,9 @@ class ItemTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$newVersion = (string) array_shift($xml->xpath('/atom:entry/atom:content/@version'));
+		$data = API::parseDataFromAtomEntry($xml);
 		// Item shouldn't change
-		$this->assertEquals($version, $newVersion);
+		$this->assertEquals($version, $data['version']);
 		
 		return $newItemData;
 	}
@@ -510,9 +510,9 @@ class ItemTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$newETag = (string) array_shift($xml->xpath('/atom:entry/atom:content/@zapi:etag'));
+		$data = API::parseDataFromAtomEntry($xml);
 		// Item shouldn't change
-		$this->assertEquals($etag, $newETag);
+		$this->assertEquals($etag, $data['etag']);
 		
 		return $newItemData;
 	}
@@ -537,9 +537,9 @@ class ItemTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$newVersion = (string) array_shift($xml->xpath('/atom:entry/atom:content/@version'));
+		$data = API::parseDataFromAtomEntry($xml);
 		// Item shouldn't change
-		$this->assertEquals($version, $newVersion);
+		$this->assertEquals($version, $data['version']);
 		
 		return $newItemData;
 	}

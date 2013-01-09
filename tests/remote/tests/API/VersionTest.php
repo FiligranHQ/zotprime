@@ -65,6 +65,8 @@ class VersionTests extends APITests {
 	
 	private function _testSingleObjectLastModifiedVersion($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
+		$keyProp = $objectType . "Key";
+		$versionProp = $objectType . "Version";
 		
 		switch ($objectType) {
 		case 'collection':
@@ -78,7 +80,9 @@ class VersionTests extends APITests {
 		
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
-		// Make sure object version matches library version
+		// Make sure all three instances of the object version
+		// (Zotero-Last-Modified-Version, zapi:version, and the JSON
+		// {$objectType}Version property match the library version
 		$data = API::parseDataFromAtomEntry($xml);
 		$objectKey = $data['key'];
 		
@@ -88,7 +92,11 @@ class VersionTests extends APITests {
 		);
 		$this->assert200($response);
 		$objectVersion = $response->getHeader("Zotero-Last-Modified-Version");
-		$json = json_decode(API::getContentFromResponse($response));
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals($objectVersion, $json->$versionProp);
+		$this->assertEquals($objectVersion, $data['version']);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -222,6 +230,7 @@ class VersionTests extends APITests {
 		}
 		
 		// No Zotero-If-Unmodified-Since-Version or object version property
+		unset($json->$objectVersionProp);
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural?key=" . self::$config['apiKey'],

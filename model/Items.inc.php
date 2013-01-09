@@ -970,7 +970,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		// Any query parameters that have an effect on the output
 		// need to be added here
 		$allowedParams = array(
-			'version',
 			'content',
 			'pprint',
 			'style',
@@ -1175,6 +1174,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		$xml->addChild('zapi:key', $item->key, Zotero_Atom::$nsZoteroAPI);
+		$xml->addChild('zapi:version', $item->itemVersion, Zotero_Atom::$nsZoteroAPI);
 		$xml->addChild(
 			'zapi:itemType',
 			Zotero_ItemTypes::getName($item->itemTypeID),
@@ -1307,7 +1307,6 @@ class Zotero_Items extends Zotero_DataObjects {
 					"zapi:etag",
 					$item->etag
 				);
-				$target->setAttribute("version", $version);
 				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams['pprint'], true));
 				$target->appendChild($textNode);
 			}
@@ -1480,28 +1479,9 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                      Zotero_Item $parentItem=null,
 	                                      $userID=null,
 	                                      $requireVersion=false) {
-		// Validate the item key if present and determine if the item is new
-		if (isset($json->itemKey)) {
-			if (!is_string($json->itemKey)) {
-				throw new Exception(
-					"'itemKey' must be a string", Z_ERROR_INVALID_INPUT
-				);
-			}
-			if (!Zotero_ID::isValidKey($json->itemKey)) {
-				throw new Exception("'" . $json->itemKey . "' "
-					. "is not a valid item key", Z_ERROR_INVALID_INPUT
-				);
-			}
-			
-			$item->key = $json->itemKey;
-			$isNew = !!$item->id;
-		}
-		else {
-			$isNew = !$item->key;
-		}
-		
+		$exists = Zotero_API::processJSONObjectKey($item, $json);
 		Zotero_API::checkJSONObjectVersion($item, $json, $requireVersion);
-		self::validateJSONItem($json, $item->libraryID, $isNew ? null : $item,
+		self::validateJSONItem($json, $item->libraryID, $exists ? $item : null,
 			!is_null($parentItem), $requireVersion);
 		
 		$twoStage = false;
@@ -1529,7 +1509,7 @@ class Zotero_Items extends Zotero_DataObjects {
 								&& (!isset($newCreatorData->firstName) || trim($newCreatorData->firstName) == "")
 								&& (!isset($newCreatorData->lastName) || trim($newCreatorData->lastName) == "")) {
 							// This should never happen, because of check in validateJSONItem()
-							if (!$isNew) {
+							if ($exists) {
 								throw new Exception("Nameless creator in update request");
 							}
 							// On item creation, ignore creators with empty names,
@@ -1595,7 +1575,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					// Remove all existing creators above the current index
-					if (!$isNew && $indexes = array_keys($item->getCreators())) {
+					if ($exists && $indexes = array_keys($item->getCreators())) {
 						$i = max($indexes);
 						while ($i>$orderIndex) {
 							$item->removeCreator($i);

@@ -497,6 +497,56 @@ class Zotero_API {
 	}
 	
 	
+	/**
+	 * Validate the object key from JSON and load the passed object with it
+	 *
+	 * @param object $object  Zotero_Item, Zotero_Collection, or Zotero_Search
+	 * @param json $json
+	 * @return boolean  True if the object exists, false if not
+	 */
+	public static function processJSONObjectKey($object, $json) {
+		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+			throw new Exception("Invalid object type");
+		}
+		
+		$keyProp = $objectType . "Key";
+		$versionProp = $objectType . "Version";
+		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
+		
+		// Validate the object key if present and determine if the object is new
+		if (isset($json->$keyProp)) {
+			if (!is_string($json->$keyProp)) {
+				throw new Exception(
+					"'$keyProp' must be a string", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if (!Zotero_ID::isValidKey($json->$keyProp)) {
+				throw new Exception("'" . $json->$keyProp . "' "
+					. "is not a valid $objectType key", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if ($object->key) {
+				if ($json->$keyProp != $object->key) {
+					throw new HTTPException("$keyProp in JSON does not match "
+						. "$objectType key of request", 409);
+				}
+				
+				$exists = true;
+			}
+			else {
+				$object->key = $json->$keyProp;
+				$exists = !$object->id;
+			}
+		}
+		else {
+			$exists = !!$object->key;
+		}
+		
+		return $exists;
+	}
+	
+	
 	public static function checkJSONObjectVersion($object, $json, $requireVersion) {
 		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
 		if (!in_array($objectType, array('item', 'collection', 'search'))) {
@@ -505,6 +555,7 @@ class Zotero_API {
 		
 		$keyProp = $objectType . "Key";
 		$versionProp = $objectType . "Version";
+		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
 		
 		if (isset($json->$keyProp)) {
 			if ($requireVersion && !isset($json->$versionProp)) {
@@ -523,9 +574,7 @@ class Zotero_API {
 			if (!isset($json->$keyProp)) {
 				throw new Exception("'$versionProp' is valid only with an '$keyProp' property");
 			}
-			// Item uses 'itemVersion'
-			$objectVersion = $objectType == 'item' ? $object->itemVersion : $object->version;
-			if ($objectVersion > $json->$versionProp) {
+			if ($object->$objectVersionProp > $json->$versionProp) {
 				throw new HTTPException(ucwords($objectType)
 					. " has been modified since specified version", 412);
 			}

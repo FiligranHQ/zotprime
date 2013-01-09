@@ -3250,6 +3250,8 @@ class Zotero_Item {
 		$regularItem = $this->isRegularItem();
 		
 		$arr = array();
+		$arr['itemKey'] = $this->key;
+		$arr['itemVersion'] = $this->itemVersion;
 		$arr['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
 		
 		if ($this->isAttachment()) {
