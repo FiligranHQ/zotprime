@@ -245,9 +245,9 @@ class Zotero_Collections extends Zotero_DataObjects {
 	/**
 	 * Converts a Zotero_Collection object to a SimpleXMLElement Atom object
 	 *
-	 * @param	object				$item		Zotero_Collection object
-	 * @param	string				$content
-	 * @return	SimpleXMLElement					Collection data as SimpleXML element
+	 * @param Zotero_Collection  $collection  Zotero_Collection object
+	 * @param array  $queryParams
+	 * @return SimpleXMLElement  Collection data as SimpleXML element
 	 */
 	public static function convertCollectionToAtom(Zotero_Collection $collection, $queryParams) {
 		// TEMP: multi-format support
@@ -339,7 +339,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function addFromJSON($json, $libraryID) {
+	public static function updateMultipleFromJSON($json, $libraryID, $requireVersion=false) {
 		self::validateJSONCollections($json);
 		
 		// If single collection object, stuff in 'collections' array
@@ -354,7 +354,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		foreach ($json->collections as $jsonCollection) {
 			$collection = new Zotero_Collection;
 			$collection->libraryID = $libraryID;
-			self::updateFromJSON($collection, $jsonCollection);
+			self::updateFromJSON($collection, $jsonCollection, $requireVersion);
 			$keys[] = $collection->key;
 		}
 		
@@ -362,12 +362,36 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function updateFromJSON(Zotero_Collection $collection, $json) {
-		self::validateJSONCollection($json);
-		
+	/**
+	 * @param Zotero_Collection $collection The collection object to update;
+	 *                                      this should be either an existing
+	 *                                      collection or a new collection
+	 *                                      with a library assigned.
+	 * @param object $json
+	 * @param boolean [$requireVersion=false]
+	 */
+	public static function updateFromJSON(Zotero_Collection $collection,
+	                                      $json,
+	                                      $requireVersion=false) {
+		// Validate the collection key if present
+		// and determine if the collection is new
 		if (isset($json->collectionKey)) {
+			if (!is_string($json->collectionKey)) {
+				throw new Exception(
+					"'collectionKey' must be a string", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if (!Zotero_ID::isValidKey($json->collectionKey)) {
+				throw new Exception("'" . $json->collectionKey . "' "
+					. "is not a valid collection key", Z_ERROR_INVALID_INPUT
+				);
+			}
+			
 			$collection->key = $json->collectionKey;
 		}
+		
+		Zotero_API::checkJSONObjectVersion($collection, $json, $requireVersion);
+		self::validateJSONCollection($json);
 		
 		$collection->name = $json->name;
 		if (isset($json->parent)) {
@@ -405,7 +429,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONCollection($json) {
+	private static function validateJSONCollection($json, $requireVersion=false) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}
@@ -420,16 +444,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				// Handled by Zotero_API::checkJSONObjectVersion()
 				case 'collectionKey':
-					if (!is_string($val)) {
-						throw new Exception("'collectionKey' must be a string", Z_ERROR_INVALID_INPUT);
-					}
-					
-					if (!Zotero_ID::isValidKey($val)) {
-						throw new Exception("Invalid collection key", Z_ERROR_INVALID_INPUT);
-					}
+				case 'collectionVersion':
 					break;
-				
 				
 				case 'name':
 					if (!is_string($val)) {

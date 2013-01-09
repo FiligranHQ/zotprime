@@ -497,6 +497,42 @@ class Zotero_API {
 	}
 	
 	
+	public static function checkJSONObjectVersion($object, $json, $requireVersion) {
+		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+			throw new Exception("Invalid object type");
+		}
+		
+		$keyProp = $objectType . "Key";
+		$versionProp = $objectType . "Version";
+		
+		if (isset($json->$keyProp)) {
+			if ($requireVersion && !isset($json->$versionProp)) {
+				throw new HTTPException(
+					"Either Zotero-If-Unmodified-Since-Version or "
+					. "'$versionProp' property must be provided for "
+					. "'$keyProp'-based writes", 428
+				);
+			}
+		}
+		
+		if (isset($json->$versionProp)) {
+			if (!is_numeric($json->$versionProp)) {
+				throw new Exception("'$versionProp' must be an integer");
+			}
+			if (!isset($json->$keyProp)) {
+				throw new Exception("'$versionProp' is valid only with an '$keyProp' property");
+			}
+			// Item uses 'itemVersion'
+			$objectVersion = $objectType == 'item' ? $object->itemVersion : $object->version;
+			if ($objectVersion > $json->$versionProp) {
+				throw new HTTPException(ucwords($objectType)
+					. " has been modified since specified version", 412);
+			}
+		}
+	}
+	
+	
 	private static function getPrivateQueryParams() {
 		return array('emptyFirst');
 	}

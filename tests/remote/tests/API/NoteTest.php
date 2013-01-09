@@ -143,7 +143,7 @@ class NoteTests extends APITests {
 		$this->assert400($response);
 		
 		$this->assertEquals(
-			"Note '&amp;lt;p&amp;gt;&amp;lt;!-- 1234567890123456789012345678901234567890123456789012345678901234...' too long",
+			"Note '&lt;p&gt;&lt;!-- 1234567890123456789012345678901234567890123456789012345678901234...' too long",
 			$response->getBody()
 		);
 	}

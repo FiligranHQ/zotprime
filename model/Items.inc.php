@@ -1398,7 +1398,11 @@ class Zotero_Items extends Zotero_DataObjects {
 	/**
 	 * Create new items from a decoded JSON object
 	 */
-	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null, $userID=null) {
+	public static function updateMultipleFromJSON($json,
+		                                          $libraryID,
+	                                              Zotero_Item $parentItem=null,
+	                                              $userID=null,
+	                                              $requireVersion=false) {
 		self::validateJSONItems($json);
 		
 		$keys = array();
@@ -1406,7 +1410,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		foreach ($json->items as $jsonItem) {
 			$item = new Zotero_Item;
 			$item->libraryID = $libraryID;
-			self::updateFromJSON($item, $jsonItem, true, $parentItem, $userID);
+			self::updateFromJSON($item, $jsonItem, $parentItem, $userID, $requireVersion);
 			$keys[] = $item->key;
 		}
 		
@@ -1471,8 +1475,34 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null, $userID=null) {
-		self::validateJSONItem($json, $item->libraryID, $isNew ? null : $item, !is_null($parentItem));
+	public static function updateFromJSON(Zotero_Item $item,
+	                                      $json,
+	                                      Zotero_Item $parentItem=null,
+	                                      $userID=null,
+	                                      $requireVersion=false) {
+		// Validate the item key if present and determine if the item is new
+		if (isset($json->itemKey)) {
+			if (!is_string($json->itemKey)) {
+				throw new Exception(
+					"'itemKey' must be a string", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if (!Zotero_ID::isValidKey($json->itemKey)) {
+				throw new Exception("'" . $json->itemKey . "' "
+					. "is not a valid item key", Z_ERROR_INVALID_INPUT
+				);
+			}
+			
+			$item->key = $json->itemKey;
+			$isNew = !!$item->id;
+		}
+		else {
+			$isNew = !$item->key;
+		}
+		
+		Zotero_API::checkJSONObjectVersion($item, $json, $requireVersion);
+		self::validateJSONItem($json, $item->libraryID, $isNew ? null : $item,
+			!is_null($parentItem), $requireVersion);
 		
 		$twoStage = false;
 		
@@ -1481,9 +1511,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				case 'itemKey':
+				case 'itemVersion':
 				case 'itemType':
-					continue;
-				
 				case 'deleted':
 					continue;
 				
@@ -1642,7 +1672,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						foreach ($val as $attachment) {
 							$childItem = new Zotero_Item;
 							$childItem->libraryID = $item->libraryID;
-							self::updateFromJSON($childItem, $attachment, true, $item, $userID);
+							self::updateFromJSON($childItem, $attachment, $item, $userID);
 						}
 						break;
 					
@@ -1689,7 +1719,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONItem($json, $libraryID, $item=null, $isChild=false) {
+	private static function validateJSONItem($json, $libraryID, $item=null, $isChild=false, $requireVersion=false) {
 		$isNew = !$item;
 		
 		if (!is_object($json)) {
@@ -1721,6 +1751,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				// Handled by Zotero_API::checkJSONObjectVersion()
+				case 'itemKey':
+				case 'itemVersion':
+					break;
+				
 				case 'itemType':
 					if (!is_string($val)) {
 						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);

@@ -197,5 +197,13 @@ class Zotero_Utilities {
 	
 		return $new_json;
 	}
+	
+	
+	public static function getObjectTypeFromObject($object) {
+		if (!preg_match("/(Item|Collection|Search)$/", get_class($object), $matches)) {
+			throw new Exception("Invalid object type");
+		}
+		return strtolower($matches[0]);
+	}
 }
 ?>

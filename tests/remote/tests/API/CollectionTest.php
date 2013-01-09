@@ -236,7 +236,10 @@ class CollectionTests extends APITests {
 					)
 				)
 			)),
-			array("Content-Type: application/json")
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: " . $data['version']
+			)
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);

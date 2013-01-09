@@ -304,19 +304,20 @@ class Zotero_S3 {
 			// Check MD5 hash
 			if (md5_file("new") != $info->hash) {
 				$cleanup();
-				throw new Exception("Patched file does not match hash", Z_ERROR_FILE_UPLOAD_PATCH_MISMATCH);
+				throw new HTTPException("Patched file does not match hash", 409);
 			}
 			
 			// Check file size
 			if (filesize("new") != $info->size) {
 				$cleanup();
-				throw new Exception("Patched file size does not match (" . filesize("new") . " != {$info->size})", Z_ERROR_FILE_UPLOAD_PATCH_MISMATCH);
+				throw new HTTPException("Patched file size does not match "
+						. "(" . filesize("new") . " != {$info->size})", 409);
 			}
 			
 			// If ZIP, make sure it's a ZIP
 			if ($info->zip && file_get_contents("new", false, null, 0, 4) != "PK" . chr(03) . chr(04)) {
 				$cleanup();
-				throw new Exception("Patched file is not a ZIP file", Z_ERROR_FILE_UPLOAD_PATCH_MISMATCH);
+				throw new HTTPException("Patched file is not a ZIP file", 409);
 			}
 			
 			// Upload to S3

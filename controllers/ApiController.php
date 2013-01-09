@@ -52,6 +52,7 @@ class ApiController extends Controller {
 	private $objectKey;
 	private $objectName;
 	private $subset;
+	private $singleObject;
 	private $fileMode;
 	private $fileView;
 	private $httpAuth = false;
@@ -309,11 +310,11 @@ class ApiController extends Controller {
 							: false;
 		$this->fileView = !empty($extra['view']);
 		
-		$singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
+		$this->singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
 		
-		$this->checkLibraryIfModifiedSinceVersion($action, $singleObject);
+		$this->checkLibraryIfModifiedSinceVersion($action);
 		
-		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $singleObject);
+		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $this->singleObject);
 	}
 	
 	
@@ -323,12 +324,27 @@ class ApiController extends Controller {
 	
 	
 	public function items() {
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
 		Z_Core::$MC->begin();
 		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
 			if (!$this->body) {
 				$this->e400("$this->method data not provided");
+			}
+			
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			if (!$this->singleObject) {
+				$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
 			}
 			
 			// We don't update the library version in file mode, because currently
@@ -349,7 +365,7 @@ class ApiController extends Controller {
 		//
 		// Single item
 		//
-		if (($this->objectID || $this->objectKey) && !$this->subset) {
+		if ($this->singleObject) {
 			if ($this->fileMode) {
 				if ($this->fileView) {
 					$this->allowMethods(array('GET', 'HEAD', 'POST'));
@@ -360,13 +376,6 @@ class ApiController extends Controller {
 			}
 			else {
 				$this->allowMethods(array('GET', 'PUT', 'DELETE'));
-			}
-			
-			// Check for general library access
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				//var_dump($this->objectLibraryID);
-				//var_dump($this->permissions);
-				$this->e403();
 			}
 			
 			if ($this->objectKey) {
@@ -448,10 +457,6 @@ class ApiController extends Controller {
 					case 'collections':
 						$this->allowMethods(array('DELETE'));
 						
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
-						
 						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
 						if (!$collection) {
 							$this->e404("Collection not found");
@@ -471,16 +476,12 @@ class ApiController extends Controller {
 			}
 			
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				if (!$this->permissions->canWrite($this->objectLibraryID)) {
-					$this->e403("Write access denied");
-				}
-				
 				$this->checkObjectIfUnmodifiedSinceVersion($item);
 				
 				// Update existing item
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Items::updateFromJSON($item, $obj, false, null, $this->userID);
+					Zotero_Items::updateFromJSON($item, $obj, null, $this->userID);
 					$this->queryParams['format'] = 'atom';
 					$this->queryParams['content'] = array('json');
 					
@@ -552,10 +553,6 @@ class ApiController extends Controller {
 		else {
 			$this->allowMethods(array('GET', 'POST'));
 			
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->e403();
-			}
-			
 			$includeTrashed = false;
 			$formatAsKeys = $this->queryParams['format'] == 'keys';
 			
@@ -588,10 +585,6 @@ class ApiController extends Controller {
 						
 						// Add items to collection
 						if ($this->method == 'POST') {
-							if (!$this->permissions->canWrite($this->objectLibraryID)) {
-								$this->e403("Write access denied");
-							}
-							
 							$itemKeys = explode(' ', $this->body);
 							$itemIDs = array();
 							foreach ($itemKeys as $key) {
@@ -709,12 +702,8 @@ class ApiController extends Controller {
 					
 					// Create new child items
 					if ($this->method == 'POST') {
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
-						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item, $this->userID);
+						$keys = Zotero_Items::updateMultipleFromJSON($obj, $this->objectLibraryID, $item, $this->userID, empty($libraryTimestampChecked));
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -742,10 +731,6 @@ class ApiController extends Controller {
 				else {
 					// Create new items
 					if ($this->method == 'POST') {
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
-						
 						$obj = $this->jsonDecode($this->body);
 						if (isset($obj->url)) {
 							$response = Zotero_Items::addFromURL($obj, $this->objectLibraryID, $this->userID, $this->getTranslationToken());
@@ -769,7 +754,7 @@ class ApiController extends Controller {
 							}
 						}
 						else {
-							$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, null, $this->userID);
+							$keys = Zotero_Items::updateMultipleFromJSON($obj, $this->objectLibraryID, null, $this->userID, empty($libraryTimestampChecked));
 						}
 						
 						if (!$keys) {
@@ -1427,12 +1412,27 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
 		Z_Core::$MC->begin();
 		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
 			if (!$this->body) {
 				$this->e400("$this->method data not provided");
+			}
+			
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			if (!$this->singleObject) {
+				$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
 			}
 			
 			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
@@ -1446,7 +1446,7 @@ class ApiController extends Controller {
 		$totalResults = 0;
 		
 		// Single collection
-		if (($this->objectID || $this->objectKey) && $this->subset != 'collections') {
+		if ($this->singleObject) {
 			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
 			
 			// If id, redirect to key URL
@@ -1465,15 +1465,7 @@ class ApiController extends Controller {
 				$this->e404("Collection not found");
 			}
 			
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->e403();
-			}
-			
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				if (!$this->permissions->canWrite($this->objectLibraryID)) {
-					$this->e403("Write access denied");
-				}
-				
 				$this->checkObjectIfUnmodifiedSinceVersion($collection);
 				
 				if ($this->method == 'PUT') {
@@ -1501,10 +1493,6 @@ class ApiController extends Controller {
 		// Multiple collections
 		else {
 			$this->allowMethods(array('GET', 'POST'));
-			
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->e403();
-			}
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET'));
@@ -1544,12 +1532,8 @@ class ApiController extends Controller {
 				else {
 					// Create a collection
 					if ($this->method == 'POST') {
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
-						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
+						$keys = Zotero_Collections::updateMultipleFromJSON($obj, $this->objectLibraryID, empty($libraryTimestampChecked));
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -2830,14 +2814,15 @@ class ApiController extends Controller {
 	
 	
 	/**
-	 * For multi-object requests for some actions, return 304 Not Modified
-	 * if the library hasn't been updated since Zotero-If-Modified-Since-Version
+	 * For single-object requests for some actions, require
+	 * Zotero-If-Unmodified-Since-Version (or the deprecated If-Match)
+	 * and make sure the object hasn't been modified
 	 */
 	private function checkObjectIfUnmodifiedSinceVersion($object) {
-		if (!preg_match("/(Item|Collection|Search)$/", get_class($object), $matches)) {
+		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		if (!in_array($objectType, array('item', 'collection', 'search'))) {
 			throw new Exception("Invalid object type");
 		}
-		$objectType = strtolower($matches[0]);
 		
 		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
 			continue;
@@ -2876,11 +2861,41 @@ class ApiController extends Controller {
 	
 	
 	/**
+	 * For multi-object requests for some actions, require
+	 * Zotero-If-Unmodified-Since-Version and make sure the library
+	 * hasn't been modified
+	 *
+	 * @return {Boolean}  True if library version was checked, false if not
+	 */
+	private function checkLibraryIfUnmodifiedSinceVersion() {
+		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
+			continue;
+		}
+		
+		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+			return false;
+		}
+		
+		$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+		
+		if (!is_numeric($version)) {
+			$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+		}
+		
+		$libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		if ($libraryVersion > $version) {
+			$this->e412("Library has been modified since specified version");
+		}
+		return true;
+	}
+	
+	
+	/**
 	 * For multi-object requests for some actions, return 304 Not Modified
 	 * if the library hasn't been updated since Zotero-If-Modified-Since-Version
 	 */
-	private function checkLibraryIfModifiedSinceVersion($action, $singleObject) {
-		if (!$singleObject
+	private function checkLibraryIfModifiedSinceVersion($action) {
+		if (!$this->singleObject
 				&& in_array($action, array("items", "collections", "searches"))
 				&& !empty($_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION'])
 				&& !$this->isWriteMethod()
@@ -3186,7 +3201,8 @@ class ApiController extends Controller {
 			$explicit = false;
 		}
 		
-		switch ($e->getCode()) {
+		$errorCode = $e->getCode();
+		switch ($errorCode) {
 			case Z_ERROR_INVALID_INPUT:
 			case Z_ERROR_NOTE_TOO_LONG:
 			case Z_ERROR_FIELD_TOO_LONG:
@@ -3194,21 +3210,23 @@ class ApiController extends Controller {
 			case Z_ERROR_COLLECTION_TOO_LONG:
 			case Z_ERROR_CITESERVER_INVALID_STYLE:
 				error_log($msg);
-				$this->e400(htmlspecialchars($msg));
-				break;
-			
-			case Z_ERROR_FILE_UPLOAD_PATCH_MISMATCH:
-				$this->e409(htmlspecialchars($msg));
+				$this->e400($msg);
 				break;
 			
 			case Z_ERROR_UPLOAD_TOO_LARGE:
 				error_log($msg);
-				$this->e413(htmlspecialchars($msg));
+				$this->e413($msg);
 				break;
 			
 			// 404?
 			case Z_ERROR_TAG_NOT_FOUND:
-				$this->e400(htmlspecialchars($e->getMessage()));
+				$this->e400($msg);
+				break;
+		}
+		
+		if ($e instanceof HTTPException) {
+			$errorFunc = "e" . $errorCode;
+			$this->$errorFunc($msg);
 		}
 		
 		$id = substr(md5(uniqid(rand(), true)), 0, 10);
