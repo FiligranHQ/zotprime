@@ -1436,7 +1436,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 *   }
 	 * }
 	 *
-	 * Returns an array of keys of added items (like addFromJSON) or an object
+	 * Returns an array of keys of added items (like updateMultipleFromJSON) or an object
 	 * with a 'select' property containing an array of titles for multi-item results
 	 */
 	public static function addFromURL($json, $libraryID, $userID, $translationToken) {
@@ -1470,7 +1470,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			throw new Exception("Invalid return value from doWeb()");
 		}
 		
-		return self::addFromJSON($response, $libraryID, null, $userID);
+		return self::updateMultipleFromJSON($response, $libraryID, null, $userID);
 	}
 	
 	
