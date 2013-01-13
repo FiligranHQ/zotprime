@@ -104,6 +104,9 @@ class ApiController extends Controller {
 					? strtotime($_SERVER['HTTP_IF_UNMODIFIED_SINCE']) : false;
 			
 			$this->body = file_get_contents("php://input");
+			if ($this->body == "" && $action != 'clear') {
+				$this->e400("$this->method data not provided");
+			}
 		}
 		
 		if ($this->profile) {
@@ -333,10 +336,6 @@ class ApiController extends Controller {
 		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
-			if (!$this->body) {
-				$this->e400("$this->method data not provided");
-			}
-			
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
 				$this->e403("Write access denied");
@@ -1419,10 +1418,6 @@ class ApiController extends Controller {
 		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
-			if (!$this->body) {
-				$this->e400("$this->method data not provided");
-			}
-			
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
 				$this->e403("Write access denied");
@@ -1720,10 +1715,6 @@ class ApiController extends Controller {
 	
 	
 	public function groups() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
-		}
-		
 		$groupID = $this->groupID;
 		
 		//
@@ -2000,10 +1991,6 @@ class ApiController extends Controller {
 	
 	
 	public function groupUsers() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
-		}
-		
 		// For now, only allow root and user access
 		if (!$this->permissions->isSuper()) {
 			$this->e403();
@@ -2240,10 +2227,6 @@ class ApiController extends Controller {
 	
 	
 	public function keys() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
-		}
-		
 		$userID = $this->objectUserID;
 		$key = $this->objectName;
 		
