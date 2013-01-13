@@ -502,7 +502,7 @@ class API {
 	
 	public static function userClear($userID) {
 		self::loadConfig();
-		return self::userPost(
+		$response = self::userPost(
 			$userID,
 			"clear",
 			"",
@@ -512,6 +512,10 @@ class API {
 				"password" => self::$config['rootPassword']
 			)
 		);
+		if ($response->getStatus() != 204) {
+			var_dump($response->getBody());
+			throw new Exception("Error clearing user $userID");
+		}
 	}
 	
 	public static function groupClear($groupID) {
