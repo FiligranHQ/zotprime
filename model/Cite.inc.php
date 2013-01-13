@@ -60,9 +60,11 @@ class Zotero_Cite {
 		$results = Z_Core::$MC->get($keys);
 		
 		$response = array();
-		foreach ($results as $key => $val) {
-			$lk = self::extractLibraryKeyFromCacheKey($key);
-			$response[$lk] = $val;
+		if ($results) {
+			foreach ($results as $key => $val) {
+				$lk = self::extractLibraryKeyFromCacheKey($key);
+				$response[$lk] = $val;
+			}
 		}
 		
 		$hits = sizeOf($results);
