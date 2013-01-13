@@ -75,8 +75,9 @@ class TagTests extends APITests {
 				"If-Match: " . $etag
 			)
 		);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
+		$this->assert204($response);
+		$xml = API::getItemXML($data['key']);
+		$this->assertEquals(2, (int) array_shift($xml->xpath('//atom:entry/zapi:numTags')));
 		$data = API::parseDataFromAtomEntry($xml);
 		$this->assertNotEquals($etag, (string) $data['etag']);
 		
@@ -104,8 +105,9 @@ class TagTests extends APITests {
 				"If-Match: " . $data['etag']
 			)
 		);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
+		$this->assert204($response);
+		$xml = API::getItemXML($data['key']);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numTags')));
 		$data = API::parseDataFromAtomEntry($xml);
 		$this->assertNotEquals($originalETag, (string) $data['etag']);
 	}
@@ -115,23 +117,19 @@ class TagTests extends APITests {
 		API::userClear(self::$config['userID']);
 		
 		// Create items with tags
-		$xml = API::createItem("book", array(
+		$key1 = API::createItem("book", array(
 			"tags" => array(
 				array("tag" => "a"),
 				array("tag" => "b")
 			)
-		), $this);
-		$data = API::parseDataFromAtomEntry($xml);
-		$key1 = $data['key'];
+		), $this, 'key');
 		
-		$xml = API::createItem("book", array(
+		$key2 = API::createItem("book", array(
 			"tags" => array(
 				array("tag" => "a"),
 				array("tag" => "c")
 			)
-		), $this);
-		$data = API::parseDataFromAtomEntry($xml);
-		$key2 = $data['key'];
+		), $this, 'key');
 		
 		//
 		// Searches

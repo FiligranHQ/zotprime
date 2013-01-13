@@ -51,6 +51,7 @@ class ItemTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals("book", (string) $json->itemType);
+		
 		return $data;
 	}
 	
@@ -115,10 +116,10 @@ class ItemTests extends APITests {
 				"If-Match: $etag"
 			)
 		);
-		$this->assert200($response);
-		
-		$xml = API::getXMLFromResponse($response);
-		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
 		
 		$this->assertEquals($newTitle, $json->title);
 		$this->assertEquals($numPages, $json->numPages);
@@ -161,10 +162,10 @@ class ItemTests extends APITests {
 				"Zotero-If-Unmodified-Since-Version: $version"
 			)
 		);
-		$this->assert200($response);
-		
-		$xml = API::getXMLFromResponse($response);
-		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
 		
 		$this->assertEquals($newTitle, $json->title);
 		$this->assertEquals($numPages, $json->numPages);
@@ -214,8 +215,10 @@ class ItemTests extends APITests {
 				"If-Match: $etag"
 			)
 		);
-		$this->assert200($response);
-		$json = json_decode(API::getContentFromResponse($response));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
 		$this->assertEquals("bookSection", $json->itemType);
 		$this->assertEquals("Foo", $json->title);
 		$this->assertObjectNotHasAttribute("numPages", $json);
@@ -259,8 +262,10 @@ class ItemTests extends APITests {
 				"Zotero-If-Unmodified-Since-Version: $version"
 			)
 		);
-		$this->assert200($response);
-		$json = json_decode(API::getContentFromResponse($response));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
 		$this->assertEquals("bookSection", $json->itemType);
 		$this->assertEquals("Foo", $json->title);
 		$this->assertObjectNotHasAttribute("numPages", $json);
@@ -291,6 +296,7 @@ class ItemTests extends APITests {
 	public function testNewComputerProgramItemWithETag() {
 		$xml = API::createItem("computerProgram", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
 		$json = json_decode($data['content']);
 		$this->assertEquals("computerProgram", (string) $json->itemType);
 		
@@ -299,17 +305,17 @@ class ItemTests extends APITests {
 		
 		$response = API::userPut(
 			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
 				"If-Match: {$data['etag']}"
 			)
 		);
-		$this->assert200($response);
-		
-		$xml = API::getXMLFromResponse($response);
-		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
 		
 		$this->assertEquals($version, $json->version);
 	}
@@ -318,6 +324,7 @@ class ItemTests extends APITests {
 	public function testNewComputerProgramItemWithVersion() {
 		$xml = API::createItem("computerProgram", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
 		$json = json_decode($data['content']);
 		$this->assertEquals("computerProgram", (string) $json->itemType);
 		
@@ -326,17 +333,17 @@ class ItemTests extends APITests {
 		
 		$response = API::userPut(
 			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
 				"Zotero-If-Unmodified-Since-Version: {$data['version']}"
 			)
 		);
-		$this->assert200($response);
-		
-		$xml = API::getXMLFromResponse($response);
-		$json = json_decode(array_shift($xml->xpath('/atom:entry/atom:content')));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
 		
 		$this->assertEquals($version, $json->version);
 	}
@@ -441,9 +448,10 @@ class ItemTests extends APITests {
 				"If-Match: $etag"
 			)
 		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
-		$newETag = (string) array_shift($xml->xpath('/atom:entry/atom:content/@zapi:etag'));
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
+		$data = API::parseDataFromAtomEntry($xml);
+		$newETag = $data['etag'];
 		// Item shouldn't change
 		$this->assertEquals($etag, $newETag);
 		
@@ -468,8 +476,8 @@ class ItemTests extends APITests {
 				"Zotero-If-Unmodified-Since-Version: $version"
 			)
 		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
 		$data = API::parseDataFromAtomEntry($xml);
 		// Item shouldn't change
 		$this->assertEquals($version, $data['version']);
@@ -495,8 +503,8 @@ class ItemTests extends APITests {
 				"If-Match: $etag"
 			)
 		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
 		$data = API::parseDataFromAtomEntry($xml);
 		// Item shouldn't change
 		$this->assertEquals($etag, $data['etag']);
@@ -522,8 +530,8 @@ class ItemTests extends APITests {
 				"Zotero-If-Unmodified-Since-Version: $version"
 			)
 		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
 		$data = API::parseDataFromAtomEntry($xml);
 		// Item shouldn't change
 		$this->assertEquals($version, $data['version']);
@@ -555,8 +563,8 @@ class ItemTests extends APITests {
 				"Zotero-If-Unmodified-Since-Version: $version"
 			)
 		);
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$this->assert204($response);
+		$xml = API::getItemXML($key);
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($contentType, $json->contentType);

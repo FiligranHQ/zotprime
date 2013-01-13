@@ -463,7 +463,7 @@ class Zotero_DataObjects {
 	}
 	
 	
-	public static function delete($libraryID, $key, $updateLibrary=false) {
+	public static function delete($libraryID, $key) {
 		$table = static::field('table');
 		$id = static::field('id');
 		$type = static::field('object');
@@ -485,11 +485,6 @@ class Zotero_DataObjects {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		Zotero_DB::beginTransaction();
-		
-		// Needed for API deletes to get propagated via sync
-		if ($updateLibrary) {
-			Zotero_Libraries::updateVersionAndTimestamp($obj->libraryID);
-		}
 		
 		// Delete child items
 		if ($type == 'item') {

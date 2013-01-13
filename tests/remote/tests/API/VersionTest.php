@@ -70,17 +70,13 @@ class VersionTests extends APITests {
 		
 		switch ($objectType) {
 		case 'collection':
-			$xml = API::createCollection("Name", false, $this);
-			$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-			$data = API::parseDataFromAtomEntry($xml);
-			$objectKey = $data['key'];
+			$objectKey = API::createCollection("Name", false, $this, 'key');
 			break;
 		
 		case 'item':
 			$objectKey = API::createItem("book", array("title" => "Title"), $this, 'key');
 			break;
 		}
-		
 		
 		// Make sure all three instances of the object version
 		// (Zotero-Last-Modified-Version, zapi:version, and the JSON
@@ -117,6 +113,26 @@ class VersionTests extends APITests {
 			break;
 		}
 		
+		// No Zotero-If-Unmodified-Since-Version
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		$this->assert428($response);
+		
+		// Out of date version
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Zotero-If-Unmodified-Since-Version: " . ($objectVersion - 1)
+			)
+		);
+		$this->assert412($response);
+		
+		// Update object
 		$response = API::userPut(
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
@@ -125,7 +141,7 @@ class VersionTests extends APITests {
 				"Zotero-If-Unmodified-Since-Version: " . $objectVersion
 			)
 		);
-		$this->assert200($response);
+		$this->assert204($response);
 		$newObjectVersion = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertGreaterThan($objectVersion, $newObjectVersion);
 		
@@ -137,6 +153,37 @@ class VersionTests extends APITests {
 		$this->assert200($response);
 		$newLibraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertEquals($newLibraryVersion, $newObjectVersion);
+		
+		//
+		// Delete object
+		//
+		
+		// No Zotero-If-Unmodified-Since-Version
+		$response = API::userDelete(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey']
+		);
+		$this->assert428($response);
+		
+		// No Zotero-If-Unmodified-Since-Version
+		$response = API::userDelete(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
+			array(
+				"Zotero-If-Unmodified-Since-Version: " . $objectVersion
+			)
+		);
+		$this->assert412($response);
+		
+		// Delete object
+		$response = API::userDelete(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
+			array(
+				"Zotero-If-Unmodified-Since-Version: " . $newObjectVersion
+			)
+		);
+		$this->assert204($response);
 	}
 	
 	

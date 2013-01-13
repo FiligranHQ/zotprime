@@ -831,7 +831,7 @@ class FileTests extends APITests {
 				"If-Match: $etag"
 			)
 		);
-		$this->assert200($response);
+		$this->assert204($response);
 		
 		// Get a sync timestamp from before the file is updated
 		sleep(1);

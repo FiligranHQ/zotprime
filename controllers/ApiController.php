@@ -477,21 +477,19 @@ class ApiController extends Controller {
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
 				$this->checkObjectIfUnmodifiedSinceVersion($item);
 				
-				// Update existing item
+				// Update item
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
 					Zotero_Items::updateFromJSON($item, $obj, null, $this->userID);
-					$this->queryParams['format'] = 'atom';
-					$this->queryParams['content'] = array('json');
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
 				}
 				
-				// Delete existing item
+				// Delete item
 				else {
-					Zotero_Items::delete($this->objectLibraryID, $this->objectKey, true);
+					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
 					
 					try {
 						Zotero_Processors::notifyProcessors('index');
@@ -499,14 +497,11 @@ class ApiController extends Controller {
 					catch (Exception $e) {
 						Z_Core::logError($e);
 					}
-					
-					Zotero_DB::commit();
-					
-					$this->e204();
 				}
+				
+				Zotero_DB::commit();
+				$this->e204();
 			}
-			
-			//header("Zotero-Timestamp: " . strtotime($item->serverDateModified) * 1000);
 			
 			// Display item
 			switch ($this->queryParams['format']) {
@@ -1461,22 +1456,23 @@ class ApiController extends Controller {
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
 				$this->checkObjectIfUnmodifiedSinceVersion($collection);
 				
+				// Update collection
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
 					Zotero_Collections::updateFromJSON($collection, $obj);
-					$this->queryParams['format'] = 'atom';
-					$this->queryParams['content'] = array('json');
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
 				}
 				
-				// Delete
+				// Delete collection
 				else {
-					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey, true);
-					$this->e204();
+					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey);
 				}
+				
+				Zotero_DB::commit();
+				$this->e204();
 			}
 			
 			$this->responseXML = Zotero_Collections::convertCollectionToAtom(
