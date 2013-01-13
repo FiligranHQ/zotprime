@@ -41,7 +41,7 @@ class Zotero_DataObjects {
 	protected static $ZDO_id = '';
 	protected static $ZDO_table = '';
 	
-	private static $cacheVersion = 1;
+	private static $cacheVersion = 3;
 	
 	private static $idCache = array();
 	private static $primaryDataByID = array();
@@ -133,8 +133,7 @@ class Zotero_DataObjects {
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
 			
-			$cacheVersion = 1;
-			$cacheKey = "{$type}IDsByKey_{$libraryID}_" . Zotero_Libraries::getVersion($libraryID, true) . "_$cacheVersion";
+			$cacheKey = "{$type}IDsByKey_{$libraryID}_" . Zotero_Libraries::getVersion($libraryID, true) . "_" . self::$cacheVersion;
 			$ids = Z_Core::$MC->get($cacheKey);
 			if ($ids === false) {
 				if ($type == 'relation') {
@@ -253,7 +252,7 @@ class Zotero_DataObjects {
 		self::$primaryDataByKey[$type][$libraryID] = array();
 		self::$primaryDataByID[$type][$libraryID] = array();
 		
-		$cacheKey = $type . "Data_" . $libraryID . "_" . Zotero_Libraries::getVersion($libraryID, true) . "_" . self::$cacheVersion;
+		$cacheKey = "{$type}Data_{$libraryID}_" . Zotero_Libraries::getVersion($libraryID, true) . "_" . self::$cacheVersion;
 		$rows = Z_Core::$MC->get($cacheKey);
 		if ($rows === false) {
 			$className = "Zotero_" . ucwords($types);
