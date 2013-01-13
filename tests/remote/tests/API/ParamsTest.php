@@ -36,9 +36,7 @@ class ParamsTests extends APITests {
 		
 		// Create test data
 		for ($i=0; $i<5; $i++) {
-			$xml = API::createItem("book");
-			$data = API::parseDataFromAtomEntry($xml);
-			self::$keys[] = $data['key'];
+			self::$keys[] = API::createItem("book", false, null, 'key');
 		}
 		
 		// Create top-level attachment
@@ -52,9 +50,7 @@ class ParamsTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromAtomEntry($xml);
-		self::$keys[] = $data['key'];
+		self::$keys[] = API::getFirstSuccessKeyFromResponse($response);;
 	}
 	
 	public static function tearDownAfterClass() {

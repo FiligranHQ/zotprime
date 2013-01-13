@@ -48,13 +48,9 @@ class ItemTests extends APITests {
 	
 	public function testNewEmptyBookItem() {
 		$xml = API::createItem("book", false, $this);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		
 		$data = API::parseDataFromAtomEntry($xml);
-		
 		$json = json_decode($data['content']);
 		$this->assertEquals("book", (string) $json->itemType);
-		
 		return $data;
 	}
 	
@@ -74,7 +70,9 @@ class ItemTests extends APITests {
 		
 		$response = API::postItems($data);
 		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$json = API::getJSONFromResponse($response);
+		
+		$xml = API::getItemXML($json['success'], $this);
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
 		
 		$content = json_decode(array_shift($contents));
@@ -190,9 +188,10 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$xml = API::getXMLFromResponse($response);
+		$this->assert200ForObject($response);
+		$key = API::getFirstSuccessKeyFromResponse($response);
+		$xml = API::getItemXML($key);
 		$data = API::parseDataFromAtomEntry($xml);
-		$key = $data['key'];
 		$etag = $data['etag'];
 		$json1 = json_decode($data['content']);
 		
@@ -235,9 +234,9 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$xml = API::getXMLFromResponse($response);
+		$key = API::getFirstSuccessKeyFromResponse($response);
+		$xml = API::getItemXML($key, $this);
 		$data = API::parseDataFromAtomEntry($xml);
-		$key = $data['key'];
 		$version = $data['version'];
 		$json1 = json_decode($data['content']);
 		
@@ -283,17 +282,15 @@ class ItemTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$key = API::getFirstSuccessKeyFromResponse($response);
+		$xml = API::getItemXML($key, $this);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numChildren')));
 	}
 	
 	
 	public function testNewComputerProgramItemWithETag() {
 		$xml = API::createItem("computerProgram", false, $this);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		
 		$data = API::parseDataFromAtomEntry($xml);
-		
 		$json = json_decode($data['content']);
 		$this->assertEquals("computerProgram", (string) $json->itemType);
 		
@@ -320,10 +317,7 @@ class ItemTests extends APITests {
 	
 	public function testNewComputerProgramItemWithVersion() {
 		$xml = API::createItem("computerProgram", false, $this);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		
 		$data = API::parseDataFromAtomEntry($xml);
-		
 		$json = json_decode($data['content']);
 		$this->assertEquals("computerProgram", (string) $json->itemType);
 		
@@ -362,8 +356,7 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals("'itemType' property not provided", $response->getBody());
+		$this->assert400ForObject($response, "'itemType' property not provided");
 		
 		// contentType on non-attachment
 		$json2 = clone $json;
@@ -376,8 +369,7 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals("'contentType' is valid only for attachment items", $response->getBody());
+		$this->assert400ForObject($response, "'contentType' is valid only for attachment items");
 		
 		// more tests
 	}
@@ -413,26 +405,21 @@ class ItemTests extends APITests {
 				)),
 				array("Content-Type: application/json")
 			);
-			$this->assert400($response);
-			$this->assertEquals("Only file attachments and PDFs can be top-level items", $response->getBody());
+			$this->assert400ForObject($response, "Only file attachments and PDFs can be top-level items");
 		}
 	}
 	
 	
 	public function testNewEmptyLinkAttachmentItem() {
-		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromAtomEntry($xml);
-		
-		$xml = API::createAttachmentItem("linked_url", $data['key'], $this);
+		$key = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("linked_url", $key, $this, 'atom');
 		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
 	public function testNewEmptyImportedURLAttachmentItem() {
-		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromAtomEntry($xml);
-		
-		$xml = API::createAttachmentItem("imported_url", $data['key'], $this);
+		$key = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("imported_url", $key, $this, 'atom');
 		return API::parseDataFromAtomEntry($xml);
 	}
 	
@@ -591,8 +578,7 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals("'invalidName' is not a valid linkMode", $response->getBody());
+		$this->assert400ForObject($response, "'invalidName' is not a valid linkMode");
 		
 		// Missing linkMode
 		unset($json->linkMode);
@@ -604,8 +590,7 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals("'linkMode' property not provided", $response->getBody());
+		$this->assert400ForObject($response, "'linkMode' property not provided");
 	}
 	
 	
@@ -627,8 +612,7 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals("'md5' is valid only for imported attachment items", $response->getBody());
+		$this->assert400ForObject($response, "'md5' is valid only for imported attachment items");
 	}
 	
 	
@@ -650,19 +634,16 @@ class ItemTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals("'mtime' is valid only for imported attachment items", $response->getBody());
+		$this->assert400ForObject($response, "'mtime' is valid only for imported attachment items");
 	}
 	
 	
 	public function testNewEmptyImportedURLAttachmentItemGroup() {
-		$xml = API::groupCreateItem(
-			self::$config['ownedPrivateGroupID'], "book", $this
+		$key = API::groupCreateItem(
+			self::$config['ownedPrivateGroupID'], "book", $this, 'key'
 		);
-		$data = API::parseDataFromAtomEntry($xml);
-		
 		$xml = API::groupCreateAttachmentItem(
-			self::$config['ownedPrivateGroupID'], "imported_url", $data['key'], $this
+			self::$config['ownedPrivateGroupID'], "imported_url", $key, $this
 		);
 		return API::parseDataFromAtomEntry($xml);
 	}
@@ -701,7 +682,7 @@ class ItemTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
-		API::createAttachmentItem("linked_url", $key, $this);
+		API::createAttachmentItem("linked_url", $key, $this, 'key');
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -710,7 +691,7 @@ class ItemTests extends APITests {
 		$xml = API::getXMLFromResponse($response);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
 		
-		API::createNoteItem("Test", $key, $this);
+		API::createNoteItem("Test", $key, $this, 'key');
 		
 		$response = API::userGet(
 			self::$config['userID'],

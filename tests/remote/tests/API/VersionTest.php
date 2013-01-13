@@ -71,21 +71,20 @@ class VersionTests extends APITests {
 		switch ($objectType) {
 		case 'collection':
 			$xml = API::createCollection("Name", false, $this);
+			$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+			$data = API::parseDataFromAtomEntry($xml);
+			$objectKey = $data['key'];
 			break;
 		
 		case 'item':
-			$xml = API::createItem("book", array("title" => "Title"), $this);
+			$objectKey = API::createItem("book", array("title" => "Title"), $this, 'key');
 			break;
 		}
 		
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		// Make sure all three instances of the object version
 		// (Zotero-Last-Modified-Version, zapi:version, and the JSON
 		// {$objectType}Version property match the library version
-		$data = API::parseDataFromAtomEntry($xml);
-		$objectKey = $data['key'];
-		
 		$response = API::userGet(
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'] . "&content=json"
@@ -202,9 +201,7 @@ class VersionTests extends APITests {
 		$this->assertTrue(is_numeric($version2));
 		// Version should be incremented on new object
 		$this->assertGreaterThan($version, $version2);
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromAtomEntry($xml);
-		$objectKey = $data['key'];
+		$objectKey = API::getFirstSuccessKeyFromResponse($response);
 		
 		// Check single-object request
 		$response = API::userGet(
@@ -239,7 +236,7 @@ class VersionTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert428($response);
+		$this->assert428ForObject($response);
 		
 		// Outdated object version property
 		$json->$objectVersionProp = $version - 1;
@@ -253,7 +250,7 @@ class VersionTests extends APITests {
 				"Content-Type: application/json"
 			)
 		);
-		$this->assert412($response);
+		$this->assert412ForObject($response);
 		
 		// Modify object, using object version property
 		$json->$objectVersionProp = $version;

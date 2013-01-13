@@ -63,10 +63,9 @@ class NoteTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals(
-			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long",
-			$response->getBody()
+		$this->assert400ForObject(
+			$response,
+			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long"
 		);
 	}
 	
@@ -82,10 +81,9 @@ class NoteTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals(
-			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long",
-			$response->getBody()
+		$this->assert400ForObject(
+			$response,
+			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123456789...' too long"
 		);
 	}
 	
@@ -101,10 +99,9 @@ class NoteTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals(
-			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123...' too long",
-			$response->getBody()
+		$this->assert400ForObject(
+			$response,
+			"Note '1234567890123456789012345678901234567890123456789012345678901234567890123...' too long"
 		);
 	}
 	
@@ -120,10 +117,9 @@ class NoteTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		$this->assertEquals(
-			"Note 'Full Text: 1234567890123456789012345678901234567890123456789012345678901234567...' too long",
-			$response->getBody()
+		$this->assert400ForObject(
+			$response,
+			"Note 'Full Text: 1234567890123456789012345678901234567890123456789012345678901234567...' too long"
 		);
 	}
 	
@@ -140,11 +136,9 @@ class NoteTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response);
-		
-		$this->assertEquals(
-			"Note '&lt;p&gt;&lt;!-- 1234567890123456789012345678901234567890123456789012345678901234...' too long",
-			$response->getBody()
+		$this->assert400ForObject(
+			$response,
+			"Note '&lt;p&gt;&lt;!-- 1234567890123456789012345678901234567890123456789012345678901234...' too long"
 		);
 	}
 }

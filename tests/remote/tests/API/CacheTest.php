@@ -60,12 +60,11 @@ class CacheTests extends APITests {
 			)
 		);
 		
-		$xml = API::createItem("book", $data);
-		$data = API::parseDataFromAtomEntry($xml);
+		$key = API::createItem("book", $data, $this, 'key');
 		
 		$response = API::userGet(
 			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=csljson"
+			"items/$key?key=" . self::$config['apiKey'] . "&content=csljson"
 		);
 		$json = json_decode(API::getContentFromResponse($response));
 		$this->assertEquals("First", $json->author[0]->given);

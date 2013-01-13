@@ -702,35 +702,35 @@ class ApiController extends Controller {
 					
 					// Create new child items
 					if ($this->method == 'POST') {
+						$this->queryParams['format'] = 'writereport';
+						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Items::updateMultipleFromJSON($obj, $this->objectLibraryID, $item, $this->userID, empty($libraryTimestampChecked));
+						$results = Zotero_Items::updateMultipleFromJSON(
+							$obj,
+							$this->objectLibraryID,
+							$item,
+							$this->userID,
+							empty($libraryTimestampChecked)
+						);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
-						
-						$uri = Zotero_API::getItemURI($item) . "/children";
-						$queryString = "itemKey="
-								. urlencode(implode(",", $keys))
-								. "&content=json&order=itemKeyList&sort=asc";
-						if ($this->apiKey) {
-							$queryString .= "&key=" . $this->apiKey;
-						}
-						$uri .= "?" . $queryString;
-						
-						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
 					}
-					
 					// Display items
-					$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
-					$notes = $item->getNotes();
-					$attachments = $item->getAttachments();
-					$itemIDs = array_merge($notes, $attachments);
+					else {
+						$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
+						$notes = $item->getNotes();
+						$attachments = $item->getAttachments();
+						$itemIDs = array_merge($notes, $attachments);
+					}
 				}
 				// All items
 				else {
 					// Create new items
 					if ($this->method == 'POST') {
+						$this->queryParams['format'] = 'writereport';
+						
 						$obj = $this->jsonDecode($this->body);
 						if (isset($obj->url)) {
 							$response = Zotero_Items::addFromURL($obj, $this->objectLibraryID, $this->userID, $this->getTranslationToken());
@@ -752,33 +752,30 @@ class ApiController extends Controller {
 							else {
 								$keys = $response;
 							}
+							
+							if (!$keys) {
+								throw new Exception("No items added");
+							}
 						}
 						else {
-							$keys = Zotero_Items::updateMultipleFromJSON($obj, $this->objectLibraryID, null, $this->userID, empty($libraryTimestampChecked));
-						}
-						
-						if (!$keys) {
-							throw new Exception("No items added");
+							$results = Zotero_Items::updateMultipleFromJSON(
+								$obj,
+								$this->objectLibraryID,
+								null,
+								$this->userID,
+								empty($libraryTimestampChecked)
+							);
 						}
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
-						
-						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
-						$queryString = "itemKey="
-								. urlencode(implode(",", $keys))
-								. "&content=json&order=itemKeyList&sort=asc";
-						if ($this->apiKey) {
-							$queryString .= "&key=" . $this->apiKey;
-						}
-						$uri .= "?" . $queryString;
-						
-						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
 					}
-					
-					$title = "Items";
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, false, $this->permissions);
+					// Display items
+					else {
+						$title = "Items";
+						$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $this->permissions);
+					}
 				}
 			}
 			
@@ -798,7 +795,7 @@ class ApiController extends Controller {
 				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $this->permissions);
 			}
 			
-			if ($results) {
+			if ($results && isset($results['results'])) {
 				 $totalResults = $results['total'];
 				 $results = $results['results'];
 			}
@@ -838,6 +835,7 @@ class ApiController extends Controller {
 					break;
 				
 				case 'versions':
+				case 'writereport':
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
 					}
@@ -1532,36 +1530,33 @@ class ApiController extends Controller {
 				else {
 					// Create a collection
 					if ($this->method == 'POST') {
+						$this->queryParams['format'] = 'writereport';
+						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Collections::updateMultipleFromJSON($obj, $this->objectLibraryID, empty($libraryTimestampChecked));
+						$results = Zotero_Collections::updateMultipleFromJSON(
+							$obj,
+							$this->objectLibraryID,
+							empty($libraryTimestampChecked)
+						);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
-						
-						$uri = Zotero_API::getCollectionsURI($this->objectLibraryID);
-						$queryString = "collectionKey="
-							. urlencode(implode(",", $keys))
-							. "&content=json&order=collectionKeyList&sort=asc";
-						if ($this->apiKey) {
-							$queryString .= "&key=" . $this->apiKey;
-						}
-						$uri .= "?" . $queryString;
-						
-						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
 					}
-					
-					$title = "Collections";
-					$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
+					// Display collections
+					else {
+						$title = "Collections";
+						$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
+					}
 				}
 			}
 			
-			if (isset($collectionIDs)) {
+			if ($collectionIDs) {
 				$this->queryParams['collectionIDs'] = $collectionIDs;
 				$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
 			}
 			
-			if ($results) {
+			if ($results && isset($results['results'])) {
 				$totalResults = $results['total'];
 				$results = $results['results'];
 			}
@@ -1579,6 +1574,7 @@ class ApiController extends Controller {
 				break;
 			
 			case 'versions':
+			case 'writereport':
 				if ($this->queryParams['pprint']) {
 					header("Content-Type: text/plain");
 				}
@@ -3192,65 +3188,35 @@ class ApiController extends Controller {
 	
 	
 	public function handleException(Exception $e) {
-		$msg = $e->getMessage();
-		if ($msg[0] == '=') {
-			$msg = substr($msg, 1);
-			$explicit = true;
-		}
-		else {
-			$explicit = false;
-		}
+		$error = Zotero_Errors::parseException($e);
 		
-		$errorCode = $e->getCode();
-		switch ($errorCode) {
-			case Z_ERROR_INVALID_INPUT:
-			case Z_ERROR_NOTE_TOO_LONG:
-			case Z_ERROR_FIELD_TOO_LONG:
-			case Z_ERROR_CREATOR_TOO_LONG:
-			case Z_ERROR_COLLECTION_TOO_LONG:
-			case Z_ERROR_CITESERVER_INVALID_STYLE:
-				error_log($msg);
-				$this->e400($msg);
-				break;
+		if (!empty($error['log'])) {
+			$id = substr(md5(uniqid(rand(), true)), 0, 10);
+			$str = date("D M j G:i:s T Y") . "  \n";
+			$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "  \n";
+			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
+			}
+			$str .= $_SERVER['REQUEST_URI'] . "  \n";
+			$str .= $error['exception'] . "  \n";
+			// Show request body unless it's too big
+			if ($error['code'] != 413) {
+				$str .= $this->body;
+			}
 			
-			case Z_ERROR_UPLOAD_TOO_LARGE:
-				error_log($msg);
-				$this->e413($msg);
-				break;
+			if (!Z_ENV_TESTING_SITE) {
+				file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
+			}
 			
-			// 404?
-			case Z_ERROR_TAG_NOT_FOUND:
-				$this->e400($msg);
-				break;
+			error_log($str);
 		}
 		
-		if ($e instanceof HTTPException) {
-			$errorFunc = "e" . $errorCode;
-			$this->$errorFunc($msg);
+		if ($error['code'] != '500') {
+			$errFunc = "e" . $error['code'];
+			$this->$errFunc($error['message']);
 		}
 		
-		$id = substr(md5(uniqid(rand(), true)), 0, 10);
-		$str = date("D M j G:i:s T Y") . "  \n";
-		$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "  \n";
-		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-			$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
-		}
-		$str .= $_SERVER['REQUEST_URI'] . "  \n";
-		$str .= $e . "  \n";
-		$str .= $this->body;
-		
-		if (!Z_ENV_TESTING_SITE) {
-			file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
-		}
-		
-		error_log($str);
-		
-		switch ($e->getCode()) {
-			case Z_ERROR_SHARD_READ_ONLY:
-			case Z_ERROR_SHARD_UNAVAILABLE:
-				$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
-		}
-		
+		// On testing site, display unexpected error messages
 		if (Z_ENV_TESTING_SITE) {
 			$this->e500($str);
 		}

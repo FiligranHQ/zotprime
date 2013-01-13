@@ -49,7 +49,7 @@ class TagTests extends APITests {
 		);
 		
 		$response = API::postItem($json);
-		$this->assert400($response);
+		$this->assert400ForObject($response);
 	}
 	
 	

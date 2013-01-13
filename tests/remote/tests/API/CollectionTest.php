@@ -94,7 +94,8 @@ class CollectionTests extends APITests {
 		);
 		$this->assert200($response);
 		
-		$xml = API::getXMLFromResponse($response);
+		$key = API::getFirstSuccessKeyFromResponse($response);
+		$xml = API::getCollectionXML($key);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:feed/zapi:numCollections')));
 		
@@ -127,7 +128,8 @@ class CollectionTests extends APITests {
 		);
 		$this->assert200($response);
 		
-		$xml = API::getXMLFromResponse($response);
+		$key = API::getFirstSuccessKeyFromResponse($response);
+		$xml = API::getCollectionXML($key);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
@@ -161,7 +163,8 @@ class CollectionTests extends APITests {
 		);
 		
 		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$key = API::getFirstSuccessKeyFromResponse($response);
+		$xml = API::getCollectionXML($key);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
@@ -198,7 +201,9 @@ class CollectionTests extends APITests {
 		);
 		
 		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['success']);
+		$xml = API::getCollectionXML($json['success']);
 		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
@@ -242,7 +247,9 @@ class CollectionTests extends APITests {
 			)
 		);
 		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['success']);
+		$xml = API::getCollectionXML($json['success']);
 		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');

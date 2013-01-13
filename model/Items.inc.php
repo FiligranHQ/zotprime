@@ -1404,16 +1404,24 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                              $requireVersion=false) {
 		self::validateJSONItems($json);
 		
-		$keys = array();
+		$results = new Zotero_Results;
 		
+		$i = 0;
 		foreach ($json->items as $jsonItem) {
-			$item = new Zotero_Item;
-			$item->libraryID = $libraryID;
-			self::updateFromJSON($item, $jsonItem, $parentItem, $userID, $requireVersion);
-			$keys[] = $item->key;
+			try {
+				$item = new Zotero_Item;
+				$item->libraryID = $libraryID;
+				self::updateFromJSON($item, $jsonItem, $parentItem, $userID, $requireVersion);
+				$results->addSuccess($i, $item->key);
+			}
+			catch (Exception $e) {
+				$resultKey = isset($jsonItem->itemKey) ? $jsonItem->itemKey : '';
+				$results->addFailure($i, $resultKey, $e);
+			}
+			$i++;
 		}
 		
-		return $keys;
+		return $results->generateReport();
 	}
 	
 	

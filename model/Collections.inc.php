@@ -342,6 +342,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 	public static function updateMultipleFromJSON($json, $libraryID, $requireVersion=false) {
 		self::validateJSONCollections($json);
 		
+		$results = new Zotero_Results;
+		
 		// If single collection object, stuff in 'collections' array
 		if (!isset($json->collections)) {
 			$newJSON = new stdClass;
@@ -349,16 +351,23 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$json = $newJSON;
 		}
 		
-		$keys = array();
-		
+		$i = 0;
 		foreach ($json->collections as $jsonCollection) {
-			$collection = new Zotero_Collection;
-			$collection->libraryID = $libraryID;
-			self::updateFromJSON($collection, $jsonCollection, $requireVersion);
-			$keys[] = $collection->key;
+			try {
+				$collection = new Zotero_Collection;
+				$collection->libraryID = $libraryID;
+				self::updateFromJSON($collection, $jsonCollection, $requireVersion);
+				$results->addSuccess($i, $collection->key);
+			}
+			catch (Exception $e) {
+				$resultKey = isset($jsonCollection->collectionKey)
+					? $jsonCollection->collectionKey : '';
+				$results->addFailure($i, $resultKey, $e);
+			}
+			$i++;
 		}
 		
-		return $keys;
+		return $results->generateReport();
 	}
 	
 	
