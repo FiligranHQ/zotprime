@@ -73,20 +73,20 @@ class API {
 		}
 		
 		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
 		switch ($responseFormat) {
 		case 'json':
 			return $json;
 		
 		case 'key':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			return array_shift($json['success']);
 		
 		case 'atom':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			$itemKey = array_shift($json['success']);
 			return self::getItemXML($itemKey, $context);
 		
@@ -140,20 +140,20 @@ class API {
 		}
 		
 		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
 		switch ($responseFormat) {
 		case 'json':
 			return $json;
 		
 		case 'key':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			return array_shift($json['success']);
 		
 		case 'atom':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			$itemKey = array_shift($json['success']);
 			return self::groupGetItemXML($groupID, $itemKey, $context);
 		
@@ -189,20 +189,20 @@ class API {
 		}
 		
 		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
 		switch ($responseFormat) {
 		case 'json':
 			return $json;
 		
 		case 'key':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			return array_shift($json['success']);
 		
 		case 'atom':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			$itemKey = array_shift($json['success']);
 			$xml = self::getItemXML($itemKey, $context);
 			if ($context) {
@@ -246,20 +246,20 @@ class API {
 		}
 		
 		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
 		switch ($responseFormat) {
 		case 'json':
 			return $json;
 		
 		case 'key':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			return array_shift($json['success']);
 		
 		case 'atom':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			$itemKey = array_shift($json['success']);
 			$xml = self::groupGetItemXML($groupID, $itemKey, $context);
 			if ($context) {
@@ -302,20 +302,20 @@ class API {
 		}
 		
 		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
 		switch ($responseFormat) {
 		case 'json':
 			return $json;
 		
 		case 'key':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			return array_shift($json['success']);
 		
 		case 'atom':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			$itemKey = array_shift($json['success']);
 			$xml = self::getItemXML($itemKey, $context);
 			if ($context) {
@@ -354,20 +354,20 @@ class API {
 		}
 		
 		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
 		switch ($responseFormat) {
 		case 'json':
 			return $json;
 		
 		case 'key':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			return array_shift($json['success']);
 		
 		case 'atom':
-			if ($context) {
-				$context->assertCount(1, $json['success']);
-			}
 			$collectionKey = array_shift($json['success']);
 			return self::getCollectionXML($collectionKey, $context);
 		
