@@ -133,7 +133,8 @@ class Zotero_DataObjects {
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
 			
-			$cacheKey = $type . 'IDsByKey_' . $libraryID . "_" . Zotero_Libraries::getVersion($libraryID, true);
+			$cacheVersion = 1;
+			$cacheKey = "{$type}IDsByKey_{$libraryID}_" . Zotero_Libraries::getVersion($libraryID, true) . "_$cacheVersion";
 			$ids = Z_Core::$MC->get($cacheKey);
 			if ($ids === false) {
 				if ($type == 'relation') {
