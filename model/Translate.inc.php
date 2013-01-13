@@ -41,7 +41,7 @@ class Zotero_Translate {
 	
 	public static function doExport($items, $format) {
 		if (!in_array($format, self::$exportFormats)) {
-			throw new Exception("Invalid export format");
+			throw new Exception("Invalid export format '$format'");
 		}
 		
 		$jsonItems = array();
