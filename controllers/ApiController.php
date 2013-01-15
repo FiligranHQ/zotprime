@@ -75,6 +75,7 @@ class ApiController extends Controller {
 		$this->startTime = microtime(true);
 		register_shutdown_function(array($this, 'checkDBTransactionState'));
 		register_shutdown_function(array($this, 'logTotalRequestTime'));
+		register_shutdown_function(array($this, 'checkForFatalError'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		/*if (isset($_SERVER['REMOTE_ADDR'])
@@ -3213,6 +3214,15 @@ class ApiController extends Controller {
 		if (Zotero_DB::transactionInProgress()) {
 			error_log("Transaction still in progress at request end! "
 				. "[" . $this->method . " " . $_SERVER['REQUEST_URI'] . "]");
+		}
+	}
+	
+	
+	public function checkForFatalError() {
+		$lastError = error_get_last();
+		if (!empty($lastError) && $lastError['type'] == E_ERROR) {
+			header('Status: 500 Internal Server Error');
+			header('HTTP/1.0 500 Internal Server Error');
 		}
 	}
 	
