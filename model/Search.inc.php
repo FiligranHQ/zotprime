@@ -423,7 +423,7 @@ class Zotero_Search {
 				break;
 			
 			case 'key':
-				if (!preg_match('/^[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}$/', $value)) {
+				if (!Zotero_ID::isValidKey($value)) {
 					$this->invalidValueError($field, $value);
 				}
 				break;

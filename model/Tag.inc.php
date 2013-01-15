@@ -189,7 +189,7 @@ class Zotero_Tag {
 			
 			Z_Core::debug("Saving tag $tagID");
 			
-			$key = $this->key ? $this->key : $this->generateKey();
+			$key = $this->key ? $this->key : Zotero_ID::getKey();
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
@@ -717,11 +717,6 @@ class Zotero_Tag {
 		if ($this->id && $this->exists() && !$this->previousData) {
 			$this->previousData = $this->serialize();
 		}
-	}
-	
-	
-	private function generateKey() {
-		return Zotero_ID::getKey();
 	}
 	
 	

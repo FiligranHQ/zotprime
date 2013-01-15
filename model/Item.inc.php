@@ -1185,7 +1185,7 @@ class Zotero_Item {
 				// Primary fields
 				//
 				$itemID = $this->id ? $this->id : Zotero_ID::get('items');
-				$key = $this->key ? $this->key : $this->generateKey();
+				$key = $this->key ? $this->key : Zotero_ID::getKey();
 				
 				$sqlColumns = array(
 					'itemID',
@@ -3829,11 +3829,6 @@ class Zotero_Item {
 		}
 		return $mode . "_" . $this->id . "_" . self::getETag() . "_"
 			. ($cacheVersion ? $cacheVersion : Zotero_Items::$cacheVersion);
-	}
-	
-	
-	private function generateKey() {
-		return Zotero_ID::getKey();
 	}
 }
 ?>

@@ -152,7 +152,7 @@ class Zotero_Collection {
 			
 			Z_Core::debug("Saving collection $this->id");
 			
-			$key = $this->key ? $this->key : $this->generateKey();
+			$key = $this->key ? $this->key : Zotero_ID::getKey();
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
@@ -853,7 +853,7 @@ class Zotero_Collection {
 				break;
 			
 			case 'key':
-				if (!preg_match('/^[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}$/', $value)) {
+				if (!Zotero_ID::isValidKey($value)) {
 					$this->invalidValueError($field, $value);
 				}
 				break;
@@ -880,11 +880,6 @@ class Zotero_Collection {
 		}
 		
 		return md5($this->name . "_" . $this->getParent());
-	}
-	
-	
-	private function generateKey() {
-		return Zotero_ID::getKey();
 	}
 	
 	
