@@ -4,7 +4,7 @@
     
     This file is part of the Zotero Data Server.
     
-    Copyright © 2012 Center for History and New Media
+    Copyright © 2013 Center for History and New Media
                      George Mason University, Fairfax, Virginia, USA
                      http://zotero.org
     
@@ -33,73 +33,165 @@ class SearchTests extends APITests {
 		API::userClear(self::$config['userID']);
 	}
 	
-	
 	public static function tearDownAfterClass() {
 		parent::tearDownAfterClass();
 		API::userClear(self::$config['userID']);
 	}
 	
 	
-	public function testObjectKeyParameter() {
-		$this->_testObjectKeyParameter('collection');
-		$this->_testObjectKeyParameter('item');
-		// TODO
-		//$this->_testObjectKeyParameter('search');
+	public function testNewSearch() {
+		$name = "Test Search";
+		$conditions = array(
+			array(
+				"condition" => "title",
+				"operator" => "contains",
+				"value" => "test"
+			),
+			array(
+				"condition" => "noChildren",
+				"operator" => "false",
+				"value" => ""
+			),
+			array(
+				"condition" => "fulltextContent/regexp",
+				"operator" => "contains",
+				"value" => "/test/"
+			)
+		);
+		
+		$xml = API::createSearch($name, $conditions, $this);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals($name, (string) $json->name);
+		$this->assertInternalType('array', $json->conditions);
+		$this->assertCount(sizeOf($conditions), $json->conditions);
+		foreach ($conditions as $i => $condition) {
+			foreach ($condition as $key => $val) {
+				$this->assertEquals($val, $json->conditions[$i]->$key);
+			}
+		}
+		
+		return $data;
 	}
 	
 	
-	private function _testObjectKeyParameter($objectType) {
-		$objectTypePlural = API::getPluralObjectType($objectType);
+	/**
+	 * @depends testNewSearch
+	 */
+	public function testModifySearch($newSearchData) {
+		$key = $newSearchData['key'];
+		$version = $newSearchData['version'];
+		$json = json_decode($newSearchData['content'], true);
 		
-		switch ($objectType) {
-		case 'collection':
-			$xml = API::createCollection("Name", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$key1 = $data['key'];
-			
-			$xml = API::createCollection("Name", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$key2 = $data['key'];
-			break;
+		// Remove one search condition
+		array_shift($json['conditions']);
 		
-		case 'item':
-			$xml = API::createItem("book", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$key1 = $data['key'];
-			
-			$xml = API::createItem("book", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$key2 = $data['key'];
-			break;
+		$name = $json['name'];
+		$conditions = $json['conditions'];
 		
-		// TODO
-		case 'search':
-			break;
-		}
-		
-		$response = API::userGet(
+		$response = API::userPut(
 			self::$config['userID'],
-			"$objectTypePlural?key=" . self::$config['apiKey']
-				. "&content=json&{$objectType}Key=$key1"
+			"searches/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $version"
+			)
 		);
-		$this->assert200($response);
-		$this->assertNumResults(1, $response);
-		$xml = API::getXMLFromResponse($response);
+		$this->assert204($response);
+		
+		$xml = API::getSearchXML($key);
 		$data = API::parseDataFromAtomEntry($xml);
-		$this->assertEquals($key1, $data['key']);
-		
-		$response = API::userGet(
-			self::$config['userID'],
-			"$objectTypePlural?key=" . self::$config['apiKey']
-				. "&content=json&{$objectType}Key=$key1,$key2&order={$objectType}KeyList"
+		$json = json_decode($data['content']);
+		$this->assertEquals($name, (string) $json->name);
+		$this->assertInternalType('array', $json->conditions);
+		$this->assertCount(sizeOf($conditions), $json->conditions);
+		foreach ($conditions as $i => $condition) {
+			foreach ($condition as $key => $val) {
+				$this->assertEquals($val, $json->conditions[$i]->$key);
+			}
+		}
+	}
+	
+	
+	public function testNewSearchNoName() {
+		$json = API::createSearch(
+			"",
+			array(
+				array(
+					"condition" => "title",
+					"operator" => "contains",
+					"value" => "test"
+				)
+			),
+			$this,
+			'json'
 		);
-		$this->assert200($response);
-		$this->assertNumResults(2, $response);
-		$xml = API::getXMLFromResponse($response);
-		$xpath = $xml->xpath('//atom:entry/zapi:key');
-		$key = (string) array_shift($xpath);
-		$this->assertEquals($key1, $key);
-		$key = (string) array_shift($xpath);
-		$this->assertEquals($key2, $key);
+		$this->assert400ForObject($json, "Search name cannot be empty");
+	}
+	
+	
+	public function testNewSearchNoConditions() {
+		$json = API::createSearch("Test", array(), $this, 'json');
+		$this->assert400ForObject($json, "'conditions' cannot be empty");
+	}
+	
+	
+	public function testNewSearchConditionErrors() {
+		$json = API::createSearch(
+			"Test",
+			array(
+				array(
+					"operator" => "contains",
+					"value" => "test"
+				)
+			),
+			$this,
+			'json'
+		);
+		$this->assert400ForObject($json, "'condition' property not provided for search condition");
+		
+		$json = API::createSearch(
+			"Test",
+			array(
+				array(
+					"condition" => "",
+					"operator" => "contains",
+					"value" => "test"
+				)
+			),
+			$this,
+			'json'
+		);
+		$this->assert400ForObject($json, "Search condition cannot be empty");
+		
+		$json = API::createSearch(
+			"Test",
+			array(
+				array(
+					"condition" => "title",
+					"value" => "test"
+				)
+			),
+			$this,
+			'json'
+		);
+		$this->assert400ForObject($json, "'operator' property not provided for search condition");
+		
+		$json = API::createSearch(
+			"Test",
+			array(
+				array(
+					"condition" => "title",
+					"operator" => "",
+					"value" => "test"
+				)
+			),
+			$this,
+			'json'
+		);
+		$this->assert400ForObject($json, "Search operator cannot be empty");
 	}
 }

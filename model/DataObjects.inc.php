@@ -75,6 +75,37 @@ class Zotero_DataObjects {
 	}
 	
 	
+	public static function get($libraryID, $id, $skipCheck=false) {
+		$type = static::field('object');
+		$table = static::field('table');
+		$idField = static::field('id');
+		
+		if (!$libraryID) {
+			throw new Exception("Library ID not set");
+		}
+		
+		if (!$id) {
+			throw new Exception("ID not set");
+		}
+		
+		if (!$skipCheck) {
+			$sql = "SELECT COUNT(*) FROM $table WHERE $idField=?";
+			$result = Zotero_DB::valueQuery(
+				$sql, $id, Zotero_Shards::getByLibraryID($libraryID)
+			);
+			if (!$result) {
+				return false;
+			}
+		}
+		
+		$className = "Zotero_" . ucwords($type);
+		$obj = new $className;
+		$obj->libraryID = $libraryID;
+		$obj->id = $id;
+		return $obj;
+	}
+	
+	
 	public static function getByLibraryAndKey($libraryID, $key) {
 		$type = static::field('object');
 		$types = static::field('objects');
@@ -459,6 +490,98 @@ class Zotero_DataObjects {
 		}
 		
 		return $countOnly ? $count : $updatedByLibraryID;
+	}
+	
+	
+	public static function updateMultipleFromJSON($json, $libraryID, $userID, $requireVersion, $parent=null) {
+		$type = static::field('object');
+		$types = static::field('objects');
+		$keyProp = $type . "Key";
+		
+		switch ($type) {
+		case 'collection':
+		case 'search':
+			if ($parent) {
+				throw new Exception('$parent is not valid for ' . $type);
+			}
+			break;
+		
+		case 'item':
+			break;
+		
+		default:
+			throw new Exception("Function not valid for $type");
+		}
+		
+		static::validateMultiObjectJSON($types, $json);
+		
+		$results = new Zotero_Results;
+		
+		// If single collection object, stuff in 'collections' array
+		if ($type == 'collection') {
+			if (!isset($json->collections)) {
+				$newJSON = new stdClass;
+				$newJSON->collections = array($json);
+				$json = $newJSON;
+			}
+		}
+		
+		$i = 0;
+		foreach ($json->$types as $jsonObject) {
+			try {
+				$className = "Zotero_" . ucwords($type);
+				$obj = new $className;
+				$obj->libraryID = $libraryID;
+				if ($type == 'item') {
+					static::updateFromJSON(
+						$obj, $jsonObject, $parent, $userID, $requireVersion
+					);
+				}
+				else {
+					static::updateFromJSON($obj, $jsonObject, $requireVersion);
+				}
+				$results->addSuccess($i, $obj->key);
+			}
+			catch (Exception $e) {
+				$resultKey = isset($jsonObject->$keyProp)
+					? $jsonObject->$keyProp : '';
+				$results->addFailure($i, $resultKey, $e);
+			}
+			$i++;
+		}
+		
+		return $results->generateReport();
+	}
+	
+	
+	protected static function validateMultiObjectJSON($objectTypePlural, $json) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object');
+		}
+		
+		// Multiple-object format
+		if (isset($json->$objectTypePlural)) {
+			foreach ($json as $key=>$val) {
+				if ($key != $objectTypePlural) {
+					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+				}
+				$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
+				if (sizeOf($val) > Zotero_API::$$maxWriteKey) {
+					throw new Exception("Cannot add more than "
+						. Zotero_API::$$maxWriteKey
+						. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+				}
+			}
+		}
+		// Single-collection format (collections only)
+		else if ($objectTypePlural == 'collections') {
+			if (!isset($json->name)) {
+				throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		else {
+			throw new Exception("'$objectTypePlural' must be provided", Z_ERROR_INVALID_INPUT);
+		}
 	}
 	
 	

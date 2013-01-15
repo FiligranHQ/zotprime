@@ -242,15 +242,14 @@ class Zotero_Collection {
 			throw ($e);
 		}
 		
-		// If successful, set values in object
-		if (!$this->id) {
+		if (!$this->_id) {
 			$this->_id = $collectionID;
 		}
-		if (!$this->key) {
+		if (!$this->_key) {
 			$this->_key = $key;
 		}
 		
-		return $this->id;
+		return $this->_id;
 	}
 	
 	

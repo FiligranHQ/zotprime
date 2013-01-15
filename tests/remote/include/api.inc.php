@@ -377,6 +377,52 @@ class API {
 	}
 	
 	
+	public function createSearch($name, array $conditions=array(), $context=null, $responseFormat='atom') {
+		self::loadConfig();
+		
+		$json = array(
+			"searches" => array(
+				array(
+					'name' => $name,
+					'conditions' => $conditions
+				)
+			)
+		);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"searches?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		if ($context) {
+			$context->assert200($response);
+		}
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
+		switch ($responseFormat) {
+		case 'json':
+			return $json;
+		
+		case 'key':
+			return array_shift($json['success']);
+		
+		case 'atom':
+			$searchKey = array_shift($json['success']);
+			return self::getSearchXML($searchKey, $context);
+		
+		default:
+			throw new Exception("Invalid response format '$responseFormat'");
+		}
+	}
+	
+	
 	public static function getItemXML($keys, $context=null) {
 		return self::getObjectXML('item', $keys, $context);
 	}
@@ -408,6 +454,11 @@ class API {
 	
 	public static function getCollectionXML($keys, $context=null) {
 		return self::getObjectXML('collection', $keys, $context);
+	}
+	
+	
+	public static function getSearchXML($keys, $context=null) {
+		return self::getObjectXML('search', $keys, $context);
 	}
 	
 	

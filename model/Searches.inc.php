@@ -29,6 +29,107 @@ class Zotero_Searches extends Zotero_DataObjects {
 	protected static $ZDO_objects = 'searches';
 	protected static $ZDO_table = 'savedSearches';
 	
+	
+	public static function search($libraryID, $params) {
+		$results = array('results' => array(), 'total' => 0);
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
+		if ($params['format'] == 'versions') {
+			$sql .= "`key`, version";
+		}
+		else {
+			$sql .= "searchID";
+		}
+		$sql .= " FROM savedSearches WHERE libraryID=? ";
+		$sqlParams = array($libraryID);
+		
+		// Pass a list of searchIDs, for when the initial search is done via SQL
+		$searchIDs = !empty($params['searchIDs'])
+			? $params['searchIDs'] : array();
+		// Or keys, for the searchKey parameter
+		$searchKeys = !empty($params['searchKey'])
+			? explode(',', $params['searchKey']): array();
+		
+		if (!empty($params['newer'])) {
+			$sql .= "AND version > ? ";
+			$sqlParams[] = $params['newer'];
+		}
+		
+		if ($searchIDs) {
+			$sql .= "AND searchID IN ("
+					. implode(', ', array_fill(0, sizeOf($searchIDs), '?'))
+					. ") ";
+			$sqlParams = array_merge($sqlParams, $searchIDs);
+		}
+		
+		if ($searchKeys) {
+			$sql .= "AND `key` IN ("
+					. implode(', ', array_fill(0, sizeOf($searchKeys), '?'))
+					. ") ";
+			$sqlParams = array_merge($sqlParams, $searchKeys);
+		}
+		
+		if (!empty($params['order'])) {
+			switch ($params['order']) {
+			case 'title':
+				$orderSQL = 'searchName';
+				break;
+			
+			case 'searchKeyList':
+				$orderSQL = "FIELD(`key`,"
+						. implode(',', array_fill(0, sizeOf($searchKeys), '?')) . ")";
+				$sqlParams = array_merge($sqlParams, $searchKeys);
+				break;
+			
+			default:
+				$orderSQL = $params['order'];
+			}
+			
+			$sql .= "ORDER BY $orderSQL";
+			if (!empty($params['sort'])) {
+				$sql .= " {$params['sort']}";
+			}
+			$sql .= ", ";
+		}
+		$sql .= "version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
+			. ", searchID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
+		
+		if (!empty($params['limit'])) {
+			$sql .= "LIMIT ?, ?";
+			$sqlParams[] = $params['start'] ? $params['start'] : 0;
+			$sqlParams[] = $params['limit'];
+		}
+		
+		if ($params['format'] == 'versions') {
+			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
+		}
+		else {
+			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
+		}
+		
+		if ($rows) {
+			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
+			
+			if ($params['format'] == 'versions') {
+				foreach ($rows as $row) {
+					$results['results'][$row['key']] = $row['version'];
+				}
+			}
+			else {
+				$searches = array();
+				foreach ($rows as $id) {
+					$searches[] = self::get($libraryID, $id);
+				}
+				$results['results'] = $searches;
+			}
+		}
+		
+		return $results;
+	}
+	
+	
 	/**
 	 * Converts a SimpleXMLElement item to a Zotero_Search object
 	 *
@@ -43,47 +144,16 @@ class Zotero_Searches extends Zotero_DataObjects {
 		$search->dateAdded = (string) $xml['dateAdded'];
 		$search->dateModified = (string) $xml['dateModified'];
 		
-		$conditionID = -1;
-		
-		// Search conditions
+		$conditions = array();
 		foreach($xml->condition as $condition) {
-			$conditionID = (int) $condition['id'];
-			$name = (string) $condition['condition'];
-			$mode = (string) $condition['mode'];
-			$operator = (string) $condition['operator'];
-			$value = (string) $condition['value'];
-			$required = (bool) $condition['required'];
-			
-			if ($search->getSearchCondition($conditionID)) {
-				$search->updateCondition(
-					$conditionID,
-					$name,
-					$mode,
-					$operator,
-					$value,
-					$required
-				);
-			}
-			else {
-				$newID = $search->addCondition(
-					$name,
-					$mode,
-					$operator,
-					$value,
-					$required
-				);
-				
-				if ($newID != $conditionID) {
-					trigger_error("Search condition ids not contiguous", E_USER_ERROR);
-				}
-			}
+			$conditions[] = array(
+				'condition' => (string) $condition['condition'],
+				'mode' => (string) $condition['mode'],
+				'operator' => (string) $condition['operator'],
+				'value' => (string) $condition['value']
+			);
 		}
-		
-		$conditionID++;
-		while ($search->getSearchCondition($conditionID)) {
-			$search->removeCondition($conditionID);
-			$conditionID++;
-		}
+		$search->updateConditions($conditions);
 		
 		return $search;
 	}
@@ -122,6 +192,137 @@ class Zotero_Searches extends Zotero_DataObjects {
 		}
 		
 		return $xml;
+	}
+	
+	
+	/**
+	 * @param Zotero_Searches $search The search object to update;
+	 *                                this should be either an existing
+	 *                                search or a new search
+	 *                                with a library assigned.
+	 * @param object $json
+	 * @param boolean [$requireVersion=false]
+	 */
+	public static function updateFromJSON(Zotero_Search $search,
+	                                      $json,
+	                                      $requireVersion=false) {
+		Zotero_API::processJSONObjectKey($search, $json);
+		Zotero_API::checkJSONObjectVersion($search, $json, $requireVersion);
+		self::validateJSONSearch($json);
+		
+		$search->name = $json->name;
+		
+		$conditions = array();
+		foreach ($json->conditions as $condition) {
+			$newCondition = get_object_vars($condition);
+			// Parse 'mode' (e.g., '/regexp') out of condition name
+			if (preg_match('/(.+)\/(.+)/', $newCondition['condition'], $matches)) {
+				$newCondition['condition'] = $matches[1];
+				$newCondition['mode'] = $matches[2];
+			}
+			else {
+				$newCondition['mode'] = "";
+			}
+			$conditions[] = $newCondition;
+		}
+		$search->updateConditions($conditions);
+		$search->save();
+	}
+	
+	
+	private static function validateJSONSearch($json, $requireVersion=false) {
+		if (!is_object($json)) {
+			throw new Exception('$json must be a decoded JSON object');
+		}
+		
+		$requiredProps = array('name', 'conditions');
+		foreach ($requiredProps as $prop) {
+			if (!isset($json->$prop)) {
+				throw new Exception("'$prop' property not provided", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		foreach ($json as $key => $val) {
+			switch ($key) {
+				// Handled by Zotero_API::checkJSONObjectVersion()
+				case 'searchKey':
+				case 'searchVersion':
+					break;
+				
+				case 'name':
+					if (!is_string($val)) {
+						throw new Exception("'name' must be a string", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if ($val === "") {
+						throw new Exception("Search name cannot be empty", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (mb_strlen($val) > 255) {
+						throw new Exception("Search name cannot be longer than 255 characters", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+					
+				case 'conditions':
+					if (!is_array($val)) {
+						throw new Exception("'conditions' must be an array (" . gettype($val) . ")", Z_ERROR_INVALID_INPUT);
+					}
+					if (empty($val)) {
+						throw new Exception("'conditions' cannot be empty", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				default:
+					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		
+		// Search conditions
+		foreach ($json->conditions as $condition) {
+			$requiredProps = array('condition', 'operator', 'value');
+			foreach ($requiredProps as $prop) {
+				if (!isset($condition->$prop)) {
+					throw new Exception("'$prop' property not provided for search condition", Z_ERROR_INVALID_INPUT);
+				}
+			}
+			
+			foreach ($condition as $key => $val) {
+				if (!is_string($val)) {
+					throw new Exception("'$key' must be a string", Z_ERROR_INVALID_INPUT);
+				}
+				
+				switch ($key) {
+					case 'condition':
+						if ($val === "") {
+							throw new Exception("Search condition cannot be empty", Z_ERROR_INVALID_INPUT);
+						}
+						$maxLen = 50;
+						if (strlen($val) > $maxLen) {
+							throw new Exception("Search condition cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
+						}
+						break;
+						
+					case 'operator':
+						if ($val === "") {
+							throw new Exception("Search operator cannot be empty", Z_ERROR_INVALID_INPUT);
+						}
+						$maxLen = 25;
+						if (strlen($val) > $maxLen) {
+							throw new Exception("Search operator cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
+						}
+						break;
+					
+					case 'value':
+						$maxLen = 255;
+						if (strlen($val) > $maxLen) {
+							throw new Exception("Search operator cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
+						}
+						break;
+					
+					default:
+						throw new Exception("Invalid property '$key' for search condition", Z_ERROR_INVALID_INPUT);
+				}
+			}
+		}
 	}
 }
 ?>

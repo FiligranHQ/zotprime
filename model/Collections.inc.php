@@ -41,30 +41,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 	);
 	
 	
-	public static function get($libraryID, $id, $skipCheck=false) {
-		if (!$libraryID) {
-			throw new Exception("Library ID not set");
-		}
-		
-		if (!$id) {
-			throw new Exception("ID not set");
-		}
-		
-		if (!$skipCheck) {
-			$sql = 'SELECT COUNT(*) FROM collections WHERE collectionID=?';
-			$result = Zotero_DB::valueQuery($sql, $id, Zotero_Shards::getByLibraryID($libraryID));
-			if (!$result) {
-				return false;
-			}
-		}
-		
-		$collection = new Zotero_Collection;
-		$collection->libraryID = $libraryID;
-		$collection->id = $id;
-		return $collection;
-	}
-	
-	
 	public static function search($libraryID, $onlyTopLevel=false, $params) {
 		$results = array('results' => array(), 'total' => 0);
 		
@@ -339,38 +315,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	public static function updateMultipleFromJSON($json, $libraryID, $requireVersion=false) {
-		self::validateJSONCollections($json);
-		
-		$results = new Zotero_Results;
-		
-		// If single collection object, stuff in 'collections' array
-		if (!isset($json->collections)) {
-			$newJSON = new stdClass;
-			$newJSON->collections = array($json);
-			$json = $newJSON;
-		}
-		
-		$i = 0;
-		foreach ($json->collections as $jsonCollection) {
-			try {
-				$collection = new Zotero_Collection;
-				$collection->libraryID = $libraryID;
-				self::updateFromJSON($collection, $jsonCollection, $requireVersion);
-				$results->addSuccess($i, $collection->key);
-			}
-			catch (Exception $e) {
-				$resultKey = isset($jsonCollection->collectionKey)
-					? $jsonCollection->collectionKey : '';
-				$results->addFailure($i, $resultKey, $e);
-			}
-			$i++;
-		}
-		
-		return $results->generateReport();
-	}
-	
-	
 	/**
 	 * @param Zotero_Collection $collection The collection object to update;
 	 *                                      this should be either an existing
@@ -394,31 +338,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$collection->parent = false;
 		}
 		$collection->save();
-	}
-	
-	
-	private static function validateJSONCollections($json) {
-		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object');
-		}
-		
-		// Multiple-collection format
-		if (isset($json->collections)) {
-			foreach ($json as $key=>$val) {
-				if ($key != 'collections') {
-					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
-				}
-				if (sizeOf($val) > Zotero_API::$maxWriteCollections) {
-					throw new Exception("Cannot add more than "
-						. Zotero_API::$maxWriteCollections
-						. " collections at a time", Z_ERROR_UPLOAD_TOO_LARGE);
-				}
-			}
-		}
-		// Single-collection format
-		else if (!isset($json->name)) {
-			throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
-		}
 	}
 	
 	

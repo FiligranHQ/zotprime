@@ -36,7 +36,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	private static $itemsByID = array();
 	
 	
-	public static function get($libraryID, $itemIDs) {
+	public static function get($libraryID, $itemIDs, $skipCheck=false) {
 		$numArgs = func_num_args();
 		if ($numArgs != 2) {
 			throw new Exception('Zotero_Items::get() takes two parameters');
@@ -1395,37 +1395,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	
 	/**
-	 * Create new items from a decoded JSON object
-	 */
-	public static function updateMultipleFromJSON($json,
-		                                          $libraryID,
-	                                              Zotero_Item $parentItem=null,
-	                                              $userID=null,
-	                                              $requireVersion=false) {
-		self::validateJSONItems($json);
-		
-		$results = new Zotero_Results;
-		
-		$i = 0;
-		foreach ($json->items as $jsonItem) {
-			try {
-				$item = new Zotero_Item;
-				$item->libraryID = $libraryID;
-				self::updateFromJSON($item, $jsonItem, $parentItem, $userID, $requireVersion);
-				$results->addSuccess($i, $item->key);
-			}
-			catch (Exception $e) {
-				$resultKey = isset($jsonItem->itemKey) ? $jsonItem->itemKey : '';
-				$results->addFailure($i, $resultKey, $e);
-			}
-			$i++;
-		}
-		
-		return $results->generateReport();
-	}
-	
-	
-	/**
 	 * Import an item by URL using the translation server
 	 *
 	 * Initial request:
@@ -1462,7 +1431,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if (isset($response->items)) {
 			try {
-				self::validateJSONItems($response);
+				self::validateMultiObjectJSON('items', $response);
 			}
 			catch (Exception $e) {
 				error_log($e);
@@ -1687,22 +1656,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			
 			$item->save($userID);
-		}
-	}
-	
-	
-	private static function validateJSONItems($json) {
-		if (!is_object($json)) {
-			throw new Exception("Invalid items object (found " . gettype($json) . " '" . $json . "')", Z_ERROR_INVALID_INPUT);
-		}
-		
-		foreach ($json as $key=>$val) {
-			if ($key != 'items') {
-				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
-			}
-			if (sizeOf($val) > Zotero_API::$maxWriteItems) {
-				throw new Exception("Cannot add more than " . Zotero_API::$maxWriteItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
-			}
 		}
 	}
 	

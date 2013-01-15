@@ -703,9 +703,9 @@ class ApiController extends Controller {
 						$results = Zotero_Items::updateMultipleFromJSON(
 							$obj,
 							$this->objectLibraryID,
-							$item,
 							$this->userID,
-							empty($libraryTimestampChecked)
+							empty($libraryTimestampChecked),
+							$item
 						);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
@@ -756,9 +756,9 @@ class ApiController extends Controller {
 							$results = Zotero_Items::updateMultipleFromJSON(
 								$obj,
 								$this->objectLibraryID,
-								null,
 								$this->userID,
-								empty($libraryTimestampChecked)
+								empty($libraryTimestampChecked),
+								null
 							);
 						}
 						
@@ -1528,7 +1528,9 @@ class ApiController extends Controller {
 						$results = Zotero_Collections::updateMultipleFromJSON(
 							$obj,
 							$this->objectLibraryID,
-							empty($libraryTimestampChecked)
+							$this->userID,
+							empty($libraryTimestampChecked),
+							null
 						);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
@@ -1546,6 +1548,134 @@ class ApiController extends Controller {
 			if ($collectionIDs) {
 				$this->queryParams['collectionIDs'] = $collectionIDs;
 				$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
+			}
+			
+			if ($results && isset($results['results'])) {
+				$totalResults = $results['total'];
+				$results = $results['results'];
+			}
+				
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = Zotero_Atom::createAtomFeed(
+					$this->getFeedNamePrefix($this->objectLibraryID) . $title,
+					$this->uri,
+					$results,
+					$totalResults,
+					$this->queryParams,
+					$this->permissions
+				);
+				break;
+			
+			case 'versions':
+			case 'writereport':
+				if ($this->queryParams['pprint']) {
+					header("Content-Type: text/plain");
+				}
+				else {
+					header("Content-Type: application/json");
+				}
+				echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
+				break;
+			
+			default:
+				throw new Exception("Invalid 'format' value '"
+					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		
+		Zotero_DB::commit();
+		Z_Core::$MC->commit();
+		
+		$this->end();
+	}
+	
+	
+	public function searches() {
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
+		Z_Core::$MC->begin();
+		Zotero_DB::beginTransaction();
+		
+		if ($this->isWriteMethod()) {
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			if (!$this->singleObject) {
+				$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
+			}
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+		}
+		
+		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		
+		$results = array();
+		$totalResults = 0;
+		
+		// Single search
+		if ($this->singleObject) {
+			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+			
+			$search = Zotero_Searches::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
+			if (!$search) {
+				$this->e404("Search not found");
+			}
+			
+			if ($this->method == 'PUT' || $this->method == 'DELETE') {
+				$this->checkObjectIfUnmodifiedSinceVersion($search);
+				
+				// Update search
+				if ($this->method == 'PUT') {
+					$obj = $this->jsonDecode($this->body);
+					Zotero_Searches::updateFromJSON($search, $obj);
+					
+					if ($cacheKey = $this->getWriteTokenCacheKey()) {
+						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+					}
+				}
+				// Delete search
+				else {
+					Zotero_Searches::delete($this->objectLibraryID, $this->objectKey);
+				}
+				
+				Zotero_DB::commit();
+				$this->e204();
+			}
+			
+			$this->responseXML = $search->toAtom($this->queryParams);
+		}
+		// Multiple searches
+		else {
+			$this->allowMethods(array('GET', 'POST'));
+			
+			// Create a search
+			if ($this->method == 'POST') {
+				$this->queryParams['format'] = 'writereport';
+				
+				$obj = $this->jsonDecode($this->body);
+				$results = Zotero_Searches::updateMultipleFromJSON(
+					$obj,
+					$this->objectLibraryID,
+					$this->userID,
+					empty($libraryTimestampChecked),
+					null
+				);
+				
+				if ($cacheKey = $this->getWriteTokenCacheKey()) {
+					Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+				}
+			}
+			// Display searches
+			else {
+				$title = "Searches";
+				$results = Zotero_Searches::search($this->objectLibraryID, $this->queryParams);
 			}
 			
 			if ($results && isset($results['results'])) {

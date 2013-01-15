@@ -87,6 +87,10 @@ class Zotero_URI {
 		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
 	}
 	
+	public static function getSearchURI(Zotero_Search $search) {
+		return self::getLibraryURI($search->libraryID) . "/searches/$search->key";
+	}
+	
 	public static function getTagURI(Zotero_Tag $tag) {
 		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}

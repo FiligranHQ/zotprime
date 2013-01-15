@@ -27,7 +27,7 @@
 class Zotero_Relations extends Zotero_DataObjects {
 	protected static $ZDO_object = 'relation';
 	
-	public static function get($libraryID, $relationID) {
+	public static function get($libraryID, $relationID, $existsCheck=false) {
 		$numArgs = func_num_args();
 		if ($numArgs != 2) {
 			throw new Exception('Zotero_Relations::get() takes two parameters');

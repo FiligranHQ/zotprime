@@ -74,6 +74,10 @@ class Zotero_Atom {
 		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
 	}
 	
+	public static function getSearchURI(Zotero_Search $search) {
+		return self::getLibraryURI($search->libraryID) . "/searches/$search->key";
+	}
+	
 	public static function getTagURI(Zotero_Tag $tag) {
 		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
@@ -188,7 +192,6 @@ class Zotero_Atom {
 		$link['rel'] = "last";
 		$link['type'] = "application/atom+xml";
 		$link['href'] = $atomLastURI;
-
 		
 		// Generate alternate URI
 		$alternateURI = Zotero_URI::getBaseURI() . substr($path, 1);
@@ -244,7 +247,7 @@ class Zotero_Atom {
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Search) {
-				$entry = Zotero_Searches::convertSearchToAtom($entry, $queryParams);
+				$entry = $entry->toAtom($queryParams);
 				$xmlEntries[] = $entry;
 			}
 			else if ($entry instanceof Zotero_Tag) {

@@ -42,24 +42,28 @@ class VersionTests extends APITests {
 	public function testSingleObjectLastModifiedVersion() {
 		$this->_testSingleObjectLastModifiedVersion('collection');
 		$this->_testSingleObjectLastModifiedVersion('item');
+		$this->_testSingleObjectLastModifiedVersion('search');
 	}
 	
 	
 	public function testMultiObjectLastModifiedVersion() {
 		$this->_testMultiObjectLastModifiedVersion('collection');
 		$this->_testMultiObjectLastModifiedVersion('item');
+		$this->_testMultiObjectLastModifiedVersion('search');
 	}
 	
 	
 	public function testMultiObject304NotModified() {
 		$this->_testMultiObject304NotModified('collection');
 		$this->_testMultiObject304NotModified('item');
+		$this->_testMultiObject304NotModified('search');
 	}
 	
 	
 	public function testNewerAndVersionsFormat() {
 		$this->_testNewerAndVersionsFormat('collection');
 		$this->_testNewerAndVersionsFormat('item');
+		$this->_testNewerAndVersionsFormat('search');
 	}
 	
 	
@@ -75,6 +79,21 @@ class VersionTests extends APITests {
 		
 		case 'item':
 			$objectKey = API::createItem("book", array("title" => "Title"), $this, 'key');
+			break;
+		
+		case 'search':
+			$objectKey = API::createSearch(
+				"Name",
+				array(
+					array(
+						"condition" => "title",
+						"operator" => "contains",
+						"value" => "test"
+					)
+				),
+				$this,
+				'key'
+			);
 			break;
 		}
 		
@@ -110,6 +129,10 @@ class VersionTests extends APITests {
 		
 		case 'item':
 			$json->title = "New Title";
+			break;
+		
+		case 'search':
+			$json->name = "New Name";
 			break;
 		}
 		
@@ -208,6 +231,18 @@ class VersionTests extends APITests {
 		case 'item':
 			$json = API::getItemTemplate("book");
 			break;
+		
+		case 'search':
+			$json = new stdClass();
+			$json->name = "Name";
+			$json->conditions = array(
+				array(
+					"condition" => "title",
+					"operator" => "contains",
+					"value" => "test"
+				)
+			);
+			break;
 		}
 		
 		// Outdated library version
@@ -270,6 +305,10 @@ class VersionTests extends APITests {
 		
 		case 'item':
 			$json->title = "New Title";
+			break;
+		
+		case 'search':
+			$json->name = "New Name";
 			break;
 		}
 		
@@ -361,52 +400,65 @@ class VersionTests extends APITests {
 	private function _testNewerAndVersionsFormat($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
+		$xmlArray = array();
+		
 		switch ($objectType) {
 		case 'collection':
-			$xml = API::createCollection("Name", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			
-			$xml = API::createCollection("Name", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			
-			$xml = API::createCollection("Name", false, $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
+			$xmlArray[] = API::createCollection("Name", false, $this);
+			$xmlArray[] = API::createCollection("Name", false, $this);
+			$xmlArray[] = API::createCollection("Name", false, $this);
 			break;
 		
 		case 'item':
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
-			
-			$xml = API::createItem("book", array("title" => "Title"), $this);
-			$data = API::parseDataFromAtomEntry($xml);
-			$objects[] = array(
-				"key" => $data['key'],
-				"version" => $data['version']
-			);
+			$xmlArray[] = API::createItem("book", array("title" => "Title"), $this);
+			$xmlArray[] = API::createItem("book", array("title" => "Title"), $this);
+			$xmlArray[] = API::createItem("book", array("title" => "Title"), $this);
 			break;
+		
+		
+		case 'search':
+			$xmlArray[] = API::createSearch(
+				"Name",
+				array(
+					array(
+						"condition" => "title",
+						"operator" => "contains",
+						"value" => "test"
+					)
+				),
+				$this
+			);
+			$xmlArray[] = API::createSearch(
+				"Name",
+				array(
+					array(
+						"condition" => "title",
+						"operator" => "contains",
+						"value" => "test"
+					)
+				),
+				$this
+			);
+			$xmlArray[] = API::createSearch(
+				"Name",
+				array(
+					array(
+						"condition" => "title",
+						"operator" => "contains",
+						"value" => "test"
+					)
+				),
+				$this
+			);
+		}
+		
+		$objects = array();
+		while ($xml = array_shift($xmlArray)) {
+			$data = API::parseDataFromAtomEntry($xml);
+			$objects[] = array(
+				"key" => $data['key'],
+				"version" => $data['version']
+			);
 		}
 		
 		$firstVersion = $objects[0]['version'];
