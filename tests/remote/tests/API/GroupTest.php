@@ -44,7 +44,7 @@ class GroupTests extends APITests {
 	/**
 	 * Changing a group's metadata should change its ETag
 	 */
-	public function testMetadataETag() {
+	public function testUpdateMetadata() {
 		$response = API::userGet(
 			self::$config['userID'],
 			"groups?content=json&key=" . self::$config['apiKey']
@@ -53,13 +53,12 @@ class GroupTests extends APITests {
 		
 		// Get group API URI and ETag
 		$xml = API::getXMLFromResponse($response);
-		$entry = $xml->entry[0];
 		$xml->registerXPathNamespace('atom', 'http://www.w3.org/2005/Atom');
 		$xml->registerXPathNamespace('zapi', 'http://zotero.org/ns/api');
 		$groupID = (string) array_shift($xml->xpath("//atom:entry/zapi:groupID"));
 		$url = (string) array_shift($xml->xpath("//atom:entry/atom:link[@rel='self']/@href"));
 		$url = str_replace(self::$config['apiURLPrefix'], '', $url);
-		$etag = (string) array_shift($xml->xpath("//atom:entry/atom:content/@zapi:etag"));
+		$etag = (string) array_shift($xml->xpath("//atom:entry/atom:content/@etag"));
 		
 		// Make sure format=etags returns the same ETag
 		$response = API::userGet(
@@ -70,21 +69,30 @@ class GroupTests extends APITests {
 		$json = json_decode($response->getBody());
 		$this->assertEquals($etag, $json->$groupID);
 		
-		// Change the group's description, which should change the ETag
+		// Update group metadata
 		$json = json_decode(array_shift($xml->xpath("//atom:entry/atom:content")));
 		$xml = new SimpleXMLElement("<group/>");
 		foreach ($json as $key => $val) {
-			if ($key == 'id') {
+			switch ($key) {
+			case 'id':
 				continue;
-			}
-			if ($key == 'description') {
-				$val = uniqid();
-				$xml->$key = $val;
-			}
-			else if ($key == 'url') {
-				$xml->$key = $val;
-			}
-			else {
+			
+			case 'name':
+				$name = "My Test Group " . uniqid();
+				$xml['name'] = $name;
+				break;
+			
+			case 'description':
+				$description = "This is a test description " . uniqid();
+				$xml->$key = $description;
+				break;
+			
+			case 'url':
+				$urlField = "http://example.com/" . uniqid();
+				$xml->$key = $urlField;
+				break;
+			
+			default:
 				$xml[$key] = $val;
 			}
 		}
@@ -117,6 +125,10 @@ class GroupTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertEquals($newETag, $response->getHeader('ETag'));
+		$json = json_decode(API::getContentFromResponse($response));
+		$this->assertEquals($name, $json->name);
+		$this->assertEquals($description, $json->description);
+		$this->assertEquals($urlField, $json->url);
 	}
 }
 ?>

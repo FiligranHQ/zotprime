@@ -1892,7 +1892,8 @@ class ApiController extends Controller {
 				}
 			}
 			
-			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
+			$this->queryParams['content'] = 'full';
+			$this->responseXML = $group->toAtom($this->queryParams);
 			
 			Zotero_DB::commit();
 			
@@ -1957,7 +1958,8 @@ class ApiController extends Controller {
 				$this->handleException($e);
 			}
 			
-			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
+			$this->queryParams['content'] = 'full';
+			$this->responseXML = $group->toAtom($this->queryParams);
 			
 			Zotero_DB::commit();
 			
@@ -2005,7 +2007,7 @@ class ApiController extends Controller {
 				$this->e404("Group not found");
 			}
 			header("ETag: " . $group->etag);
-			$this->responseXML = $group->toAtom($this->queryParams['content'], $this->queryParams);
+			$this->responseXML = $group->toAtom($this->queryParams);
 		}
 		// Multiple groups
 		else {
