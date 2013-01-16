@@ -31,7 +31,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		'dateAdded', 'dateModified', 'serverDateModified', 'itemVersion',
 		'numNotes', 'numAttachments');
 	public static $maxDataValueLength = 65535;
-	public static $cacheVersion = 1;
 	
 	private static $itemsByID = array();
 	
@@ -978,6 +977,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		);
 		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
 		
+		$cacheVersion = 1;
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
 			. md5(
 				$version
@@ -985,6 +985,9 @@ class Zotero_Items extends Zotero_DataObjects {
 				. ($downloadDetails ? 'hasFile' : '')
 				. ($libraryType == 'group' ? 'id' . $id : '')
 			)
+			// For code-based changes
+			. "_" . $cacheVersion
+			// For data-based changes
 			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
 				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
 				: "");

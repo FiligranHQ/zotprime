@@ -962,7 +962,7 @@ class Zotero_Item {
 		}
 		
 		$cacheVersion = 1;
-		$cacheKey = $this->getCacheKey("creatorSummary_$cacheVersion");
+		$cacheKey = $this->getCacheKey("creatorSummary", $cacheVersion);
 		if ($cacheKey) {
 			$creatorSummary = Z_Core::$MC->get($cacheKey);
 			if ($creatorSummary !== false) {
@@ -1043,7 +1043,8 @@ class Zotero_Item {
 			throw new Exception("Invalid itemID");
 		}
 		
-		$cacheKey = $this->getCacheKey("itemIsDeleted");
+		$cacheVersion = 1;
+		$cacheKey = $this->getCacheKey("itemIsDeleted", $cacheVersion);
 		$deleted = Z_Core::$MC->get($cacheKey);
 		if ($deleted === false) {
 			$sql = "SELECT COUNT(*) FROM deletedItems WHERE itemID=?";
@@ -2209,7 +2210,8 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$cacheKey = $this->getCacheKey("itemSource");
+		$cacheVersion = 1;
+		$cacheKey = $this->getCacheKey("itemSource", $cacheVersion);
 		$sourceItemID = Z_Core::$MC->get($cacheKey);
 		if ($sourceItemID === false) {
 			$sql = "SELECT sourceItemID FROM item{$Type}s WHERE itemID=?";
@@ -3593,10 +3595,12 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
+		$cacheVersion = 1;
 		$cacheKey = $this->getCacheKey("itemData",
-			isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
-				? Z_CONFIG::$CACHE_VERSION_ITEM_DATA
-				: false
+			$cacheVersion
+				. isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
+				? "_" . Z_CONFIG::$CACHE_VERSION_ITEM_DATA
+				: ""
 		);
 		$fields = Z_Core::$MC->get($cacheKey);
 		if ($fields === false) {
@@ -3653,7 +3657,8 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$cacheKey = $this->getCacheKey("itemCreators");
+		$cacheVersion = 1;
+		$cacheKey = $this->getCacheKey("itemCreators", $cacheVersion);
 		$creators = Z_Core::$MC->get($cacheKey);
 		//var_dump($creators);
 		if ($creators === false) {
@@ -3706,7 +3711,8 @@ class Zotero_Item {
 			trigger_error("Invalid itemID '$this->id'", E_USER_ERROR);
 		}
 		
-		$cacheKey = $this->getCacheKey("itemRelated");
+		$cacheVersion = 1;
+		$cacheKey = $this->getCacheKey("itemRelated", $cacheVersion);
 		//$ids = Z_Core::$MC->get($cacheKey);
 		$ids = false;
 		if ($ids === false) {
@@ -3800,9 +3806,6 @@ class Zotero_Item {
 		if (!$this->loaded['primaryData']) {
 			$this->loadPrimaryData();
 		}
-		if (!isset($this->itemVersion)) {
-			error_log("WARNING: Item version not set in getETag()");
-		}
 		return md5($this->serverDateModified . $this->itemVersion);
 	}
 	
@@ -3827,8 +3830,10 @@ class Zotero_Item {
 		if (!$mode) {
 			throw new Exception('$mode not provided');
 		}
-		return $mode . "_" . $this->id . "_" . self::getETag() . "_"
-			. ($cacheVersion ? $cacheVersion : Zotero_Items::$cacheVersion);
+		return $mode
+			. "_". $this->id
+			. "_" . $this->itemVersion
+			. ($cacheVersion ? "_" . $cacheVersion : "");
 	}
 }
 ?>
