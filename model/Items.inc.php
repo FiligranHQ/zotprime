@@ -1109,9 +1109,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$author = $xml->addChild('author');
 		$createdByUserID = null;
+		$lastModifiedByUserID = null;
 		switch (Zotero_Libraries::getType($item->libraryID)) {
 			case 'group':
 				$createdByUserID = $item->createdByUserID;
+				// Used for zapi:lastModifiedByUser below
+				$lastModifiedByUserID = $item->lastModifiedByUserID;
 				break;
 		}
 		if ($createdByUserID) {
@@ -1175,6 +1178,15 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$xml->addChild('zapi:key', $item->key, Zotero_Atom::$nsZoteroAPI);
 		$xml->addChild('zapi:version', $item->itemVersion, Zotero_Atom::$nsZoteroAPI);
+		
+		if ($lastModifiedByUserID) {
+			$xml->addChild(
+				'zapi:lastModifiedByUser',
+				Zotero_Users::getUsername($lastModifiedByUserID),
+				Zotero_Atom::$nsZoteroAPI
+			);
+		}
+		
 		$xml->addChild(
 			'zapi:itemType',
 			Zotero_ItemTypes::getName($item->itemTypeID),
@@ -1316,18 +1328,6 @@ class Zotero_Items extends Zotero_DataObjects {
 				$textNode = $domDoc->createTextNode($json);
 				$target->appendChild($textNode);
 			}
-			// Deprecated and not for public consumption
-			else if ($type == 'full') {
-				if (!$multiFormat) {
-					$target->setAttribute('type', 'xhtml');
-				}
-				$fullXML = Zotero_Items::convertItemToXML($item, array());
-				$fullXML->addAttribute("xmlns", Zotero_Atom::$nsZoteroTransfer);
-				$subNode = dom_import_simplexml($fullXML);
-				$importedNode = $domDoc->importNode($subNode, true);
-				$target->appendChild($importedNode);
-			}
-			
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
 				$export = Zotero_Translate::doExport(array($item), $type);
 				$target->setAttribute('type', $export['mimeType']);

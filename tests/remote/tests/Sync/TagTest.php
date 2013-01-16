@@ -145,17 +145,16 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$etag = $data['etag'];
 		
 		// Verify createdByUserID and lastModifiedByUserID
-		// TODO: get this without using content=full
 		$response = API::groupGet(
 			$groupID,
-			"items/$key?key=" . self::$config['apiKey'] . "&content=full"
+			"items/$key?key=" . self::$config['apiKey'] . "&content=none"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
-		$createdByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@createdByUserID'));
-		$lastModifiedByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@lastModifiedByUserID'));
-		$this->assertEquals(self::$config['userID2'], $createdByUserID);
-		$this->assertEquals(self::$config['userID2'], $lastModifiedByUserID);
+		$createdByUser = (string) array_shift($xml->xpath('//atom:entry/atom:author/atom:name'));
+		$lastModifiedByUser = (string) array_shift($xml->xpath('//atom:entry/zapi:lastModifiedByUser'));
+		$this->assertEquals(self::$config['username2'], $createdByUser);
+		$this->assertEquals(self::$config['username2'], $lastModifiedByUser);
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -196,10 +195,10 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		);
 		$xml = API::getXMLFromResponse($response);
 		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
-		$createdByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@createdByUserID'));
-		$lastModifiedByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@lastModifiedByUserID'));
-		$this->assertEquals(self::$config['userID2'], $createdByUserID);
-		$this->assertEquals(self::$config['userID'], $lastModifiedByUserID);
+		$createdByUser = (string) array_shift($xml->xpath('//atom:entry/atom:author/atom:name'));
+		$lastModifiedByUser = (string) array_shift($xml->xpath('//atom:entry/zapi:lastModifiedByUser'));
+		$this->assertEquals(self::$config['username2'], $createdByUser);
+		$this->assertEquals(self::$config['username'], $lastModifiedByUser);
 	}
 	
 	

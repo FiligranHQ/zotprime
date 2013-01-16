@@ -298,18 +298,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$xml->content['etag'] = $collection->etag;
 			$xml->content = $collection->toJSON();
 		}
-		else if ($content == 'full') {
-			$xml->content['type'] = 'application/xml';
-			
-			$fullXML = Zotero_Collections::convertCollectionToXML($collection);
-			$fullXML->addAttribute(
-				"xmlns", Zotero_Atom::$nsZoteroTransfer
-			);
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
-		}
 		
 		return $xml;
 	}
