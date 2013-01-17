@@ -403,7 +403,7 @@ class API {
 		
 		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
 			var_dump($json);
-			throw new Exception("Item creation failed");
+			throw new Exception("Search creation failed");
 		}
 		
 		switch ($responseFormat) {

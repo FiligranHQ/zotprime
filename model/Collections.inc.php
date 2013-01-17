@@ -308,12 +308,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 *                                      this should be either an existing
 	 *                                      collection or a new collection
 	 *                                      with a library assigned.
-	 * @param object $json
-	 * @param boolean [$requireVersion=false]
+	 * @param object $json Collection data to write
+	 * @param boolean [$requireVersion=0] See Zotero_API::checkJSONObjectVersion()
 	 */
 	public static function updateFromJSON(Zotero_Collection $collection,
 	                                      $json,
-	                                      $requireVersion=false) {
+	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($collection, $json);
 		Zotero_API::checkJSONObjectVersion($collection, $json, $requireVersion);
 		self::validateJSONCollection($json);

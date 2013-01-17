@@ -272,6 +272,72 @@ class ItemTests extends APITests {
 	}
 	
 	
+	//
+	// PATCH
+	//
+	public function testModifyItemPartial() {
+		$itemData = array(
+			"title" => "Test"
+		);
+		$xml = API::createItem("book", $itemData, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$itemVersion = $json->itemVersion;
+		
+		function patch($context, $config, $itemKey, $itemVersion, &$itemData, $newData) {
+			foreach ($newData as $field => $val) {
+				$itemData[$field] = $val;
+			}
+			$response = API::userPatch(
+				$config['userID'],
+				"items/$itemKey?key=" . $config['apiKey'],
+				json_encode($newData),
+				array(
+					"Content-Type: application/json",
+					"Zotero-If-Unmodified-Since-Version: $itemVersion"
+				)
+			);
+			$context->assert204($response);
+			$xml = API::getItemXML($itemKey);
+			$data = API::parseDataFromAtomEntry($xml);
+			$json = json_decode($data['content'], true);
+			
+			foreach ($itemData as $field => $val) {
+				$context->assertEquals($val, $json[$field]);
+			}
+			$headerVersion = $response->getHeader("Zotero-Last-Modified-Version");
+			$context->assertGreaterThan($itemVersion, $headerVersion);
+			$context->assertEquals($json['itemVersion'], $headerVersion);
+			
+			return $headerVersion;
+		}
+		
+		$newData = array(
+			"date" => "2013"
+		);
+		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		
+		$newData = array(
+			"title" => ""
+		);
+		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		
+		$newData = array(
+			"tags" => array(
+				array(
+					"tag" => "Foo"
+				)
+			)
+		);
+		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		
+		$newData = array(
+			"tags" => array()
+		);
+		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+	}
+	
+	
 	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
 		$json = API::getItemTemplate("book");
 		

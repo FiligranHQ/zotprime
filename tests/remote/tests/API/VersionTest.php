@@ -121,22 +121,10 @@ class VersionTests extends APITests {
 		
 		$this->assertEquals($libraryVersion, $objectVersion);
 		
-		// Modifying object should increase its version
-		switch ($objectType) {
-		case 'collection':
-			$json->name = "New Name";
-			break;
+		$this->_modifyJSONObject($objectType, $json);
 		
-		case 'item':
-			$json->title = "New Title";
-			break;
-		
-		case 'search':
-			$json->name = "New Name";
-			break;
-		}
-		
-		// No Zotero-If-Unmodified-Since-Version
+		// No Zotero-If-Unmodified-Since-Version or JSON version property
+		unset($json->$versionProp);
 		$response = API::userPut(
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
@@ -155,7 +143,7 @@ class VersionTests extends APITests {
 		);
 		$this->assert412($response);
 		
-		// Update object
+		// Update with version header
 		$response = API::userPut(
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
@@ -168,6 +156,18 @@ class VersionTests extends APITests {
 		$newObjectVersion = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertGreaterThan($objectVersion, $newObjectVersion);
 		
+		// Update object with JSON version property
+		$this->_modifyJSONObject($objectType, $json);
+		$json->$versionProp = $newObjectVersion;
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		$this->assert204($response);
+		$newObjectVersion2 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertGreaterThan($newObjectVersion, $newObjectVersion2);
+		
 		// Make sure new library version matches new object version
 		$response = API::userGet(
 			self::$config['userID'],
@@ -175,7 +175,7 @@ class VersionTests extends APITests {
 		);
 		$this->assert200($response);
 		$newLibraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
-		$this->assertEquals($newLibraryVersion, $newObjectVersion);
+		$this->assertEquals($newLibraryVersion, $newObjectVersion2);
 		
 		//
 		// Delete object
@@ -188,7 +188,7 @@ class VersionTests extends APITests {
 		);
 		$this->assert428($response);
 		
-		// No Zotero-If-Unmodified-Since-Version
+		// Outdated Zotero-If-Unmodified-Since-Version
 		$response = API::userDelete(
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
@@ -203,10 +203,28 @@ class VersionTests extends APITests {
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
 			array(
-				"Zotero-If-Unmodified-Since-Version: " . $newObjectVersion
+				"Zotero-If-Unmodified-Since-Version: " . $newObjectVersion2
 			)
 		);
 		$this->assert204($response);
+	}
+	
+	
+	private function _modifyJSONObject($objectType, $json) {
+		// Modifying object should increase its version
+		switch ($objectType) {
+		case 'collection':
+			$json->name = "New Name " . uniqid();
+			break;
+		
+		case 'item':
+			$json->title = "New Title" . uniqid();
+			break;
+		
+		case 'search':
+			$json->name = "New Name" . uniqid();
+			break;
+		}
 	}
 	
 	

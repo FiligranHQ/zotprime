@@ -200,12 +200,12 @@ class Zotero_Searches extends Zotero_DataObjects {
 	 *                                this should be either an existing
 	 *                                search or a new search
 	 *                                with a library assigned.
-	 * @param object $json
-	 * @param boolean [$requireVersion=false]
+	 * @param object $json Search data to write
+	 * @param boolean [$requireVersion=0] See Zotero_API::checkJSONObjectVersion()
 	 */
 	public static function updateFromJSON(Zotero_Search $search,
 	                                      $json,
-	                                      $requireVersion=false) {
+	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($search, $json);
 		Zotero_API::checkJSONObjectVersion($search, $json, $requireVersion);
 		self::validateJSONSearch($json);
@@ -230,7 +230,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONSearch($json, $requireVersion=false) {
+	private static function validateJSONSearch($json, $requireVersion=0) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}

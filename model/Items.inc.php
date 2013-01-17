@@ -1458,16 +1458,25 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                      $json,
 	                                      Zotero_Item $parentItem=null,
 	                                      $userID=null,
-	                                      $requireVersion=false) {
+	                                      $requireVersion=0,
+	                                      $partialUpdate=false) {
 		$exists = Zotero_API::processJSONObjectKey($item, $json);
 		Zotero_API::checkJSONObjectVersion($item, $json, $requireVersion);
-		self::validateJSONItem($json, $item->libraryID, $exists ? $item : null,
-			!is_null($parentItem), $requireVersion);
+		self::validateJSONItem(
+			$json,
+			$item->libraryID,
+			$exists ? $item : null,
+			!is_null($parentItem),
+			$requireVersion,
+			$partialUpdate
+		);
 		
 		$twoStage = false;
 		
 		// Set itemType first
-		$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
+		if (isset($json->itemType)) {
+			$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
+		}
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
@@ -1629,10 +1638,12 @@ class Zotero_Items extends Zotero_DataObjects {
 						if (!$val) {
 							continue;
 						}
-						foreach ($val as $attachment) {
+						foreach ($val as $attachmentJSON) {
 							$childItem = new Zotero_Item;
 							$childItem->libraryID = $item->libraryID;
-							self::updateFromJSON($childItem, $attachment, $item, $userID);
+							self::updateFromJSON(
+								$childItem, $attachmentJSON, $item, $userID
+							);
 						}
 						break;
 					
@@ -1663,7 +1674,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONItem($json, $libraryID, $item=null, $isChild=false, $requireVersion=false) {
+	private static function validateJSONItem($json, $libraryID, $item=null,
+			$isChild=false, $requireVersion=0, $partialUpdate=false) {
 		$isNew = !$item;
 		
 		if (!is_object($json)) {
@@ -1671,10 +1683,13 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		if (isset($json->items) && is_array($json->items)) {
-			throw new Exception("An 'items' array is not valid for item updates", Z_ERROR_INVALID_INPUT);
+			throw new Exception("An 'items' array is not valid for single-item updates", Z_ERROR_INVALID_INPUT);
 		}
 		
-		if (isset($json->itemType) && $json->itemType == "attachment") {
+		if ($partialUpdate) {
+			$requiredProps = array();
+		}
+		else if (isset($json->itemType) && $json->itemType == "attachment") {
 			$requiredProps = array('linkMode', 'tags');
 		}
 		else if (isset($json->itemType) && $json->itemType == "attachment") {

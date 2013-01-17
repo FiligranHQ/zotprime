@@ -548,6 +548,13 @@ class Zotero_API {
 	}
 	
 	
+	/**
+	 * @param object $object Zotero object (Zotero_Item, Zotero_Collection, Zotero_Search)
+	 * @param object $json JSON object to check
+	 * @param int $requireVersion If 0, don't require; if 1, require if there's
+	 *                            an object key property in the JSON; if 2,
+	 *                            always require
+	 */
 	public static function checkJSONObjectVersion($object, $json, $requireVersion) {
 		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
 		if (!in_array($objectType, array('item', 'collection', 'search'))) {
@@ -557,16 +564,6 @@ class Zotero_API {
 		$keyProp = $objectType . "Key";
 		$versionProp = $objectType . "Version";
 		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
-		
-		if (isset($json->$keyProp)) {
-			if ($requireVersion && !isset($json->$versionProp)) {
-				throw new HTTPException(
-					"Either Zotero-If-Unmodified-Since-Version or "
-					. "'$versionProp' property must be provided for "
-					. "'$keyProp'-based writes", 428
-				);
-			}
-		}
 		
 		if (isset($json->$versionProp)) {
 			if (!is_numeric($json->$versionProp)) {
@@ -578,6 +575,22 @@ class Zotero_API {
 			if ($object->$objectVersionProp > $json->$versionProp) {
 				throw new HTTPException(ucwords($objectType)
 					. " has been modified since specified version", 412);
+			}
+		}
+		else {
+			if ($requireVersion == 1 && isset($json->$keyProp)) {
+				throw new HTTPException(
+					"Either Zotero-If-Unmodified-Since-Version or "
+					. "'$versionProp' property must be provided for "
+					. "'$keyProp'-based writes", 428
+				);
+			}
+			else if ($requireVersion == 2) {
+				throw new HTTPException(
+					"Either Zotero-If-Unmodified-Since-Version or "
+					. "'$versionProp' property must be provided for "
+					. "single-object writes", 428
+				);
 			}
 		}
 	}

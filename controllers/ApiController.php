@@ -379,7 +379,7 @@ class ApiController extends Controller {
 				}
 			}
 			else {
-				$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+				$this->allowMethods(array('GET', 'PUT', 'PATCH', 'DELETE'));
 			}
 			
 			if ($this->objectKey) {
@@ -479,21 +479,29 @@ class ApiController extends Controller {
 				}
 			}
 			
-			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				$this->checkObjectIfUnmodifiedSinceVersion($item);
+			if ($this->isWriteMethod()) {
+				$objectTimestampChecked =
+					$this->checkObjectIfUnmodifiedSinceVersion(
+						$item, $this->method == 'DELETE'
+				);
 				
 				// Update item
-				if ($this->method == 'PUT') {
-					$obj = $this->jsonDecode($this->body);
-					Zotero_Items::updateFromJSON($item, $obj, null, $this->userID);
+				if ($this->method == 'PUT' || $this->method == 'PATCH') {
+					Zotero_Items::updateFromJSON(
+						$item,
+						$this->jsonDecode($this->body),
+						null,
+						$this->userID,
+						$objectTimestampChecked ? 0 : 2,
+						$this->method == 'PATCH'
+					);
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
 				}
-				
 				// Delete item
-				else {
+				else if ($this->method == 'DELETE') {
 					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
 					
 					try {
@@ -502,6 +510,9 @@ class ApiController extends Controller {
 					catch (Exception $e) {
 						Z_Core::logError($e);
 					}
+				}
+				else {
+					throw new Exception("Unexpected method $this->method");
 				}
 				
 				Zotero_DB::commit();
@@ -708,7 +719,7 @@ class ApiController extends Controller {
 							$obj,
 							$this->objectLibraryID,
 							$this->userID,
-							empty($libraryTimestampChecked),
+							$libraryTimestampChecked ? 0 : 1,
 							$item
 						);
 						
@@ -761,7 +772,7 @@ class ApiController extends Controller {
 								$obj,
 								$this->objectLibraryID,
 								$this->userID,
-								empty($libraryTimestampChecked),
+								$libraryTimestampChecked ? 0 : 1,
 								null
 							);
 						}
@@ -1459,12 +1470,17 @@ class ApiController extends Controller {
 			}
 			
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				$this->checkObjectIfUnmodifiedSinceVersion($collection);
+				$objectTimestampChecked =
+					$this->checkObjectIfUnmodifiedSinceVersion(
+						$collection, $this->method == 'DELETE'
+				);
 				
 				// Update collection
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Collections::updateFromJSON($collection, $obj);
+					Zotero_Collections::updateFromJSON(
+						$collection, $obj, $objectTimestampChecked ? 0 : 2
+					);
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -1472,8 +1488,11 @@ class ApiController extends Controller {
 				}
 				
 				// Delete collection
-				else {
+				else if ($this->method == 'DELETE') {
 					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey);
+				}
+				else {
+					throw new Exception("Unexpected method $this->method");
 				}
 				
 				Zotero_DB::commit();
@@ -1533,7 +1552,7 @@ class ApiController extends Controller {
 							$obj,
 							$this->objectLibraryID,
 							$this->userID,
-							empty($libraryTimestampChecked),
+							$libraryTimestampChecked ? 0 : 1,
 							null
 						);
 						
@@ -1633,20 +1652,28 @@ class ApiController extends Controller {
 			}
 			
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				$this->checkObjectIfUnmodifiedSinceVersion($search);
+				$objectTimestampChecked =
+					$this->checkObjectIfUnmodifiedSinceVersion(
+						$search, $this->method == 'DELETE'
+				);
 				
 				// Update search
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Searches::updateFromJSON($search, $obj);
+					Zotero_Searches::updateFromJSON(
+						$search, $obj, $objectTimestampChecked ? 0 : 2
+					);
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
 				}
 				// Delete search
-				else {
+				else if ($this->method == 'DELETE') {
 					Zotero_Searches::delete($this->objectLibraryID, $this->objectKey);
+				}
+				else {
+					throw new Exception("Unexpected method $this->method");
 				}
 				
 				Zotero_DB::commit();
@@ -1668,7 +1695,7 @@ class ApiController extends Controller {
 					$obj,
 					$this->objectLibraryID,
 					$this->userID,
-					empty($libraryTimestampChecked),
+					$libraryTimestampChecked ? 0 : 1,
 					null
 				);
 				
@@ -2930,20 +2957,25 @@ class ApiController extends Controller {
 	 * Zotero-If-Unmodified-Since-Version (or the deprecated If-Match)
 	 * and make sure the object hasn't been modified
 	 */
-	private function checkObjectIfUnmodifiedSinceVersion($object) {
+	private function checkObjectIfUnmodifiedSinceVersion($object, $required=false) {
 		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
 		if (!in_array($objectType, array('item', 'collection', 'search'))) {
 			throw new Exception("Invalid object type");
 		}
 		
 		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
-			continue;
+			return true;
 		}
 		
 		// If-Match (deprecated)
 		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
 			if (empty($_SERVER['HTTP_IF_MATCH'])) {
-				$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+				if ($required) {
+					$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+				}
+				else {
+					return false;
+				}
 			}
 			
 			if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
@@ -2969,6 +3001,7 @@ class ApiController extends Controller {
 				$this->e412(ucwords($objectType) . " has been modified since specified version");
 			}
 		}
+		return true;
 	}
 	
 	
