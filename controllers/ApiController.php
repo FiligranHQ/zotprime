@@ -105,7 +105,11 @@ class ApiController extends Controller {
 					? strtotime($_SERVER['HTTP_IF_UNMODIFIED_SINCE']) : false;
 			
 			$this->body = file_get_contents("php://input");
-			if ($this->body == "" && $action != 'clear') {
+			if ($this->body == ""
+					&& !in_array($action, array(
+						'clear',
+						'laststoragesync',
+						'removestoragefiles'))) {
 				$this->e400("$this->method data not provided");
 			}
 		}
