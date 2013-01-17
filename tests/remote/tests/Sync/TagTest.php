@@ -188,10 +188,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertNotEquals($etag, $data['etag']);
 		
 		// Verify createdByUserID and lastModifiedByUserID
-		// TODO: get this without using content=full
 		$response = API::groupGet(
 			$groupID,
-			"items/$key?key=" . self::$config['apiKey'] . "&content=full"
+			"items/$key?key=" . self::$config['apiKey'] . "&content=none"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
