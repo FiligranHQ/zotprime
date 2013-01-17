@@ -377,16 +377,19 @@ class Zotero_Collection {
 		
 		$this->childItems = array_values(array_unique($itemIDs));
 		
+		// TODO: remove once classic syncing is removed
 		$sql = "UPDATE collections SET serverDateModified=? WHERE collectionID=?";
-		//$sql = "UPDATE collections SET dateModified=?, serverDateModified=? WHERE collectionID=?
 		$ts = Zotero_DB::getTransactionTimestamp();
 		Zotero_DB::query($sql, array($ts, $this->id), $shardID);
-		//Zotero_DB::query($sql, array($ts, $ts, $this->id), $shardID);
 		
 		Zotero_DB::commit();
 	}
 	
 	
+	/**
+	 * Add an item to the collection. The item's version must be updated
+	 * separately.
+	 */
 	public function addItem($itemID) {
 		if (!Zotero_Items::get($this->libraryID, $itemID)) {
 			throw new Exception("Item does not exist");
@@ -401,12 +404,20 @@ class Zotero_Collection {
 	}
 	
 	
+	/**
+	 * Add items to the collection. The items' versions must be updated
+	 * separately.
+	 */
 	public function addItems($itemIDs) {
 		$childItems = array_merge($this->getChildItems(), $itemIDs);
 		$this->setChildItems($childItems);
 	}
 	
 	
+	/**
+	 * Remove an item from the collection. The item's version must be updated
+	 * separately.
+	 */
 	public function removeItem($itemID) {
 		if (!$this->hasItem($itemID)) {
 			Z_Core::debug("Item $itemID is not a child of collection $this->id");

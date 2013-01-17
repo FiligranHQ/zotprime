@@ -284,7 +284,7 @@ class ItemTests extends APITests {
 		$json = json_decode($data['content']);
 		$itemVersion = $json->itemVersion;
 		
-		function patch($context, $config, $itemKey, $itemVersion, &$itemData, $newData) {
+		$patch = function ($context, $config, $itemKey, $itemVersion, &$itemData, $newData) {
 			foreach ($newData as $field => $val) {
 				$itemData[$field] = $val;
 			}
@@ -310,17 +310,17 @@ class ItemTests extends APITests {
 			$context->assertEquals($json['itemVersion'], $headerVersion);
 			
 			return $headerVersion;
-		}
+		};
 		
 		$newData = array(
 			"date" => "2013"
 		);
-		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		$itemVersion = $patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
 		
 		$newData = array(
 			"title" => ""
 		);
-		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		$itemVersion = $patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
 		
 		$newData = array(
 			"tags" => array(
@@ -329,12 +329,23 @@ class ItemTests extends APITests {
 				)
 			)
 		);
-		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		$itemVersion = $patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
 		
 		$newData = array(
 			"tags" => array()
 		);
-		$itemVersion = patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		$itemVersion = $patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		
+		$key = API::createCollection('Test', false, $this, 'key');
+		$newData = array(
+			"collections" => array($key)
+		);
+		$itemVersion = $patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
+		
+		$newData = array(
+			"collections" => array()
+		);
+		$itemVersion = $patch($this, self::$config, $data['key'], $itemVersion, $itemData, $newData);
 	}
 	
 	

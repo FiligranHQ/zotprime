@@ -2166,6 +2166,11 @@ class Zotero_Item {
 	}
 	
 	
+	public function isTopLevelItem() {
+		return $this->isRegularItem() || $this->getSourceKey();
+	}
+	
+	
 	public function numChildren($includeTrashed=false) {
 		return $this->numNotes($includeTrashed) + $this->numAttachments($includeTrashed);
 	}
@@ -3022,6 +3027,105 @@ class Zotero_Item {
 	}
 	
 	
+	//
+	// Methods dealing with collections
+	//
+	// save() is not required for collection functions
+	//
+	public function numCollections() {
+		if (!$this->id) {
+			return 0;
+		}
+		
+		$sql = "SELECT COUNT(*) FROM collectionItems WHERE itemID=?";
+		return (int) Zotero_DB::valueQuery(
+			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID)
+		);
+	}
+	
+	
+	/**
+	 * Returns all collections the item is in
+	 *
+	 * @param boolean [$asKeys=false] Return collection keys instead of collection objects
+	 * @return array Array of Zotero_Collection objects, or keys if $asKeys=true
+	 */
+	public function getCollections($asKeys=false) {
+		if (!$this->id) {
+			return array();
+		}
+		
+		$sql = "SELECT `key` FROM collections
+		        JOIN collectionItems USING (collectionID)
+		        WHERE itemID=?";
+		$collectionKeys = Zotero_DB::columnQuery(
+			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		if (!$collectionKeys) {
+			return array();
+		}
+		
+		if ($asKeys) {
+			return $collectionKeys;
+		}
+		
+		$collectionObjs = array();
+		foreach ($collectionKeys as $key) {
+			$collectionObjs[] = Zotero_Collections::getByLibraryAndKey(
+				$this->libraryID, $key, true
+			);
+		}
+		return $collectionObjs;
+	}
+	
+	
+	/**
+	 * Updates the collections an item is in. No separate save of the item
+	 * is required.
+	 *
+	 * @param array $newCollections Array of collection keys to add
+	 * @param int $userID User making the change
+	 */
+	public function setCollections($newCollections, $userID) {
+		if (!$this->id) {
+			throw new Exception('itemID not set');
+		}
+		
+		$numCollections = $this->numCollections();
+		
+		if (!$newCollections && !$numCollections) {
+			return false;
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		$oldCollections = $this->getCollections(true);
+		
+		$toAdd = array_diff($newCollections, $oldCollections);
+		$toRemove = array_diff($oldCollections, $newCollections);
+		
+		foreach ($toAdd as $key) {
+			$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $key);
+			if (!$collection) {
+				throw new Exception("Collection with key '$key' not found", Z_ERROR_COLLECTION_NOT_FOUND);
+			}
+			$collection->addItem($this->id);
+			$collection->save();
+		}
+		
+		foreach ($toRemove as $key) {
+			$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $key);
+			$collection->removeItem($this->id);
+			$collection->save();
+		}
+		
+		$this->updateVersion($userID);
+		
+		Zotero_DB::commit();
+		
+		return $toAdd || $toRemove;
+	}
+	
+	
 	public function toHTML($asSimpleXML=false) {
 		$html = new SimpleXMLElement('<table/>');
 		
@@ -3369,6 +3473,11 @@ class Zotero_Item {
 				}
 				$arr['tags'][] = $t;
 			}
+		}
+		
+		if ($this->isTopLevelItem()) {
+			$collections = $this->getCollections(true);
+			$arr['collections'] = $collections;
 		}
 		
 		if ($asArray) {

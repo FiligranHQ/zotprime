@@ -1466,7 +1466,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$json,
 			$item->libraryID,
 			$exists ? $item : null,
-			!is_null($parentItem),
+			$parentItem || ($exists ? !!$item->getSourceKey() : false),
 			$requireVersion,
 			$partialUpdate
 		);
@@ -1584,6 +1584,24 @@ class Zotero_Items extends Zotero_DataObjects {
 					$item->setTags($val, $userID);
 					break;
 				
+				case 'collections':
+					// If item isn't yet saved, add collections below
+					if (!$item->id) {
+						$twoStage = true;
+						break;
+					}
+					
+					try {
+						$item->setCollections($val, $userID);
+					}
+					catch (Exception $e) {
+						if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
+							throw new Exception($e->getMessage(), Z_ERROR_INVALID_INPUT);
+						}
+						throw $e;
+					}
+					break;
+				
 				case 'attachments':
 				case 'notes':
 					if (!$val) {
@@ -1666,6 +1684,18 @@ class Zotero_Items extends Zotero_DataObjects {
 					case 'tags':
 						$item->setTags($val, $userID);
 						break;
+					
+					case 'collections':
+						try {
+							$item->setCollections($val, $userID);
+						}
+						catch (Exception $e) {
+							if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
+								throw new Exception($e->getMessage(), Z_ERROR_INVALID_INPUT);
+							}
+							throw $e;
+						}
+						break;
 				}
 			}
 			
@@ -1699,7 +1729,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$requiredProps = array('itemType');
 		}
 		else {
-			$requiredProps = array('itemType', 'creators', 'tags');
+			$requiredProps = array('itemType', 'tags', 'collections');
 		}
 		
 		foreach ($requiredProps as $prop) {
@@ -1780,7 +1810,21 @@ class Zotero_Items extends Zotero_DataObjects {
 						}
 					}
 					break;
-					
+				
+				case 'collections':
+					if (!is_array($val)) {
+						throw new Exception("'collections' property must be an array", Z_ERROR_INVALID_INPUT);
+					}
+					if ($isChild && $val) {
+						throw new Exception("Child items cannot be assigned to collections", Z_ERROR_INVALID_INPUT);
+					}
+					foreach ($val as $k) {
+						if (!Zotero_ID::isValidKey($k)) {
+							throw new Exception("'$k' is not a valid collection key", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					break;
+				
 				case 'creators':
 					if (!is_array($val)) {
 						throw new Exception("'creators' property must be an array", Z_ERROR_INVALID_INPUT);

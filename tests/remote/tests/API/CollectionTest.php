@@ -260,5 +260,100 @@ class CollectionTests extends APITests {
 		$this->assertEquals($newName2, $content->name);
 		$this->assertFalse($content->parent);
 	}
+	
+	
+	public function testCollectionItemChange() {
+		$collectionKey1 = API::createCollection('Test', false, $this, 'key');
+		$collectionKey2 = API::createCollection('Test', false, $this, 'key');
+		
+		$xml = API::createItem("book", array(
+			'collections' => array($collectionKey1)
+		), $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$itemKey1 = $data['key'];
+		$itemVersion1 = $data['version'];
+		$json = json_decode($data['content']);
+		$this->assertEquals(array($collectionKey1), $json->collections);
+		
+		$xml = API::createItem("journalArticle", array(
+			'collections' => array($collectionKey2)
+		), $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$itemKey2 = $data['key'];
+		$itemVersion2 = $data['version'];
+		$json = json_decode($data['content']);
+		$this->assertEquals(array($collectionKey2), $json->collections);
+		
+		$xml = API::getCollectionXML($collectionKey1);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		
+		$xml = API::getCollectionXML($collectionKey2);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey1?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"collections" => array($collectionKey1, $collectionKey2)
+			)),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $itemVersion1"
+			)
+		);
+		$this->assert204($response);
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey2?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"collections" => array()
+			)),
+			array(
+				"Content-Type: application/json",
+				"Zotero-If-Unmodified-Since-Version: $itemVersion2"
+			)
+		);
+		$this->assert204($response);
+		
+		$xml = API::getItemXML($itemKey1);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertCount(2, $json->collections);
+		$this->assertContains($collectionKey1, $json->collections);
+		$this->assertContains($collectionKey2, $json->collections);
+		
+		$xml = API::getItemXML($itemKey2);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertCount(0, $json->collections);
+		
+		$xml = API::getCollectionXML($collectionKey1);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		
+		$xml = API::getCollectionXML($collectionKey2);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+	}
+	
+	
+	public function testCollectionChildItemError() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		
+		$key = API::createItem("book", array(), $this, 'key');
+		$xml = API::createNoteItem("Test Note", $key, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$json['collections'] = array($collectionKey);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json"
+			)
+		);
+		$this->assert400($response);
+		$this->assertEquals("Child items cannot be assigned to collections", $response->getBody());
+	}
 }
 ?>
