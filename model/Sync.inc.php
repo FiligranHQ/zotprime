@@ -619,7 +619,11 @@ class Zotero_Sync {
 			// Get long item data fields
 			$node = Zotero_Items::getLongDataValueFromXML($doc); // returns DOMNode rather than value
 			if ($node) {
-				$key = $node->getAttribute('key');
+				$libraryID = $node->parentNode->getAttribute('libraryID');
+				$key = $node->parentNode->getAttribute('key');
+				if ($libraryID) {
+					$key = $libraryID . "/" . $key;
+				}
 				$fieldName = $node->getAttribute('name');
 				$fieldName = Zotero_ItemFields::getLocalizedString(null, $fieldName);
 				if ($fieldName) {

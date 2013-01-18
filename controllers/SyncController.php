@@ -840,21 +840,15 @@ class SyncController extends Controller {
 					$value = $matches[2];
 					if (isset($matches[3])) {
 						$parts = explode("/", $matches[3]);
-						if (sizeOf($parts) == 2) {
-							$libraryID = (int) $matches[3];
-							$itemKey = $matches[4];
-							if (Zotero_Libraries::getType($libraryID) == 'group') {
-								$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
-								$group = Zotero_Groups::get($groupID);
-								$libraryName = "the group '" . $group->name . "'";
-							}
-							else {
-								$libraryName = "your personal library";
-							}
+						$libraryID = (int) $parts[0];
+						$itemKey = $parts[1];
+						if (Zotero_Libraries::getType($libraryID) == 'group') {
+							$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+							$group = Zotero_Groups::get($groupID);
+							$libraryName = "the group '" . $group->name . "'";
 						}
 						else {
-							$libraryName = "one of your libraries";
-							$itemKey = $matches[3];
+							$libraryName = "your personal library";
 						}
 					}
 					else {
@@ -867,8 +861,8 @@ class SyncController extends Controller {
 						. "Search for the excerpt above "
 						. ($itemKey === false ? "using " : "or copy and paste "
 						. "'$itemKey' into ") . "the Zotero search bar. "
-						. "Shorten the field, or delete it and empty the Zotero "
-						. "trash, and then try syncing again."
+						. "Shorten the field, or delete the item and empty the "
+						. "Zotero trash, and then try syncing again."
 					);
 				}
 				break;
