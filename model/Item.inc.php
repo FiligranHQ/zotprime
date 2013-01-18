@@ -1262,8 +1262,12 @@ class Zotero_Item {
 							$fieldName = Zotero_ItemFields::getLocalizedString(
 								$this->itemTypeID, $fieldID
 							);
-							throw new Exception("=$fieldName field " .
-								 "'" . substr($value, 0, 50) . "...' too long");
+							$msg = "=$fieldName field value " .
+								 "'" . mb_substr($value, 0, 50) . "...' too long";
+							if ($this->key) {
+								$msg .= " for item '" . $this->libraryID . "/" . $key . "'";
+							}
+							throw new Exception($msg, Z_ERROR_FIELD_TOO_LONG);
 						}
 						
 						if ($insertCounter < $maxInsertGroups) {
@@ -1613,8 +1617,14 @@ class Zotero_Item {
 							$fieldName = Zotero_ItemFields::getLocalizedString(
 								$this->itemTypeID, $fieldID
 							);
-							throw new Exception("=$fieldName field " .
-								 "'" . substr($value, 0, 50) . "...' too long");
+							$msg = "=$fieldName field value " .
+								 "'" . mb_substr($value, 0, 50) . "...' too long";
+							if ($this->key) {
+								$msg .= " for item '" . $this->libraryID
+									. "/" . $this->key . "'";
+							}
+							throw new Exception($msg, Z_ERROR_FIELD_TOO_LONG);
+
 						}
 						
 						if ($replaceCounter < $maxReplaceGroups) {
@@ -2496,9 +2506,9 @@ class Zotero_Item {
 			
 			$msg = "=Note '" . $excerpt . "...' too long";
 			if ($this->key) {
-				$msg .= " for item '" . $this->key . "'";
+				$msg .= " for item '" . $this->libraryID . "/" . $this->key . "'";
 			}
-			throw new Exception($msg, Z_ERROR_INVALID_INPUT);
+			throw new Exception($msg, Z_ERROR_NOTE_TOO_LONG);
 		}
 		
 		$this->noteText = $text;

@@ -743,6 +743,9 @@ class SyncController extends Controller {
 			switch ($e->getCode()) {
 				// Don't log uploaded data for some errors
 				case Z_ERROR_TAG_TOO_LONG:
+				case Z_ERROR_FIELD_TOO_LONG:
+				case Z_ERROR_NOTE_TOO_LONG:
+				case Z_ERROR_COLLECTION_TOO_LONG:
 					break;
 				
 				default:
@@ -796,6 +799,76 @@ class SyncController extends Controller {
 						"Collection '" . mb_substr($name, 0, 50) . "…' too long",
 						array(),
 						array("collection" => $name)
+					);
+				}
+				break;
+			
+			case Z_ERROR_NOTE_TOO_LONG:
+				preg_match("/Note '(.+)' too long(?: for item '(.+)\/(.+)')?/s", $msg, $matches);
+				if ($matches) {
+					$name = $matches[1];
+					if (isset($matches[2])) {
+						$libraryID = (int) $matches[2];
+						$itemKey = $matches[3];
+						if (Zotero_Libraries::getType($libraryID) == 'group') {
+							$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+							$group = Zotero_Groups::get($groupID);
+							$libraryName = $group->name;
+						}
+						else {
+							$libraryName = false;
+						}
+					}
+					$this->error(400, "ERROR_PROCESSING_UPLOAD_DATA",
+						"The note '" . mb_substr($name, 0, 50) . "…' in "
+						. ($libraryName === false
+							? "your library "
+							: "the group '$libraryName' ")
+						. "is too long to sync to zotero.org.\n\n"
+						. "Search for the excerpt above or copy and paste "
+						. "'$itemKey' into the Zotero search bar. "
+						. "Shorten the note, or delete it and empty the Zotero "
+						. "trash, and then try syncing again."
+					);
+				}
+				break;
+			
+			case Z_ERROR_FIELD_TOO_LONG:
+				preg_match("/(.+) field value '(.+)\.\.\.' too long(?: for item '(.+)')?/s", $msg, $matches);
+				if ($matches) {
+					$fieldName = $matches[1];
+					$value = $matches[2];
+					if (isset($matches[3])) {
+						$parts = explode("/", $matches[3]);
+						if (sizeOf($parts) == 2) {
+							$libraryID = (int) $matches[3];
+							$itemKey = $matches[4];
+							if (Zotero_Libraries::getType($libraryID) == 'group') {
+								$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+								$group = Zotero_Groups::get($groupID);
+								$libraryName = "the group '" . $group->name . "'";
+							}
+							else {
+								$libraryName = "your personal library";
+							}
+						}
+						else {
+							$libraryName = "one of your libraries";
+							$itemKey = $matches[3];
+						}
+					}
+					else {
+						$libraryName = "one of your libraries";
+						$itemKey = false;
+					}
+					$this->error(400, "ERROR_PROCESSING_UPLOAD_DATA",
+						"The $fieldName field value '{$value}…' in $libraryName is "
+						. "too long to sync to zotero.org.\n\n"
+						. "Search for the excerpt above "
+						. ($itemKey === false ? "using " : "or copy and paste "
+						. "'$itemKey' into ") . "the Zotero search bar. "
+						. "Shorten the field, or delete it and empty the Zotero "
+						. "trash, and then try syncing again."
 					);
 				}
 				break;

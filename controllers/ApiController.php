@@ -3022,6 +3022,10 @@ class ApiController extends Controller {
 		
 		switch ($e->getCode()) {
 			case Z_ERROR_INVALID_INPUT:
+			case Z_ERROR_NOTE_TOO_LONG:
+			case Z_ERROR_FIELD_TOO_LONG:
+			case Z_ERROR_CREATOR_TOO_LONG:
+			case Z_ERROR_COLLECTION_TOO_LONG:
 			case Z_ERROR_CITESERVER_INVALID_STYLE:
 				error_log($msg);
 				$this->e400(htmlspecialchars($msg));

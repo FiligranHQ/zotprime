@@ -616,17 +616,22 @@ class Zotero_Sync {
 				}
 			}
 			
+			// Get long item data fields
 			$node = Zotero_Items::getLongDataValueFromXML($doc); // returns DOMNode rather than value
 			if ($node) {
+				$key = $node->getAttribute('key');
 				$fieldName = $node->getAttribute('name');
 				$fieldName = Zotero_ItemFields::getLocalizedString(null, $fieldName);
 				if ($fieldName) {
-					$start = "'$fieldName' field";
+					$start = "$fieldName field";
 				}
 				else {
 					$start = "Field";
 				}
-				throw new Exception("=$start value '" . mb_substr($node->nodeValue, 0, 50) . "...' too long");
+				throw new Exception(
+					"=$start value '" . mb_substr($node->nodeValue, 0, 75)
+					. "...' too long for item '$key'", Z_ERROR_FIELD_TOO_LONG
+				);
 			}
 		}
 		catch (Exception $e) {
