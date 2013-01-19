@@ -155,7 +155,7 @@ class Zotero_Search {
 				$this->dateAdded ? $this->dateAdded : $timestamp,
 				$this->dateModified ? $this->dateModified : $timestamp,
 				$timestamp,
-				Zotero_Libraries::getVersion($this->libraryID)
+				Zotero_Libraries::getUpdatedVersion($this->libraryID)
 			);
 			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			

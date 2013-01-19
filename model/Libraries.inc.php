@@ -27,6 +27,7 @@
 class Zotero_Libraries {
 	private static $libraryTypeCache = array();
 	private static $originalVersions = array();
+	private static $updatedVersions = array();
 	
 	public static function add($type, $shardID) {
 		if (!$shardID) {
@@ -209,28 +210,67 @@ class Zotero_Libraries {
 	}
 	
 	
-	public static function getVersion($libraryID, $committedOnly=false) {
-		if ($committedOnly && isset(self::$originalVersions[$libraryID])) {
-			return self::$originalVersions[$libraryID];
-		}
-		
+	/**
+	 * Get library version from the database
+	 */
+	public static function getVersion($libraryID) {
 		$sql = "SELECT version FROM shardLibraries WHERE libraryID=?";
-		return Zotero_DB::valueQuery(
+		$version = Zotero_DB::valueQuery(
 			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
 		);
+		// Store original version for use by getOriginalVersion()
+		if (!isset(self::$originalVersions[$libraryID])) {
+			self::$originalVersions[$libraryID] = $version;
+		}
+		return $version;
+	}
+	
+	
+	/**
+	 * Get the first library version retrieved during this request, or the
+	 * database version if none
+	 *
+	 * Since the library version is updated at the start of a request,
+	 * but write operations may cache data before making changes, the
+	 * original, pre-update version has to be used in cache keys.
+	 * Otherwise a subsequent request for the new library version might
+	 * omit data that was written with that version. (The new data can't
+	 * just be written with the same version because a cache write
+	 * could fail.)
+	 */
+	public static function getOriginalVersion($libraryID) {
+		if (isset(self::$originalVersions[$libraryID])) {
+			return self::$originalVersions[$libraryID];
+		}
+		$version = self::getVersion($libraryID);
+		self::$originalVersions[$libraryID] = $version;
+		return $version;
+	}
+	
+	
+	/**
+	 * Get the latest library version set during this request, or the original
+	 * version if none
+	 */
+	public static function getUpdatedVersion($libraryID) {
+		if (isset(self::$updatedVersions[$libraryID])) {
+			return self::$updatedVersions[$libraryID];
+		}
+		return self::getOriginalVersion($libraryID);
 	}
 	
 	
 	public static function updateVersion($libraryID) {
-		if (!isset(self::$originalVersions[$libraryID])) {
-			self::$originalVersions[$libraryID] = self::getVersion($libraryID);
-		}
+		self::getOriginalVersion($libraryID);
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		$sql = "UPDATE shardLibraries SET version=LAST_INSERT_ID(version+1)
 				WHERE libraryID=?";
 		Zotero_DB::query($sql, $libraryID, $shardID);
-		return Zotero_DB::valueQuery("SELECT LAST_INSERT_ID()", false, $shardID);
+		$version = Zotero_DB::valueQuery("SELECT LAST_INSERT_ID()", false, $shardID);
+		// Store new version for use by getUpdatedVersion()
+		self::$updatedVersions[$libraryID] = $version;
+		return $version;
 	}
 	
 	

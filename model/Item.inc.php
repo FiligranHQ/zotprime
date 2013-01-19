@@ -1199,7 +1199,7 @@ class Zotero_Item {
 					'version'
 				);
 				$timestamp = Zotero_DB::getTransactionTimestamp();
-				$version = Zotero_Libraries::getVersion($this->libraryID);
+				$version = Zotero_Libraries::getUpdatedVersion($this->libraryID);
 				$sqlValues = array(
 					$itemID,
 					$this->itemTypeID,
@@ -1547,7 +1547,7 @@ class Zotero_Item {
 				$sqlValues = array();
 				
 				$timestamp = Zotero_DB::getTransactionTimestamp();
-				$version = Zotero_Libraries::getVersion($this->libraryID);
+				$version = Zotero_Libraries::getUpdatedVersion($this->libraryID);
 				
 				$updateFields = array(
 					'itemTypeID',

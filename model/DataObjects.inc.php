@@ -164,7 +164,9 @@ class Zotero_DataObjects {
 		if (!isset(self::$idCache[$type][$libraryID])) {
 			self::$idCache[$type][$libraryID] = array();
 			
-			$cacheKey = "{$type}IDsByKey_{$libraryID}_" . Zotero_Libraries::getVersion($libraryID, true) . "_" . self::$cacheVersion;
+			$cacheKey = "{$type}IDsByKey_{$libraryID}_"
+				. Zotero_Libraries::getOriginalVersion($libraryID, true)
+				. "_" . self::$cacheVersion;
 			$ids = Z_Core::$MC->get($cacheKey);
 			if ($ids === false) {
 				if ($type == 'relation') {
@@ -283,7 +285,9 @@ class Zotero_DataObjects {
 		self::$primaryDataByKey[$type][$libraryID] = array();
 		self::$primaryDataByID[$type][$libraryID] = array();
 		
-		$cacheKey = "{$type}Data_{$libraryID}_" . Zotero_Libraries::getVersion($libraryID, true) . "_" . self::$cacheVersion;
+		$cacheKey = "{$type}Data_{$libraryID}_"
+			. Zotero_Libraries::getOriginalVersion($libraryID, true)
+			. "_" . self::$cacheVersion;
 		$rows = Z_Core::$MC->get($cacheKey);
 		if ($rows === false) {
 			$className = "Zotero_" . ucwords($types);
@@ -517,6 +521,12 @@ class Zotero_DataObjects {
 		
 		$results = new Zotero_Results;
 		
+		if (Zotero_DB::transactionInProgress()) {
+			throw new Exception(
+				"Transaction cannot be open when starting multi-object update"
+			);
+		}
+		
 		// If single collection object, stuff in 'collections' array
 		if ($type == 'collection') {
 			if (!isset($json->collections)) {
@@ -528,6 +538,9 @@ class Zotero_DataObjects {
 		
 		$i = 0;
 		foreach ($json->$types as $jsonObject) {
+			Z_Core::$MC->begin();
+			Zotero_DB::beginTransaction();
+			
 			try {
 				$className = "Zotero_" . ucwords($type);
 				$obj = new $className;
@@ -540,11 +553,18 @@ class Zotero_DataObjects {
 				else {
 					static::updateFromJSON($obj, $jsonObject, $requireVersion);
 				}
+				Zotero_DB::commit();
+				Z_Core::$MC->commit();
 				$results->addSuccess($i, $obj->key);
 			}
 			catch (Exception $e) {
+				Zotero_DB::rollback();
+				Z_Core::$MC->rollback();
+				
+				// If object key given, include that
 				$resultKey = isset($jsonObject->$keyProp)
 					? $jsonObject->$keyProp : '';
+				
 				$results->addFailure($i, $resultKey, $e);
 			}
 			$i++;

@@ -337,9 +337,6 @@ class ApiController extends Controller {
 			$this->e403();
 		}
 		
-		Z_Core::$MC->begin();
-		Zotero_DB::beginTransaction();
-		
 		if ($this->isWriteMethod()) {
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
@@ -359,7 +356,7 @@ class ApiController extends Controller {
 			}
 		}
 		
-		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		$itemIDs = array();
 		$itemKeys = array();
@@ -442,7 +439,6 @@ class ApiController extends Controller {
 			
 			// File access mode
 			if ($this->fileMode) {
-				Zotero_DB::commit();
 				$this->_handleFileRequest($item);
 			}
 			
@@ -451,7 +447,6 @@ class ApiController extends Controller {
 				$this->allowMethods(array('GET'));
 				
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-				Zotero_DB::commit();
 				$this->redirect(Zotero_API::getItemURI($item) . $qs);
 			}
 			
@@ -471,7 +466,6 @@ class ApiController extends Controller {
 						}
 						
 						$collection->removeItem($item->id);
-						Zotero_DB::commit();
 						$this->e204();
 					
 					default:
@@ -515,7 +509,6 @@ class ApiController extends Controller {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				Zotero_DB::commit();
 				$this->e204();
 			}
 			
@@ -582,7 +575,6 @@ class ApiController extends Controller {
 					}
 					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
 					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-					Zotero_DB::commit();
 					$this->redirect($base . "/items" . $qs);
 				}
 				
@@ -620,8 +612,6 @@ class ApiController extends Controller {
 								$itemIDs[] = $item->id;
 							}
 							$collection->addItems($itemIDs);
-							
-							Zotero_DB::commit();
 							
 							$this->e204();
 						}
@@ -866,9 +856,6 @@ class ApiController extends Controller {
 					echo $export['body'];
 			}
 		}
-		
-		Zotero_DB::commit();
-		Z_Core::$MC->commit();
 		
 		$this->end();
 	}
@@ -1425,9 +1412,6 @@ class ApiController extends Controller {
 			$this->e403();
 		}
 		
-		Z_Core::$MC->begin();
-		Zotero_DB::beginTransaction();
-		
 		if ($this->isWriteMethod()) {
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
@@ -1442,7 +1426,7 @@ class ApiController extends Controller {
 			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
 		}
 		
-		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		$collectionIDs = array();
 		$collectionKeys = array();
@@ -1495,7 +1479,6 @@ class ApiController extends Controller {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				Zotero_DB::commit();
 				$this->e204();
 			}
 			
@@ -1607,9 +1590,6 @@ class ApiController extends Controller {
 			}
 		}
 		
-		Zotero_DB::commit();
-		Z_Core::$MC->commit();
-		
 		$this->end();
 	}
 	
@@ -1619,9 +1599,6 @@ class ApiController extends Controller {
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
 		}
-		
-		Z_Core::$MC->begin();
-		Zotero_DB::beginTransaction();
 		
 		if ($this->isWriteMethod()) {
 			// Check for library write access
@@ -1637,7 +1614,7 @@ class ApiController extends Controller {
 			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
 		}
 		
-		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		$results = array();
 		$totalResults = 0;
@@ -1676,7 +1653,6 @@ class ApiController extends Controller {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				Zotero_DB::commit();
 				$this->e204();
 			}
 			
@@ -1742,9 +1718,6 @@ class ApiController extends Controller {
 					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
 			}
 		}
-		
-		Zotero_DB::commit();
-		Z_Core::$MC->commit();
 		
 		$this->end();
 	}

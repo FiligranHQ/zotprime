@@ -51,6 +51,11 @@ class ObjectTests extends APITests {
 	}*/
 	
 	
+	public function testPartialWriteFailure() {
+		self::_testPartialWriteFailure('item');
+	}
+	
+	
 	private function _testSingleObjectDelete($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
@@ -82,5 +87,49 @@ class ObjectTests extends APITests {
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey']
 		);
 		$this->assert404($response);
+	}
+	
+	
+	
+	private function _testPartialWriteFailure($objectType) {
+		API::userClear(self::$config['userID']);
+		
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		switch ($objectType) {
+		case 'collection':
+			$xml = API::createCollection("Name", false, $this);
+			break;
+		
+		case 'item':
+			$json1 = API::getItemTemplate('book');
+			$json2 = clone $json1;
+			$json2->title = str_repeat("1234567890", 6554);
+			$response = API::userPost(
+				self::$config['userID'],
+				"items?key=" . self::$config['apiKey'],
+				json_encode(array(
+					"items" => array(
+						$json1, $json2)
+				)),
+				array("Content-Type: application/json")
+			);
+			
+			$this->assert200($response);
+			$json = API::getJSONFromResponse($response);
+			$this->assert200ForObject($response, false, 0);
+			$this->assert400ForObject($response, false, 1);
+			$successKey = API::getFirstSuccessKeyFromResponse($response);
+			
+			switch ($objectType) {
+			case 'item':
+				$response = API::userGet(
+					self::$config['userID'],
+					"items?format=keys&key=" . self::$config['apiKey']
+				);
+				$this->assertEquals($successKey, trim($response->getBody()));
+				break;
+			}
+		}
 	}
 }

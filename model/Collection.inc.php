@@ -157,7 +157,7 @@ class Zotero_Collection {
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
-			$version = Zotero_Libraries::getVersion($this->libraryID);
+			$version = Zotero_Libraries::getUpdatedVersion($this->libraryID);
 			
 			// Verify parent
 			if ($this->_parent) {
