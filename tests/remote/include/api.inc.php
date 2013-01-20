@@ -377,8 +377,18 @@ class API {
 	}
 	
 	
-	public function createSearch($name, array $conditions=array(), $context=null, $responseFormat='atom') {
+	public function createSearch($name, $conditions=array(), $context=null, $responseFormat='atom') {
 		self::loadConfig();
+		
+		if ($conditions == 'default') {
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'test'
+				)
+			);
+		}
 		
 		$json = array(
 			"searches" => array(
