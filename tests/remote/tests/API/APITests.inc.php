@@ -63,7 +63,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 			}
 			$this->assertNotNull($json);
 			
-			$expectedMessage = isset($arguments[1]) ? $arguments[1] : false;
+			$expectedMessage = !empty($arguments[1]) ? $arguments[1] : false;
 			$index = isset($arguments[2]) ? $arguments[2] : 0;
 			
 			if ($matches[1] == 200) {

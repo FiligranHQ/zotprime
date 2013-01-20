@@ -40,19 +40,23 @@ class ObjectTests extends APITests {
 	
 	
 	public function testSingleObjectDelete() {
-		self::_testSingleObjectDelete('collection');
-		self::_testSingleObjectDelete('item');
+		$this->_testSingleObjectDelete('collection');
+		$this->_testSingleObjectDelete('item');
+		$this->_testSingleObjectDelete('search');
 	}
 	
 	
 	/*public function testMultiObjectDelete() {
-		self::_testMultiObjectDelete('collection');
-		self::_testMultiObjectDelete('item');
+		$this->_testMultiObjectDelete('collection');
+		$this->_testMultiObjectDelete('item');
+		$this->_testMultiObjectDelete('search');
 	}*/
 	
 	
 	public function testPartialWriteFailure() {
-		self::_testPartialWriteFailure('item');
+		$this->_testPartialWriteFailure('collection');
+		$this->_testPartialWriteFailure('item');
+		$this->_testPartialWriteFailure('search');
 	}
 	
 	
@@ -66,6 +70,10 @@ class ObjectTests extends APITests {
 		
 		case 'item':
 			$xml = API::createItem("book", array("title" => "Title"), $this);
+			break;
+		
+		case 'search':
+			$xml = API::createSearch("Name", 'default', $this);
 			break;
 		}
 		
@@ -98,38 +106,56 @@ class ObjectTests extends APITests {
 		
 		switch ($objectType) {
 		case 'collection':
-			$xml = API::createCollection("Name", false, $this);
+			$json1 = array("name" => "Test");
+			$json2 = array("name" => str_repeat("1234567890", 6554));
+			$json3 = array("name" => "Test");
 			break;
 		
 		case 'item':
 			$json1 = API::getItemTemplate('book');
 			$json2 = clone $json1;
+			$json3 = clone $json1;
 			$json2->title = str_repeat("1234567890", 6554);
-			$response = API::userPost(
-				self::$config['userID'],
-				"items?key=" . self::$config['apiKey'],
-				json_encode(array(
-					"items" => array(
-						$json1, $json2)
-				)),
-				array("Content-Type: application/json")
+			break;
+		
+		case 'search':
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'value'
+				)
 			);
-			
-			$this->assert200($response);
-			$json = API::getJSONFromResponse($response);
-			$this->assert200ForObject($response, false, 0);
-			$this->assert400ForObject($response, false, 1);
-			$successKey = API::getFirstSuccessKeyFromResponse($response);
-			
-			switch ($objectType) {
-			case 'item':
-				$response = API::userGet(
-					self::$config['userID'],
-					"items?format=keys&key=" . self::$config['apiKey']
-				);
-				$this->assertEquals($successKey, trim($response->getBody()));
-				break;
-			}
+			$json1 = array("name" => "Test", "conditions" => $conditions);
+			$json2 = array("name" => str_repeat("1234567890", 6554), "conditions" => $conditions);
+			$json3 = array("name" => "Test", "conditions" => $conditions);
+			break;
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"$objectTypePlural" => array($json1, $json2, $json3)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assert200ForObject($response, false, 0);
+		$this->assert400ForObject($response, false, 1);
+		$this->assert200ForObject($response, false, 2);
+		$json = API::getJSONFromResponse($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?format=keys&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		foreach ($json['success'] as $key) {
+			$this->assertContains($key, $keys);
 		}
 	}
 }
