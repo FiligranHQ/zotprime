@@ -557,7 +557,6 @@ class ApiController extends Controller {
 			$this->allowMethods(array('GET', 'POST'));
 			
 			$includeTrashed = false;
-			$formatAsKeys = $this->queryParams['format'] == 'keys';
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET', 'POST'));
@@ -1573,6 +1572,11 @@ class ApiController extends Controller {
 				);
 				break;
 			
+			case 'keys':
+				header("Content-Type: text/plain");
+				echo implode("\n", $results) . "\n";
+				break;
+			
 			case 'versions':
 			case 'writereport':
 				if ($this->queryParams['pprint']) {
@@ -1700,6 +1704,11 @@ class ApiController extends Controller {
 					$this->queryParams,
 					$this->permissions
 				);
+				break;
+			
+			case 'keys':
+				header("Content-Type: text/plain");
+				echo implode("\n", $results) . "\n";
 				break;
 			
 			case 'versions':

@@ -400,13 +400,18 @@ class Zotero_API {
 					}
 					break;
 			}
-			
 			return false;
 		}
 		else if ($action == 'collections' || $action == 'searches') {
-			if ($format == 'versions') {
-				return !$singleObject;
+			switch ($format) {
+			case 'keys':
+			case 'versions':
+				if (!$singleObject) {
+					return true;
+				}
+				break;
 			}
+			return false;
 		}
 		else if ($action == 'groups') {
 			switch ($format) {

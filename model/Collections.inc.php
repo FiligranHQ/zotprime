@@ -47,7 +47,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
-		if ($params['format'] == 'versions') {
+		if ($params['format'] == 'keys') {
+			$sql .= "`key`";
+		}
+		else if ($params['format'] == 'versions') {
 			$sql .= "`key`, version";
 		}
 		else {
@@ -119,6 +122,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		if ($params['format'] == 'versions') {
 			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
 		}
+		// keys and ids
 		else {
 			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		}
@@ -126,7 +130,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 		if ($rows) {
 			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 			
-			if ($params['format'] == 'versions') {
+			if ($params['format'] == 'keys') {
+				$results['results'] = $rows;
+			}
+			else if ($params['format'] == 'versions') {
 				foreach ($rows as $row) {
 					$results['results'][$row['key']] = $row['version'];
 				}

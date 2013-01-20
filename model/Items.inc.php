@@ -460,7 +460,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($params['format'] == 'versions') {
 			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
 		}
-		// keys and itemIDs
+		// keys and ids
 		else {
 			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		}

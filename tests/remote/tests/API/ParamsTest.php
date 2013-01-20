@@ -28,29 +28,35 @@ require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
 class ParamsTests extends APITests {
-	private static $keys = array();
+	private static $collectionKeys = array();
+	private static $itemKeys = array();
+	private static $searchKeys = array();
 	
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
 		API::userClear(self::$config['userID']);
 		
-		// Create test data
+		//
+		// Collections
+		//
 		for ($i=0; $i<5; $i++) {
-			self::$keys[] = API::createItem("book", false, null, 'key');
+			self::$collectionKeys[] = API::createCollection("Test", false, null, 'key');
 		}
 		
-		// Create top-level attachment
-		$response = API::get("items/new?itemType=attachment&linkMode=imported_file");
-		$json = json_decode($response->getBody());
-		$response = API::userPost(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array("Content-Type: application/json")
-		);
-		self::$keys[] = API::getFirstSuccessKeyFromResponse($response);;
+		//
+		// Items
+		//
+		for ($i=0; $i<5; $i++) {
+			self::$itemKeys[] = API::createItem("book", false, null, 'key');
+		}
+		self::$itemKeys[] = API::createAttachmentItem("imported_file", false, null, 'key');
+		
+		//
+		// Searches
+		//
+		for ($i=0; $i<5; $i++) {
+			self::$searchKeys[] = API::createSearch("Test", 'default', null, 'key');
+		}
 	}
 	
 	public static function tearDownAfterClass() {
@@ -60,9 +66,27 @@ class ParamsTests extends APITests {
 	
 	
 	public function testFormatKeys() {
+		$this->_testFormatKeys('collection');
+		$this->_testFormatKeys('item');
+		$this->_testFormatKeys('search');
+	}
+	
+	
+	public function testFormatKeysSorted() {
+		$this->_testFormatKeysSorted('collection');
+		$this->_testFormatKeysSorted('item');
+		$this->_testFormatKeysSorted('search');
+	}
+	
+	
+	private function _testFormatKeys($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		$keysVar = $objectType . "Keys";
+		
 		$response = API::userGet(
 			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'] . "&format=keys"
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&format=keys"
 		);
 		$this->assert200($response);
 		
@@ -70,16 +94,20 @@ class ParamsTests extends APITests {
 		sort($keys);
 		$this->assertEmpty(
 			array_merge(
-				array_diff(self::$keys, $keys), array_diff($keys, self::$keys)
+				array_diff(self::$$keysVar, $keys), array_diff($keys, self::$$keysVar)
 			)
 		);
 	}
 	
 	
-	public function testFormatKeysSorted() {
+	private function _testFormatKeysSorted($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		$keysVar = $objectType . "Keys";
+		
 		$response = API::userGet(
 			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'] . "&format=keys&order=itemType"
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&format=keys&order=title"
 		);
 		$this->assert200($response);
 		
@@ -87,7 +115,7 @@ class ParamsTests extends APITests {
 		sort($keys);
 		$this->assertEmpty(
 			array_merge(
-				array_diff(self::$keys, $keys), array_diff($keys, self::$keys)
+				array_diff(self::$$keysVar, $keys), array_diff($keys, self::$$keysVar)
 			)
 		);
 	}
