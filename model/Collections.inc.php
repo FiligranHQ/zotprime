@@ -243,7 +243,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$content = $content[0];
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
+			'<entry xmlns="' . Zotero_Atom::$nsAtom
+			. '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
 		);
 		
 		$title = $collection->name ? $collection->name : '[Untitled]';

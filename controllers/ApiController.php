@@ -1769,7 +1769,8 @@ class ApiController extends Controller {
 			$this->e403();
 		}
 		
-		$tags = array();
+		$tagIDs = array();
+		$results = array();
 		$totalResults = 0;
 		$name = $this->objectName;
 		$fixedValues = array();
@@ -1835,45 +1836,24 @@ class ApiController extends Controller {
 			}
 			else {
 				$title = "Tags";
-				$results = Zotero_Tags::getAllAdvanced($this->objectLibraryID, $this->queryParams);
-				$tags = $results['objects'];
-				$totalResults = $results['total'];
+				$results = Zotero_Tags::search($this->objectLibraryID, $this->queryParams);
 			}
 		}
 		
-		if (!empty($tagIDs)) {
-			foreach ($tagIDs as $tagID) {
-				$tags[] = Zotero_Tags::get($this->objectLibraryID, $tagID);
-			}
-			
-			// Fake sorting and limiting
-			$totalResults = sizeOf($tags);
-			$key = $this->queryParams['order'];
-			// 'title' order means 'name' for tags
-			if ($key == 'title') {
-				$key = 'name';
-			}
-			$dir = $this->queryParams['sort'];
-			$cmp = create_function(
-				'$a, $b',
-				'$dir = "'.$dir.'" == "asc" ? 1 : -1;
-				if ($a->'.$key.' == $b->'.$key.') {
-					return 0;
-				}
-				else {
-					return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
-			usort($tags, $cmp);
-			$tags = array_slice(
-				$tags,
-				$this->queryParams['start'],
-				$this->queryParams['limit']
-			);
+		if ($tagIDs) {
+			$this->queryParams['tagIDs'] = $tagIDs;
+			$results = Zotero_Tags::search($this->objectLibraryID, $this->queryParams);
+		}
+		
+		if ($results && isset($results['results'])) {
+			$totalResults = $results['total'];
+			$results = $results['results'];
 		}
 		
 		$this->responseXML = Zotero_Atom::createAtomFeed(
 			$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 			$this->uri,
-			$tags,
+			$results,
 			$totalResults,
 			$this->queryParams,
 			$this->permissions,

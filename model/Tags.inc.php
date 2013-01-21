@@ -113,9 +113,10 @@ class Zotero_Tags extends Zotero_DataObjects {
 	}
 	
 	
-
-	public static function getAllAdvanced($libraryID, $params) {
-		$results = array('objects' => array(), 'total' => 0);
+	public static function search($libraryID, $params) {
+		$results = array('results' => array(), 'total' => 0);
+		
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags ";
 		if (!empty($params['order']) && $params['order'] == 'numItems') {
@@ -123,6 +124,25 @@ class Zotero_Tags extends Zotero_DataObjects {
 		}
 		$sql .= "WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
+		
+		// Pass a list of tagIDs, for when the initial search is done via SQL
+		$tagIDs = !empty($params['tagIDs']) ? $params['tagIDs'] : array();
+		// Filter for specific tags with "?tag=foo || bar"
+		$tagNames = !empty($params['tag']) ? explode(' || ', $params['tag']): array();
+		
+		if ($tagIDs) {
+			$sql .= "AND tagID IN ("
+					. implode(', ', array_fill(0, sizeOf($tagIDs), '?'))
+					. ") ";
+			$sqlParams = array_merge($sqlParams, $tagIDs);
+		}
+		
+		if ($tagNames) {
+			$sql .= "AND `name` IN ("
+					. implode(', ', array_fill(0, sizeOf($tagNames), '?'))
+					. ") ";
+			$sqlParams = array_merge($sqlParams, $tagNames);
+		}
 		
 		if (!empty($params['q'])) {
 			if (!is_array($params['q'])) {
@@ -182,8 +202,6 @@ class Zotero_Tags extends Zotero_DataObjects {
 			$sqlParams[] = $params['limit'];
 		}
 		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
 		$ids = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
 		if ($ids) {
@@ -193,7 +211,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 			foreach ($ids as $id) {
 				$tags[] = Zotero_Tags::get($libraryID, $id);
 			}
-			$results['objects'] = $tags;
+			$results['results'] = $tags;
 		}
 		
 		return $results;

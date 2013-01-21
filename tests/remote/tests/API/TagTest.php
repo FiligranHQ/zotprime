@@ -235,4 +235,30 @@ class TagTests extends APITests {
 		$this->assertContains($key1, $keys);
 		$this->assertContains($key2, $keys);
 	}
+	
+	
+	public function testTagSearch() {
+		$tags1 = array("a", "aa", "b");
+		$tags2 = array("b", "c", "cc");
+		
+		$itemKey1 = API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags1)
+		), $this, 'key');
+		
+		$itemKey2 = API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags2)
+		), $this, 'key');
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag=" . implode("%20||%20", $tags1)
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($tags1), $response);
+	}
 }
