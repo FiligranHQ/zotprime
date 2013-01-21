@@ -655,10 +655,15 @@ class Zotero_DataObjects {
 		static::uncachePrimaryData($libraryID, $key);
 		
 		if ($deleted) {
-			$sql = "INSERT INTO syncDeleteLogKeys (libraryID, objectType, `key`, timestamp)
-						VALUES (?, '$type', ?, ?) ON DUPLICATE KEY UPDATE timestamp=?";
+			$sql = "INSERT INTO syncDeleteLogKeys
+						(libraryID, objectType, `key`, timestamp, version)
+						VALUES (?, '$type', ?, ?, ?)
+						ON DUPLICATE KEY UPDATE timestamp=?, version=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$params = array($libraryID, $key, $timestamp, $timestamp);
+			$version = Zotero_Libraries::getOriginalVersion($libraryID);
+			$params = array(
+				$libraryID, $key, $timestamp, $version, $timestamp, $version
+			);
 			Zotero_DB::query($sql, $params, $shardID);
 		}
 		

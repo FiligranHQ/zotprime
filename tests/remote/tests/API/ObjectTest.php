@@ -46,11 +46,11 @@ class ObjectTests extends APITests {
 	}
 	
 	
-	/*public function testMultiObjectDelete() {
+	public function testMultiObjectDelete() {
 		$this->_testMultiObjectDelete('collection');
 		$this->_testMultiObjectDelete('item');
 		$this->_testMultiObjectDelete('search');
-	}*/
+	}
 	
 	
 	public function testPartialWriteFailure() {
@@ -97,6 +97,66 @@ class ObjectTests extends APITests {
 		$this->assert404($response);
 	}
 	
+	
+	private function _testMultiObjectDelete($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		$keyProp = $objectType . "Key";
+		
+		$deleteKeys = array();
+		$keepKeys = array();
+		switch ($objectType) {
+		case 'collection':
+			$deleteKeys[] = API::createCollection("Name", false, $this, 'key');
+			$deleteKeys[] = API::createCollection("Name", false, $this, 'key');
+			$keepKeys[] = API::createCollection("Name", false, $this, 'key');
+			break;
+		
+		case 'item':
+			$deleteKeys[] = API::createItem("book", array("title" => "Title"), $this, 'key');
+			$deleteKeys[] = API::createItem("book", array("title" => "Title"), $this, 'key');
+			$keepKeys[] = API::createItem("book", array("title" => "Title"), $this, 'key');
+			break;
+		
+		case 'search':
+			$deleteKeys[] = API::createSearch("Name", 'default', $this, 'key');
+			$deleteKeys[] = API::createSearch("Name", 'default', $this, 'key');
+			$keepKeys[] = API::createSearch("Name", 'default', $this, 'key');
+			break;
+		}
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($deleteKeys) + sizeOf($keepKeys), $response);
+		$libraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&$keyProp=" . implode(',', $deleteKeys),
+			array(
+				"Zotero-If-Unmodified-Since-Version: " . $libraryVersion
+			)
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($keepKeys), $response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&$keyProp=" . implode(',', $keepKeys)
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($keepKeys), $response);
+	}
 	
 	
 	private function _testPartialWriteFailure($objectType) {

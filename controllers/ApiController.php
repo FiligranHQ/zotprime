@@ -554,7 +554,7 @@ class ApiController extends Controller {
 		// Multiple items
 		//
 		else {
-			$this->allowMethods(array('GET', 'POST'));
+			$this->allowMethods(array('GET', 'POST', 'DELETE'));
 			
 			$includeTrashed = false;
 			
@@ -769,6 +769,16 @@ class ApiController extends Controller {
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
+					}
+					// Delete items
+					else if ($this->method == 'DELETE') {
+						Zotero_DB::beginTransaction();
+						$itemKeys = explode(',', $this->queryParams['itemKey']);
+						foreach ($itemKeys as $itemKey) {
+							Zotero_Items::delete($this->objectLibraryID, $itemKey);
+						}
+						Zotero_DB::commit();
+						$this->e204();
 					}
 					// Display items
 					else {
@@ -1487,7 +1497,7 @@ class ApiController extends Controller {
 		}
 		// Multiple collections
 		else {
-			$this->allowMethods(array('GET', 'POST'));
+			$this->allowMethods(array('GET', 'POST', 'DELETE'));
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET'));
@@ -1541,6 +1551,16 @@ class ApiController extends Controller {
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
+					}
+					// Delete collections
+					else if ($this->method == 'DELETE') {
+						Zotero_DB::beginTransaction();
+						$collectionKeys = explode(',', $this->queryParams['collectionKey']);
+						foreach ($collectionKeys as $collectionKey) {
+							Zotero_Collections::delete($this->objectLibraryID, $collectionKey);
+						}
+						Zotero_DB::commit();
+						$this->e204();
 					}
 					// Display collections
 					else {
@@ -1664,7 +1684,7 @@ class ApiController extends Controller {
 		}
 		// Multiple searches
 		else {
-			$this->allowMethods(array('GET', 'POST'));
+			$this->allowMethods(array('GET', 'POST', 'DELETE'));
 			
 			// Create a search
 			if ($this->method == 'POST') {
@@ -1682,6 +1702,16 @@ class ApiController extends Controller {
 				if ($cacheKey = $this->getWriteTokenCacheKey()) {
 					Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 				}
+			}
+			// Delete searches
+			else if ($this->method == 'DELETE') {
+				Zotero_DB::beginTransaction();
+				$searchKeys = explode(',', $this->queryParams['searchKey']);
+				foreach ($searchKeys as $searchKey) {
+					Zotero_Searches::delete($this->objectLibraryID, $searchKey);
+				}
+				Zotero_DB::commit();
+				$this->e204();
 			}
 			// Display searches
 			else {

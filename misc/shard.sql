@@ -271,6 +271,7 @@ CREATE TABLE `syncDeleteLogKeys` (
   `objectType` enum('collection','creator','item','relation','search','tag') NOT NULL,
   `key` varchar(32) NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `version` int(10) unsigned NOT NULL,
   PRIMARY KEY (`libraryID`,`objectType`,`key`),
   KEY `objectType` (`objectType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
