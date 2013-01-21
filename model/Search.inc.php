@@ -293,16 +293,7 @@ class Zotero_Search {
 			return $arr;
 		}
 		
-		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
-		if ($prettyPrint) {
-			$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
-		}
-		else {
-			$json = json_encode($arr, $mask);
-		}
-		// Until JSON_UNESCAPED_SLASHES is available
-		$json = str_replace('\\/', '/', $json);
-		return $json;
+		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
 	}
 	
 	
