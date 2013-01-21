@@ -478,6 +478,22 @@ class Zotero_Tag {
 	}
 	
 	
+	public function toJSON($asArray=false, $prettyPrint=false) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$arr['tag'] = $this->name;
+		$arr['type'] = $this->type;
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
+	}
+	
+	
 	/**
 	 * Converts a Zotero_Tag object to a SimpleXMLElement Atom object
 	 *
@@ -494,9 +510,8 @@ class Zotero_Tag {
 		$content = $content[0];
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
-			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '
-			. 'xmlns:zxfer="' . Zotero_Atom::$nsZoteroTransfer . '"/>'
+			'<entry xmlns="' . Zotero_Atom::$nsAtom
+			. '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
 		);
 		
 		$xml->title = $this->name;
@@ -536,19 +551,18 @@ class Zotero_Tag {
 		if ($content == 'html') {
 			$xml->content['type'] = 'xhtml';
 			
-			//$fullXML = Zotero_Tags::convertTagToXML($tag);
-			$fullStr = "<div/>";
-			$fullXML = new SimpleXMLElement($fullStr);
-			$fullXML->addAttribute(
+			$contentXML = new SimpleXMLElement("<div/>");
+			$contentXML->addAttribute(
 				"xmlns", Zotero_Atom::$nsXHTML
 			);
 			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
+			$subNode = dom_import_simplexml($contentXML);
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
-			
-			//$arr = $tag->serialize();
-			//require_once("views/zotero/tags.php")
+		}
+		else if ($content == 'json') {
+			$xml->content['type'] = 'application/json';
+			$xml->content = $this->toJSON();
 		}
 		
 		return $xml;
