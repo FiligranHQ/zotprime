@@ -69,11 +69,6 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$collectionKeys = !empty($params['collectionKey'])
 			? explode(',', $params['collectionKey']): array();
 		
-		if (!empty($params['newer'])) {
-			$sql .= "AND version > ? ";
-			$sqlParams[] = $params['newer'];
-		}
-		
 		if ($collectionIDs) {
 			$sql .= "AND collectionID IN ("
 					. implode(', ', array_fill(0, sizeOf($collectionIDs), '?'))
@@ -86,6 +81,11 @@ class Zotero_Collections extends Zotero_DataObjects {
 					. implode(', ', array_fill(0, sizeOf($collectionKeys), '?'))
 					. ") ";
 			$sqlParams = array_merge($sqlParams, $collectionKeys);
+		}
+		
+		if (!empty($params['newer'])) {
+			$sql .= "AND version > ? ";
+			$sqlParams[] = $params['newer'];
 		}
 		
 		if (!empty($params['order'])) {

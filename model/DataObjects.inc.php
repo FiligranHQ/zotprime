@@ -336,7 +336,7 @@ class Zotero_DataObjects {
 		}
 		
 		if ($found != $expected) {
-			throw new Exception("$found $type primary data fields provided -- excepted $expected");
+			throw new Exception("$found $type primary data fields provided -- expected $expected");
 		}
 		
 		self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;

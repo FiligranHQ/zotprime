@@ -30,11 +30,14 @@ require_once 'include/api.inc.php';
 class VersionTests extends APITests {
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
-		API::userClear(self::$config['userID']);
 	}
 	
 	public static function tearDownAfterClass() {
 		parent::tearDownAfterClass();
+		API::userClear(self::$config['userID']);
+	}
+	
+	public function setUp() {
 		API::userClear(self::$config['userID']);
 	}
 	
@@ -64,6 +67,50 @@ class VersionTests extends APITests {
 		$this->_testNewerAndVersionsFormat('collection');
 		$this->_testNewerAndVersionsFormat('item');
 		$this->_testNewerAndVersionsFormat('search');
+	}
+	
+	
+	public function testNewerTags() {
+		$tags1 = array("a", "aa", "b");
+		$tags2 = array("b", "c", "cc");
+		
+		$data1 = API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags1)
+		), $this, 'data');
+		
+		$data2 = API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags2)
+		), $this, 'data');
+		
+		// Only newly added tags should be included in newer,
+		// not previously added tags or tags added to items
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&newer=" . $data1['version']
+		);
+		$this->assertNumResults(2, $response);
+		
+		// Deleting an item shouldn't update associated tag versions
+		$response = API::userDelete(
+			self::$config['userID'],
+			"items/{$data1['key']}?key=" . self::$config['apiKey'],
+			array(
+				"Zotero-If-Unmodified-Since-Version: " . $data1['version']
+			)
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&newer=" . $data1['version']
+		);
+		$this->assertNumResults(2, $response);
 	}
 	
 	

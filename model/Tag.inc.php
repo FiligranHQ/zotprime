@@ -32,6 +32,7 @@ class Zotero_Tag {
 	private $type;
 	private $dateAdded;
 	private $dateModified;
+	private $version;
 	
 	private $loaded;
 	private $changed;
@@ -193,9 +194,12 @@ class Zotero_Tag {
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
+			$version = ($this->changed['name'] || $this->changed['type'])
+				? Zotero_Libraries::getUpdatedVersion($this->libraryID)
+				: $this->version;
 			
 			$fields = "name=?, `type`=?, dateAdded=?, dateModified=?,
-				libraryID=?, `key`=?, serverDateModified=?";
+				libraryID=?, `key`=?, serverDateModified=?, version=?";
 			$params = array(
 				$this->name,
 				$this->type ? $this->type : 0,
@@ -203,7 +207,8 @@ class Zotero_Tag {
 				$dateModified,
 				$this->libraryID,
 				$key,
-				$timestamp
+				$timestamp,
+				$version
 			);
 			
 			try {
@@ -334,7 +339,8 @@ class Zotero_Tag {
 					'name' => $this->name,
 					'type' => $this->type ? $this->type : 0,
 					'dateAdded' => $dateAdded,
-					'dateModified' => $dateModified
+					'dateModified' => $dateModified,
+					'version' => $version
 				)
 			);
 		}

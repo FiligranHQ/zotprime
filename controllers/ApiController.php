@@ -1851,7 +1851,6 @@ class ApiController extends Controller {
 						$tag = Zotero_Tags::get($this->objectLibraryID, $tagID, true);
 						Zotero_Tags::delete($this->objectLibraryID, $tag->key);
 					}
-
 				}
 				Zotero_DB::commit();
 				$this->e204();

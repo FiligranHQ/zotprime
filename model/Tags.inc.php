@@ -36,7 +36,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 		'name' => '',
 		'type' => '',
 		'dateAdded' => '',
-		'dateModified' => ''
+		'dateModified' => '',
+		'version' => ''
 	);
 	
 	private static $tagsByID = array();
@@ -177,6 +178,11 @@ class Zotero_Tags extends Zotero_DataObjects {
 				$sql .= "AND type NOT IN (" . implode(',', array_fill(0, sizeOf($negatives), '?')) . ") ";
 				$sqlParams = array_merge($sqlParams, $negatives);
 			}
+		}
+		
+		if (!empty($params['newer'])) {
+			$sql .= "AND version > ? ";
+			$sqlParams[] = $params['newer'];
 		}
 		
 		if (!empty($params['order'])) {
