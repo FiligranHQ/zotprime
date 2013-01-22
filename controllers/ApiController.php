@@ -1763,7 +1763,7 @@ class ApiController extends Controller {
 	
 	
 	public function tags() {
-		$this->allowMethods(array('GET'));
+		$this->allowMethods(array('GET', 'DELETE'));
 		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
@@ -1777,6 +1777,8 @@ class ApiController extends Controller {
 		
 		// Set of tags matching name
 		if ($name && $this->subset != 'tags') {
+			$this->allowMethods(array('GET'));
+			
 			$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $name);
 			if (!$tagIDs) {
 				$this->e404();
@@ -1786,7 +1788,11 @@ class ApiController extends Controller {
 		}
 		// All tags
 		else {
+			$this->allowMethods(array('GET', 'DELETE'));
+			
 			if ($this->scopeObject) {
+				$this->allowMethods(array('GET'));
+				
 				// If id, redirect to key URL
 				if ($this->scopeObjectID) {
 					if (!in_array($this->scopeObject, array("collections", "items"))) {
@@ -1833,6 +1839,22 @@ class ApiController extends Controller {
 					default:
 						throw new Exception("Invalid tags scope object '$this->scopeObject'");
 				}
+			}
+			else if ($this->method == 'DELETE') {
+				// Filter for specific tags with "?tag=foo || bar"
+				$tagNames = !empty($this->queryParams['tag'])
+					? explode(' || ', $this->queryParams['tag']): array();
+				Zotero_DB::beginTransaction();
+				foreach ($tagNames as $tagName) {
+					$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $tagName);
+					foreach ($tagIDs as $tagID) {
+						$tag = Zotero_Tags::get($this->objectLibraryID, $tagID, true);
+						Zotero_Tags::delete($this->objectLibraryID, $tag->key);
+					}
+
+				}
+				Zotero_DB::commit();
+				$this->e204();
 			}
 			else {
 				$title = "Tags";

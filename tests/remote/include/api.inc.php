@@ -79,20 +79,33 @@ class API {
 			throw new Exception("Item creation failed");
 		}
 		
-		switch ($responseFormat) {
-		case 'json':
+		if ($responseFormat == 'json') {
 			return $json;
-		
-		case 'key':
-			return array_shift($json['success']);
-		
-		case 'atom':
-			$itemKey = array_shift($json['success']);
-			return self::getItemXML($itemKey, $context);
-		
-		default:
-			throw new Exception("Invalid response format '$responseFormat'");
 		}
+		
+		$itemKey = array_shift($json['success']);
+		
+		if ($responseFormat == 'key') {
+			return $itemKey;
+		}
+		
+		$xml = self::getItemXML($itemKey, $context);
+		
+		if ($responseFormat == 'atom') {
+			return $xml;
+		}
+		
+		$data = self::parseDataFromAtomEntry($xml);
+		
+		if ($responseFormat == 'data') {
+			return $data;
+		}
+		
+		if ($responseFormat == 'content') {
+			return $data['content'];
+		}
+		
+		throw new Exception("Invalid response format '$responseFormat'");
 	}
 	
 	

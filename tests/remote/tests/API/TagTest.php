@@ -261,4 +261,48 @@ class TagTests extends APITests {
 		$this->assert200($response);
 		$this->assertNumResults(sizeOf($tags1), $response);
 	}
+	
+	
+	public function testMultiTagDelete() {
+		API::userClear(self::$config['userID']);
+		
+		$tags1 = array("a", "aa", "b");
+		$tags2 = array("b", "c", "cc");
+		$tags3 = array("Foo");
+		
+		API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags1)
+		), $this, 'key');
+		
+		API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag, "type" => 1);
+			}, $tags2)
+		), $this, 'key');
+		
+		API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags3)
+		), $this, 'key');
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2))
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2, $tags3))
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+	}
 }
