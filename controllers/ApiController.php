@@ -652,7 +652,13 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams, false, $this->permissions);
+					$results = Zotero_Items::search(
+						$this->objectLibraryID,
+						true,
+						$this->queryParams,
+						$includeTrashed,
+						$this->permissions
+					);
 				}
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
@@ -783,7 +789,13 @@ class ApiController extends Controller {
 					// Display items
 					else {
 						$title = "Items";
-						$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $this->permissions);
+						$results = Zotero_Items::search(
+							$this->objectLibraryID,
+							false,
+							$this->queryParams,
+							$includeTrashed,
+							$this->permissions
+						);
 					}
 				}
 			}
@@ -801,7 +813,13 @@ class ApiController extends Controller {
 				if ($itemKeys) {
 					$this->queryParams['itemKey'] = implode(',', $itemKeys);
 				}
-				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $this->permissions);
+				$results = Zotero_Items::search(
+					$this->objectLibraryID,
+					false,
+					$this->queryParams,
+					$includeTrashed,
+					$this->permissions
+				);
 			}
 			
 			if ($results && isset($results['results'])) {

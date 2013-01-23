@@ -135,11 +135,8 @@ class PermissionsTest extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		// TEMP: should be 201
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromAtomEntry($xml);
-		$collectionKey = $data['key'];
+		$this->assert200ForObject($response);
+		$collectionKey = API::getFirstSuccessKeyFromResponse($response);
 		
 		$response = API::userPost(
 			self::$config['userID'],
