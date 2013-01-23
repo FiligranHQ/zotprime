@@ -497,6 +497,29 @@ class Zotero_DataObjects {
 	}
 	
 	
+	public static function getDeleteLogKeys($libraryID, $version) {
+		$type = static::field('object');
+		
+		// TEMP: until classic syncing is deprecated and the objectType
+		// 'tagName' is changed to 'tag'
+		if ($type == 'tag') {
+			$type = 'tagName';
+		}
+		
+		$sql = "SELECT `key` FROM syncDeleteLogKeys
+		        WHERE objectType=? AND libraryID=? AND version>?";
+		$keys = Zotero_DB::columnQuery(
+			$sql,
+			array($type, $libraryID, $version),
+			Zotero_Shards::getByLibraryID($libraryID)
+		);
+		if (!$keys) {
+			return array();
+		}
+		return $keys;
+	}
+	
+	
 	public static function updateMultipleFromJSON($json, $libraryID, $userID, $requireVersion, $parent=null) {
 		$type = static::field('object');
 		$types = static::field('objects');
@@ -640,6 +663,10 @@ class Zotero_DataObjects {
 				}
 			}
 		}
+		// Tag deletions need to stored by tag for the API
+		else if ($type == 'tag') {
+			$tagName = $obj->name;
+		}
 		
 		if ($type == 'relation') {
 			// TODO: add key column to relations to speed this up
@@ -660,11 +687,22 @@ class Zotero_DataObjects {
 						VALUES (?, '$type', ?, ?, ?)
 						ON DUPLICATE KEY UPDATE timestamp=?, version=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$version = Zotero_Libraries::getOriginalVersion($libraryID);
+			$version = Zotero_Libraries::getUpdatedVersion($libraryID);
 			$params = array(
 				$libraryID, $key, $timestamp, $version, $timestamp, $version
 			);
 			Zotero_DB::query($sql, $params, $shardID);
+			
+			if ($type == 'tag') {
+				$sql = "INSERT INTO syncDeleteLogKeys
+							(libraryID, objectType, `key`, timestamp, version)
+							VALUES (?, 'tagName', ?, ?, ?)
+							ON DUPLICATE KEY UPDATE timestamp=?, version=?";
+				$params = array(
+					$libraryID, $tagName, $timestamp, $version, $timestamp, $version
+				);
+				Zotero_DB::query($sql, $params, $shardID);
+			}
 		}
 		
 		Zotero_DB::commit();

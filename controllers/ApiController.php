@@ -1885,6 +1885,37 @@ class ApiController extends Controller {
 	}
 	
 	
+	public function deleted() {
+		$this->allowMethods(array('GET'));
+		
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
+		if (!isset($_GET['newer'])) {
+			$this->e400("'newer' parameter must be provided");
+		}
+		
+		$deleted = array(
+			"collections" => Zotero_Collections::getDeleteLogKeys(
+				$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"items" => Zotero_Items::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"searches" => Zotero_Searches::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"tags" => Zotero_Tags::getDeleteLogKeys(
+				$this->objectLibraryID, $this->queryParams['newer']
+			)
+		);
+		
+		echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
+		$this->end();
+	}
+	
+	
 	public function groups() {
 		$groupID = $this->groupID;
 		

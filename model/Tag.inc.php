@@ -218,8 +218,16 @@ class Zotero_Tag {
 					Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
 					
 					// Remove from delete log if it's there
-					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='tag' AND `key`=?";
-					Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+					        AND objectType='tag' AND `key`=?";
+					Zotero_DB::query(
+						$sql, array($this->libraryID, $key), $shardID
+					);
+					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+					        AND objectType='tagName' AND `key`=?";
+					Zotero_DB::query(
+						$sql, array($this->libraryID, $this->name), $shardID
+					);
 				}
 				else {
 					$sql = "UPDATE tags SET $fields WHERE tagID=?";
@@ -252,8 +260,17 @@ class Zotero_Tag {
 						Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
 						
 						// Remove from delete log if it's there
-						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='tag' AND `key`=?";
-						Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+						        AND objectType='tag' AND `key`=?";
+						Zotero_DB::query(
+							$sql, array($this->libraryID, $key), $shardID
+						);
+						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+						        AND objectType='tagName' AND `key`=?";
+						Zotero_DB::query(
+							$sql, array($this->libraryID, $this->name), $shardID
+						);
+
 					}
 					else {
 						$sql = "UPDATE tags SET $fields WHERE tagID=?";

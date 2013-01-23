@@ -288,6 +288,7 @@ class TagTests extends APITests {
 			}, $tags3)
 		), $this, 'key');
 		
+		
 		$response = API::userDelete(
 			self::$config['userID'],
 			"tags?key=" . self::$config['apiKey']

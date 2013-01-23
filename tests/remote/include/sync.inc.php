@@ -25,6 +25,7 @@
 */
 
 require_once 'include/http.inc.php';
+require_once '../../model/Utilities.inc.php';
 
 class Sync {
 	private static $config;
@@ -39,6 +40,61 @@ class Sync {
 		}
 	}
 	
+	
+	public static function createItem($sessionID, $libraryID, $itemType, $data=array(), $context) {
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		date_default_timezone_set('UTC');
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		// Create item via sync
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. '<item libraryID="' . $libraryID . '" '
+				. 'itemType="' . $itemType . '" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '">';
+		if ($data) {
+			foreach ($data as $key => $val) {
+				$xmlstr .= '<field name="' . $key . '">' . $val . '</field>';
+			}
+		}
+		$xmlstr .= '</item>'
+			. '</items>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+		
+		return $key;
+	}
+	
+	
+	public static function deleteItem($sessionID, $libraryID, $itemKey, $context=null) {
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$xmlstr = '<data version="9">'
+			. '<deleted>'
+			. '<items>'
+			. '<item libraryID="' . self::$config['libraryID']
+				. '" key="' . $itemKey . '"/>'
+			. '</items>'
+			. '</deleted>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+	}
+	
+	
+	//
+	// Sync operations
+	//
 	public static function login($credentials=false) {
 		self::loadConfig();
 		

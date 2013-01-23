@@ -53,6 +53,102 @@ class ObjectTests extends APITests {
 	}
 	
 	
+	public function testDeleted() {
+		$self = $this;
+		
+		API::userClear(self::$config['userID']);
+		
+		//
+		// Create objects
+		//
+		$objectKeys = array();
+		$objectKeys['tag'] = array("foo", "bar");
+		
+		$objectKeys['collection'][] = API::createCollection("Name", false, $this, 'key');
+		$objectKeys['collection'][] = API::createCollection("Name", false, $this, 'key');
+		$objectKeys['item'][] = API::createItem(
+			"book",
+			array(
+				"title" => "Title",
+				"tags" => array_map(function ($tag) {
+					return array("tag" => $tag);
+				}, $objectKeys['tag'])
+			),
+			$this,
+			'key'
+		);
+		$objectKeys['item'][] = API::createItem("book", array("title" => "Title"), $this, 'key');
+		$objectKeys['search'][] = API::createSearch("Name", 'default', $this, 'key');
+		$objectKeys['search'][] = API::createSearch("Name", 'default', $this, 'key');
+		
+		// Get library version
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
+		);
+		$libraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
+		
+		// Delete objects
+		$config = self::$config;
+		$func = function ($objectType, $libraryVersion) use ($config, $self, $objectKeys) {
+			$objectTypePlural = API::getPluralObjectType($objectType);
+			$keyProp = $objectType . "Key";
+			$response = API::userDelete(
+				$config['userID'],
+				"$objectTypePlural?key=" . $config['apiKey']
+					. "&$keyProp=" . implode(',', $objectKeys[$objectType]),
+				array("Zotero-If-Unmodified-Since-Version: " . $libraryVersion)
+			);
+			$self->assert204($response);
+			return $response->getHeader("Zotero-Last-Modified-Version");
+		};
+		$newLibraryVersion = $func('collection', $libraryVersion);
+		$newLibraryVersion = $func('item', $newLibraryVersion);
+		$newLibraryVersion = $func('search', $newLibraryVersion);
+		
+		// Request deleted objects
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion"
+		);
+		$this->assert200($response);
+		$json = json_decode($response->getBody(), true);
+		
+		// Verify keys
+		$func = function ($json, $objectType, $objectKeys) use ($self) {
+			$objectTypePlural = API::getPluralObjectType($objectType);
+			$self->assertArrayHasKey($objectTypePlural, $json);
+			$self->assertCount(sizeOf($objectKeys), $json[$objectTypePlural]);
+			foreach ($objectKeys as $key) {
+				$self->assertContains($key, $json[$objectTypePlural]);
+			}
+		};
+		$func($json, 'collection', $objectKeys['collection']);
+		$func($json, 'item', $objectKeys['item']);
+		$func($json, 'search', $objectKeys['search']);
+		// Tags aren't deleted by removing from items
+		$func($json, 'tag', array());
+		
+		// Explicit tag deletion
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+			. "&tag=" . implode('%20||%20', $objectKeys['tag']),
+			array("Zotero-If-Unmodified-Since-Version: " . $newLibraryVersion)
+		);
+		$self->assert204($response);
+		
+		// Verify deleted tags
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion"
+		);
+		$this->assert200($response);
+		$json = json_decode($response->getBody(), true);
+		$func($json, 'tag', $objectKeys['tag']);
+	}
+	
+	
 	public function testPartialWriteFailure() {
 		$this->_testPartialWriteFailure('collection');
 		$this->_testPartialWriteFailure('item');

@@ -1893,7 +1893,9 @@ class Zotero_Sync {
 		foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
 			$sql = "SELECT COUNT(*) FROM syncDeleteLogKeys WHERE libraryID IN ("
 					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
-					. ")";
+					. ") "
+					// API only
+					. "AND objectType != 'tagName'";
 			$params = $libraryIDs;
 			if ($timestamp) {
 				$sql .= " AND timestamp >= FROM_UNIXTIME(?)";
@@ -1956,7 +1958,9 @@ class Zotero_Sync {
 			$sql = "SELECT libraryID, objectType, `key`, timestamp
 					FROM syncDeleteLogKeys WHERE libraryID IN ("
 					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
-					. ")";
+					. ")"
+					// API only
+					. " AND objectType != 'tagName'";
 			$params = $libraryIDs;
 			if ($timestamp) {
 				$sql .= " AND timestamp >= FROM_UNIXTIME(?)";
