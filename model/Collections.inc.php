@@ -88,6 +88,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$sqlParams[] = $params['newer'];
 		}
 		
+		// TEMP: for sync transition
+		if (!empty($params['newertime'])) {
+			$sql .= "AND serverDateModified >= FROM_UNIXTIME(?) ";
+			$sqlParams[] = $params['newertime'];
+		}
+		
 		if (!empty($params['order'])) {
 			switch ($params['order']) {
 			case 'title':

@@ -60,6 +60,12 @@ class Zotero_Searches extends Zotero_DataObjects {
 			$sqlParams[] = $params['newer'];
 		}
 		
+		// TEMP: for sync transition
+		if (!empty($params['newertime'])) {
+			$sql .= "AND serverDateModified >= FROM_UNIXTIME(?) ";
+			$sqlParams[] = $params['newertime'];
+		}
+		
 		if ($searchIDs) {
 			$sql .= "AND searchID IN ("
 					. implode(', ', array_fill(0, sizeOf($searchIDs), '?'))

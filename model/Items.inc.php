@@ -298,6 +298,12 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams[] = $params['newer'];
 		}
 		
+		// TEMP: for sync transition
+		if (!empty($params['newertime'])) {
+			$sql .= "AND serverDateModified >= FROM_UNIXTIME(?) ";
+			$sqlParams[] = $params['newertime'];
+		}
+		
 		// Tags
 		//
 		// ?tag=foo

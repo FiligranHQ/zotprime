@@ -67,6 +67,10 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
+		$response = Sync::updated(self::$sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$lastSyncTimestamp = $xml['timestamp'];
+		
 		// Create via sync
 		switch ($objectType) {
 		case 'item':
@@ -86,6 +90,24 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 			$version = $response->getHeader("Zotero-Last-Modified-Version");
 			$this->assertNotNull($version);
 		}
+		
+		// Get empty deleted via API
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey'] . "&newer=$version"
+		);
+		$this->assertEquals(200, $response->getStatus());
+		$json = json_decode($response->getBody(), true);
+		$this->assertEmpty($json[$objectTypePlural]);
+		
+		// Get empty deleted via API with newertime
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey'] . "&newertime=$lastSyncTimestamp"
+		);
+		$this->assertEquals(200, $response->getStatus());
+		$json = json_decode($response->getBody(), true);
+		$this->assertEmpty($json[$objectTypePlural]);
 		
 		// Delete via sync
 		foreach ($keys as $key) {
@@ -117,5 +139,34 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		foreach ($keys as $key) {
 			$this->assertContains($key, $json[$objectTypePlural]);
 		}
+		
+		// Get deleted via API with newertime
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey']
+				. "&newertime=$lastSyncTimestamp"
+		);
+		$this->assertEquals(200, $response->getStatus());
+		$json = json_decode($response->getBody(), true);
+		$this->assertArrayHasKey($objectTypePlural, $json);
+		$this->assertCount(sizeOf($keys), $json[$objectTypePlural]);
+		foreach ($keys as $key) {
+			$this->assertContains($key, $json[$objectTypePlural]);
+		}
+		
+		// Should be empty with later newertime
+		$response = Sync::updated(self::$sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$lastSyncTimestamp = $xml['timestamp'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey']
+				// server uses NOW() + 1
+				. "&newertime=" . ($lastSyncTimestamp + 2)
+		);
+		$this->assertEquals(200, $response->getStatus());
+		$json = json_decode($response->getBody(), true);
+		$this->assertEmpty($json[$objectTypePlural]);
 	}
 }

@@ -1892,6 +1892,26 @@ class ApiController extends Controller {
 			$this->e403();
 		}
 		
+		// TEMP: sync transition
+		if (isset($_GET['newertime'])) {
+			$deleted = array(
+				"collections" => Zotero_Collections::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
+				"items" => Zotero_Items::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
+				"searches" => Zotero_Searches::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
+				"tags" => Zotero_Tags::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				)
+			);
+			echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
+			$this->end();
+		}
+		
 		if (!isset($_GET['newer'])) {
 			$this->e400("'newer' parameter must be provided");
 		}
@@ -1910,7 +1930,6 @@ class ApiController extends Controller {
 				$this->objectLibraryID, $this->queryParams['newer']
 			)
 		);
-		
 		echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
 		$this->end();
 	}

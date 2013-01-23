@@ -52,6 +52,7 @@ class Zotero_API {
 		'tag' => '',
 		'tagType' => '',
 		'newer' => 0,
+		'newertime' => 1,
 		
 		'order' => "dateAdded",
 		'sort' => "desc",
@@ -148,8 +149,9 @@ class Zotero_API {
 					break;
 				
 				case 'newer':
+				case 'newertime':
 					if (!is_numeric($getParams[$key])) {
-						throw new Exception("Invalid value for 'newer' parameter", Z_ERROR_INVALID_INPUT);
+						throw new Exception("Invalid value for '$key' parameter", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				

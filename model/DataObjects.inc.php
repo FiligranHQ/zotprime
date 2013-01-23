@@ -497,7 +497,7 @@ class Zotero_DataObjects {
 	}
 	
 	
-	public static function getDeleteLogKeys($libraryID, $version) {
+	public static function getDeleteLogKeys($libraryID, $version, $versionIsTimestamp=false) {
 		$type = static::field('object');
 		
 		// TEMP: until classic syncing is deprecated and the objectType
@@ -506,8 +506,10 @@ class Zotero_DataObjects {
 			$type = 'tagName';
 		}
 		
-		$sql = "SELECT `key` FROM syncDeleteLogKeys
-		        WHERE objectType=? AND libraryID=? AND version>?";
+		$sql = "SELECT `key` FROM syncDeleteLogKeys "
+			. "WHERE objectType=? AND libraryID=? AND ";
+		// TEMP: sync transition
+		$sql .= $versionIsTimestamp ? "timestamp>=FROM_UNIXTIME(?)" : "version>?";
 		$keys = Zotero_DB::columnQuery(
 			$sql,
 			array($type, $libraryID, $version),

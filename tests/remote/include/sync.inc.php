@@ -38,6 +38,8 @@ class Sync {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		date_default_timezone_set('UTC');
 	}
 	
 	
@@ -47,11 +49,9 @@ class Sync {
 		$updateKey = (string) $xml['updateKey'];
 		
 		$key = Zotero_Utilities::randomString(8, 'key', true);
-		date_default_timezone_set('UTC');
 		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
 		$dateModified = date( 'Y-m-d H:i:s', time());
 		
-		// Create item via sync
 		$xmlstr = '<data version="9">'
 			. '<items>'
 			. '<item libraryID="' . $libraryID . '" '
@@ -89,6 +89,78 @@ class Sync {
 			. '</data>';
 		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
 		Sync::waitForUpload($sessionID, $response, $context);
+	}
+	
+	
+	public static function createCollection($sessionID, $libraryID, $name, $parent, $context) {
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		$xmlstr = '<data version="9">'
+			. '<collections>'
+			. '<collection libraryID="' . $libraryID . '" '
+				. 'name="' . $name . '" ';
+		if ($parent) {
+			$xmlstr .= 'parent="' . $name . '" ';
+		}
+		$xmlstr .= 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '"/>'
+			. '</collections>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+		
+		return $key;
+	}
+	
+	
+	public static function createSearch($sessionID, $libraryID, $name, $conditions, $context) {
+		if ($conditions == 'default') {
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'test'
+				)
+			);
+		}
+		
+		$response = Sync::updated($sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		$xmlstr = '<data version="9">'
+			. '<searches>'
+			. '<search libraryID="' . $libraryID . '" '
+				. 'name="' . $name . '" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '">';
+		$i = 1;
+		foreach ($conditions as $condition) {
+			$xmlstr .= '<condition id="' . $i . '" '
+				. 'condition="' . $condition['condition'] . '" '
+				. 'operator="' . $condition['operator'] . '" '
+				. 'value="' . $condition['value'] . '"/>';
+			$i++;
+		}
+		$xmlstr .= '</search>'
+			. '</searches>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+		
+		return $key;
 	}
 	
 	
