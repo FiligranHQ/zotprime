@@ -39,6 +39,11 @@ class APITests extends PHPUnit_Framework_TestCase {
 			self::$config[$k] = $v;
 		}
 		self::$nsZAPI = 'http://zotero.org/ns/api';
+		
+		// Enable note access
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
+		);
 	}
 	
 	public function test() {}
