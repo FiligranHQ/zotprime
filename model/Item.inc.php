@@ -2167,7 +2167,7 @@ class Zotero_Item {
 	
 	
 	public function isTopLevelItem() {
-		return $this->isRegularItem() || $this->getSourceKey();
+		return $this->isRegularItem() || !$this->getSourceKey();
 	}
 	
 	

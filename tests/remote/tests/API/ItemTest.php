@@ -454,6 +454,18 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testEditTopLevelNote() {
+		$xml = API::createNoteItem("Test", null, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			$data['content']
+		);
+		$this->assert204($response);
+	}
+	
+	
 	public function testNewTopLevelImportedFileAttachment() {
 		$response = API::get("items/new?itemType=attachment&linkMode=imported_file");
 		$json = json_decode($response->getBody());
