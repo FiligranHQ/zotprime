@@ -356,8 +356,6 @@ class ApiController extends Controller {
 			}
 		}
 		
-		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-		
 		$itemIDs = array();
 		$itemKeys = array();
 		$results = array();
@@ -479,6 +477,8 @@ class ApiController extends Controller {
 						$item, $this->method == 'DELETE'
 				);
 				
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				
 				// Update item
 				if ($this->method == 'PUT' || $this->method == 'PATCH') {
 					Zotero_Items::updateFromJSON(
@@ -511,6 +511,8 @@ class ApiController extends Controller {
 				
 				$this->e204();
 			}
+			
+			$this->libraryVersion = $item->itemVersion;
 			
 			// Display item
 			switch ($this->queryParams['format']) {
@@ -555,6 +557,8 @@ class ApiController extends Controller {
 		//
 		else {
 			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
 			$includeTrashed = false;
 			
@@ -1453,8 +1457,6 @@ class ApiController extends Controller {
 			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
 		}
 		
-		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-		
 		$collectionIDs = array();
 		$collectionKeys = array();
 		$results = array();
@@ -1486,6 +1488,8 @@ class ApiController extends Controller {
 						$collection, $this->method == 'DELETE'
 				);
 				
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				
 				// Update collection
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
@@ -1509,6 +1513,7 @@ class ApiController extends Controller {
 				$this->e204();
 			}
 			
+			$this->libraryVersion = $collection->version;
 			$this->responseXML = Zotero_Collections::convertCollectionToAtom(
 				$collection, $this->queryParams
 			);
@@ -1516,6 +1521,8 @@ class ApiController extends Controller {
 		// Multiple collections
 		else {
 			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET'));
@@ -1656,8 +1663,6 @@ class ApiController extends Controller {
 			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
 		}
 		
-		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-		
 		$results = array();
 		$totalResults = 0;
 		
@@ -1675,6 +1680,8 @@ class ApiController extends Controller {
 					$this->checkObjectIfUnmodifiedSinceVersion(
 						$search, $this->method == 'DELETE'
 				);
+				
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 				
 				// Update search
 				if ($this->method == 'PUT') {
@@ -1698,11 +1705,14 @@ class ApiController extends Controller {
 				$this->e204();
 			}
 			
+			$this->libraryVersion = $search->version;
 			$this->responseXML = $search->toAtom($this->queryParams);
 		}
 		// Multiple searches
 		else {
 			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
 			// Create a search
 			if ($this->method == 'POST') {
@@ -3080,7 +3090,10 @@ class ApiController extends Controller {
 			$prop = $objectType == 'item' ? 'itemVersion' : 'version';
 			
 			if ($object->$prop != $version) {
-				$this->e412(ucwords($objectType) . " has been modified since specified version");
+				$this->libraryVersion = $object->$prop;
+				$this->e412(ucwords($objectType)
+					. " has been modified since specified version "
+					. "(expected $version, found " . $object->$prop . ")");
 			}
 		}
 		return true;

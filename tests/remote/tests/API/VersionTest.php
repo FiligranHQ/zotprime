@@ -224,6 +224,17 @@ class VersionTests extends APITests {
 		$newLibraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
 		$this->assertEquals($newLibraryVersion, $newObjectVersion2);
 		
+		// Create an item to increase the library version, and make sure
+		// original object version stays the same
+		API::createItem("book", array("title" => "Title"), $this, 'key');
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'] . "&limit=1"
+		);
+		$this->assert200($response);
+		$newObjectVersion2 = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertEquals($newLibraryVersion, $newObjectVersion2);
+		
 		//
 		// Delete object
 		//
