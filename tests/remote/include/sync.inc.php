@@ -60,9 +60,14 @@ class Sync {
 				. 'dateModified="' . $dateModified . '" '
 				. 'key="' . $key . '">';
 		if ($data) {
+			$relatedstr = "";
 			foreach ($data as $key => $val) {
 				$xmlstr .= '<field name="' . $key . '">' . $val . '</field>';
+				if ($key == 'related') {
+					$relatedstr .= "<related>$val</related>";
+				}
 			}
+			$xmlstr .= $relatedstr;
 		}
 		$xmlstr .= '</item>'
 			. '</items>'
@@ -298,8 +303,18 @@ class Sync {
 	
 	
 	public static function getXMLFromResponse($response) {
-		return new SimpleXMLElement($response->getBody());
+		try {
+			$xml = new SimpleXMLElement($response->getBody());
+		}
+		catch (Exception $e) {
+			var_dump($response->getBody());
+			throw $e;
+		}
+		$xml->registerXPathNamespace('atom', 'http://www.w3.org/2005/Atom');
+		$xml->registerXPathNamespace('zapi', 'http://zotero.org/ns/api');
+		return $xml;
 	}
+
 	
 	
 	private static function req($sessionID, $path, $params=array(), $gzip=false, $allowError=false) {

@@ -72,6 +72,10 @@ class API {
 			$context->assert200($response);
 		}
 		
+		if ($responseFormat == 'response') {
+			return $response;
+		}
+		
 		$json = self::getJSONFromResponse($response);
 		
 		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
@@ -443,6 +447,15 @@ class API {
 		default:
 			throw new Exception("Invalid response format '$responseFormat'");
 		}
+	}
+	
+	
+	public static function getLibraryVersion() {
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
+		);
+		return $response->getHeader("Zotero-Last-Modified-Version");
 	}
 	
 	

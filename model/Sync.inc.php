@@ -1180,7 +1180,6 @@ class Zotero_Sync {
 					$updatedIDsByLibraryID = call_user_func(array($className, 'getUpdated'), $userID, $lastsync, $updatedLibraryIDs);
 					if ($updatedIDsByLibraryID) {
 						$node = $doc->createElement($names);
-						$updatedNode->appendChild($node);
 						foreach ($updatedIDsByLibraryID as $libraryID=>$ids) {
 							if ($name == 'creator') {
 								$updatedCreators[$libraryID] = $ids;
@@ -1213,6 +1212,10 @@ class Zotero_Sync {
 										$node->appendChild($xmlElement);
 									}
 									else if ($name == 'relation') {
+										// Skip new-style related items
+										if ($obj->predicate == 'dc:relation') {
+											continue;
+										}
 										$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
 										if ($apiVersion <= 8) {
 											unset($xmlElement['libraryID']);
@@ -1233,6 +1236,9 @@ class Zotero_Sync {
 									$node->appendChild($newNode);
 								}
 							}
+						}
+						if ($node->hasChildNodes()) {
+							$updatedNode->appendChild($node);
 						}
 					}
 				}
@@ -1425,7 +1431,6 @@ class Zotero_Sync {
 			$savedItems = array();
 			if ($xml->items) {
 				$childItems = array();
-				$relatedItemsStore = array();
 				
 				// DOM
 				$xmlElements = dom_import_simplexml($xml->items);
@@ -1438,11 +1443,7 @@ class Zotero_Sync {
 						throw new Exception("Item $libraryID/$key already processed");
 					}
 					
-					$missing = Zotero_Items::removeMissingRelatedItems($xmlElement);
 					$itemObj = Zotero_Items::convertXMLToItem($xmlElement);
-					if ($missing) {
-						$relatedItemsStore[$libraryID . '_' . $key] = $missing;
-					}
 					
 					if (!$itemObj->getSourceKey()) {
 						try {
@@ -1476,20 +1477,6 @@ class Zotero_Sync {
 						$savedItems[$libraryID . "/" . $key] = true;
 					}
 				}
-				
-				// Add back related items (which now exist)
-				foreach ($relatedItemsStore as $itemLibraryKey=>$relset) {
-					$lk = explode('_', $itemLibraryKey);
-					$libraryID = $lk[0];
-					$key = $lk[1];
-					$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
-					foreach ($relset as $relKey) {
-						$relItem = Zotero_Items::getByLibraryAndKey($libraryID, $relKey);
-						$item->addRelatedItem($relItem->id);
-					}
-					$item->save();
-				}
-				unset($relatedItemsStore);
 			}
 			
 			// Add/update collections

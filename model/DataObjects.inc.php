@@ -653,6 +653,7 @@ class Zotero_DataObjects {
 		
 		Zotero_DB::beginTransaction();
 		
+		
 		// Delete child items
 		if ($type == 'item') {
 			if ($obj->isRegularItem()) {
@@ -664,6 +665,12 @@ class Zotero_DataObjects {
 					}
 				}
 			}
+			
+			// Remove relations (except for merge tracker)
+			$uri = Zotero_URI::getItemURI($obj, true);
+			Zotero_Relations::eraseByURI(
+				$libraryID, $uri, array(Zotero_Relations::$deletedItemPredicate)
+			);
 		}
 		// Tag deletions need to stored by tag for the API
 		else if ($type == 'tag') {
@@ -672,7 +679,8 @@ class Zotero_DataObjects {
 		
 		if ($type == 'relation') {
 			// TODO: add key column to relations to speed this up
-			$sql = "DELETE FROM $table WHERE libraryID=? AND MD5(CONCAT(subject, '_', predicate, '_', object))=?";
+			$sql = "DELETE FROM $table WHERE libraryID=? AND "
+			     . "MD5(CONCAT(subject, '_', predicate, '_', object))=?";
 			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
 		}
 		else {

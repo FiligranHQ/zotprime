@@ -746,50 +746,16 @@ class Zotero_Items extends Zotero_DataObjects {
 			$itemObj->attachmentPath = $xmlPath ? $xmlPath->nodeValue : "";
 		}
 		
-		$related = $xmlRelated ? $xmlRelated->nodeValue : null;
-		$relatedIDs = array();
-		if ($related) {
-			$related = explode(' ', $related);
-			foreach ($related as $key) {
-				$relItem = Zotero_Items::getByLibraryAndKey($itemObj->libraryID, $key, 'items'); // TODO:
-				if (!$relItem) {
-					throw new Exception("Related item $itemObj->libraryID/$key
-						doesn't exist in Zotero.Sync.Server.Data.xmlToItem()");
-				}
-				$relatedIDs[] = $relItem->id;
-			}
+		// Related items
+		if ($xmlRelated && $xmlRelated->nodeValue) {
+			$relatedKeys = explode(' ', $xmlRelated->nodeValue);
 		}
-		$itemObj->relatedItems = $relatedIDs;
+		else {
+			$relatedKeys = array();
+		}
+		$itemObj->relatedItems = $relatedKeys;
+		
 		return $itemObj;
-	}
-	
-	
-	/**
-	 * Temporarily remove and store related items that don't
-	 * yet exist
-	 *
-	 * @param	DOMElement		$xmlElement
-	 * @return	array
-	 */
-	public static function removeMissingRelatedItems(DOMElement $xmlElement) {
-		$missing = array();
-		$related = $xmlElement->getElementsByTagName('related')->item(0);
-		if ($related && $related->nodeValue) {
-			$relKeys = explode(' ', $related->nodeValue);
-			$exist = array();
-			$missing = array();
-			foreach ($relKeys as $key) {
-				$item = Zotero_Items::getByLibraryAndKey((int) $xmlElement->getAttribute('libraryID'), $key);
-				if ($item) {
-					$exist[] = $key;
-				}
-				else {
-					$missing[] = $key;
-				}
-			}
-			$related->nodeValue = implode(' ', $exist);
-		}
-		return $missing;
 	}
 	
 	
@@ -924,16 +890,15 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Related items
-		$related = $item->relatedItems;
-		if ($related) {
-			$related = Zotero_Items::get($item->libraryID, $related);
-			$keys = array();
-			foreach ($related as $item) {
-				$keys[] = $item->key;
+		$relatedKeys = $item->relatedItems;
+		$keys = array();
+		foreach ($relatedKeys as $relatedKey) {
+			if (Zotero_Items::getByLibraryAndKey($item->libraryID, $relatedKey)) {
+				$keys[] = $relatedKey;
 			}
-			if ($keys) {
-				$xml->related = implode(' ', $keys);
-			}
+		}
+		if ($keys) {
+			$xml->related = implode(' ', $keys);
 		}
 		
 		return $xml;
@@ -1608,6 +1573,16 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
+				case 'relations':
+					// If item isn't yet saved, add relations below
+					if (!$item->id) {
+						$twoStage = true;
+						break;
+					}
+					
+					$item->setRelations($val, $userID);
+					break;
+				
 				case 'attachments':
 				case 'notes':
 					if (!$val) {
@@ -1702,6 +1677,10 @@ class Zotero_Items extends Zotero_DataObjects {
 							throw $e;
 						}
 						break;
+					
+					case 'relations':
+						$item->setRelations($val, $userID);
+						break;
 				}
 			}
 			
@@ -1735,7 +1714,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$requiredProps = array('itemType');
 		}
 		else {
-			$requiredProps = array('itemType', 'tags', 'collections');
+			$requiredProps = array('itemType', 'tags', 'collections', 'relations');
 		}
 		
 		foreach ($requiredProps as $prop) {
@@ -1781,7 +1760,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'tags':
 					if (!is_array($val)) {
-						throw new Exception("'tags' property must be an array", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
 					}
 					
 					foreach ($val as $tag) {
@@ -1819,7 +1798,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'collections':
 					if (!is_array($val)) {
-						throw new Exception("'collections' property must be an array", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
 					}
 					if ($isChild && $val) {
 						throw new Exception("Child items cannot be assigned to collections", Z_ERROR_INVALID_INPUT);
@@ -1831,9 +1810,30 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
+				case 'relations':
+					if (!is_object($val)) {
+						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
+					}
+					foreach ($val as $predicate => $object) {
+						switch ($predicate) {
+						case 'owl:sameAs':
+						case 'dc:replaces':
+						case 'dc:relation':
+							break;
+						
+						default:
+							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
+						}
+						
+						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/items\/[A-Z0-9]{8}$/', $object)) {
+							throw new Exception("'relations' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					break;
+				
 				case 'creators':
 					if (!is_array($val)) {
-						throw new Exception("'creators' property must be an array", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
 					}
 					
 					foreach ($val as $creator) {

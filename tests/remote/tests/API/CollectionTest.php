@@ -343,6 +343,7 @@ class CollectionTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
 		$json['collections'] = array($collectionKey);
+		$json['relations'] = new stdClass;
 		
 		$response = API::userPut(
 			self::$config['userID'],

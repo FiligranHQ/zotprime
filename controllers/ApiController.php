@@ -2926,6 +2926,7 @@ class ApiController extends Controller {
 		
 		$json['tags'] = array();
 		$json['collections'] = array();
+		$json['relations'] = new stdClass;
 		
 		if ($itemType != 'note' && $itemType != 'attachment') {
 			$json['attachments'] = array();
