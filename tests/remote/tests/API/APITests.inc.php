@@ -46,6 +46,12 @@ class APITests extends PHPUnit_Framework_TestCase {
 		);
 	}
 	
+	
+	public function setUp() {
+		API::useFutureVersion(true);
+	}
+	
+	
 	public function test() {}
 	
 	public function __call($name, $arguments) {

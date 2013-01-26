@@ -1287,13 +1287,14 @@ class Zotero_Items extends Zotero_DataObjects {
 				$target->appendChild($importedNode);
 			}
 			else if ($type == 'json') {
-				// Deprecated
-				$target->setAttributeNS(
-					Zotero_Atom::$nsZoteroAPI,
-					"zapi:etag",
-					$item->etag
-				);
-				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams['pprint'], true));
+				if ($queryParams['apiVersion'] < 2) {
+					$target->setAttributeNS(
+						Zotero_Atom::$nsZoteroAPI,
+						"zapi:etag",
+						$item->etag
+					);
+				}
+				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams, true));
 				$target->appendChild($textNode);
 			}
 			else if ($type == 'csljson') {
@@ -1428,21 +1429,23 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Item $item,
 	                                      $json,
 	                                      Zotero_Item $parentItem=null,
-	                                      $userID=null,
+	                                      $requestParams,
+	                                      $userID,
 	                                      $requireVersion=0,
 	                                      $partialUpdate=false) {
 		$exists = Zotero_API::processJSONObjectKey($item, $json);
 		Zotero_API::checkJSONObjectVersion($item, $json, $requireVersion);
+		
 		self::validateJSONItem(
 			$json,
 			$item->libraryID,
 			$exists ? $item : null,
 			$parentItem || ($exists ? !!$item->getSourceKey() : false),
-			$requireVersion,
+			$requestParams,
 			$partialUpdate
 		);
 		
-		$changed = array();
+		$changed = false;
 		$twoStage = false;
 		
 		// Set itemType first
@@ -1457,6 +1460,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'itemType':
 				case 'deleted':
 					continue;
+				
+				case 'itemParent':
+					$item->setSourceKey($val);
+					break;
 				
 				case 'creators':
 					if (!$val && !$item->numCreators()) {
@@ -1552,8 +1559,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						$twoStage = true;
 						break;
 					}
-					
-					$item->setTags($val, $userID);
+					$changed = $item->setTags($val, $userID) || $changed;
 					break;
 				
 				case 'collections':
@@ -1564,7 +1570,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					try {
-						$item->setCollections($val, $userID);
+						 $changed = $item->setCollections($val, $userID) || $changed;
 					}
 					catch (Exception $e) {
 						if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
@@ -1581,7 +1587,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					}
 					
-					$item->setRelations($val, $userID);
+					$changed = $item->setRelations($val, $userID) || $changed;
 					break;
 				
 				case 'attachments':
@@ -1628,8 +1634,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$item->deleted = !empty($json->deleted);
 		
-		$updated = $item->save($userID);
-		$changed[$item->key] = $updated;
+		$changed = $item->save($userID) || $changed;
 		
 		// Additional steps that have to be performed on a saved object
 		if ($twoStage) {
@@ -1642,12 +1647,13 @@ class Zotero_Items extends Zotero_DataObjects {
 						foreach ($val as $attachmentJSON) {
 							$childItem = new Zotero_Item;
 							$childItem->libraryID = $item->libraryID;
-							$updated = self::updateFromJSON(
-								$childItem, $attachmentJSON, $item, $userID
+							self::updateFromJSON(
+								$childItem,
+								$attachmentJSON,
+								$item,
+								$requestParams,
+								$userID
 							);
-							foreach ($updated as $k => $v) {
-								$changed[$k] = $v;
-							}
 						}
 						break;
 					
@@ -1663,18 +1669,17 @@ class Zotero_Items extends Zotero_DataObjects {
 							$childItem->itemTypeID = $noteItemTypeID;
 							$childItem->setSource($item->id);
 							$childItem->setNote($note->note);
-							$updated = $childItem->save();
-							$changed[$childItem->key] = $updated;
+							$childItem->save();
 						}
 						break;
 					
 					case 'tags':
-						$item->setTags($val, $userID);
+						$changed = $item->setTags($val, $userID) || $changed;
 						break;
 					
 					case 'collections':
 						try {
-							$item->setCollections($val, $userID);
+							$changed = $item->setCollections($val, $userID) || $changed;
 						}
 						catch (Exception $e) {
 							if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
@@ -1685,21 +1690,19 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					
 					case 'relations':
-						$item->setRelations($val, $userID);
+						$changed = $item->setRelations($val, $userID) || $changed;
 						break;
 				}
 			}
 			
-			$updated = $item->save($userID);
-			$changed[$item->key] = $changed[$item->key] || $updated;
+			$changed = $item->save($userID) || $changed;
 		}
 		
 		return $changed;
 	}
 	
 	
-	private static function validateJSONItem($json, $libraryID, $item=null,
-			$isChild=false, $requireVersion=0, $partialUpdate=false) {
+	private static function validateJSONItem($json, $libraryID, $item=null, $isChild, $requestParams, $partialUpdate=false) {
 		$isNew = !$item;
 		
 		if (!is_object($json)) {
@@ -1722,6 +1725,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		else if ($isNew) {
 			$requiredProps = array('itemType');
 		}
+		else if ($requestParams['apiVersion'] < 2) {
+			$requiredProps = array('itemType', 'tags');
+		}
 		else {
 			$requiredProps = array('itemType', 'tags', 'collections', 'relations');
 		}
@@ -1737,6 +1743,18 @@ class Zotero_Items extends Zotero_DataObjects {
 				// Handled by Zotero_API::checkJSONObjectVersion()
 				case 'itemKey':
 				case 'itemVersion':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'itemParent':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					if (!Zotero_ID::isValidKey($val)) {
+						throw new Exception("'itemParent' must be a valid item key", Z_ERROR_INVALID_INPUT);
+					}
 					break;
 				
 				case 'itemType':
@@ -1744,7 +1762,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);
 					}
 					
-					if ($isChild) {
+					if ($isChild || !empty($json->itemParent)) {
 						switch ($val) {
 							case 'note':
 							case 'attachment':
@@ -1820,6 +1838,10 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'relations':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					
 					if (!is_object($val)) {
 						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
 					}
@@ -1931,6 +1953,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'attachments':
 				case 'notes':
+					if ($requestParams['apiVersion'] > 1) {
+						throw new Exception("'$key' property is no longer supported", Z_ERROR_INVALID_INPUT);
+					}
+					
 					if (!$isNew) {
 						throw new Exception("'$key' property is valid only for new items", Z_ERROR_INVALID_INPUT);
 					}

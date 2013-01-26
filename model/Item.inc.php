@@ -3384,7 +3384,7 @@ class Zotero_Item {
 	}
 	
 	
-	public function toJSON($asArray=false, $prettyPrint=false, $includeEmpty=false, $unformattedFields=false) {
+	public function toJSON($asArray=false, $requestParams=array(), $includeEmpty=false, $unformattedFields=false) {
 		if ($this->id || $this->key) {
 			if (!$this->loaded['primaryData']) {
 				$this->loadPrimaryData(true);
@@ -3397,8 +3397,10 @@ class Zotero_Item {
 		$regularItem = $this->isRegularItem();
 		
 		$arr = array();
-		$arr['itemKey'] = $this->key;
-		$arr['itemVersion'] = $this->itemVersion;
+		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
+			$arr['itemKey'] = $this->key;
+			$arr['itemVersion'] = $this->itemVersion;
+		}
 		$arr['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
 		
 		if ($this->isAttachment()) {
@@ -3516,18 +3518,20 @@ class Zotero_Item {
 			}
 		}
 		
-		if ($this->isTopLevelItem()) {
-			$collections = $this->getCollections(true);
-			$arr['collections'] = $collections;
+		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
+			if ($this->isTopLevelItem()) {
+				$collections = $this->getCollections(true);
+				$arr['collections'] = $collections;
+			}
+			
+			$arr['relations'] = $this->getRelations();
 		}
-		
-		$arr['relations'] = $this->getRelations();
 		
 		if ($asArray) {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
+		return Zotero_Utilities::formatJSON($arr, !empty($requestParams['pprint']));
 	}
 	
 	

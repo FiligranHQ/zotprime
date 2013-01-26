@@ -62,6 +62,7 @@ class Zotero_API {
 		'pprint' => false,
 		
 		// For internal use only
+		'apiVersion' => 1,
 		'emptyFirst' => false
 	);
 	
@@ -69,7 +70,7 @@ class Zotero_API {
 	/**
 	 * Parse query string into parameters, validating and filling in defaults
 	 */
-	public static function parseQueryParams($queryString, $action, $singleObject) {
+	public static function parseQueryParams($queryString, $action, $singleObject, $nextAPIVersion=false) {
 		// Handle multiple identical parameters in the CGI-standard way instead of
 		// PHP's foo[]=bar way
 		$getParams = Zotero_URL::proper_parse_str($queryString);
@@ -79,6 +80,10 @@ class Zotero_API {
 			// Don't overwrite field if already derived from another field
 			if (!empty($queryParams[$key])) {
 				continue;
+			}
+			
+			if ($key == 'apiVersion' && $nextAPIVersion) {
+				$val = self::$defaultQueryParams['apiVersion'] + 1;
 			}
 			
 			if ($key == 'limit') {
@@ -413,7 +418,6 @@ class Zotero_API {
 				}
 				break;
 			}
-			return false;
 		}
 		else if ($action == 'groups') {
 			switch ($format) {
@@ -604,7 +608,7 @@ class Zotero_API {
 	
 	
 	private static function getPrivateQueryParams() {
-		return array('emptyFirst');
+		return array('apiVersion', 'emptyFirst');
 	}
 	
 	

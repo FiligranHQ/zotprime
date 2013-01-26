@@ -328,10 +328,11 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 */
 	public static function updateFromJSON(Zotero_Collection $collection,
 	                                      $json,
+	                                      $requestParams,
 	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($collection, $json);
 		Zotero_API::checkJSONObjectVersion($collection, $json, $requireVersion);
-		self::validateJSONCollection($json);
+		self::validateJSONCollection($json, $requestParams);
 		
 		$collection->name = $json->name;
 		if (isset($json->parent)) {
@@ -344,7 +345,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONCollection($json, $requireVersion=false) {
+	private static function validateJSONCollection($json, $requestParams) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}

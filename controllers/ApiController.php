@@ -322,7 +322,12 @@ class ApiController extends Controller {
 		
 		$this->checkLibraryIfModifiedSinceVersion($action);
 		
-		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $this->singleObject);
+		$this->queryParams = Zotero_API::parseQueryParams(
+			$_SERVER['QUERY_STRING'],
+			$action,
+			$this->singleObject,
+			!empty($_SERVER['HTTP_THE_FUTURE_IS_NOW'])
+		);
 	}
 	
 	
@@ -481,17 +486,22 @@ class ApiController extends Controller {
 				
 				// Update item
 				if ($this->method == 'PUT' || $this->method == 'PATCH') {
+					if ($this->queryParams['apiVersion'] < 2) {
+						$this->allowMethods(array('PUT'));
+					}
+					
 					$changed = Zotero_Items::updateFromJSON(
 						$item,
 						$this->jsonDecode($this->body),
 						null,
+						$this->queryParams,
 						$this->userID,
 						$objectTimestampChecked ? 0 : 2,
 						$this->method == 'PATCH'
 					);
 					
 					// If not updated, return the original library version
-					if (!array_shift(array_values($changed))) {
+					if (!$changed) {
 						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
 							$this->objectLibraryID
 						);
@@ -499,6 +509,11 @@ class ApiController extends Controller {
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+					}
+					
+					if ($this->queryParams['apiVersion'] < 2) {
+						$this->queryParams['format'] = 'atom';
+						$this->queryParams['content'] = array('json');
 					}
 				}
 				// Delete item
@@ -516,7 +531,9 @@ class ApiController extends Controller {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				$this->e204();
+				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
+					$this->e204();
+				}
 			}
 			
 			$this->libraryVersion = $item->itemVersion;
@@ -718,20 +735,51 @@ class ApiController extends Controller {
 					
 					// Create new child items
 					if ($this->method == 'POST') {
-						$this->queryParams['format'] = 'writereport';
+						if ($this->queryParams['apiVersion'] >= 2) {
+							$this->allowMethods(array('GET'));
+						}
+						
+						Zotero_DB::beginTransaction();
 						
 						$obj = $this->jsonDecode($this->body);
 						$results = Zotero_Items::updateMultipleFromJSON(
 							$obj,
 							$this->objectLibraryID,
+							$this->queryParams,
 							$this->userID,
 							$libraryTimestampChecked ? 0 : 1,
 							$item
 						);
 						
+						Zotero_DB::commit();
+						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
+						
+						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
+						$keys = array_merge(
+							get_object_vars($results['success']),
+							get_object_vars($results['unchanged'])
+						);
+						$queryString = "itemKey="
+							. urlencode(implode(",", $keys))
+							. "&format=atom&content=json&order=itemKeyList&sort=asc";
+						if ($this->apiKey) {
+							$queryString .= "&key=" . $this->apiKey;
+						}
+						$uri .= "?" . $queryString;
+						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
+						$this->responseCode = 201;
+						
+						$title = "Items";
+						$results = Zotero_Items::search(
+							$this->objectLibraryID,
+							false,
+							$this->queryParams,
+							$includeTrashed,
+							$this->permissions
+						);
 					}
 					// Display items
 					else {
@@ -774,13 +822,46 @@ class ApiController extends Controller {
 							}
 						}
 						else {
+							if ($this->queryParams['apiVersion'] < 2) {
+								Zotero_DB::beginTransaction();
+							}
+							
 							$results = Zotero_Items::updateMultipleFromJSON(
 								$obj,
 								$this->objectLibraryID,
+								$this->queryParams,
 								$this->userID,
 								$libraryTimestampChecked ? 0 : 1,
 								null
 							);
+							
+							if ($this->queryParams['apiVersion'] < 2) {
+								Zotero_DB::commit();
+								
+								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
+								$keys = array_merge(
+									get_object_vars($results['success']),
+									get_object_vars($results['unchanged'])
+								);
+								$queryString = "itemKey="
+									. urlencode(implode(",", $keys))
+									. "&format=atom&content=json&order=itemKeyList&sort=asc";
+								if ($this->apiKey) {
+									$queryString .= "&key=" . $this->apiKey;
+								}
+								$uri .= "?" . $queryString;
+								$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
+								$this->responseCode = 201;
+								
+								$title = "Items";
+								$results = Zotero_Items::search(
+									$this->objectLibraryID,
+									false,
+									$this->queryParams,
+									$includeTrashed,
+									$this->permissions
+								);
+							}
 						}
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
@@ -1501,7 +1582,10 @@ class ApiController extends Controller {
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
 					$changed = Zotero_Collections::updateFromJSON(
-						$collection, $obj, $objectTimestampChecked ? 0 : 2
+						$collection,
+						$obj,
+						$this->queryParams,
+						$objectTimestampChecked ? 0 : 2
 					);
 					
 					// If not updated, return the original library version
@@ -1524,7 +1608,9 @@ class ApiController extends Controller {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				$this->e204();
+				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
+					$this->e204();
+				}
 			}
 			
 			$this->libraryVersion = $collection->version;
@@ -1582,6 +1668,7 @@ class ApiController extends Controller {
 						$results = Zotero_Collections::updateMultipleFromJSON(
 							$obj,
 							$this->objectLibraryID,
+							$this->queryParams,
 							$this->userID,
 							$libraryTimestampChecked ? 0 : 1,
 							null
@@ -1589,6 +1676,26 @@ class ApiController extends Controller {
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+						}
+						
+						if ($this->queryParams['apiVersion'] < 2) {
+							$uri = Zotero_API::getCollectionsURI($this->objectLibraryID);
+							$keys = array_merge(
+								get_object_vars($results['success']),
+								get_object_vars($results['unchanged'])
+							);
+							$queryString = "collectionKey="
+									. urlencode(implode(",", $keys))
+									. "&format=atom&content=json&order=collectionKeyList&sort=asc";
+							if ($this->apiKey) {
+									$queryString .= "&key=" . $this->apiKey;
+							}
+							$uri .= "?" . $queryString;
+							
+							$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
+							
+							$title = "Collections";
+							$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
 						}
 					}
 					// Delete collections
@@ -1658,6 +1765,10 @@ class ApiController extends Controller {
 	
 	
 	public function searches() {
+		if ($this->queryParams['apiVersion'] < 2) {
+			$this->e404();
+		}
+		
 		// Check for general library access
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
@@ -1701,7 +1812,10 @@ class ApiController extends Controller {
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
 					$changed = Zotero_Searches::updateFromJSON(
-						$search, $obj, $objectTimestampChecked ? 0 : 2
+						$search,
+						$obj,
+						$this->queryParams,
+						$objectTimestampChecked ? 0 : 2
 					);
 					
 					// If not updated, return the original library version
@@ -1743,6 +1857,7 @@ class ApiController extends Controller {
 				$results = Zotero_Searches::updateMultipleFromJSON(
 					$obj,
 					$this->objectLibraryID,
+					$this->queryParams,
 					$this->userID,
 					$libraryTimestampChecked ? 0 : 1,
 					null
@@ -2946,12 +3061,16 @@ class ApiController extends Controller {
 		}
 		
 		$json['tags'] = array();
-		$json['collections'] = array();
-		$json['relations'] = new stdClass;
+		if ($this->queryParams['apiVersion'] >= 2) {
+			$json['collections'] = array();
+			$json['relations'] = new stdClass;
+		}
 		
-		if ($itemType != 'note' && $itemType != 'attachment') {
-			$json['attachments'] = array();
-			$json['notes'] = array();
+		if ($this->queryParams['apiVersion'] == 1) {
+			if ($itemType != 'note' && $itemType != 'attachment') {
+				$json['attachments'] = array();
+				$json['notes'] = array();
+			}
 		}
 		
 		if ($itemType == 'attachment') {

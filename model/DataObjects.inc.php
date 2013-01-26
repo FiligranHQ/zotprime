@@ -522,7 +522,8 @@ class Zotero_DataObjects {
 	}
 	
 	
-	public static function updateMultipleFromJSON($json, $libraryID, $userID, $requireVersion, $parent=null) {
+	public static function updateMultipleFromJSON($json, $libraryID,
+			$requestParams, $userID, $requireVersion, $parent=null) {
 		$type = static::field('object');
 		$types = static::field('objects');
 		$keyProp = $type . "Key";
@@ -546,7 +547,7 @@ class Zotero_DataObjects {
 		
 		$results = new Zotero_Results;
 		
-		if (Zotero_DB::transactionInProgress()) {
+		if ($requestParams['apiVersion'] >= 2 && Zotero_DB::transactionInProgress()) {
 			throw new Exception(
 				"Transaction cannot be open when starting multi-object update"
 			);
@@ -572,30 +573,29 @@ class Zotero_DataObjects {
 				$obj->libraryID = $libraryID;
 				if ($type == 'item') {
 					$changed = static::updateFromJSON(
-						$obj, $jsonObject, $parent, $userID, $requireVersion
+						$obj, $jsonObject, $parent, $requestParams, $userID, $requireVersion
 					);
 				}
 				else {
-					$changed = static::updateFromJSON($obj, $jsonObject, $requireVersion);
+					$changed = static::updateFromJSON($obj, $jsonObject, $requestParams, $requireVersion);
 				}
 				Zotero_DB::commit();
 				Z_Core::$MC->commit();
 				
-				if (is_bool($changed)) {
-					$changed = array($obj->key => $changed);
+				if ($changed) {
+					$results->addSuccess($i, $obj->key);
 				}
-				foreach ($changed as $key => $objectChanged) {
-					if ($objectChanged) {
-						$results->addSuccess($i, $key);
-					}
-					else {
-						$results->addUnchanged($i, $key);
-					}
+				else {
+					$results->addUnchanged($i, $obj->key);
 				}
 			}
 			catch (Exception $e) {
 				Zotero_DB::rollback();
 				Z_Core::$MC->rollback();
+				
+				if ($requestParams['apiVersion'] < 2) {
+					throw ($e);
+				}
 				
 				// If object key given, include that
 				$resultKey = isset($jsonObject->$keyProp)

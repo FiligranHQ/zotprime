@@ -81,7 +81,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		);
 		$xml = API::getXMLFromResponse($response);
 		$data = API::parseDataFromAtomEntry($xml);
-		$etag = $data['etag'];
+		$version = $data['version'];
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -118,7 +118,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
-		$this->assertNotEquals($etag, $data['etag']);
+		$this->assertNotEquals($version, $data['version']);
 		
 		return $data;
 	}

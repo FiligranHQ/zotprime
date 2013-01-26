@@ -29,6 +29,7 @@ require_once 'include/http.inc.php';
 class API {
 	private static $config;
 	private static $nsZAPI;
+	private static $futureAPIVersion = false;
 	
 	private static function loadConfig() {
 		require 'include/config.inc.php';
@@ -36,6 +37,11 @@ class API {
 			self::$config[$k] = $v;
 		}
 		self::$nsZAPI = 'http://zotero.org/ns/api';
+	}
+	
+	
+	public static function useFutureVersion($enable) {
+		self::$futureAPIVersion = $enable;
 	}
 	
 	
@@ -144,17 +150,13 @@ class API {
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
-		
 		if ($parentKey) {
-			$url = "items/$parentKey/children";
-		}
-		else {
-			$url = "items";
+			$json->itemParent = $parentKey;
 		}
 		
 		$response = API::userPost(
 			self::$config['userID'],
-			$url . "?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -201,17 +203,13 @@ class API {
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
-		
 		if ($parentKey) {
-			$url = "items/$parentKey/children";
-		}
-		else {
-			$url = "items";
+			$json->itemParent = $parentKey;
 		}
 		
 		$response = API::groupPost(
 			$groupID,
-			$url . "?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -257,17 +255,13 @@ class API {
 		$response = API::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
 		$json->note = $text;
-		
 		if ($parentKey) {
-			$url = "items/$parentKey/children";
-		}
-		else {
-			$url = "items";
+			$json->itemParent = $parentKey;
 		}
 		
 		$response = API::userPost(
 			self::$config['userID'],
-			$url . "?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -417,6 +411,9 @@ class API {
 	public static function get($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$futureAPIVersion) {
+			$headers[] = "The-Future-Is-Now: 1";
+		}
 		$response = HTTP::get($url, $headers, $auth);
 		if (self::$config['verbose']) {
 			echo "\n\n" . $response->getBody() . "\n";
@@ -435,6 +432,9 @@ class API {
 	public static function post($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$futureAPIVersion) {
+			$headers[] = "The-Future-Is-Now: 1";
+		}
 		$response = HTTP::post($url, $data, $headers, $auth);
 		return $response;
 	}
@@ -450,6 +450,9 @@ class API {
 	public static function put($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$futureAPIVersion) {
+			$headers[] = "The-Future-Is-Now: 1";
+		}
 		$response = HTTP::put($url, $data, $headers, $auth);
 		return $response;
 	}
@@ -465,6 +468,9 @@ class API {
 	public static function patch($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$futureAPIVersion) {
+			$headers[] = "The-Future-Is-Now: 1";
+		}
 		$response = HTTP::patch($url, $data, $headers, $auth);
 		return $response;
 	}
@@ -476,6 +482,9 @@ class API {
 	public static function head($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$futureAPIVersion) {
+			$headers[] = "The-Future-Is-Now: 1";
+		}
 		$response = HTTP::head($url, $headers, $auth);
 		return $response;
 	}
@@ -487,6 +496,9 @@ class API {
 	public static function delete($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$futureAPIVersion) {
+			$headers[] = "The-Future-Is-Now: 1";
+		}
 		$response = HTTP::delete($url, $headers, $auth);
 		return $response;
 	}
@@ -573,7 +585,6 @@ class API {
 	public static function parseDataFromAtomEntry($entryXML) {
 		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
 		$version = (string) array_shift($entryXML->xpath('//atom:entry/zapi:version'));
-		$etag = (string) array_shift($entryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
 		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
 		if (!$content) {
 			throw new Exception("Atom response does not contain <content>");
@@ -590,7 +601,6 @@ class API {
 		
 		return array(
 			"key" => $key,
-			"etag" => $etag,
 			"version" => $version,
 			"content" => $content
 		);

@@ -219,10 +219,11 @@ class Zotero_Searches extends Zotero_DataObjects {
 	 */
 	public static function updateFromJSON(Zotero_Search $search,
 	                                      $json,
+	                                      $requestParams,
 	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($search, $json);
 		Zotero_API::checkJSONObjectVersion($search, $json, $requireVersion);
-		self::validateJSONSearch($json);
+		self::validateJSONSearch($json, $requestParams);
 		
 		$search->name = $json->name;
 		
@@ -244,7 +245,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONSearch($json, $requireVersion=0) {
+	private static function validateJSONSearch($json) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}

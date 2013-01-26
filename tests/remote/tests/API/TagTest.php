@@ -53,66 +53,6 @@ class TagTests extends APITests {
 	}
 	
 	
-	public function testTagAddItemETag() {
-		$xml = API::createItem("book", false, $this);
-		$t = time();
-		$data = API::parseDataFromAtomEntry($xml);
-		$etag = $data['etag'];
-		
-		$json = json_decode($data['content']);
-		$json->tags[] = array(
-			"tag" => "Test"
-		);
-		$json->tags[] = array(
-			"tag" => "Test2"
-		);
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: " . $etag
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($data['key']);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('//atom:entry/zapi:numTags')));
-		$data = API::parseDataFromAtomEntry($xml);
-		$this->assertNotEquals($etag, (string) $data['etag']);
-		
-		return $data;
-	}
-	
-	
-	/**
-	 * @depends testTagAddItemETag
-	 */
-	public function testTagRemoveItemETag($data) {
-		$originalETag = $data['etag'];
-		$json = json_decode($data['content']);
-		$json->tags = array(
-			array(
-				"tag" => "Test2"
-			)
-		);
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: " . $data['etag']
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($data['key']);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numTags')));
-		$data = API::parseDataFromAtomEntry($xml);
-		$this->assertNotEquals($originalETag, (string) $data['etag']);
-	}
-	
-	
 	public function testItemTagSearch() {
 		API::userClear(self::$config['userID']);
 		

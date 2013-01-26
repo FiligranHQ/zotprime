@@ -46,7 +46,6 @@ class ItemTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals("book", (string) $json->itemType);
-		
 		return $data;
 	}
 	
@@ -83,53 +82,7 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyBookItem
 	 */
-	public function testEditBookItemWithETag($newItemData) {
-		$key = $newItemData['key'];
-		$etag = $newItemData['etag'];
-		$json = json_decode($newItemData['content']);
-		
-		$newTitle = "New Title";
-		$numPages = 100;
-		$creatorType = "author";
-		$firstName = "Firstname";
-		$lastName = "Lastname";
-		
-		$json->title = $newTitle;
-		$json->numPages = $numPages;
-		$json->creators[] = array(
-			'creatorType' => $creatorType,
-			'firstName' => $firstName,
-			'lastName' => $lastName
-		);
-		
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/$key?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: $etag"
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($key);
-		$data = API::parseDataFromAtomEntry($xml);
-		$json = json_decode($data['content']);
-		
-		$this->assertEquals($newTitle, $json->title);
-		$this->assertEquals($numPages, $json->numPages);
-		$this->assertEquals($creatorType, $json->creators[0]->creatorType);
-		$this->assertEquals($firstName, $json->creators[0]->firstName);
-		$this->assertEquals($lastName, $json->creators[0]->lastName);
-		
-		return API::parseDataFromAtomEntry($xml);
-	}
-	
-	
-	/**
-	 * @depends testEditBookItemWithETag
-	 */
-	public function testEditBookItemWithVersion($newItemData) {
+	public function testEditBookItem($newItemData) {
 		$key = $newItemData['key'];
 		$version = $newItemData['version'];
 		$json = json_decode($newItemData['content']);
@@ -172,55 +125,7 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testChangeItemTypeWithETag() {
-		$json = API::getItemTemplate("book");
-		$json->title = "Foo";
-		$json->numPages = 100;
-		$response = API::userPost(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array("Content-Type: application/json")
-		);
-		$this->assert200ForObject($response);
-		$key = API::getFirstSuccessKeyFromResponse($response);
-		$xml = API::getItemXML($key);
-		$data = API::parseDataFromAtomEntry($xml);
-		$etag = $data['etag'];
-		$json1 = json_decode($data['content']);
-		
-		$json2 = API::getItemTemplate("bookSection");
-		unset($json2->attachments);
-		unset($json2->notes);
-		
-		foreach ($json2 as $field => &$val) {
-			if ($field != "itemType" && isset($json1->$field)) {
-				$val = $json1->$field;
-			}
-		}
-		
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/$key?key=" . self::$config['apiKey'],
-			json_encode($json2),
-			array(
-				"Content-Type: application/json",
-				"If-Match: $etag"
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($key);
-		$data = API::parseDataFromAtomEntry($xml);
-		$json = json_decode($data['content']);
-		$this->assertEquals("bookSection", $json->itemType);
-		$this->assertEquals("Foo", $json->title);
-		$this->assertObjectNotHasAttribute("numPages", $json);
-	}
-	
-	
-	public function testChangeItemTypeWithVersion() {
+	public function testChangeItemType() {
 		$json = API::getItemTemplate("book");
 		$json->title = "Foo";
 		$json->numPages = 100;
@@ -344,56 +249,7 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testNewEmptyBookItemWithEmptyAttachmentItem() {
-		$json = API::getItemTemplate("book");
-		
-		$response = API::get("items/new?itemType=attachment&linkMode=imported_url");
-		$json->attachments[] = json_decode($response->getBody());
-		
-		$response = API::userPost(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array("Content-Type: application/json")
-		);
-		$this->assert200($response);
-		$key = API::getFirstSuccessKeyFromResponse($response);
-		$xml = API::getItemXML($key, $this);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numChildren')));
-	}
-	
-	
-	public function testNewComputerProgramItemWithETag() {
-		$xml = API::createItem("computerProgram", false, $this);
-		$data = API::parseDataFromAtomEntry($xml);
-		$key = $data['key'];
-		$json = json_decode($data['content']);
-		$this->assertEquals("computerProgram", (string) $json->itemType);
-		
-		$version = "1.0";
-		$json->version = $version;
-		
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/$key?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: {$data['etag']}"
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($key);
-		$data = API::parseDataFromAtomEntry($xml);
-		$json = json_decode($data['content']);
-		
-		$this->assertEquals($version, $json->version);
-	}
-	
-	
-	public function testNewComputerProgramItemWithVersion() {
+	public function testNewComputerProgramItem() {
 		$xml = API::createItem("computerProgram", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
@@ -518,35 +374,7 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyLinkAttachmentItem
 	 */
-	public function testEditEmptyLinkAttachmentItemWithETag($newItemData) {
-		$key = $newItemData['key'];
-		$etag = $newItemData['etag'];
-		$json = json_decode($newItemData['content']);
-		
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/$key?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: $etag"
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($key);
-		$data = API::parseDataFromAtomEntry($xml);
-		$newETag = $data['etag'];
-		// Item shouldn't change
-		$this->assertEquals($etag, $newETag);
-		
-		return $newItemData;
-	}
-	
-	
-	/**
-	 * @depends testEditEmptyLinkAttachmentItemWithETag
-	 */
-	public function testEditEmptyLinkAttachmentItemWithVersion($newItemData) {
+	public function testEditEmptyLinkAttachmentItem($newItemData) {
 		$key = $newItemData['key'];
 		$version = $newItemData['version'];
 		$json = json_decode($newItemData['content']);
@@ -573,34 +401,7 @@ class ItemTests extends APITests {
 	/**
 	 * @depends testNewEmptyImportedURLAttachmentItem
 	 */
-	public function testEditEmptyImportedURLAttachmentItemWithETag($newItemData) {
-		$key = $newItemData['key'];
-		$etag = $newItemData['etag'];
-		$json = json_decode($newItemData['content']);
-		
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/$key?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: $etag"
-			)
-		);
-		$this->assert204($response);
-		$xml = API::getItemXML($key);
-		$data = API::parseDataFromAtomEntry($xml);
-		// Item shouldn't change
-		$this->assertEquals($etag, $data['etag']);
-		
-		return $newItemData;
-	}
-	
-	
-	/**
-	 * @depends testEditEmptyImportedURLAttachmentItemWithETag
-	 */
-	public function testEditEmptyImportedURLAttachmentItemWithVersion($newItemData) {
+	public function testEditEmptyImportedURLAttachmentItem($newItemData) {
 		$key = $newItemData['key'];
 		$version = $newItemData['version'];
 		$json = json_decode($newItemData['content']);
@@ -625,7 +426,7 @@ class ItemTests extends APITests {
 	
 	
 	/**
-	 * @depends testEditEmptyLinkAttachmentItemWithVersion
+	 * @depends testEditEmptyLinkAttachmentItem
 	 */
 	public function testEditLinkAttachmentItem($newItemData) {
 		$key = $newItemData['key'];
@@ -694,11 +495,12 @@ class ItemTests extends APITests {
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
 		$json = json_decode($response->getBody());
+		$json->itemParent = $parentKey;
 		
 		$json->md5 = "c7487a750a97722ae1878ed46b215ebe";
 		$response = API::userPost(
 			self::$config['userID'],
-			"items/$parentKey/children?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
@@ -716,11 +518,12 @@ class ItemTests extends APITests {
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
 		$json = json_decode($response->getBody());
+		$json->itemParent = $parentKey;
 		
 		$json->mtime = "1332807793000";
 		$response = API::userPost(
 			self::$config['userID'],
-			"items/$parentKey/children?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
