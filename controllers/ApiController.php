@@ -481,7 +481,7 @@ class ApiController extends Controller {
 				
 				// Update item
 				if ($this->method == 'PUT' || $this->method == 'PATCH') {
-					Zotero_Items::updateFromJSON(
+					$changed = Zotero_Items::updateFromJSON(
 						$item,
 						$this->jsonDecode($this->body),
 						null,
@@ -489,6 +489,13 @@ class ApiController extends Controller {
 						$objectTimestampChecked ? 0 : 2,
 						$this->method == 'PATCH'
 					);
+					
+					// If not updated, return the original library version
+					if (!array_shift(array_values($changed))) {
+						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+							$this->objectLibraryID
+						);
+					}
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -1493,9 +1500,16 @@ class ApiController extends Controller {
 				// Update collection
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Collections::updateFromJSON(
+					$changed = Zotero_Collections::updateFromJSON(
 						$collection, $obj, $objectTimestampChecked ? 0 : 2
 					);
+					
+					// If not updated, return the original library version
+					if (!$changed) {
+						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+							$this->objectLibraryID
+						);
+					}
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
@@ -1686,9 +1700,16 @@ class ApiController extends Controller {
 				// Update search
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Searches::updateFromJSON(
+					$changed = Zotero_Searches::updateFromJSON(
 						$search, $obj, $objectTimestampChecked ? 0 : 2
 					);
+					
+					// If not updated, return the original library version
+					if (!$changed) {
+						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+							$this->objectLibraryID
+						);
+					}
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);

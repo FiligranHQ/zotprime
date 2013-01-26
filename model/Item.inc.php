@@ -887,6 +887,10 @@ class Zotero_Item {
 			throw new Exception("'$field' is not a valid itemData field.", Z_ERROR_INVALID_INPUT);
 		}
 		
+		if ($value === "") {
+			$value = false;
+		}
+		
 		if ($value !== false && !Zotero_ItemFields::isValidForType($fieldID, $this->itemTypeID)) {
 			throw new Exception("'$field' is not a valid field for type '"
 				. Zotero_ItemTypes::getName($this->itemTypeID) . "'", Z_ERROR_INVALID_INPUT);
@@ -897,6 +901,9 @@ class Zotero_Item {
 			if (Zotero_ItemFields::isFieldOfBase($fieldID, 'date') &&
 					!Zotero_Date::isMultipart($value)) {
 				$value = Zotero_Date::strToMultipart($value);
+				if ($value === "") {
+					$value = false;
+				}
 			}
 			// Validate access date
 			else if ($fieldID == Zotero_ItemFields::getID('accessDate')) {
@@ -913,6 +920,8 @@ class Zotero_Item {
 					(isset($this->itemData[$fieldID]) && $this->itemData[$fieldID] === $value)) {
 				return false;
 			}
+			
+			//Z_Core::debug("Field $field has changed from {$this->itemData[$fieldID]} to $value", 4);
 			
 			// TODO: Save a copy of the object before modifying?
 		}

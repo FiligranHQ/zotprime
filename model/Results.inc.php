@@ -24,32 +24,42 @@
     ***** END LICENSE BLOCK *****
 */
 class Zotero_Results {
-	private $successes = array();
-	private $failures = array();
+	private $success = array();
+	private $unchanged = array();
+	private $failed = array();
 	
 	public function addSuccess($index, $key) {
-		$this->successes[$index] = $key;
+		$this->success[$index] = $key;
+	}
+	
+	
+	public function addUnchanged($index, $key) {
+		$this->unchanged[$index] = $key;
 	}
 	
 	
 	public function addFailure($index, $key, Exception $e) {
-		if (isset($this->failures[$index])) {
+		if (isset($this->failed[$index])) {
 			throw new Exception("Duplicate index '$index' for failure with key '$key'");
 		}
-		$this->failures[$index] = Zotero_Errors::parseException($e);
-		$this->failures[$index]['key'] = $key;
+		$this->failed[$index] = Zotero_Errors::parseException($e);
+		$this->failed[$index]['key'] = $key;
 	}
 	
 	
 	public function generateReport() {
 		$report = array(
 			'success' => new stdClass(),
+			'unchanged' => new stdClass(),
 			'failed' => new stdClass()
 		);
-		foreach ($this->successes as $index => $key) {
+		foreach ($this->success as $index => $key) {
 			$report['success']->$index = $key;
 		}
-		foreach ($this->failures as $index => $error) {
+		foreach ($this->unchanged as $index => $key) {
+			$report['unchanged']->$index = $key;
+		}
+		foreach ($this->failed as $index => $error) {
 			$report['failed']->$index = array(
 				'key' => $error['key'],
 				'code' => $error['code'],
@@ -65,12 +75,12 @@ class Zotero_Results {
 	
 	
 	public function generateLogMessage() {
-		if (!$this->failures) {
+		if (!$this->failed) {
 			return "";
 		}
 		
 		$str = "";
-		foreach ($this->failures as $error) {
+		foreach ($this->failed as $error) {
 			if (!$error['log']) {
 				continue;
 			}

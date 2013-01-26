@@ -156,6 +156,14 @@ class ObjectTests extends APITests {
 	}
 	
 	
+	public function testPartialWriteFailureWithUnchanged() {
+		$this->_testPartialWriteFailureWithUnchanged('collection');
+		$this->_testPartialWriteFailureWithUnchanged('item');
+		$this->_testPartialWriteFailureWithUnchanged('search');
+	}
+	
+	
+	
 	private function _testSingleObjectDelete($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
@@ -299,6 +307,70 @@ class ObjectTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assert200ForObject($response, false, 0);
+		$this->assert400ForObject($response, false, 1);
+		$this->assert200ForObject($response, false, 2);
+		$json = API::getJSONFromResponse($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?format=keys&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		foreach ($json['success'] as $key) {
+			$this->assertContains($key, $keys);
+		}
+	}
+	
+	
+	private function _testPartialWriteFailureWithUnchanged($objectType) {
+		API::userClear(self::$config['userID']);
+		
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		switch ($objectType) {
+		case 'collection':
+			$data = API::createCollection("Test", false, $this, 'data');
+			$json1 = json_decode($data['content']);
+			$json2 = array("name" => str_repeat("1234567890", 6554));
+			$json3 = array("name" => "Test");
+			break;
+		
+		case 'item':
+			$data = API::createItem("book", array("title" => "Title"), $this, 'data');
+			$json1 = json_decode($data['content']);
+			$json2 = API::getItemTemplate('book');
+			$json3 = clone $json2;
+			$json2->title = str_repeat("1234567890", 6554);
+			break;
+		
+		case 'search':
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'value'
+				)
+			);
+			$data = API::createSearch("Name", $conditions, $this, 'data');
+			$json1 = json_decode($data['content']);
+			$json2 = array("name" => str_repeat("1234567890", 6554), "conditions" => $conditions);
+			$json3 = array("name" => "Test", "conditions" => $conditions);
+			break;
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"$objectTypePlural" => array($json1, $json2, $json3)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertUnchangedForObject($response, false, 0);
 		$this->assert400ForObject($response, false, 1);
 		$this->assert200ForObject($response, false, 2);
 		$json = API::getJSONFromResponse($response);

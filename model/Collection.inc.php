@@ -725,11 +725,11 @@ class Zotero_Collection {
 	
 	
 	private function load() {
-		Z_Core::debug("Loading data for collection $this->_id");
-		
 		$libraryID = $this->_libraryID;
 		$id = $this->_id;
 		$key = $this->_key;
+		
+		Z_Core::debug("Loading data for collection " . ($id ? $id : $key));
 		
 		if (!$libraryID) {
 			throw new Exception("Library ID not set");

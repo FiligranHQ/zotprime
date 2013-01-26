@@ -85,6 +85,7 @@ class Zotero_Search {
 		$this->checkValue($field, $value);
 		
 		if ($this->$field != $value) {
+			//Z_Core::debug("Search field '$field' has changed from '{$this->$field}' to '$value'");
 			$this->changed = true;
 			$this->$field = $value;
 		}
@@ -223,14 +224,15 @@ class Zotero_Search {
 		if ($this->id && !$this->loaded) {
 			$this->load();
 		}
-		for ($i = 0, $len = sizeOf($conditions); $i < $len; $i++) {
+		for ($i = 1, $len = sizeOf($conditions); $i <= $len; $i++) {
 			// Compare existing values to new values
-			if (isset($this->conditions[$i])
-					&& $this->conditions[$i]['condition'] == $conditions[$i]['condition']
-					&& $this->conditions[$i]['mode'] == $conditions[$i]['mode']
-					&& $this->conditions[$i]['operator'] == $conditions[$i]['operator']
-					&& $this->conditions[$i]['value'] == $conditions[$i]['value']) {
-				continue;
+			if (isset($this->conditions[$i])) {
+				if ($this->conditions[$i]['condition'] == $conditions[$i - 1]['condition']
+						&& $this->conditions[$i]['mode'] == $conditions[$i - 1]['mode']
+						&& $this->conditions[$i]['operator'] == $conditions[$i - 1]['operator']
+						&& $this->conditions[$i]['value'] == $conditions[$i - 1]['value']) {
+					continue;
+				}
 			}
 			$this->changed = true;
 		}
@@ -249,7 +251,7 @@ class Zotero_Search {
 	  */
 	public function getSearchCondition($searchConditionID) {
 		if ($this->id && !$this->loaded) {
-			$this->load(false);
+			$this->load();
 		}
 		
 		return isset($this->conditions[$searchConditionID])
@@ -263,7 +265,7 @@ class Zotero_Search {
 	  */
 	public function getSearchConditions() {
 		if ($this->id && !$this->loaded) {
-			$this->load(false);
+			$this->load();
 		}
 		
 		return $this->conditions;
@@ -352,11 +354,11 @@ class Zotero_Search {
 	
 	
 	private function load() {
-		Z_Core::debug("Loading data for search $this->id");
-		
 		$libraryID = $this->libraryID;
 		$id = $this->id;
 		$key = $this->key;
+		
+		Z_Core::debug("Loading data for search " . ($id ? $id : $key));
 		
 		if (!$libraryID) {
 			throw new Exception("Library ID not set");
@@ -370,9 +372,7 @@ class Zotero_Search {
 		
 		$sql = "SELECT searchID AS id, searchName AS name, dateAdded,
 				dateModified, libraryID, `key`, version
-				FROM savedSearches
-				LEFT JOIN savedSearchConditions USING (searchID)
-				WHERE ";
+				FROM savedSearches WHERE ";
 		if ($id) {
 			$sql .= "searchID=?";
 			$params = $id;
@@ -396,9 +396,10 @@ class Zotero_Search {
 		
 		$sql = "SELECT * FROM savedSearchConditions
 				WHERE searchID=? ORDER BY searchConditionID";
-		$conditions = Zotero_DB::query($sql, $id, $shardID);
+		$conditions = Zotero_DB::query($sql, $this->id, $shardID);
 		
 		foreach ($conditions as $condition) {
+			
 			$searchConditionID = $condition['searchConditionID'];
 			$this->conditions[$searchConditionID] = array(
 				'id' => $searchConditionID,

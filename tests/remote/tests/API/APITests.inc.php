@@ -54,7 +54,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 			return;
 		}
 		// assertNNNForObject($response, $message=false, $pos=0)
-		if (preg_match("/^assert([1-5][0-9]{2})ForObject$/", $name, $matches)) {
+		if (preg_match("/^assert([1-5][0-9]{2}|Unchanged)ForObject$/", $name, $matches)) {
 			$code = $matches[1];
 			if ($arguments[0] instanceof HTTP_Request2_Response) {
 				$this->assert200($arguments[0]);
@@ -71,14 +71,21 @@ class APITests extends PHPUnit_Framework_TestCase {
 			$expectedMessage = !empty($arguments[1]) ? $arguments[1] : false;
 			$index = isset($arguments[2]) ? $arguments[2] : 0;
 			
-			if ($matches[1] == 200) {
+			if ($code == 200) {
 				$this->assertArrayHasKey('success', $json);
 				$this->assertArrayHasKey($index, $json['success']);
 				if ($expectedMessage) {
-					throw new Exception("Cannot check response message of object for HTTP {$matches[1]}");
+					throw new Exception("Cannot check response message of object for HTTP $code");
 				}
 			}
-			else if ($matches[1][0] == '4' || $matches[1][0] == '5') {
+			else if ($code == 'Unchanged') {
+				$this->assertArrayHasKey('unchanged', $json);
+				$this->assertArrayHasKey($index, $json['unchanged']);
+				if ($expectedMessage) {
+					throw new Exception("Cannot check response message of unchanged object");
+				}
+			}
+			else if ($code[0] == '4' || $code[0] == '5') {
 				$this->assertArrayHasKey('failed', $json);
 				$this->assertArrayHasKey($index, $json['failed']);
 				$this->assertEquals($code, $json['failed'][$index]['code']);
@@ -87,7 +94,7 @@ class APITests extends PHPUnit_Framework_TestCase {
 				}
 			}
 			else {
-				throw new Exception("HTTP {$matches[1]} cannot be returned for an individual object");
+				throw new Exception("HTTP $code cannot be returned for an individual object");
 			}
 			return;
 		}

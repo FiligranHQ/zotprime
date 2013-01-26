@@ -571,16 +571,27 @@ class Zotero_DataObjects {
 				$obj = new $className;
 				$obj->libraryID = $libraryID;
 				if ($type == 'item') {
-					static::updateFromJSON(
+					$changed = static::updateFromJSON(
 						$obj, $jsonObject, $parent, $userID, $requireVersion
 					);
 				}
 				else {
-					static::updateFromJSON($obj, $jsonObject, $requireVersion);
+					$changed = static::updateFromJSON($obj, $jsonObject, $requireVersion);
 				}
 				Zotero_DB::commit();
 				Z_Core::$MC->commit();
-				$results->addSuccess($i, $obj->key);
+				
+				if (is_bool($changed)) {
+					$changed = array($obj->key => $changed);
+				}
+				foreach ($changed as $key => $objectChanged) {
+					if ($objectChanged) {
+						$results->addSuccess($i, $key);
+					}
+					else {
+						$results->addUnchanged($i, $key);
+					}
+				}
 			}
 			catch (Exception $e) {
 				Zotero_DB::rollback();

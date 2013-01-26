@@ -214,7 +214,8 @@ class Zotero_Searches extends Zotero_DataObjects {
 	 *                                search or a new search
 	 *                                with a library assigned.
 	 * @param object $json Search data to write
-	 * @param boolean [$requireVersion=0] See Zotero_API::checkJSONObjectVersion()
+	 * @param boolean $requireVersion See Zotero_API::checkJSONObjectVersion()
+	 * @return bool True if the search was changed, false otherwise
 	 */
 	public static function updateFromJSON(Zotero_Search $search,
 	                                      $json,
@@ -239,7 +240,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 			$conditions[] = $newCondition;
 		}
 		$search->updateConditions($conditions);
-		$search->save();
+		return !!$search->save();
 	}
 	
 	

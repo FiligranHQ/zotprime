@@ -115,4 +115,51 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(200, $response->getStatus());
 		$this->assertEquals("", trim($response->getBody()));
 	}
+	
+	
+	public function testSyncUploadUnchanged() {
+		$data1 = API::createItem("audioRecording", array(
+			"title" => "Test",
+			"relations" => array(
+				'owl:sameAs' => 'http://zotero.org/groups/1/items/AAAAAAAA'
+			)
+		), null, 'data');
+		// dc:relation already exists, so item shouldn't change
+		$data2 = API::createItem("interview", array(
+			"relations" => array(
+				'dc:relation' => 'http://zotero.org/users/'
+					. self::$config['userID'] . '/items/' . $data1['key']
+			)
+		), null, 'data');
+		
+		// Upload unchanged via sync
+		$response = Sync::updated(self::$sessionID);
+		$xml = Sync::getXMLFromResponse($response);
+		$updateKey = $xml['updateKey'];
+		$lastSyncTimestamp = $xml['timestamp'];
+		
+		$itemXML1 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='{$data1['key']}']"));
+		$itemXML2 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='{$data2['key']}']"));
+		$itemXML1['libraryID'] = self::$config['libraryID'];
+		$itemXML2['libraryID'] = self::$config['libraryID'];
+		
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. $itemXML1->asXML()
+			. $itemXML2->asXML()
+			. '</items>'
+			. '</data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Check via API to make sure they're the same
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey']
+				. "&format=versions"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($data1['version'], $json[$data1['key']]);
+		$this->assertEquals($data2['version'], $json[$data2['key']]);
+	}
 }

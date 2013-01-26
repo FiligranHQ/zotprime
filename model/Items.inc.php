@@ -1442,6 +1442,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$partialUpdate
 		);
 		
+		$changed = array();
 		$twoStage = false;
 		
 		// Set itemType first
@@ -1627,7 +1628,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$item->deleted = !empty($json->deleted);
 		
-		$item->save($userID);
+		$updated = $item->save($userID);
+		$changed[$item->key] = $updated;
 		
 		// Additional steps that have to be performed on a saved object
 		if ($twoStage) {
@@ -1640,9 +1642,12 @@ class Zotero_Items extends Zotero_DataObjects {
 						foreach ($val as $attachmentJSON) {
 							$childItem = new Zotero_Item;
 							$childItem->libraryID = $item->libraryID;
-							self::updateFromJSON(
+							$updated = self::updateFromJSON(
 								$childItem, $attachmentJSON, $item, $userID
 							);
+							foreach ($updated as $k => $v) {
+								$changed[$k] = $v;
+							}
 						}
 						break;
 					
@@ -1658,7 +1663,8 @@ class Zotero_Items extends Zotero_DataObjects {
 							$childItem->itemTypeID = $noteItemTypeID;
 							$childItem->setSource($item->id);
 							$childItem->setNote($note->note);
-							$childItem->save();
+							$updated = $childItem->save();
+							$changed[$childItem->key] = $updated;
 						}
 						break;
 					
@@ -1684,8 +1690,11 @@ class Zotero_Items extends Zotero_DataObjects {
 				}
 			}
 			
-			$item->save($userID);
+			$updated = $item->save($userID);
+			$changed[$item->key] = $changed[$item->key] || $updated;
 		}
+		
+		return $changed;
 	}
 	
 	

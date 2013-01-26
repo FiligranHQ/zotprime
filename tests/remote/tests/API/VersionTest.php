@@ -70,6 +70,13 @@ class VersionTests extends APITests {
 	}
 	
 	
+	public function testUploadUnmodified() {
+		$this->_testUploadUnmodified('collection');
+		$this->_testUploadUnmodified('item');
+		$this->_testUploadUnmodified('search');
+	}
+	
+	
 	public function testNewerTags() {
 		$tags1 = array("a", "aa", "b");
 		$tags2 = array("b", "c", "cc");
@@ -556,5 +563,54 @@ class VersionTests extends APITests {
 		$this->assertEquals($objects[1]['key'], array_shift($keys));
 		$this->assertEquals($objects[1]['version'], array_shift($json));
 		$this->assertEmpty($json);
+	}
+	
+	
+	private function _testUploadUnmodified($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		switch ($objectType) {
+		case 'collection':
+			$xml = API::createCollection("Name", false, $this);
+			break;
+		
+		case 'item':
+			$xml = API::createItem("book", array("title" => "Title"), $this);
+			break;
+		
+		case 'search':
+			$xml = API::createSearch("Name", 'default', $this);
+			break;
+		}
+		
+		$version = (int) array_shift($xml->xpath('//atom:entry/zapi:version'));
+		$this->assertNotEquals(0, $version);
+		
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		$this->assert204($response);
+		$this->assertEquals($version, $response->getHeader("Zotero-Last-Modified-Version"));
+		
+		switch ($objectType) {
+		case 'collection':
+			$xml = API::getCollectionXML($data['key']);
+			break;
+		
+		case 'item':
+			$xml = API::getItemXML($data['key']);
+			break;
+		
+		case 'search':
+			$xml = API::getSearchXML($data['key']);
+			break;
+		}
+		$data = API::parseDataFromAtomEntry($xml);
+		$this->assertEquals($version, $data['version']);
 	}
 }

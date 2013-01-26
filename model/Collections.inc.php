@@ -324,6 +324,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 *                                      with a library assigned.
 	 * @param object $json Collection data to write
 	 * @param boolean [$requireVersion=0] See Zotero_API::checkJSONObjectVersion()
+	 * @return boolean True if the collection was changed, false otherwise
 	 */
 	public static function updateFromJSON(Zotero_Collection $collection,
 	                                      $json,
@@ -339,7 +340,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		else {
 			$collection->parent = false;
 		}
-		$collection->save();
+		return !!$collection->save();
 	}
 	
 	

@@ -68,48 +68,7 @@ class API {
 			array("Content-Type: application/json")
 		);
 		
-		if ($context) {
-			$context->assert200($response);
-		}
-		
-		if ($responseFormat == 'response') {
-			return $response;
-		}
-		
-		$json = self::getJSONFromResponse($response);
-		
-		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
-			var_dump($json);
-			throw new Exception("Item creation failed");
-		}
-		
-		if ($responseFormat == 'json') {
-			return $json;
-		}
-		
-		$itemKey = array_shift($json['success']);
-		
-		if ($responseFormat == 'key') {
-			return $itemKey;
-		}
-		
-		$xml = self::getItemXML($itemKey, $context);
-		
-		if ($responseFormat == 'atom') {
-			return $xml;
-		}
-		
-		$data = self::parseDataFromAtomEntry($xml);
-		
-		if ($responseFormat == 'data') {
-			return $data;
-		}
-		
-		if ($responseFormat == 'content') {
-			return $data['content'];
-		}
-		
-		throw new Exception("Invalid response format '$responseFormat'");
+		return self::handleCreateResponse('item', $response, $responseFormat, $context);
 	}
 	
 	
@@ -366,31 +325,8 @@ class API {
 			json_encode($json),
 			array("Content-Type: application/json")
 		);
-		if ($context) {
-			$context->assert200($response);
-		}
 		
-		$json = self::getJSONFromResponse($response);
-		
-		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
-			var_dump($json);
-			throw new Exception("Item creation failed");
-		}
-		
-		switch ($responseFormat) {
-		case 'json':
-			return $json;
-		
-		case 'key':
-			return array_shift($json['success']);
-		
-		case 'atom':
-			$collectionKey = array_shift($json['success']);
-			return self::getCollectionXML($collectionKey, $context);
-		
-		default:
-			throw new Exception("Invalid response format '$responseFormat'");
-		}
+		return self::handleCreateResponse('collection', $response, $responseFormat, $context);
 	}
 	
 	
@@ -422,31 +358,8 @@ class API {
 			json_encode($json),
 			array("Content-Type: application/json")
 		);
-		if ($context) {
-			$context->assert200($response);
-		}
 		
-		$json = self::getJSONFromResponse($response);
-		
-		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
-			var_dump($json);
-			throw new Exception("Search creation failed");
-		}
-		
-		switch ($responseFormat) {
-		case 'json':
-			return $json;
-		
-		case 'key':
-			return array_shift($json['success']);
-		
-		case 'atom':
-			$searchKey = array_shift($json['success']);
-			return self::getSearchXML($searchKey, $context);
-		
-		default:
-			throw new Exception("Invalid response format '$responseFormat'");
-		}
+		return self::handleCreateResponse('search', $response, $responseFormat, $context);
 	}
 	
 	
@@ -760,5 +673,53 @@ class API {
 			$context->assert200($response);
 		}
 		return API::getXMLFromResponse($response);
+	}
+	
+	
+	private function handleCreateResponse($objectType, $response, $responseFormat, $context=null) {
+		$uctype = ucwords($objectType);
+		
+		if ($context) {
+			$context->assert200($response);
+		}
+		
+		if ($responseFormat == 'response') {
+			return $response;
+		}
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("$uctype creation failed");
+		}
+		
+		if ($responseFormat == 'json') {
+			return $json;
+		}
+		
+		$key = array_shift($json['success']);
+		
+		if ($responseFormat == 'key') {
+			return $key;
+		}
+		
+		$func = 'get' . $uctype . 'XML';
+		$xml = self::$func($key, $context);
+		
+		if ($responseFormat == 'atom') {
+			return $xml;
+		}
+		
+		$data = self::parseDataFromAtomEntry($xml);
+		
+		if ($responseFormat == 'data') {
+			return $data;
+		}
+		if ($responseFormat == 'content') {
+			return $data['content'];
+		}
+		
+		throw new Exception("Invalid response format '$responseFormat'");
 	}
 }
