@@ -1434,7 +1434,9 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                      $requireVersion=0,
 	                                      $partialUpdate=false) {
 		$exists = Zotero_API::processJSONObjectKey($item, $json);
-		Zotero_API::checkJSONObjectVersion($item, $json, $requireVersion);
+		Zotero_API::checkJSONObjectVersion(
+			$item, $json, $requestParams, $requireVersion
+		);
 		
 		self::validateJSONItem(
 			$json,

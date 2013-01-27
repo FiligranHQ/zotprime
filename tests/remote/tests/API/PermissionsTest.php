@@ -130,8 +130,12 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"collections?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"name" => "Test",
-				"parent" => false
+				"collections" => array(
+					array(
+						"name" => "Test",
+						"parent" => false
+					)
+				)
 			)),
 			array("Content-Type: application/json")
 		);

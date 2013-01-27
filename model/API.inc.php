@@ -562,11 +562,12 @@ class Zotero_API {
 	/**
 	 * @param object $object Zotero object (Zotero_Item, Zotero_Collection, Zotero_Search)
 	 * @param object $json JSON object to check
+	 * @param array $requestParams
 	 * @param int $requireVersion If 0, don't require; if 1, require if there's
 	 *                            an object key property in the JSON; if 2,
 	 *                            always require
 	 */
-	public static function checkJSONObjectVersion($object, $json, $requireVersion) {
+	public static function checkJSONObjectVersion($object, $json, $requestParams, $requireVersion) {
 		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
 		if (!in_array($objectType, array('item', 'collection', 'search'))) {
 			throw new Exception("Invalid object type");
@@ -577,11 +578,21 @@ class Zotero_API {
 		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
 		
 		if (isset($json->$versionProp)) {
+			if ($requestParams['apiVersion'] < 2) {
+				throw new Exception(
+					"Invalid property '$versionProp'", Z_ERROR_INVALID_INPUT
+				);
+			}
 			if (!is_numeric($json->$versionProp)) {
-				throw new Exception("'$versionProp' must be an integer");
+				throw new Exception(
+					"'$versionProp' must be an integer", Z_ERROR_INVALID_INPUT
+				);
 			}
 			if (!isset($json->$keyProp)) {
-				throw new Exception("'$versionProp' is valid only with an '$keyProp' property");
+				throw new Exception(
+					"'$versionProp' is valid only with an '$keyProp' property",
+					Z_ERROR_INVALID_INPUT
+				);
 			}
 			if ($object->$objectVersionProp > $json->$versionProp) {
 				throw new HTTPException(ucwords($objectType)

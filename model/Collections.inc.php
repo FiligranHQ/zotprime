@@ -331,7 +331,9 @@ class Zotero_Collections extends Zotero_DataObjects {
 	                                      $requestParams,
 	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($collection, $json);
-		Zotero_API::checkJSONObjectVersion($collection, $json, $requireVersion);
+		Zotero_API::checkJSONObjectVersion(
+			$collection, $json, $requestParams, $requireVersion
+		);
 		self::validateJSONCollection($json, $requestParams);
 		
 		$collection->name = $json->name;
