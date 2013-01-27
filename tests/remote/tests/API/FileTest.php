@@ -532,7 +532,7 @@ class FileTests extends APITests {
 			
 			exec($cmd, $output, $ret);
 			if ($ret != 0) {
-				echo "\nWarning: Error running $algo -- skipping file upload test";
+				echo "Warning: Error running $algo -- skipping file upload test\n";
 				continue;
 			}
 			
