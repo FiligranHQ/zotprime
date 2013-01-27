@@ -3475,7 +3475,7 @@ class ApiController extends Controller {
 				throw new Exception("Unsupported response code " . $this->responseCode);
 		}
 		
-		if ($this->libraryVersion) {
+		if ($this->libraryVersion && $this->queryParams['apiVersion'] >= 2) {
 			header("Zotero-Last-Modified-Version: " . $this->libraryVersion);
 		}
 		
