@@ -133,7 +133,7 @@ class PermissionsTest extends APITests {
 				"collections" => array(
 					array(
 						"name" => "Test",
-						"parent" => false
+						"parentCollection" => false
 					)
 				)
 			)),

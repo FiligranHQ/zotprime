@@ -1463,7 +1463,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'deleted':
 					continue;
 				
-				case 'itemParent':
+				case 'parentItem':
 					$item->setSourceKey($val);
 					break;
 				
@@ -1750,12 +1750,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					break;
 				
-				case 'itemParent':
+				case 'parentItem':
 					if ($requestParams['apiVersion'] < 2) {
 						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					if (!Zotero_ID::isValidKey($val)) {
-						throw new Exception("'itemParent' must be a valid item key", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' must be a valid item key", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
@@ -1764,7 +1764,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);
 					}
 					
-					if ($isChild || !empty($json->itemParent)) {
+					if ($isChild || !empty($json->parentItem)) {
 						switch ($val) {
 							case 'note':
 							case 'attachment':

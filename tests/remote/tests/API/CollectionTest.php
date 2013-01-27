@@ -66,7 +66,7 @@ class CollectionTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
-		$this->assertEquals($parent, (string) $json->parent);
+		$this->assertEquals($parent, (string) $json->parentCollection);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -93,7 +93,7 @@ class CollectionTests extends APITests {
 				),
 				array(
 					'name' => $name2,
-					'parent' => $parent2
+					'parentCollection' => $parent2
 				)
 			)
 		);
@@ -114,10 +114,10 @@ class CollectionTests extends APITests {
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
 		$content = json_decode(array_shift($contents));
 		$this->assertEquals($name1, $content->name);
-		$this->assertFalse($content->parent);
+		$this->assertFalse($content->parentCollection);
 		$content = json_decode(array_shift($contents));
 		$this->assertEquals($name2, $content->name);
-		$this->assertEquals($parent2, $content->parent);
+		$this->assertEquals($parent2, $content->parentCollection);
 	}
 	
 	
@@ -160,10 +160,10 @@ class CollectionTests extends APITests {
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
 		$content = json_decode(array_shift($contents));
 		$this->assertEquals($newName1, $content->name);
-		$this->assertFalse($content->parent);
+		$this->assertFalse($content->parentCollection);
 		$content = json_decode(array_shift($contents));
 		$this->assertEquals($newName2, $content->name);
-		$this->assertFalse($content->parent);
+		$this->assertFalse($content->parentCollection);
 	}
 	
 	

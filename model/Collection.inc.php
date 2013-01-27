@@ -704,7 +704,7 @@ class Zotero_Collection {
 	}
 	
 	
-	public function toJSON($asArray=false, $prettyPrint=false) {
+	public function toJSON($asArray=false, $requestParams=array()) {
 		if (!$this->loaded) {
 			$this->load();
 		}
@@ -714,13 +714,18 @@ class Zotero_Collection {
 		
 		$arr['name'] = $this->name;
 		$parentKey = $this->getParentKey();
-		$arr['parent'] = $parentKey ? $parentKey : false;
+		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
+			$arr['parentCollection'] = $parentKey ? $parentKey : false;
+		}
+		else {
+			$arr['parent'] = $parentKey ? $parentKey : false;
+		}
 		
 		if ($asArray) {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
+		return Zotero_Utilities::formatJSON($arr, !empty($requestParams['pprint']));
 	}
 	
 	

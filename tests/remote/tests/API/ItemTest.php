@@ -495,7 +495,7 @@ class ItemTests extends APITests {
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
 		$json = json_decode($response->getBody());
-		$json->itemParent = $parentKey;
+		$json->parentItem = $parentKey;
 		
 		$json->md5 = "c7487a750a97722ae1878ed46b215ebe";
 		$response = API::userPost(
@@ -518,7 +518,7 @@ class ItemTests extends APITests {
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
 		$json = json_decode($response->getBody());
-		$json->itemParent = $parentKey;
+		$json->parentItem = $parentKey;
 		
 		$json->mtime = "1332807793000";
 		$response = API::userPost(

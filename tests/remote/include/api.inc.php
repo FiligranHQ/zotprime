@@ -151,7 +151,7 @@ class API {
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		if ($parentKey) {
-			$json->itemParent = $parentKey;
+			$json->parentItem = $parentKey;
 		}
 		
 		$response = API::userPost(
@@ -204,7 +204,7 @@ class API {
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		if ($parentKey) {
-			$json->itemParent = $parentKey;
+			$json->parentItem = $parentKey;
 		}
 		
 		$response = API::groupPost(
@@ -256,7 +256,7 @@ class API {
 		$json = json_decode($response->getBody());
 		$json->note = $text;
 		if ($parentKey) {
-			$json->itemParent = $parentKey;
+			$json->parentItem = $parentKey;
 		}
 		
 		$response = API::userPost(
@@ -308,7 +308,7 @@ class API {
 			"collections" => array(
 				array(
 					'name' => $name,
-					'parent' => $parent
+					'parentCollection' => $parent
 				)
 			)
 		);

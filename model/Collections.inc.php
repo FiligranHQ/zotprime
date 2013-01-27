@@ -235,13 +235,13 @@ class Zotero_Collections extends Zotero_DataObjects {
 	 * Converts a Zotero_Collection object to a SimpleXMLElement Atom object
 	 *
 	 * @param Zotero_Collection  $collection  Zotero_Collection object
-	 * @param array  $queryParams
+	 * @param array  $requestParams
 	 * @return SimpleXMLElement  Collection data as SimpleXML element
 	 */
-	public static function convertCollectionToAtom(Zotero_Collection $collection, $queryParams) {
+	public static function convertCollectionToAtom(Zotero_Collection $collection, $requestParams) {
 		// TEMP: multi-format support
-		if (!empty($queryParams['content'])) {
-			$content = $queryParams['content'];
+		if (!empty($requestParams['content'])) {
+			$content = $requestParams['content'];
 		}
 		else {
 			$content = array('none');
@@ -303,7 +303,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
 			// Deprecated
-			if ($queryParams['apiVersion'] < 2) {
+			if ($requestParams['apiVersion'] < 2) {
 				$xml->content->addAttribute(
 					'zapi:etag',
 					$collection->etag,
@@ -311,7 +311,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 				);
 				$xml->content['etag'] = $collection->etag;
 			}
-			$xml->content = $collection->toJSON();
+			$xml->content = $collection->toJSON(false, $requestParams);
 		}
 		
 		return $xml;
@@ -338,7 +338,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 		self::validateJSONCollection($json, $requestParams);
 		
 		$collection->name = $json->name;
-		if (isset($json->parent)) {
+		if ($requestParams['apiVersion'] >= 2 && isset($json->parentCollection)) {
+			$collection->parentKey = $json->parentCollection;
+		}
+		else if ($requestParams['apiVersion'] < 2 && isset($json->parent)) {
 			$collection->parentKey = $json->parent;
 		}
 		else {
@@ -383,8 +386,20 @@ class Zotero_Collections extends Zotero_DataObjects {
 					break;
 					
 				case 'parent':
+					if ($requestParams['apiVersion'] >= 2) {
+						throw new Exception("'parent' property is now 'parentCollection'", Z_ERROR_INVALID_INPUT);
+					}
 					if (!is_string($val) && !empty($val)) {
-						throw new Exception("'parent' must be a collection key or FALSE (" . gettype($val) . ")", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' must be a collection key or FALSE (" . gettype($val) . ")", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'parentCollection':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					if (!is_string($val) && !empty($val)) {
+						throw new Exception("'$key' must be a collection key or FALSE (" . gettype($val) . ")", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
