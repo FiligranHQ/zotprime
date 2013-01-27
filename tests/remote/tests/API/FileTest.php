@@ -530,7 +530,11 @@ class FileTests extends APITests {
 			$json = json_decode($response->getBody());
 			$this->assertNotNull($json);
 			
-			exec($cmd);
+			exec($cmd, $output, $ret);
+			if ($ret != 0) {
+				echo "\nWarning: Error running $algo -- skipping file upload test";
+				continue;
+			}
 			
 			$patch = file_get_contents($patchFilename);
 			$this->assertNotEquals("", $patch);
