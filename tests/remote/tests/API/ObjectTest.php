@@ -163,6 +163,12 @@ class ObjectTests extends APITests {
 	}
 	
 	
+	public function testMultiObjectWriteInvalidObject() {
+		$this->_testMultiObjectWriteInvalidObject('collection');
+		$this->_testMultiObjectWriteInvalidObject('item');
+		$this->_testMultiObjectWriteInvalidObject('search');
+	}
+	
 	
 	private function _testSingleObjectDelete($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
@@ -385,5 +391,22 @@ class ObjectTests extends APITests {
 		foreach ($json['success'] as $key) {
 			$this->assertContains($key, $keys);
 		}
+	}
+	
+	
+	private function _testMultiObjectWriteInvalidObject($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"$objectTypePlural" => array(
+					"foo" => "bar"
+				)
+			)),
+			array("Content-Type: application/json")
+		);
+		$this->assert400ForObject($response, "Invalid property 'foo' in '$objectTypePlural'; expected JSON $objectType object");
 	}
 }

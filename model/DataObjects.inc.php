@@ -561,11 +561,18 @@ class Zotero_DataObjects {
 		}
 		
 		$i = 0;
-		foreach ($json->$types as $jsonObject) {
+		foreach ($json->$types as $prop => $jsonObject) {
 			Z_Core::$MC->begin();
 			Zotero_DB::beginTransaction();
 			
 			try {
+				if (!is_object($jsonObject)) {
+					throw new Exception(
+						"Invalid property '$prop' in '$types'; expected JSON $type object",
+						Z_ERROR_INVALID_INPUT
+					);
+				}
+				
 				$className = "Zotero_" . ucwords($type);
 				$obj = new $className;
 				$obj->libraryID = $libraryID;
