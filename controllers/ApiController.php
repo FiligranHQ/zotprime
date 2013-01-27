@@ -3007,7 +3007,11 @@ class ApiController extends Controller {
 		
 		// TODO: check If-Modified-Since and return 304 if not changed
 		
-		$cacheKey = "newItemJSON_" . $itemTypeID;
+		$cacheVersion = 1;
+		$cacheKey = "newItemJSON"
+			. "_" . $this->queryParams['apiVersion']
+			. "_" . $itemTypeID
+			. "_" . $cacheVersion;
 		if ($itemType == 'attachment') {
 			$cacheKey .= "_" . $linkMode;
 		}
