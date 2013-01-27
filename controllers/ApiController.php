@@ -3205,10 +3205,10 @@ class ApiController extends Controller {
 		}
 		
 		// If-Match (deprecated)
-		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+		if ($this->queryParams['apiVersion'] < 2) {
 			if (empty($_SERVER['HTTP_IF_MATCH'])) {
 				if ($required) {
-					$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+					$this->e428("If-Match must be provided for write requests");
 				}
 				else {
 					return false;
@@ -3225,6 +3225,14 @@ class ApiController extends Controller {
 		}
 		// Zotero-If-Unmodified-Since-Version
 		else {
+			if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+				if ($required) {
+					$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+				}
+				else {
+					return false;
+				}
+			}
 			$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
 			
 			if (!is_numeric($version)) {
