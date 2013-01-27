@@ -79,7 +79,10 @@ class APITests extends PHPUnit_Framework_TestCase {
 			
 			if ($code == 200) {
 				$this->assertArrayHasKey('success', $json);
-				$this->assertArrayHasKey($index, $json['success']);
+				if (!isset($json['success'][$index])) {
+					var_dump($json);
+					throw new Exception("Index $index not found in success object");
+				}
 				if ($expectedMessage) {
 					throw new Exception("Cannot check response message of object for HTTP $code");
 				}
