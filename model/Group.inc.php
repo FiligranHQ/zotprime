@@ -990,11 +990,13 @@ class Zotero_Group {
 			$xml->content['type'] = 'application/json';
 			$xml->content['etag'] = $this->etag;
 			// Deprecated
-			$xml->content->addAttribute(
-				"zapi:etag",
-				$this->etag,
-				Zotero_Atom::$nsZoteroAPI
-			);
+			if ($queryParams['apiVersion'] < 2) {
+				$xml->content->addAttribute(
+					"zapi:etag",
+					$this->etag,
+					Zotero_Atom::$nsZoteroAPI
+				);
+			}
 			$xml->content = $this->toJSON(false, $queryParams['pprint'], true);
 		}
 		else if ($content == 'full') {

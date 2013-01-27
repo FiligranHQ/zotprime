@@ -303,13 +303,14 @@ class Zotero_Collections extends Zotero_DataObjects {
 		if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
 			// Deprecated
-			$xml->content->addAttribute(
-				'zapi:etag',
-				$collection->etag,
-				Zotero_Atom::$nsZoteroAPI
-			);
-			// Deprecated
-			$xml->content['etag'] = $collection->etag;
+			if ($queryParams['apiVersion'] < 2) {
+				$xml->content->addAttribute(
+					'zapi:etag',
+					$collection->etag,
+					Zotero_Atom::$nsZoteroAPI
+				);
+				$xml->content['etag'] = $collection->etag;
+			}
 			$xml->content = $collection->toJSON();
 		}
 		
