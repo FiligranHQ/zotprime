@@ -168,6 +168,10 @@ class Zotero_Atom {
 			self::$nsZoteroAPI
 		);
 		
+		if ($queryParams['apiVersion'] < 2) {
+			$xml->addChild("zapi:apiVersion", 1, self::$nsZoteroAPI);
+		}
+		
 		$latestUpdated = '';
 		
 		// Check memcached for bib data
