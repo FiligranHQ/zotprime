@@ -648,6 +648,10 @@ class ApiController extends Controller {
 						break;
 					
 					case 'tags':
+						if ($this->queryParams['apiVersion'] >= 2) {
+							$this->e404();
+						}
+						
 						$this->allowMethods(array('GET'));
 						
 						$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $this->scopeObjectName);
@@ -671,7 +675,7 @@ class ApiController extends Controller {
 						break;
 					
 					default:
-						throw new Exception("Invalid items scope object '$this->scopeObject'");
+						$this->e404();
 				}
 			}
 			else {
