@@ -44,6 +44,8 @@ class APITests extends PHPUnit_Framework_TestCase {
 		API::setKeyOption(
 			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
 		);
+		
+		API::useFutureVersion(true);
 	}
 	
 	

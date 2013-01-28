@@ -254,6 +254,15 @@ class Zotero_Collection {
 	
 	
 	/**
+	 * Update the collection's version without changing any data
+	 */
+	public function updateVersion($userID) {
+		$this->changed = true;
+		$this->save($userID);
+	}
+	
+	
+	/**
 	 * Returns child collections
 	 *
 	 * @return {Integer[]}	Array of collectionIDs
@@ -660,6 +669,89 @@ class Zotero_Collection {
 	}
 	
 	
+	//
+	// Methods dealing with relations
+	//
+	// save() is not required for relations functions
+	//
+	/**
+	 * Returns all relations of the collection
+	 *
+	 * @return object Object with predicates as keys and URIs as values
+	 */
+	public function getRelations() {
+		if (!$this->_id) {
+			return array();
+		}
+		$relations = Zotero_Relations::getByURIs(
+			$this->libraryID,
+			Zotero_URI::getCollectionURI($this, true)
+		);
+		
+		$toReturn = new stdClass;
+		foreach ($relations as $relation) {
+			$toReturn->{$relation->predicate} = $relation->object;
+		}
+		return $toReturn;
+	}
+	
+	
+	/**
+	 * Updates the collection's relations. No separate save of the collection is required.
+	 *
+	 * @param object $newRelations Object with predicates as keys and URIs as values
+	 * @param int $userID User making the change
+	 */
+	public function setRelations($newRelations, $userID) {
+		if (!$this->_id) {
+			throw new Exception('collectionID not set');
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		// Get arrays from objects
+		$oldRelations = get_object_vars($this->getRelations());
+		$newRelations = get_object_vars($newRelations);
+		
+		$toAdd = array_diff($newRelations, $oldRelations);
+		$toRemove = array_diff($oldRelations, $newRelations);
+		
+		if (!$toAdd && !$toRemove) {
+			Zotero_DB::commit();
+			return false;
+		}
+		
+		$subject = Zotero_URI::getCollectionURI($this, true);
+		
+		foreach ($toAdd as $predicate => $object) {
+			Zotero_Relations::add(
+				$this->libraryID,
+				$subject,
+				$predicate,
+				$object
+			);
+		}
+		
+		foreach ($toRemove as $predicate => $object) {
+			$relations = Zotero_Relations::getByURIs(
+				$this->libraryID,
+				$subject,
+				$predicate,
+				$object
+			);
+			foreach ($relations as $relation) {
+				Zotero_Relations::delete($this->libraryID, $relation->key);
+			}
+		}
+		
+		$this->updateVersion($userID);
+		
+		Zotero_DB::commit();
+		
+		return true;
+	}
+	
+	
 	/**
 	 * Returns all tags assigned to items in this collection
 	 */
@@ -716,6 +808,7 @@ class Zotero_Collection {
 		$parentKey = $this->getParentKey();
 		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
 			$arr['parentCollection'] = $parentKey ? $parentKey : false;
+			$arr['relations'] = $this->getRelations();
 		}
 		else {
 			$arr['parent'] = $parentKey ? $parentKey : false;

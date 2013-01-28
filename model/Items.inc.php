@@ -1859,7 +1859,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						}
 						
 						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/items\/[A-Z0-9]{8}$/', $object)) {
-							throw new Exception("'relations' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
+							throw new Exception("'$key' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					break;

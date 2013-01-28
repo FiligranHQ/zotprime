@@ -1585,6 +1585,7 @@ class ApiController extends Controller {
 						$collection,
 						$obj,
 						$this->queryParams,
+						$this->userID,
 						$objectTimestampChecked ? 0 : 2
 					);
 					

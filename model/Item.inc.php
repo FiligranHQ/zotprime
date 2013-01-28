@@ -3090,7 +3090,7 @@ class Zotero_Item {
 	// save() is not required for relations functions
 	//
 	/**
-	 * Returns all relations of an item
+	 * Returns all relations of the item
 	 *
 	 * @return object Object with predicates as keys and URIs as values
 	 */
@@ -3112,7 +3112,7 @@ class Zotero_Item {
 	
 	
 	/**
-	 * Updates an item's relations. No separate save of the item is required.
+	 * Updates the item's relations. No separate save of the item is required.
 	 *
 	 * @param object $newRelations Object with predicates as keys and URIs as values
 	 * @param int $userID User making the change

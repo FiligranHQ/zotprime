@@ -330,6 +330,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Collection $collection,
 	                                      $json,
 	                                      $requestParams,
+	                                      $userID,
 	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($collection, $json);
 		Zotero_API::checkJSONObjectVersion(
@@ -337,7 +338,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 		);
 		self::validateJSONCollection($json, $requestParams);
 		
+		$changed = false;
+		
 		$collection->name = $json->name;
+		
 		if ($requestParams['apiVersion'] >= 2 && isset($json->parentCollection)) {
 			$collection->parentKey = $json->parentCollection;
 		}
@@ -347,7 +351,19 @@ class Zotero_Collections extends Zotero_DataObjects {
 		else {
 			$collection->parent = false;
 		}
-		return !!$collection->save();
+		
+		$changed = $collection->save() || $changed;
+		
+		if ($requestParams['apiVersion'] >= 2) {
+			if (isset($json->relations)) {
+				$changed = $collection->setRelations($json->relations, $userID) || $changed;
+			}
+			else {
+				$changed = $collection->setRelations(new stdClass(), $userID) || $changed;
+			}
+		}
+		
+		return $changed;
 	}
 	
 	
@@ -400,6 +416,29 @@ class Zotero_Collections extends Zotero_DataObjects {
 					}
 					if (!is_string($val) && !empty($val)) {
 						throw new Exception("'$key' must be a collection key or FALSE (" . gettype($val) . ")", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'relations':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (!is_object($val)) {
+						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
+					}
+					foreach ($val as $predicate => $object) {
+						switch ($predicate) {
+						case 'owl:sameAs':
+							break;
+						
+						default:
+							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
+						}
+						
+						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/collections\/[A-Z0-9]{8}$/', $object)) {
+							throw new Exception("'$key' values currently must be Zotero collection URIs", Z_ERROR_INVALID_INPUT);
+						}
 					}
 					break;
 				

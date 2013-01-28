@@ -301,14 +301,24 @@ class API {
 	}
 	
 	
-	public function createCollection($name, $parent=false, $context=null, $responseFormat='atom') {
+	public function createCollection($name, $data=array(), $context=null, $responseFormat='atom') {
 		self::loadConfig();
+		
+		if (is_array($data)) {
+			$parent = isset($data['parentCollection']) ? $data['parentCollection'] : false;
+			$relations = isset($data['relations']) ? $data['relations'] : new stdClass;
+		}
+		else {
+			$parent = $data ? $data : false;
+			$relations = new stdClass;
+		}
 		
 		$json = array(
 			"collections" => array(
 				array(
 					'name' => $name,
-					'parentCollection' => $parent
+					'parentCollection' => $parent,
+					'relations' => $relations
 				)
 			)
 		);

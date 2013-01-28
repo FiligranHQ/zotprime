@@ -581,8 +581,15 @@ class Zotero_DataObjects {
 						$obj, $jsonObject, $parent, $requestParams, $userID, $requireVersion
 					);
 				}
+				else if ($type == 'collection') {
+					$changed = static::updateFromJSON(
+						$obj, $jsonObject, $requestParams, $userID, $requireVersion
+					);
+				}
 				else {
-					$changed = static::updateFromJSON($obj, $jsonObject, $requestParams, $requireVersion);
+					$changed = static::updateFromJSON(
+						$obj, $jsonObject, $requestParams, $requireVersion
+					);
 				}
 				Zotero_DB::commit();
 				Z_Core::$MC->commit();

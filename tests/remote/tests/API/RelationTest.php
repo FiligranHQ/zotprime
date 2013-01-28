@@ -39,7 +39,7 @@ class RelationTests extends APITests {
 	}
 	
 	
-	public function testNewRelations() {
+	public function testNewItemRelations() {
 		$relations = array(
 			"owl:sameAs" => "http://zotero.org/groups/1/items/AAAAAAAA",
 			"dc:relation" => "http://zotero.org/users/"
@@ -58,7 +58,7 @@ class RelationTests extends APITests {
 	}
 	
 	
-	public function testInvalidRelation() {
+	public function testInvalidItemRelation() {
 		$response = API::createItem("book", array(
 			"relations" => array(
 				"foo:unknown" => "http://zotero.org/groups/1/items/AAAAAAAA"
@@ -80,7 +80,7 @@ class RelationTests extends APITests {
 	}
 	
 	
-	public function testDeleteRelation() {
+	public function testDeleteItemRelation() {
 		$relations = array(
 			"owl:sameAs" => "http://zotero.org/groups/1/items/AAAAAAAA",
 			"dc:relation" => "http://zotero.org/users/"
@@ -126,5 +126,88 @@ class RelationTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
 		$this->assertCount(0, $json['relations']);
+	}
+	
+	
+	//
+	// Collections
+	//
+	public function testNewCollectionRelations() {
+		$relations = array(
+			"owl:sameAs" => "http://zotero.org/groups/1/collections/AAAAAAAA"
+		);
+		
+		$data = API::createCollection("Test", array(
+			"relations" => $relations
+		), $this, 'data');
+		$json = json_decode($data['content'], true);
+		$this->assertCount(sizeOf($relations), $json['relations']);
+		foreach ($relations as $predicate => $object) {
+			$this->assertEquals($object, $json['relations'][$predicate]);
+		}
+	}
+	
+	
+	public function testInvalidCollectionRelation() {
+		$json = array(
+			"name" => "Test",
+			"relations" => array(
+				"foo:unknown" => "http://zotero.org/groups/1/collections/AAAAAAAA"
+			)
+		);
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array("collections" => array($json)))
+		);
+		$this->assert400ForObject($response, "Unsupported predicate 'foo:unknown'");
+		
+		$json["relations"] = array(
+			"owl:sameAs" => "Not a URI"
+		);
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array("collections" => array($json)))
+		);
+		$this->assert400ForObject($response, "'relations' values currently must be Zotero collection URIs");
+		
+		$json["relations"] = array();
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode(array("collections" => array($json)))
+		);
+		$this->assert400ForObject($response, "'relations' property must be an object");
+	}
+	
+	
+	public function testDeleteCollectionRelation() {
+		$relations = array(
+			"owl:sameAs" => "http://zotero.org/groups/1/collections/AAAAAAAA"
+		);
+		$data = API::createCollection("Test", array(
+			"relations" => $relations
+		), $this, 'data');
+		$json = json_decode($data['content'], true);
+		
+		// Remove all relations
+		$json['relations'] = new stdClass;
+		unset($relations['owl:sameAs']);
+		$response = API::userPut(
+			self::$config['userID'],
+			"collections/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		$this->assert204($response);
+		
+		// Make sure it's gone
+		$xml = API::getCollectionXML($data['key']);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertCount(sizeOf($relations), $json['relations']);
+		foreach ($relations as $predicate => $object) {
+			$this->assertEquals($object, $json['relations'][$predicate]);
+		}
 	}
 }

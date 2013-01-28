@@ -79,8 +79,8 @@ class Zotero_URI {
 		return self::getGroupURI($group) . "/items/$item->key";
 	}
 	
-	public static function getCollectionURI(Zotero_Collection $collection) {
-		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
+	public static function getCollectionURI(Zotero_Collection $collection, $skipNames=false) {
+		return self::getLibraryURI($collection->libraryID, true) . "/collections/$collection->key";
 	}
 	
 	public static function getCreatorURI(Zotero_Creator $creator) {
