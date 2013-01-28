@@ -339,7 +339,7 @@ class Zotero_Search {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getSearchURI($this);
+		$link['href'] = Zotero_API::getSearchURI($this);
 		
 		$xml->addChild('zapi:key', $this->key, Zotero_Atom::$nsZoteroAPI);
 		$xml->addChild('zapi:version', $this->version, Zotero_Atom::$nsZoteroAPI);

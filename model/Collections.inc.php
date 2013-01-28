@@ -269,7 +269,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getCollectionURI($collection);
+		$link['href'] = Zotero_API::getCollectionURI($collection);
 		
 		$parent = $collection->parent;
 		if ($parent) {
@@ -277,7 +277,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
-			$link['href'] = Zotero_Atom::getCollectionURI($parentCol);
+			$link['href'] = Zotero_API::getCollectionURI($parentCol);
 		}
 		
 		$link = $xml->addChild('link');

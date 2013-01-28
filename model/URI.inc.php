@@ -29,6 +29,10 @@ class Zotero_URI {
 		return Z_CONFIG::$BASE_URI;
 	}
 	
+	public static function getBaseWWWURI() {
+		return Z_CONFIG::$WWW_BASE_URI;
+	}
+	
 	public static function getLibraryURI($libraryID, $skipNames=false) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {

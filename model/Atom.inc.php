@@ -32,55 +32,6 @@ class Zotero_Atom {
 	public static $nsZoteroTransfer = "http://zotero.org/ns/transfer";
 	//public static $nsZoteroAPIRel = "http://zotero.org/ns/api/relation/";
 	
-	public static function getBaseURI() {
-		return Z_CONFIG::$API_BASE_URI;
-	}
-	
-	public static function getLibraryURI($libraryID) {
-		$libraryType = Zotero_Libraries::getType($libraryID);
-		switch ($libraryType) {
-			case 'user':
-				$id = Zotero_Users::getUserIDFromLibraryID($libraryID);
-				return self::getUserURI($id);
-			
-			case 'group':
-				$id = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
-				$group = Zotero_Groups::get($id);
-				return self::getGroupURI($group);
-		}
-	}
-	
-	public static function getUserURI($userID) {
-		return self::getBaseURI() . "users/$userID";
-	}
-	
-	public static function getGroupURI(Zotero_Group $group) {
-		return self::getBaseURI() . "groups/$group->id";
-	}
-	
-	public static function getGroupUserURI(Zotero_Group $group, $userID) {
-		return self::getGroupURI($group) . "/users/$userID";
-	}
-	
-	public static function getItemURI(Zotero_Item $item) {
-		return self::getLibraryURI($item->libraryID) . "/items/$item->key";
-	}
-	
-	public static function getCollectionURI(Zotero_Collection $collection) {
-		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
-	}
-	
-	public static function getCreatorURI(Zotero_Creator $creator) {
-		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
-	}
-	
-	public static function getSearchURI(Zotero_Search $search) {
-		return self::getLibraryURI($search->libraryID) . "/searches/$search->key";
-	}
-	
-	public static function getTagURI(Zotero_Tag $tag) {
-		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
-	}
 	
 	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $permissions=null, $fixedValues=array()) {
 		if ($queryParams) {
@@ -89,6 +40,7 @@ class Zotero_Atom {
 			if (isset($nonDefaultParams['content'])) {
 				$nonDefaultParams['content'] = implode(',', $nonDefaultParams['content']);
 			}
+			$nonDefaultParams = Zotero_API::getPublicQueryParams($nonDefaultParams);
 		}
 		else {
 			$nonDefaultParams = array();
@@ -112,7 +64,7 @@ class Zotero_Atom {
 			$zoteroURI .= "?" . http_build_query($nonDefaultParams);
 		}
 		
-		$atomURI = Zotero_Atom::getBaseURI() . substr($path, 1);
+		$atomURI = Zotero_API::getBaseURI() . substr($path, 1);
 		
 		//
 		// Generate URIs for 'self', 'first', 'next' and 'last' links
@@ -194,7 +146,7 @@ class Zotero_Atom {
 		$link['href'] = $atomLastURI;
 		
 		// Generate alternate URI
-		$alternateURI = Zotero_URI::getBaseURI() . substr($path, 1);
+		$alternateURI = Zotero_URI::getBaseWWWURI() . substr($path, 1);
 		if ($nonDefaultParams) {
 			$p = $nonDefaultParams;
 			if (isset($p['content'])) {

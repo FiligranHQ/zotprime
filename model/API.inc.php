@@ -312,6 +312,11 @@ class Zotero_API {
 	}
 	
 	
+	public static function getBaseURI() {
+		return Z_CONFIG::$API_BASE_URI;
+	}
+	
+	
 	public static function getLibraryURI($libraryID) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
@@ -326,6 +331,21 @@ class Zotero_API {
 	}
 	
 	
+	public static function getUserURI($userID) {
+		return self::getBaseURI() . "users/$userID";
+	}
+	
+	
+	public static function getGroupURI(Zotero_Group $group) {
+		return self::getBaseURI() . "groups/$group->id";
+	}
+	
+	
+	public static function getGroupUserURI(Zotero_Group $group, $userID) {
+		return self::getGroupURI($group) . "/users/$userID";
+	}
+	
+	
 	public static function getCollectionURI(Zotero_Collection $collection) {
 		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
 	}
@@ -336,8 +356,8 @@ class Zotero_API {
 	}
 	
 	
-	public static function getItemsURI($libraryID) {
-		return self::getLibraryURI($libraryID) . "/items";
+	public static function getCreatorURI(Zotero_Creator $creator) {
+		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
 	}
 	
 	
@@ -346,8 +366,18 @@ class Zotero_API {
 	}
 	
 	
+	public static function getItemsURI($libraryID) {
+		return self::getLibraryURI($libraryID) . "/items";
+	}
+	
+	
+	public static function getSearchURI(Zotero_Search $search) {
+		return self::getLibraryURI($search->libraryID) . "/searches/$search->key";
+	}
+	
+	
 	public static function getTagURI(Zotero_Tag $tag) {
-		return self::getLibraryURI($tag->libraryID) . "/tags/$tag->key";
+		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
 	
 	
@@ -369,6 +399,18 @@ class Zotero_API {
 			}
 		}
 		return $nonDefault;
+	}
+	
+	
+	public static function getPublicQueryParams($params) {
+		$private = self::getPrivateQueryParams();
+		$filtered = array();
+		foreach ($params as $key => $val) {
+			if (!in_array($key, $private)) {
+				$filtered[$key] = $val;
+			}
+		}
+		return $filtered;
 	}
 	
 	
@@ -620,11 +662,6 @@ class Zotero_API {
 	
 	private static function getPrivateQueryParams() {
 		return array('apiVersion', 'emptyFirst');
-	}
-	
-	
-	private static function getBaseURI() {
-		return Z_CONFIG::$API_BASE_URI;
 	}
 }
 ?>

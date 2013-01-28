@@ -957,7 +957,7 @@ class Zotero_Group {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getGroupURI($this);
+		$link['href'] = Zotero_API::getGroupURI($this);
 		
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
@@ -1054,7 +1054,7 @@ class Zotero_Group {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getGroupUserURI($this, $userID);
+		$link['href'] = Zotero_API::getGroupUserURI($this, $userID);
 		
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
@@ -1124,7 +1124,7 @@ class Zotero_Group {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getItemURI($item);
+		$link['href'] = Zotero_API::getItemURI($item);
 		
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';

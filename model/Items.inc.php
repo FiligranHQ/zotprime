@@ -931,10 +931,12 @@ class Zotero_Items extends Zotero_DataObjects {
 								: $item->numAttachments();
 		}
 		// <id> changes based on group visibility, for now
-		$id = Zotero_URI::getItemURI($item);
-		/*if (!$contentIsHTML) {
-			$id .= "?content=$content";
-		}*/
+		if ($queryParams['apiVersion'] < 2) {
+			$id = Zotero_URI::getItemURI($item);
+		}
+		else {
+			$id = Zotero_URI::getItemURI($item, true);
+		}
 		$libraryType = Zotero_Libraries::getType($item->libraryID);
 		
 		// Any query parameters that have an effect on the output
@@ -1108,7 +1110,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$href = Zotero_Atom::getItemURI($item);
+		$href = Zotero_API::getItemURI($item);
 		if (!$contentIsHTML) {
 			$href .= "?content=$contentParamString";
 		}
@@ -1120,7 +1122,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
-			$href = Zotero_Atom::getItemURI($parentItem);
+			$href = Zotero_API::getItemURI($parentItem);
 			if (!$contentIsHTML) {
 				$href .= "?content=$contentParamString";
 			}

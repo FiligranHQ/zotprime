@@ -2156,7 +2156,7 @@ class ApiController extends Controller {
 			
 			Zotero_DB::commit();
 			
-			$url = Zotero_Atom::getGroupURI($group);
+			$url = Zotero_API::getGroupURI($group);
 			$this->responseCode = 201;
 			header("Location: " . $url, false, 201);
 			$this->end();

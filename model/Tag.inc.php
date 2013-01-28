@@ -546,7 +546,7 @@ class Zotero_Tag {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getTagURI($this);
+		$link['href'] = Zotero_API::getTagURI($this);
 		
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
