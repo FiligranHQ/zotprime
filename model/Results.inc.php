@@ -44,6 +44,11 @@ class Zotero_Results {
 		}
 		$this->failed[$index] = Zotero_Errors::parseException($e);
 		$this->failed[$index]['key'] = $key;
+		
+		// Log loggable errors as they occur
+		if (!empty($this->failed[$index]['log'])) {
+			error_log($e);
+		}
 	}
 	
 	
