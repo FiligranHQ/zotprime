@@ -237,14 +237,14 @@ class Zotero_Item {
 	
 	
 	public function getField($field, $unformatted=false, $includeBaseMapped=false, $skipValidation=false) {
-		Z_Core::debug("Requesting field '$field' for item $this->id", 4);
+		//Z_Core::debug("Requesting field '$field' for item $this->id", 4);
 		
 		if (($this->id || $this->key) && !$this->loaded['primaryData']) {
 			$this->loadPrimaryData(true);
 		}
 		
 		if ($field == 'id' || in_array($field, Zotero_Items::$primaryFields)) {
-			Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
+			//Z_Core::debug("Returning '{$this->$field}' for field $field", 4);
 			
 			return $this->$field;
 		}
@@ -294,7 +294,7 @@ class Zotero_Item {
 			}
 		}
 		
-		Z_Core::debug("Returning '$value' for field $field", 4);
+		//Z_Core::debug("Returning '$value' for field $field", 4);
 		return $value;
 	}
 	
@@ -1558,7 +1558,6 @@ class Zotero_Item {
 									. "/" . $this->key . "'";
 							}
 							throw new Exception($msg, Z_ERROR_FIELD_TOO_LONG);
-
 						}
 						
 						if ($replaceCounter < $maxReplaceGroups) {
