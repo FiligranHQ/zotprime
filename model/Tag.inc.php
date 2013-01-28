@@ -474,12 +474,7 @@ class Zotero_Tag {
 			$this->load();
 		}
 		
-		$xml = '<tag';
-		/*if (!$syncMode) {
-			$xml .= ' xmlns="' . Zotero_Atom::$nsZoteroTransfer . '"';
-		}*/
-		$xml .= '/>';
-		$xml = new SimpleXMLElement($xml);
+		$xml = new SimpleXMLElement('<tag/>');
 		
 		$xml['libraryID'] = $this->libraryID;
 		$xml['key'] = $this->key;
