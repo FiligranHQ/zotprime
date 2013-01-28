@@ -149,6 +149,9 @@ class Zotero_Sync {
 		$sql = "DELETE FROM syncUploadQueue WHERE sessionID=? AND finished IS NOT NULL";
 		Zotero_DB::query($sql, $sessionID);
 		
+		// Strip control characters in XML data
+		$xmldata = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $xmldata);
+		
 		Zotero_DB::beginTransaction();
 		
 		$sql = "INSERT INTO syncUploadQueue
