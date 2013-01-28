@@ -958,6 +958,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				. ($downloadDetails ? 'hasFile' : '')
 				. ($libraryType == 'group' ? 'id' . $id : '')
 			)
+			. "_" . $queryParams['apiVersion']
 			// For code-based changes
 			. "_" . $cacheVersion
 			// For data-based changes
