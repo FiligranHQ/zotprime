@@ -1696,8 +1696,6 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 				}
 			}
-			
-			$changed = $item->save($userID) || $changed;
 		}
 		
 		return $changed;
