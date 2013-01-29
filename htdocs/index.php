@@ -1,4 +1,4 @@
-<?
+<?php
 /*
     ***** BEGIN LICENSE BLOCK *****
     
@@ -24,54 +24,41 @@
     ***** END LICENSE BLOCK *****
 */
 
-$routes = require('config/routes.inc.php');
+$params = require('config/routes.inc.php');
 
-if (!$routes) {
+if (!$params || !isset($params['controller']) || $params['controller'] == 404) {
 	header("HTTP/1.0 404 Not Found");
 	include('errors/404.php');
 	return;
 }
 
 // Parse variables from router
-$controllerName = Z_String::under2camel($routes['controller']);
-$action = !empty($routes['action']) ? $routes['action'] : 'index';
-$pass = !empty($routes['pass']) ? $routes['pass'] : array();
-
-$settings['directory'] = !empty($routes['directory']) ? $routes['directory'] . '/' : false;
-
-$suffix = '';
-
-$extra = !empty($routes['extra']) ? $routes['extra'] : array();
+$controllerName = ucwords($params['controller']);
+$action = !empty($params['action']) ? $params['action'] : strtolower($controllerName);
+$directory = !empty($params['directory']) ? $params['directory'] . '/' : "";
+$extra = !empty($params['extra']) ? $params['extra'] : array();
 
 // Attempt to load controller
-$controllerFile = Z_ENV_CONTROLLER_PATH . $settings['directory'] . $controllerName . $suffix . 'Controller.php';
-Z_Core::debug("Attempting to include controller $controllerFile");
+$controllerFile = Z_ENV_CONTROLLER_PATH . $directory . $controllerName . 'Controller.php';
+Z_Core::debug("URI is " . Z_ENV_SELF);
+Z_Core::debug("Controller is $controllerFile");
 
-if ($controllerName != 404 && file_exists($controllerFile)) {
+if (file_exists($controllerFile)) {
 	require('mvc/Controller.inc.php');
 	require($controllerFile);
-	$controllerClass = $controllerName . $suffix . 'Controller';
-	$controller = new $controllerClass($action, $settings, $extra);
-	
-	$controller->init($controllerName, $action, $settings, $extra);
-	
-	// Make sure the action hasn't changed due to POST vars
-	if ($action!=$controller->getAction()) {
-		// Prepend original action to pass parameters and reset action
-		array_unshift($pass, $action);
-		$action = $controller->getAction();
-	}
+	$controllerClass = $controllerName . 'Controller';
+	$controller = new $controllerClass($controllerName, $action, $params);
+	$controller->init($extra);
 	
 	if (method_exists($controllerClass, $action)) {
-		call_user_func_array(array($controller, $action), $pass);
+		call_user_func(array($controller, $action));
 		Z_Core::exitClean();
 	}
 	else {
-		trigger_error("Action '$action' not found in $controllerFile");
+		throw new Exception("Action '$action' not found in $controllerFile");
 	}
 }
 
 // If controller not found, load error document
 header("HTTP/1.0 404 Not Found");
 include('errors/404.php');
-?>
