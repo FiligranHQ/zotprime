@@ -26,7 +26,7 @@
 
 class Z_Core {
 	public static $MC = null; // Memcached
-	public static $debug = false;
+	public static $debug = false; // set in config.inc.php
 	
 	public static function debug($str, $level=false) {
 		if (self::$debug) {

@@ -68,14 +68,14 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
-		// Get item ETag via API
+		// Get item version via API
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$etag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$version = $data['version'];
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -100,13 +100,13 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
-		$this->assertNotEquals($etag, $data['etag']);
+		$this->assertNotEquals($version, $data['version']);
 	}
 	
 	
@@ -135,27 +135,26 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$response = Sync::upload($sessionID2, $updateKey, $data);
 		Sync::waitForUpload($sessionID2, $response, $this);
 		
-		// Get item ETag via API
+		// Get item version via API
 		$response = API::groupGet(
 			$groupID,
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$etag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$version = $data['version'];
 		
 		// Verify createdByUserID and lastModifiedByUserID
-		// TODO: get this without using content=full
 		$response = API::groupGet(
 			$groupID,
-			"items/$key?key=" . self::$config['apiKey'] . "&content=full"
+			"items/$key?key=" . self::$config['apiKey'] . "&content=none"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
-		$createdByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@createdByUserID'));
-		$lastModifiedByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@lastModifiedByUserID'));
-		$this->assertEquals(self::$config['userID2'], $createdByUserID);
-		$this->assertEquals(self::$config['userID2'], $lastModifiedByUserID);
+		$createdByUser = (string) array_shift($xml->xpath('//atom:entry/atom:author/atom:name'));
+		$lastModifiedByUser = (string) array_shift($xml->xpath('//atom:entry/zapi:lastModifiedByUser'));
+		$this->assertEquals(self::$config['username2'], $createdByUser);
+		$this->assertEquals(self::$config['username2'], $lastModifiedByUser);
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -180,26 +179,25 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
-		$this->assertNotEquals($etag, $data['etag']);
+		$this->assertNotEquals($version, $data['version']);
 		
 		// Verify createdByUserID and lastModifiedByUserID
-		// TODO: get this without using content=full
 		$response = API::groupGet(
 			$groupID,
-			"items/$key?key=" . self::$config['apiKey'] . "&content=full"
+			"items/$key?key=" . self::$config['apiKey'] . "&content=none"
 		);
 		$xml = API::getXMLFromResponse($response);
 		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
-		$createdByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@createdByUserID'));
-		$lastModifiedByUserID = (int) array_shift($xml->xpath('//atom:entry/atom:content/zxfer:item/@lastModifiedByUserID'));
-		$this->assertEquals(self::$config['userID2'], $createdByUserID);
-		$this->assertEquals(self::$config['userID'], $lastModifiedByUserID);
+		$createdByUser = (string) array_shift($xml->xpath('//atom:entry/atom:author/atom:name'));
+		$lastModifiedByUser = (string) array_shift($xml->xpath('//atom:entry/zapi:lastModifiedByUser'));
+		$this->assertEquals(self::$config['username2'], $createdByUser);
+		$this->assertEquals(self::$config['username'], $lastModifiedByUser);
 	}
 	
 	
@@ -219,14 +217,14 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
-		// Get item ETag via API
+		// Get item version via API
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$etag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$version = $data['version'];
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -256,13 +254,13 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
-		$this->assertNotEquals($etag, $data['etag']);
+		$this->assertNotEquals($version, $data['version']);
 	}
 	
 	
@@ -302,9 +300,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
-		$originalETag = $data['etag'];
+		$originalVersion = $data['version'];
 		
 		$this->assertCount(2, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
@@ -339,16 +337,16 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
 		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[1]->items));
 		
-		// Get item ETag via API
+		// Get item version via API
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$this->assertNotEquals($originalETag, $data['etag']);
+		$this->assertNotEquals($originalVersion, $data['version']);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(1, $json->tags);
 	}
@@ -383,9 +381,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
-		$originalETag = $data['etag'];
+		$originalVersion = $data['version'];
 		
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
@@ -413,18 +411,18 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, sizeOf(isset($xml->updated->tags->tag)));
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
 		
-		// Get item ETag via API
+		// Get item version via API
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(0, $json->tags);
-		$this->assertNotEquals($originalETag, $data['etag']);
+		$this->assertNotEquals($originalVersion, $data['version']);
 	}
 	
 	
@@ -457,9 +455,9 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
-		$originalETag = $data['etag'];
+		$originalVersion = $data['version'];
 		
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
@@ -492,17 +490,17 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, sizeOf(isset($xml->updated->tags->tag)));
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
 		
-		// Get item ETag via API
+		// Get item version via API
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(0, $json->tags);
-		$this->assertNotEquals($originalETag, $data['etag']);
+		$this->assertNotEquals($originalVersion, $data['version']);
 	}
 }

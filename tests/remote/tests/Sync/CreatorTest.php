@@ -80,8 +80,8 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$etag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$version = $data['version'];
 		
 		// Get item via sync
 		$response = Sync::updated(self::$sessionID);
@@ -113,12 +113,12 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
-		$this->assertNotEquals($etag, $data['etag']);
+		$this->assertNotEquals($version, $data['version']);
 		
 		return $data;
 	}

@@ -26,22 +26,13 @@
 
 class Zotero_API {
 	public static $maxBibliographyItems = 150;
+	public static $maxWriteCollections = 50;
 	public static $maxWriteItems = 50;
+	public static $maxWriteSearches = 50;
 	public static $maxTranslateItems = 10;
 	
 	private static $defaultQueryParams = array(
-		// Default API version
-		'version' => 1,
-		
 		'format' => "atom",
-		'order' => "dateAdded",
-		'sort' => "desc",
-		'emptyFirst' => false,
-		'start' => 0,
-		'limit' => 50,
-		'fq' => '',
-		'q' => '',
-		'pprint' => false,
 		
 		// format='atom'
 		'content' => array("html"),
@@ -52,17 +43,34 @@ class Zotero_API {
 		'linkwrap' => 0,
 		
 		// search
-		'itemKey' => '',
+		'fq' => '',
+		'q' => '',
 		'itemType' => '',
+		'itemKey' => '',
+		'collectionKey' => '',
+		'searchKey' => '',
 		'tag' => '',
-		'tagType' => ''
+		'tagType' => '',
+		'newer' => 0,
+		'newertime' => 1,
+		
+		'order' => "dateAdded",
+		'sort' => "desc",
+		'start' => 0,
+		'limit' => 50,
+		
+		'pprint' => false,
+		
+		// For internal use only
+		'apiVersion' => 1,
+		'emptyFirst' => false
 	);
 	
 	
 	/**
 	 * Parse query string into parameters, validating and filling in defaults
 	 */
-	public static function parseQueryParams($queryString, $action, $singleObject) {
+	public static function parseQueryParams($queryString, $action, $singleObject, $nextAPIVersion=false) {
 		// Handle multiple identical parameters in the CGI-standard way instead of
 		// PHP's foo[]=bar way
 		$getParams = Zotero_URL::proper_parse_str($queryString);
@@ -74,6 +82,10 @@ class Zotero_API {
 				continue;
 			}
 			
+			if ($key == 'apiVersion' && $nextAPIVersion) {
+				$val = self::$defaultQueryParams['apiVersion'] + 1;
+			}
+			
 			if ($key == 'limit') {
 				$val = self::getDefaultLimit(isset($getParams['format']) ? $getParams['format'] : "");
 			}
@@ -81,7 +93,12 @@ class Zotero_API {
 			// Fill defaults
 			$queryParams[$key] = $val;
 			
-			// If no parameter passed, used default
+			// Ignore private parameters in the URL
+			if (in_array($key, self::getPrivateQueryParams($key)) && isset($getParams[$key])) {
+				continue;
+			}
+			
+			// If no parameter passed, use default
 			if (!isset($getParams[$key])) {
 				continue;
 			}
@@ -98,11 +115,11 @@ class Zotero_API {
 							throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
 					}
 				}
-				else if ($getParams['format'] == 'keys') {
+				else if (in_array($getParams['format'], array('keys', 'versions'))) {
 					switch ($key) {
 						// Invalid parameters
 						case 'start':
-							throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
+							throw new Exception("'$key' is not valid for format={$getParams['format']}", Z_ERROR_INVALID_INPUT);
 					}
 				}
 			}
@@ -112,16 +129,14 @@ class Zotero_API {
 					$format = $getParams[$key];
 					$isExportFormat = in_array($format, Zotero_Translate::$exportFormats);
 					
-					// All actions other than items must be Atom
-					if ($action != 'items') {
-						if ($format != 'atom') {
-							throw new Exception("Invalid 'format' value '$format'", Z_ERROR_INVALID_INPUT);
-						}
+					if (!self::isValidFormatForAction($action, $format, $singleObject)) {
+						throw new Exception("Invalid 'format' value '$format'", Z_ERROR_INVALID_INPUT);
 					}
+					
 					// Since the export formats and csljson don't give a clear indication
 					// of limiting or rel="next" links, require an explicit limit
 					// for everything other than single items and itemKey queries
-					else if ($isExportFormat || $format == 'csljson') {
+					if ($isExportFormat || $format == 'csljson') {
 						if ($singleObject || !empty($getParams['itemKey'])) {
 							break;
 						}
@@ -136,18 +151,12 @@ class Zotero_API {
 							throw new Exception("'limit' cannot be greater than $limitMax for format=$format", Z_ERROR_INVALID_INPUT);
 						}
 					}
-					else {
-						switch ($format) {
-							case 'atom':
-							case 'bib':
-								break;
-							
-							default:
-								if ($format == 'keys' && !$singleObject) {
-									break;
-								}
-								throw new Exception("Invalid 'format' value '$format' for request", Z_ERROR_INVALID_INPUT);
-						}
+					break;
+				
+				case 'newer':
+				case 'newertime':
+					if (!is_numeric($getParams[$key])) {
+						throw new Exception("Invalid value for '$key' parameter", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
@@ -233,22 +242,42 @@ class Zotero_API {
 						case 'numItems':
 						case 'serverDateModified':
 						
+						case 'collectionKeyList':
 						case 'itemKeyList':
+						case 'searchKeyList':
 							
-							// numItems is valid only for tags requests
 							switch ($getParams[$key]) {
+								// numItems is valid only for tags requests
 								case 'numItems':
 									if ($action != 'tags') {
 										throw new Exception("Invalid 'order' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 									}
 									break;
 								
+								case 'collectionKeyList':
+									if ($action != 'collections') {
+										throw new Exception("order=collectionKeyList is not valid for this request");
+									}
+									if (!isset($getParams['collectionKey'])) {
+										throw new Exception("order=collectionKeyList requires the collectionKey parameter");
+									}
+									break;
+								
 								case 'itemKeyList':
 									if ($action != 'items') {
-										throw new Exception("order=itemKeyList is valid only for items requests");
+										throw new Exception("order=itemKeyList is not valid for this request");
 									}
 									if (!isset($getParams['itemKey'])) {
 										throw new Exception("order=itemKeyList requires the itemKey parameter");
+									}
+									break;
+								
+								case 'searchKeyList':
+									if ($action != 'searches') {
+										throw new Exception("order=searchKeyList is not valid for this request");
+									}
+									if (!isset($getParams['searchKey'])) {
+										throw new Exception("order=searchKeyList requires the searchKey parameter");
 									}
 									break;
 							}
@@ -283,6 +312,11 @@ class Zotero_API {
 	}
 	
 	
+	public static function getBaseURI() {
+		return Z_CONFIG::$API_BASE_URI;
+	}
+	
+	
 	public static function getLibraryURI($libraryID) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
@@ -297,13 +331,33 @@ class Zotero_API {
 	}
 	
 	
+	public static function getUserURI($userID) {
+		return self::getBaseURI() . "users/$userID";
+	}
+	
+	
+	public static function getGroupURI(Zotero_Group $group) {
+		return self::getBaseURI() . "groups/$group->id";
+	}
+	
+	
+	public static function getGroupUserURI(Zotero_Group $group, $userID) {
+		return self::getGroupURI($group) . "/users/$userID";
+	}
+	
+	
 	public static function getCollectionURI(Zotero_Collection $collection) {
 		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
 	}
 	
 	
-	public static function getItemsURI($libraryID) {
-		return self::getLibraryURI($libraryID) . "/items";
+	public static function getCollectionsURI($libraryID) {
+		return self::getLibraryURI($libraryID) . "/collections";
+	}
+	
+	
+	public static function getCreatorURI(Zotero_Creator $creator) {
+		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
 	}
 	
 	
@@ -312,8 +366,18 @@ class Zotero_API {
 	}
 	
 	
+	public static function getItemsURI($libraryID) {
+		return self::getLibraryURI($libraryID) . "/items";
+	}
+	
+	
+	public static function getSearchURI(Zotero_Search $search) {
+		return self::getLibraryURI($search->libraryID) . "/searches/$search->key";
+	}
+	
+	
 	public static function getTagURI(Zotero_Tag $tag) {
-		return self::getLibraryURI($tag->libraryID) . "/tags/$tag->key";
+		return self::getLibraryURI($tag->libraryID) . "/tags/" . urlencode($tag->name);
 	}
 	
 	
@@ -338,6 +402,18 @@ class Zotero_API {
 	}
 	
 	
+	public static function getPublicQueryParams($params) {
+		$private = self::getPrivateQueryParams();
+		$filtered = array();
+		foreach ($params as $key => $val) {
+			if (!in_array($key, $private)) {
+				$filtered[$key] = $val;
+			}
+		}
+		return $filtered;
+	}
+	
+	
 	public static function getDefaultSort($field="") {
 		// Use descending for date fields
 		// TODO: use predefined field formats
@@ -352,9 +428,56 @@ class Zotero_API {
 	}
 	
 	
+	public static function isValidFormatForAction($action, $format, $singleObject=false) {
+		$isExportFormat = in_array($format, Zotero_Translate::$exportFormats);
+		
+		if ($action == 'items') {
+			if ($isExportFormat) {
+				return true;
+			}
+			
+			switch ($format) {
+				case 'atom':
+				case 'bib':
+				case 'globalKeys':
+					return true;
+				
+				case 'keys':
+				case 'versions':
+					if (!$singleObject) {
+						return true;
+					}
+					break;
+			}
+			return false;
+		}
+		else if ($action == 'collections' || $action == 'searches') {
+			switch ($format) {
+			case 'keys':
+			case 'versions':
+				if (!$singleObject) {
+					return true;
+				}
+				break;
+			}
+		}
+		else if ($action == 'groups') {
+			switch ($format) {
+				case 'atom':
+				case 'etags':
+					return true;
+			}
+			return false;
+		}
+		// All other actions must be Atom
+		return $format == 'atom';
+	}
+	
+	
 	public static function getDefaultLimit($format="") {
 		switch ($format) {
 			case 'keys':
+			case 'versions':
 				return 0;
 		}
 		
@@ -365,6 +488,7 @@ class Zotero_API {
 	public static function getLimitMax($format="") {
 		switch ($format) {
 			case 'keys':
+			case 'versions':
 				return 0;
 		}
 		
@@ -376,7 +500,9 @@ class Zotero_API {
 		switch ($field) {
 			case 'title':
 			case 'date':
+			case 'collectionKeyList':
 			case 'itemKeyList':
+			case 'searchKeyList':
 				return true;
 		}
 		
@@ -425,8 +551,117 @@ class Zotero_API {
 	}
 	
 	
-	private static function getBaseURI() {
-		return Z_CONFIG::$API_BASE_URI;
+	/**
+	 * Validate the object key from JSON and load the passed object with it
+	 *
+	 * @param object $object  Zotero_Item, Zotero_Collection, or Zotero_Search
+	 * @param json $json
+	 * @return boolean  True if the object exists, false if not
+	 */
+	public static function processJSONObjectKey($object, $json) {
+		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+			throw new Exception("Invalid object type");
+		}
+		
+		$keyProp = $objectType . "Key";
+		$versionProp = $objectType . "Version";
+		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
+		
+		// Validate the object key if present and determine if the object is new
+		if (isset($json->$keyProp)) {
+			if (!is_string($json->$keyProp)) {
+				throw new Exception(
+					"'$keyProp' must be a string", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if (!Zotero_ID::isValidKey($json->$keyProp)) {
+				throw new Exception("'" . $json->$keyProp . "' "
+					. "is not a valid $objectType key", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if ($object->key) {
+				if ($json->$keyProp != $object->key) {
+					throw new HTTPException("$keyProp in JSON does not match "
+						. "$objectType key of request", 409);
+				}
+				
+				$exists = true;
+			}
+			else {
+				$object->key = $json->$keyProp;
+				$exists = !$object->id;
+			}
+		}
+		else {
+			$exists = !!$object->key;
+		}
+		
+		return $exists;
+	}
+	
+	
+	/**
+	 * @param object $object Zotero object (Zotero_Item, Zotero_Collection, Zotero_Search)
+	 * @param object $json JSON object to check
+	 * @param array $requestParams
+	 * @param int $requireVersion If 0, don't require; if 1, require if there's
+	 *                            an object key property in the JSON; if 2,
+	 *                            always require
+	 */
+	public static function checkJSONObjectVersion($object, $json, $requestParams, $requireVersion) {
+		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+			throw new Exception("Invalid object type");
+		}
+		
+		$keyProp = $objectType . "Key";
+		$versionProp = $objectType . "Version";
+		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
+		
+		if (isset($json->$versionProp)) {
+			if ($requestParams['apiVersion'] < 2) {
+				throw new Exception(
+					"Invalid property '$versionProp'", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if (!is_numeric($json->$versionProp)) {
+				throw new Exception(
+					"'$versionProp' must be an integer", Z_ERROR_INVALID_INPUT
+				);
+			}
+			if (!isset($json->$keyProp)) {
+				throw new Exception(
+					"'$versionProp' is valid only with an '$keyProp' property",
+					Z_ERROR_INVALID_INPUT
+				);
+			}
+			if ($object->$objectVersionProp > $json->$versionProp) {
+				throw new HTTPException(ucwords($objectType)
+					. " has been modified since specified version", 412);
+			}
+		}
+		else {
+			if ($requireVersion == 1 && isset($json->$keyProp)) {
+				throw new HTTPException(
+					"Either Zotero-If-Unmodified-Since-Version or "
+					. "'$versionProp' property must be provided for "
+					. "'$keyProp'-based writes", 428
+				);
+			}
+			else if ($requireVersion == 2) {
+				throw new HTTPException(
+					"Either Zotero-If-Unmodified-Since-Version or "
+					. "'$versionProp' property must be provided for "
+					. "single-object writes", 428
+				);
+			}
+		}
+	}
+	
+	
+	private static function getPrivateQueryParams() {
+		return array('apiVersion', 'emptyFirst');
 	}
 }
 ?>

@@ -54,6 +54,12 @@ function zotero_autoload($className) {
 	
 	// Get everything else from include path
 	
+	switch ($className) {
+	case 'HTTPException':
+		require_once $className . '.inc.php';
+		return;
+	}
+	
 	// Strip "Z_" namespace
 	if (strpos($className, 'Z_') === 0) {
 		$className = str_replace('Z_', '', $className);

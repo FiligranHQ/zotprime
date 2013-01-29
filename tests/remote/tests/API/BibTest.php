@@ -36,7 +36,7 @@ class BibTests extends APITests {
 		API::userClear(self::$config['userID']);
 		
 		// Create test data
-		$xml = API::createItem("book", array(
+		$key = API::createItem("book", array(
 			"title" => "Title",
 			"creators" => array(
 				array(
@@ -45,9 +45,8 @@ class BibTests extends APITests {
 					"lastName" => "Last"
 				)
 			)
-		));
-		$data = API::parseDataFromItemEntry($xml);
-		self::$items[$data['key']] = array(
+		), null, 'key');
+		self::$items[$key] = array(
 			"citation" => array(
 				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title</i>.</span></content>',
 				"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, n.d.)</span></content>'
@@ -58,7 +57,7 @@ class BibTests extends APITests {
 			)
 		);
 		
-		$xml = API::createItem("book", array(
+		$key = API::createItem("book", array(
 			"title" => "Title 2",
 			"creators" => array(
 				array(
@@ -72,9 +71,8 @@ class BibTests extends APITests {
 					"lastName" => "McEditor"
 				)
 			)
-		));
-		$data = API::parseDataFromItemEntry($xml);
-		self::$items[$data['key']] = array(
+		), null, 'key');
+		self::$items[$key] = array(
 			"citation" => array(
 				"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title 2</i>.</span></content>',
 				"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, n.d.)</span></content>'

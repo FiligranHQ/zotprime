@@ -66,7 +66,7 @@ class FileTests extends APITests {
 	
 	public function testNewEmptyImportedFileAttachmentItem() {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
-		return API::parseDataFromItemEntry($xml);
+		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
@@ -160,12 +160,12 @@ class FileTests extends APITests {
 	
 	public function testAddFileFull() {
 		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$parentKey = $data['key'];
 		
 		$xml = API::createAttachmentItem("imported_file", $parentKey, $this);
-		$data = API::parseDataFromItemEntry($xml);
-		$originalETag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$originalVersion = $data['version'];
 		
 		$file = "work/file";
 		$fileContents = self::getRandomUnicodeString();
@@ -255,7 +255,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -274,13 +274,13 @@ class FileTests extends APITests {
 	
 	public function testAddFileFullParams() {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		// Get serverDateModified
 		$serverDateModified = array_shift($xml->xpath('/atom:entry/atom:updated'));
 		sleep(1);
 		
-		$originalETag = $data['etag'];
+		$originalVersion = $data['version'];
 		
 		// Get a sync timestamp from before the file is updated
 		require_once 'include/sync.inc.php';
@@ -366,7 +366,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -378,8 +378,8 @@ class FileTests extends APITests {
 		// Make sure serverDateModified has changed
 		$this->assertNotEquals($serverDateModified, array_shift($xml->xpath('/atom:entry/atom:updated')));
 		
-		// Make sure ETag has changed
-		$this->assertNotEquals($originalETag, $data['etag']);
+		// Make sure version has changed
+		$this->assertNotEquals($originalVersion, $data['version']);
 		
 		// Make sure new attachment is passed via sync
 		$sessionID = Sync::login();
@@ -468,8 +468,8 @@ class FileTests extends APITests {
 		$serverDateModified = (string) array_shift($xml->xpath('/atom:entry/atom:updated'));
 		sleep(1);
 		
-		$data = API::parseDataFromItemEntry($xml);
-		$originalETag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$originalVersion = $data['version'];
 		
 		// Get a sync timestamp from before the file is updated
 		require_once 'include/sync.inc.php';
@@ -530,7 +530,11 @@ class FileTests extends APITests {
 			$json = json_decode($response->getBody());
 			$this->assertNotNull($json);
 			
-			exec($cmd);
+			exec($cmd, $output, $ret);
+			if ($ret != 0) {
+				echo "Warning: Error running $algo -- skipping file upload test\n";
+				continue;
+			}
 			
 			$patch = file_get_contents($patchFilename);
 			$this->assertNotEquals("", $patch);
@@ -558,18 +562,15 @@ class FileTests extends APITests {
 				"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=json"
 			);
 			$xml = API::getXMLFromResponse($response);
-			$data = API::parseDataFromItemEntry($xml);
+			$data = API::parseDataFromAtomEntry($xml);
 			$json = json_decode($data['content']);
 			$this->assertEquals($fileParams['md5'], $json->md5);
 			$this->assertEquals($fileParams['mtime'], $json->mtime);
 			$this->assertEquals($fileParams['contentType'], $json->contentType);
 			$this->assertEquals($fileParams['charset'], $json->charset);
 			
-			// Make sure serverDateModified has changed
-			$this->assertNotEquals($serverDateModified, (string) array_shift($xml->xpath('/atom:entry/atom:updated')));
-			
-			// Make sure ETag has changed
-			$this->assertNotEquals($originalETag, $data['etag']);
+			// Make sure version has changed
+			$this->assertNotEquals($originalVersion, $data['version']);
 			
 			// Make sure new attachment is passed via sync
 			$sessionID = Sync::login();
@@ -616,8 +617,8 @@ class FileTests extends APITests {
 		$this->assert404($response);
 		
 		$xml = API::createAttachmentItem("imported_file", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
-		$originalETag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$originalVersion = $data['version'];
 		
 		// Get a sync timestamp from before the file is updated
 		sleep(1);
@@ -731,7 +732,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -805,7 +806,7 @@ class FileTests extends APITests {
 		$this->assert404($response);
 		
 		$xml = API::createItem("book", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
 		$fileContentType = "text/html";
@@ -814,9 +815,9 @@ class FileTests extends APITests {
 		$fileModtime = time();
 		
 		$xml = API::createAttachmentItem("imported_url", $key, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
-		$etag = $data['etag'];
+		$version = $data['version'];
 		$json = json_decode($data['content']);
 		$json->contentType = $fileContentType;
 		$json->charset = $fileCharset;
@@ -827,11 +828,10 @@ class FileTests extends APITests {
 			"items/$key?key=" . self::$config['apiKey'],
 			json_encode($json),
 			array(
-				"Content-Type: application/json",
-				"If-Match: $etag"
+				"Content-Type: application/json"
 			)
 		);
-		$this->assert200($response);
+		$this->assert204($response);
 		
 		// Get a sync timestamp from before the file is updated
 		sleep(1);
@@ -929,7 +929,7 @@ class FileTests extends APITests {
 			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertEquals($hash, $json->md5);
@@ -988,7 +988,7 @@ class FileTests extends APITests {
 	
 	public function testAddFileLinkedAttachment() {
 		$xml = API::createAttachmentItem("linked_file", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		
 		$file = "work/file";
 		$fileContents = self::getRandomUnicodeString();

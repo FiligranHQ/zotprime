@@ -25,7 +25,6 @@
 */
 
 class ApiController extends Controller {
-	private $validAPIVersions = array(1);
 	private $writeTokenCacheTime = 43200; // 12 hours
 	
 	private $profile = false;
@@ -39,7 +38,7 @@ class ApiController extends Controller {
 	private $body;
 	private $apiKey;
 	private $responseXML;
-	private $responseCode;
+	private $responseCode = 200;
 	private $userID; // request user
 	private $permissions;
 	private $objectUserID; // userID of object owner
@@ -53,10 +52,12 @@ class ApiController extends Controller {
 	private $objectKey;
 	private $objectName;
 	private $subset;
+	private $singleObject;
 	private $fileMode;
 	private $fileView;
 	private $httpAuth = false;
 	private $cookieAuth = false;
+	private $libraryVersion;
 	
 	private $startTime = false;
 	private $timeLogged = false;
@@ -68,11 +69,13 @@ class ApiController extends Controller {
 		}
 		
 		set_exception_handler(array($this, 'handleException'));
-		set_error_handler(array($this, 'handleError'), E_USER_ERROR);
+		set_error_handler(array($this, 'handleError'), E_USER_ERROR | E_RECOVERABLE_ERROR);
 		require_once('../model/Error.inc.php');
 		
 		$this->startTime = microtime(true);
-		register_shutdown_function(array($this, 'onShutdown'));
+		register_shutdown_function(array($this, 'checkDBTransactionState'));
+		register_shutdown_function(array($this, 'logTotalRequestTime'));
+		register_shutdown_function(array($this, 'checkForFatalError'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		/*if (isset($_SERVER['REMOTE_ADDR'])
@@ -82,8 +85,7 @@ class ApiController extends Controller {
 		}*/
 		
 		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE', 'PATCH'))) {
-			header("HTTP/1.1 501 Not Implemented");
-			die("Method is not implemented");
+			$this->e501();
 		}
 		
 		StatsD::increment("api.request.method." . strtolower($this->method), 0.25);
@@ -103,6 +105,13 @@ class ApiController extends Controller {
 					? strtotime($_SERVER['HTTP_IF_UNMODIFIED_SINCE']) : false;
 			
 			$this->body = file_get_contents("php://input");
+			if ($this->body == ""
+					&& !in_array($action, array(
+						'clear',
+						'laststoragesync',
+						'removestoragefiles'))) {
+				$this->e400("$this->method data not provided");
+			}
 		}
 		
 		if ($this->profile) {
@@ -182,11 +191,6 @@ class ApiController extends Controller {
 				$this->permissions = new Zotero_Permissions;
 				$this->permissions->setAnonymous();
 			}
-		}
-		
-		// Validate the API version
-		if (isset($_REQUEST['version']) && !in_array($_REQUEST['version'], $this->validAPIVersions)) {
-			$this->e400("Invalid request API version '{$_REQUEST['version']}'");
 		}
 		
 		$this->uri = Z_CONFIG::$API_BASE_URI . substr($_SERVER["REQUEST_URI"], 1);
@@ -314,21 +318,16 @@ class ApiController extends Controller {
 							: false;
 		$this->fileView = !empty($extra['view']);
 		
-		$singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
-		$this->queryParams = Zotero_API::parseQueryParams($_SERVER['QUERY_STRING'], $action, $singleObject);
-	}
-	
-	
-	public function __call($name, $arguments) {
-		if (preg_match("/^e[1-5][0-9]{2}$/", $name)) {
-			if (isset($arguments[0])) {
-				Z_HTTP::$name($arguments[0]);
-			}
-			else {
-				Z_HTTP::$name();
-			}
-		}
-		throw new Exception("Invalid function $name");
+		$this->singleObject = ($this->objectID || $this->objectKey) && !$this->subset;
+		
+		$this->checkLibraryIfModifiedSinceVersion($action);
+		
+		$this->queryParams = Zotero_API::parseQueryParams(
+			$_SERVER['QUERY_STRING'],
+			$action,
+			$this->singleObject,
+			!empty($_SERVER['HTTP_THE_FUTURE_IS_NOW'])
+		);
 	}
 	
 	
@@ -338,20 +337,39 @@ class ApiController extends Controller {
 	
 	
 	public function items() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
+		if ($this->isWriteMethod()) {
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			if (!$this->singleObject) {
+				$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
+			}
+			
+			// We don't update the library version in file mode, because currently
+			// to avoid conflicts in the client the timestamp can't change
+			// when the client updates file metadata
+			if (!$this->fileMode) {
+				Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+			}
 		}
 		
 		$itemIDs = array();
 		$itemKeys = array();
-		$responseItems = array();
-		$responseKeys = array();
-		$totalResults = null;
+		$results = array();
+		$totalResults = 0;
 		
 		//
 		// Single item
 		//
-		if (($this->objectID || $this->objectKey) && !$this->subset) {
+		if ($this->singleObject) {
 			if ($this->fileMode) {
 				if ($this->fileView) {
 					$this->allowMethods(array('GET', 'HEAD', 'POST'));
@@ -361,14 +379,7 @@ class ApiController extends Controller {
 				}
 			}
 			else {
-				$this->allowMethods(array('GET', 'PUT', 'DELETE'));
-			}
-			
-			// Check for general library access
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				//var_dump($this->objectLibraryID);
-				//var_dump($this->permissions);
-				$this->e403();
+				$this->allowMethods(array('GET', 'PUT', 'PATCH', 'DELETE'));
 			}
 			
 			if ($this->objectKey) {
@@ -439,8 +450,7 @@ class ApiController extends Controller {
 				$this->allowMethods(array('GET'));
 				
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-				header("Location: " . Zotero_API::getItemURI($item) . $qs);
-				exit;
+				$this->redirect(Zotero_API::getItemURI($item) . $qs);
 			}
 			
 			if ($this->scopeObject) {
@@ -448,10 +458,6 @@ class ApiController extends Controller {
 					// Remove item from collection
 					case 'collections':
 						$this->allowMethods(array('DELETE'));
-						
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
 						
 						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
 						if (!$collection) {
@@ -462,15 +468,7 @@ class ApiController extends Controller {
 							$this->e404("Item not found in collection");
 						}
 						
-						Zotero_DB::beginTransaction();
-						
-						$timestamp = Zotero_Libraries::updateTimestamps($this->objectLibraryID);
-						Zotero_DB::registerTransactionTimestamp($timestamp);
-						
 						$collection->removeItem($item->id);
-						
-						Zotero_DB::commit();
-						
 						$this->e204();
 					
 					default:
@@ -478,40 +476,49 @@ class ApiController extends Controller {
 				}
 			}
 			
-			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				if (!$this->permissions->canWrite($this->objectLibraryID)) {
-					$this->e403("Write access denied");
-				}
+			if ($this->isWriteMethod()) {
+				$objectTimestampChecked =
+					$this->checkObjectIfUnmodifiedSinceVersion(
+						$item, $this->method == 'DELETE'
+				);
 				
-				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
-					if (empty($_SERVER['HTTP_IF_MATCH'])) {
-						$this->e400("If-Match header not provided");
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				
+				// Update item
+				if ($this->method == 'PUT' || $this->method == 'PATCH') {
+					if ($this->queryParams['apiVersion'] < 2) {
+						$this->allowMethods(array('PUT'));
 					}
 					
-					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-						$this->e400("Invalid ETag in If-Match header");
-					}
+					$changed = Zotero_Items::updateFromJSON(
+						$item,
+						$this->jsonDecode($this->body),
+						null,
+						$this->queryParams,
+						$this->userID,
+						$objectTimestampChecked ? 0 : 2,
+						$this->method == 'PATCH'
+					);
 					
-					if ($item->etag != $matches[1]) {
-						$this->e412("ETag does not match current version of item");
+					// If not updated, return the original library version
+					if (!$changed) {
+						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+							$this->objectLibraryID
+						);
 					}
-				}
-				
-				// Update existing item
-				if ($this->method == 'PUT') {
-					$obj = $this->jsonDecode($this->body);
-					Zotero_Items::updateFromJSON($item, $obj, false, null, $this->userID);
-					$this->queryParams['format'] = 'atom';
-					$this->queryParams['content'] = array('json');
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
+					
+					if ($this->queryParams['apiVersion'] < 2) {
+						$this->queryParams['format'] = 'atom';
+						$this->queryParams['content'] = array('json');
+					}
 				}
-				
-				// Delete existing item
-				else {
-					Zotero_Items::delete($this->objectLibraryID, $this->objectKey, true);
+				// Delete item
+				else if ($this->method == 'DELETE') {
+					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
 					
 					try {
 						Zotero_Processors::notifyProcessors('index');
@@ -519,12 +526,17 @@ class ApiController extends Controller {
 					catch (Exception $e) {
 						Z_Core::logError($e);
 					}
-					
+				}
+				else {
+					throw new Exception("Unexpected method $this->method");
+				}
+				
+				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
 					$this->e204();
 				}
 			}
 			
-			//header("Zotero-Timestamp: " . strtotime($item->serverDateModified) * 1000);
+			$this->libraryVersion = $item->itemVersion;
 			
 			// Display item
 			switch ($this->queryParams['format']) {
@@ -568,14 +580,11 @@ class ApiController extends Controller {
 		// Multiple items
 		//
 		else {
-			$this->allowMethods(array('GET', 'POST'));
+			$this->allowMethods(array('GET', 'POST', 'DELETE'));
 			
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->e403();
-			}
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
 			$includeTrashed = false;
-			$formatAsKeys = $this->queryParams['format'] == 'keys';
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET', 'POST'));
@@ -593,8 +602,7 @@ class ApiController extends Controller {
 					}
 					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
 					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-					header("Location: " . $base . "/items" . $qs);
-					exit;
+					$this->redirect($base . "/items" . $qs);
 				}
 				
 				switch ($this->scopeObject) {
@@ -606,15 +614,6 @@ class ApiController extends Controller {
 						
 						// Add items to collection
 						if ($this->method == 'POST') {
-							if (!$this->permissions->canWrite($this->objectLibraryID)) {
-								$this->e403("Write access denied");
-							}
-							
-							Zotero_DB::beginTransaction();
-							
-							$timestamp = Zotero_Libraries::updateTimestamps($this->objectLibraryID);
-							Zotero_DB::registerTransactionTimestamp($timestamp);
-							
 							$itemKeys = explode(' ', $this->body);
 							$itemIDs = array();
 							foreach ($itemKeys as $key) {
@@ -641,8 +640,6 @@ class ApiController extends Controller {
 							}
 							$collection->addItems($itemIDs);
 							
-							Zotero_DB::commit();
-							
 							$this->e204();
 						}
 						
@@ -651,6 +648,10 @@ class ApiController extends Controller {
 						break;
 					
 					case 'tags':
+						if ($this->queryParams['apiVersion'] >= 2) {
+							$this->e404();
+						}
+						
 						$this->allowMethods(array('GET'));
 						
 						$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $this->scopeObjectName);
@@ -674,7 +675,7 @@ class ApiController extends Controller {
 						break;
 					
 					default:
-						throw new Exception("Invalid items scope object '$this->scopeObject'");
+						$this->e404();
 				}
 			}
 			else {
@@ -683,7 +684,13 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Items";
-					$results = Zotero_Items::search($this->objectLibraryID, true, $this->queryParams, false, $this->permissions);
+					$results = Zotero_Items::search(
+						$this->objectLibraryID,
+						true,
+						$this->queryParams,
+						$includeTrashed,
+						$this->permissions
+					);
 				}
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
@@ -711,7 +718,7 @@ class ApiController extends Controller {
 							$this->e404("Item not found");
 						}
 						$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-						header("Location: " . Zotero_API::getItemURI($item) . '/children' . $qs);
+						$this->redirect(Zotero_API::getItemURI($item) . '/children' . $qs);
 						exit;
 					}
 					
@@ -732,43 +739,65 @@ class ApiController extends Controller {
 					
 					// Create new child items
 					if ($this->method == 'POST') {
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
+						if ($this->queryParams['apiVersion'] >= 2) {
+							$this->allowMethods(array('GET'));
 						}
 						
+						Zotero_DB::beginTransaction();
+						
 						$obj = $this->jsonDecode($this->body);
-						$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, $item, $this->userID);
+						$results = Zotero_Items::updateMultipleFromJSON(
+							$obj,
+							$this->objectLibraryID,
+							$this->queryParams,
+							$this->userID,
+							$libraryTimestampChecked ? 0 : 1,
+							$item
+						);
+						
+						Zotero_DB::commit();
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						$uri = Zotero_API::getItemURI($item) . "/children";
+						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
+						$keys = array_merge(
+							get_object_vars($results['success']),
+							get_object_vars($results['unchanged'])
+						);
 						$queryString = "itemKey="
-								. urlencode(implode(",", $keys))
-								. "&content=json&order=itemKeyList&sort=asc";
+							. urlencode(implode(",", $keys))
+							. "&format=atom&content=json&order=itemKeyList&sort=asc";
 						if ($this->apiKey) {
 							$queryString .= "&key=" . $this->apiKey;
 						}
 						$uri .= "?" . $queryString;
-						
-						$this->responseCode = 201;
 						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
+						$this->responseCode = 201;
+						
+						$title = "Items";
+						$results = Zotero_Items::search(
+							$this->objectLibraryID,
+							false,
+							$this->queryParams,
+							$includeTrashed,
+							$this->permissions
+						);
 					}
-					
 					// Display items
-					$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
-					$notes = $item->getNotes();
-					$attachments = $item->getAttachments();
-					$itemIDs = array_merge($notes, $attachments);
+					else {
+						$title = "Child Items of ‘" . $item->getDisplayTitle() . "’";
+						$notes = $item->getNotes();
+						$attachments = $item->getAttachments();
+						$itemIDs = array_merge($notes, $attachments);
+					}
 				}
 				// All items
 				else {
 					// Create new items
 					if ($this->method == 'POST') {
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
+						$this->queryParams['format'] = 'writereport';
 						
 						$obj = $this->jsonDecode($this->body);
 						if (isset($obj->url)) {
@@ -791,44 +820,79 @@ class ApiController extends Controller {
 							else {
 								$keys = $response;
 							}
+							
+							if (!$keys) {
+								throw new Exception("No items added");
+							}
 						}
 						else {
-							$keys = Zotero_Items::addFromJSON($obj, $this->objectLibraryID, null, $this->userID);
-						}
-						
-						if (!$keys) {
-							throw new Exception("No items added");
+							if ($this->queryParams['apiVersion'] < 2) {
+								Zotero_DB::beginTransaction();
+							}
+							
+							$results = Zotero_Items::updateMultipleFromJSON(
+								$obj,
+								$this->objectLibraryID,
+								$this->queryParams,
+								$this->userID,
+								$libraryTimestampChecked ? 0 : 1,
+								null
+							);
+							
+							if ($this->queryParams['apiVersion'] < 2) {
+								Zotero_DB::commit();
+								
+								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
+								$keys = array_merge(
+									get_object_vars($results['success']),
+									get_object_vars($results['unchanged'])
+								);
+								$queryString = "itemKey="
+									. urlencode(implode(",", $keys))
+									. "&format=atom&content=json&order=itemKeyList&sort=asc";
+								if ($this->apiKey) {
+									$queryString .= "&key=" . $this->apiKey;
+								}
+								$uri .= "?" . $queryString;
+								$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
+								$this->responseCode = 201;
+								
+								$title = "Items";
+								$results = Zotero_Items::search(
+									$this->objectLibraryID,
+									false,
+									$this->queryParams,
+									$includeTrashed,
+									$this->permissions
+								);
+							}
 						}
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
-						
-						$uri = Zotero_API::getItemsURI($this->objectLibraryID);
-						$queryString = "itemKey="
-								. urlencode(implode(",", $keys))
-								. "&content=json&order=itemKeyList&sort=asc";
-						if ($this->apiKey) {
-							$queryString .= "&key=" . $this->apiKey;
+					}
+					// Delete items
+					else if ($this->method == 'DELETE') {
+						Zotero_DB::beginTransaction();
+						$itemKeys = explode(',', $this->queryParams['itemKey']);
+						foreach ($itemKeys as $itemKey) {
+							Zotero_Items::delete($this->objectLibraryID, $itemKey);
 						}
-						$uri .= "?" . $queryString;
-						
-						$this->responseCode = 201;
-						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
+						Zotero_DB::commit();
+						$this->e204();
 					}
-					
-					$title = "Items";
-					$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, false, $this->permissions);
-				}
-				
-				if (!empty($results)) {
-					if ($formatAsKeys) {
-						$responseKeys = $results['keys'];
-					}
+					// Display items
 					else {
-						$responseItems = $results['items'];
+						$title = "Items";
+						$results = Zotero_Items::search(
+							$this->objectLibraryID,
+							false,
+							$this->queryParams,
+							$includeTrashed,
+							$this->permissions
+						);
 					}
-					$totalResults = $results['total'];
 				}
 			}
 			
@@ -845,24 +909,18 @@ class ApiController extends Controller {
 				if ($itemKeys) {
 					$this->queryParams['itemKey'] = implode(',', $itemKeys);
 				}
-				$results = Zotero_Items::search($this->objectLibraryID, false, $this->queryParams, $includeTrashed, $this->permissions);
-				
-				if ($formatAsKeys) {
-					$responseKeys = $results['keys'];
-				}
-				else {
-					$responseItems = $results['items'];
-				}
-				$totalResults = $results['total'];
+				$results = Zotero_Items::search(
+					$this->objectLibraryID,
+					false,
+					$this->queryParams,
+					$includeTrashed,
+					$this->permissions
+				);
 			}
-			else if (!isset($results)) {
-				if ($formatAsKeys) {
-					$responseKeys = array();
-				}
-				else {
-					$responseItems = array();
-				}
-				$totalResults = 0;
+			
+			if ($results && isset($results['results'])) {
+				 $totalResults = $results['total'];
+				 $results = $results['results'];
 			}
 			
 			switch ($this->queryParams['format']) {
@@ -871,7 +929,7 @@ class ApiController extends Controller {
 					$this->responseXML = Zotero_Atom::createAtomFeed(
 						$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 						$this->uri,
-						$responseItems,
+						$results,
 						$totalResults,
 						$this->queryParams,
 						$this->permissions
@@ -880,7 +938,7 @@ class ApiController extends Controller {
 					break;
 				
 				case 'bib':
-					echo Zotero_Cite::getBibliographyFromCitationServer($responseItems, $this->queryParams);
+					echo Zotero_Cite::getBibliographyFromCitationServer($results, $this->queryParams);
 					break;
 				
 				case 'csljson':
@@ -890,17 +948,28 @@ class ApiController extends Controller {
 					else {
 						header("Content-Type: application/vnd.citationstyles.csl+json");
 					}
-					$json = Zotero_Cite::getJSONFromItems($responseItems, true);
+					$json = Zotero_Cite::getJSONFromItems($results, true);
 					echo Zotero_Utilities::formatJSON($json, $this->queryParams['pprint']);
 					break;
 				
 				case 'keys':
 					header("Content-Type: text/plain");
-					echo implode("\n", $responseKeys) . "\n";
+					echo implode("\n", $results) . "\n";
+					break;
+				
+				case 'versions':
+				case 'writereport':
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+					}
+					else {
+						header("Content-Type: application/json");
+					}
+					echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
 					break;
 				
 				default:
-					$export = Zotero_Translate::doExport($responseItems, $this->queryParams['format']);
+					$export = Zotero_Translate::doExport($results, $this->queryParams['format']);
 					if ($this->queryParams['pprint']) {
 						header("Content-Type: text/plain");
 					}
@@ -1011,7 +1080,7 @@ class ApiController extends Controller {
 					if (!$url) {
 						$this->e500();
 					}
-					header("Location: $url");
+					$this->redirect($url);
 					exit;
 				}
 			}
@@ -1027,7 +1096,7 @@ class ApiController extends Controller {
 				$this->userID,
 				IPAddress::getIP()
 			);
-			header("Location: $url");
+			$this->redirect($url);
 			exit;
 		}
 		
@@ -1461,14 +1530,32 @@ class ApiController extends Controller {
 	
 	
 	public function collections() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
 		}
 		
-		$collections = array();
+		if ($this->isWriteMethod()) {
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			if (!$this->singleObject) {
+				$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
+			}
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+		}
+		
+		$collectionIDs = array();
+		$collectionKeys = array();
+		$results = array();
+		$totalResults = 0;
 		
 		// Single collection
-		if (($this->objectID || $this->objectKey) && $this->subset != 'collections') {
+		if ($this->singleObject) {
 			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
 			
 			// If id, redirect to key URL
@@ -1479,8 +1566,7 @@ class ApiController extends Controller {
 					$this->e404("Collection not found");
 				}
 				$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-				header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
-				exit;
+				$this->redirect(Zotero_API::getCollectionURI($collection) . $qs);
 			}
 			
 			$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
@@ -1488,59 +1574,60 @@ class ApiController extends Controller {
 				$this->e404("Collection not found");
 			}
 			
-			// In single-collection mode, require public pref to be enabled
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->e403();
-			}
-			
 			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				if (!$this->permissions->canWrite($this->objectLibraryID)) {
-					$this->e403("Write access denied");
-				}
+				$objectTimestampChecked =
+					$this->checkObjectIfUnmodifiedSinceVersion(
+						$collection, $this->method == 'DELETE'
+				);
 				
-				if (!Z_CONFIG::$TESTING_SITE || empty($_GET['skipetag'])) {
-					if (empty($_SERVER['HTTP_IF_MATCH'])) {
-						$this->e400("If-Match header not provided");
-					}
-					
-					if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
-						$this->e400("Invalid ETag in If-Match header");
-					}
-					
-					if ($collection->etag != $matches[1]) {
-						$this->e412("ETag does not match current version of collection");
-					}
-				}
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 				
+				// Update collection
 				if ($this->method == 'PUT') {
 					$obj = $this->jsonDecode($this->body);
-					Zotero_Collections::updateFromJSON($collection, $obj);
-					$this->queryParams['format'] = 'atom';
-					$this->queryParams['content'] = array('json');
+					$changed = Zotero_Collections::updateFromJSON(
+						$collection,
+						$obj,
+						$this->queryParams,
+						$this->userID,
+						$objectTimestampChecked ? 0 : 2
+					);
+					
+					// If not updated, return the original library version
+					if (!$changed) {
+						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+							$this->objectLibraryID
+						);
+					}
 					
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
 				}
 				
-				// Delete
+				// Delete collection
+				else if ($this->method == 'DELETE') {
+					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey);
+				}
 				else {
-					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey, true);
+					throw new Exception("Unexpected method $this->method");
+				}
+				
+				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
 					$this->e204();
 				}
 			}
 			
+			$this->libraryVersion = $collection->version;
 			$this->responseXML = Zotero_Collections::convertCollectionToAtom(
-				$collection, $this->queryParams['content']
+				$collection, $this->queryParams
 			);
 		}
-		// All collections
+		// Multiple collections
 		else {
-			$this->allowMethods(array('GET', 'POST'));
+			$this->allowMethods(array('GET', 'POST', 'DELETE'));
 			
-			if (!$this->permissions->canAccess($this->objectLibraryID)) {
-				$this->e403();
-			}
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET'));
@@ -1554,8 +1641,7 @@ class ApiController extends Controller {
 								$this->e404("Collection not found");
 							}
 							$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-							header("Location: " . Zotero_API::getCollectionURI($collection) . $qs);
-							exit;
+							$this->redirect(Zotero_API::getCollectionURI($collection) . $qs);
 						}
 						
 						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
@@ -1576,76 +1662,269 @@ class ApiController extends Controller {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Top-Level Collections";
-					$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, true, $this->queryParams);
+					$results = Zotero_Collections::search($this->objectLibraryID, true, $this->queryParams);
 				}
 				else {
 					// Create a collection
 					if ($this->method == 'POST') {
-						if (!$this->permissions->canWrite($this->objectLibraryID)) {
-							$this->e403("Write access denied");
-						}
+						$this->queryParams['format'] = 'writereport';
 						
 						$obj = $this->jsonDecode($this->body);
-						$collection = Zotero_Collections::addFromJSON($obj, $this->objectLibraryID);
+						$results = Zotero_Collections::updateMultipleFromJSON(
+							$obj,
+							$this->objectLibraryID,
+							$this->queryParams,
+							$this->userID,
+							$libraryTimestampChecked ? 0 : 1,
+							null
+						);
 						
 						if ($cacheKey = $this->getWriteTokenCacheKey()) {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						$uri = Zotero_API::getCollectionURI($collection);
-						$queryString = "content=json";
-						if ($this->apiKey) {
-							$queryString .= "&key=" . $this->apiKey;
+						if ($this->queryParams['apiVersion'] < 2) {
+							$uri = Zotero_API::getCollectionsURI($this->objectLibraryID);
+							$keys = array_merge(
+								get_object_vars($results['success']),
+								get_object_vars($results['unchanged'])
+							);
+							$queryString = "collectionKey="
+									. urlencode(implode(",", $keys))
+									. "&format=atom&content=json&order=collectionKeyList&sort=asc";
+							if ($this->apiKey) {
+									$queryString .= "&key=" . $this->apiKey;
+							}
+							$uri .= "?" . $queryString;
+							
+							$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
+							
+							$title = "Collections";
+							$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
 						}
-						$uri .= "?" . $queryString;
-						
-						$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
+					}
+					// Delete collections
+					else if ($this->method == 'DELETE') {
+						Zotero_DB::beginTransaction();
+						$collectionKeys = explode(',', $this->queryParams['collectionKey']);
+						foreach ($collectionKeys as $collectionKey) {
+							Zotero_Collections::delete($this->objectLibraryID, $collectionKey);
+						}
+						Zotero_DB::commit();
+						$this->e204();
+					}
+					// Display collections
+					else {
+						$title = "Collections";
+						$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
+					}
+				}
+			}
+			
+			if ($collectionIDs) {
+				$this->queryParams['collectionIDs'] = $collectionIDs;
+				$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
+			}
+			
+			if ($results && isset($results['results'])) {
+				$totalResults = $results['total'];
+				$results = $results['results'];
+			}
+				
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = Zotero_Atom::createAtomFeed(
+					$this->getFeedNamePrefix($this->objectLibraryID) . $title,
+					$this->uri,
+					$results,
+					$totalResults,
+					$this->queryParams,
+					$this->permissions
+				);
+				break;
+			
+			case 'keys':
+				header("Content-Type: text/plain");
+				echo implode("\n", $results) . "\n";
+				break;
+			
+			case 'versions':
+			case 'writereport':
+				if ($this->queryParams['pprint']) {
+					header("Content-Type: text/plain");
+				}
+				else {
+					header("Content-Type: application/json");
+				}
+				echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
+				break;
+			
+			default:
+				throw new Exception("Invalid 'format' value '"
+					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
+			}
+		}
+		
+		$this->end();
+	}
+	
+	
+	public function searches() {
+		if ($this->queryParams['apiVersion'] < 2) {
+			$this->e404();
+		}
+		
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
+		if ($this->isWriteMethod()) {
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			if (!$this->singleObject) {
+				$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
+			}
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+		}
+		
+		$results = array();
+		$totalResults = 0;
+		
+		// Single search
+		if ($this->singleObject) {
+			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+			
+			$search = Zotero_Searches::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
+			if (!$search) {
+				$this->e404("Search not found");
+			}
+			
+			if ($this->method == 'PUT' || $this->method == 'DELETE') {
+				$objectTimestampChecked =
+					$this->checkObjectIfUnmodifiedSinceVersion(
+						$search, $this->method == 'DELETE'
+				);
+				
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				
+				// Update search
+				if ($this->method == 'PUT') {
+					$obj = $this->jsonDecode($this->body);
+					$changed = Zotero_Searches::updateFromJSON(
+						$search,
+						$obj,
+						$this->queryParams,
+						$objectTimestampChecked ? 0 : 2
+					);
+					
+					// If not updated, return the original library version
+					if (!$changed) {
+						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+							$this->objectLibraryID
+						);
 					}
 					
-					$title = "Collections";
-					$results = Zotero_Collections::getAllAdvanced($this->objectLibraryID, false, $this->queryParams);
+					if ($cacheKey = $this->getWriteTokenCacheKey()) {
+						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+					}
+				}
+				// Delete search
+				else if ($this->method == 'DELETE') {
+					Zotero_Searches::delete($this->objectLibraryID, $this->objectKey);
+				}
+				else {
+					throw new Exception("Unexpected method $this->method");
 				}
 				
-				$collections = $results['collections'];
-				$totalResults = $results['total'];
+				$this->e204();
 			}
 			
-			if (!empty($collectionIDs)) {
-				foreach ($collectionIDs as $collectionID) {
-					$collections[] = Zotero_Collections::get($this->objectLibraryID, $collectionID);
-				}
+			$this->libraryVersion = $search->version;
+			$this->responseXML = $search->toAtom($this->queryParams);
+		}
+		// Multiple searches
+		else {
+			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+			
+			// Create a search
+			if ($this->method == 'POST') {
+				$this->queryParams['format'] = 'writereport';
 				
-				// Fake sorting and limiting
-				$totalResults = sizeOf($collections);
-				$key = $this->queryParams['order'];
-				if ($key == 'title') {
-					$key = 'name';
-				}
-				$dir = $this->queryParams['sort'];
-				usort($collections, function ($a, $b) use ($key, $dir) {
-					$dir = $dir == "asc" ? 1 : -1;
-					if ($a->$key == $b->$key) {
-						return 0;
-					}
-					else {
-						return ($a->$key > $b->$key) ? $dir : ($dir * -1);
-					}
-				});
-				$collections = array_slice(
-					$collections,
-					$this->queryParams['start'],
-					$this->queryParams['limit']
+				$obj = $this->jsonDecode($this->body);
+				$results = Zotero_Searches::updateMultipleFromJSON(
+					$obj,
+					$this->objectLibraryID,
+					$this->queryParams,
+					$this->userID,
+					$libraryTimestampChecked ? 0 : 1,
+					null
 				);
+				
+				if ($cacheKey = $this->getWriteTokenCacheKey()) {
+					Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+				}
+			}
+			// Delete searches
+			else if ($this->method == 'DELETE') {
+				Zotero_DB::beginTransaction();
+				$searchKeys = explode(',', $this->queryParams['searchKey']);
+				foreach ($searchKeys as $searchKey) {
+					Zotero_Searches::delete($this->objectLibraryID, $searchKey);
+				}
+				Zotero_DB::commit();
+				$this->e204();
+			}
+			// Display searches
+			else {
+				$title = "Searches";
+				$results = Zotero_Searches::search($this->objectLibraryID, $this->queryParams);
 			}
 			
-			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-				$this->uri,
-				$collections,
-				$totalResults,
-				$this->queryParams,
-				$this->permissions
-			);
+			if ($results && isset($results['results'])) {
+				$totalResults = $results['total'];
+				$results = $results['results'];
+			}
+				
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = Zotero_Atom::createAtomFeed(
+					$this->getFeedNamePrefix($this->objectLibraryID) . $title,
+					$this->uri,
+					$results,
+					$totalResults,
+					$this->queryParams,
+					$this->permissions
+				);
+				break;
+			
+			case 'keys':
+				header("Content-Type: text/plain");
+				echo implode("\n", $results) . "\n";
+				break;
+			
+			case 'versions':
+			case 'writereport':
+				if ($this->queryParams['pprint']) {
+					header("Content-Type: text/plain");
+				}
+				else {
+					header("Content-Type: application/json");
+				}
+				echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
+				break;
+			
+			default:
+				throw new Exception("Invalid 'format' value '"
+					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
+			}
 		}
 		
 		$this->end();
@@ -1653,19 +1932,22 @@ class ApiController extends Controller {
 	
 	
 	public function tags() {
-		$this->allowMethods(array('GET'));
+		$this->allowMethods(array('GET', 'DELETE'));
 		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
 		}
 		
-		$tags = array();
+		$tagIDs = array();
+		$results = array();
 		$totalResults = 0;
 		$name = $this->objectName;
 		$fixedValues = array();
 		
 		// Set of tags matching name
 		if ($name && $this->subset != 'tags') {
+			$this->allowMethods(array('GET'));
+			
 			$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $name);
 			if (!$tagIDs) {
 				$this->e404();
@@ -1675,7 +1957,11 @@ class ApiController extends Controller {
 		}
 		// All tags
 		else {
+			$this->allowMethods(array('GET', 'DELETE'));
+			
 			if ($this->scopeObject) {
+				$this->allowMethods(array('GET'));
+				
 				// If id, redirect to key URL
 				if ($this->scopeObjectID) {
 					if (!in_array($this->scopeObject, array("collections", "items"))) {
@@ -1688,8 +1974,7 @@ class ApiController extends Controller {
 					}
 					$base = call_user_func(array('Zotero_API', 'get' . substr(ucwords($this->scopeObject), 0, -1) . 'URI'), $obj);
 					$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
-					header("Location: " . $base . "/tags" . $qs);
-					exit;
+					$this->redirect($base . "/tags" . $qs);
 				}
 				
 				switch ($this->scopeObject) {
@@ -1724,47 +2009,41 @@ class ApiController extends Controller {
 						throw new Exception("Invalid tags scope object '$this->scopeObject'");
 				}
 			}
+			else if ($this->method == 'DELETE') {
+				// Filter for specific tags with "?tag=foo || bar"
+				$tagNames = !empty($this->queryParams['tag'])
+					? explode(' || ', $this->queryParams['tag']): array();
+				Zotero_DB::beginTransaction();
+				foreach ($tagNames as $tagName) {
+					$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $tagName);
+					foreach ($tagIDs as $tagID) {
+						$tag = Zotero_Tags::get($this->objectLibraryID, $tagID, true);
+						Zotero_Tags::delete($this->objectLibraryID, $tag->key);
+					}
+				}
+				Zotero_DB::commit();
+				$this->e204();
+			}
 			else {
 				$title = "Tags";
-				$results = Zotero_Tags::getAllAdvanced($this->objectLibraryID, $this->queryParams);
-				$tags = $results['objects'];
-				$totalResults = $results['total'];
+				$results = Zotero_Tags::search($this->objectLibraryID, $this->queryParams);
 			}
 		}
 		
-		if (!empty($tagIDs)) {
-			foreach ($tagIDs as $tagID) {
-				$tags[] = Zotero_Tags::get($this->objectLibraryID, $tagID);
-			}
-			
-			// Fake sorting and limiting
-			$totalResults = sizeOf($tags);
-			$key = $this->queryParams['order'];
-			// 'title' order means 'name' for tags
-			if ($key == 'title') {
-				$key = 'name';
-			}
-			$dir = $this->queryParams['sort'];
-			$cmp = create_function(
-				'$a, $b',
-				'$dir = "'.$dir.'" == "asc" ? 1 : -1;
-				if ($a->'.$key.' == $b->'.$key.') {
-					return 0;
-				}
-				else {
-					return ($a->'.$key.' > $b->'.$key.') ? $dir : ($dir * -1);}');
-			usort($tags, $cmp);
-			$tags = array_slice(
-				$tags,
-				$this->queryParams['start'],
-				$this->queryParams['limit']
-			);
+		if ($tagIDs) {
+			$this->queryParams['tagIDs'] = $tagIDs;
+			$results = Zotero_Tags::search($this->objectLibraryID, $this->queryParams);
+		}
+		
+		if ($results && isset($results['results'])) {
+			$totalResults = $results['total'];
+			$results = $results['results'];
 		}
 		
 		$this->responseXML = Zotero_Atom::createAtomFeed(
 			$this->getFeedNamePrefix($this->objectLibraryID) . $title,
 			$this->uri,
-			$tags,
+			$results,
 			$totalResults,
 			$this->queryParams,
 			$this->permissions,
@@ -1775,11 +2054,57 @@ class ApiController extends Controller {
 	}
 	
 	
-	public function groups() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
+	public function deleted() {
+		$this->allowMethods(array('GET'));
+		
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
 		}
 		
+		// TEMP: sync transition
+		if (isset($_GET['newertime'])) {
+			$deleted = array(
+				"collections" => Zotero_Collections::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
+				"items" => Zotero_Items::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
+				"searches" => Zotero_Searches::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
+				"tags" => Zotero_Tags::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				)
+			);
+			echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
+			$this->end();
+		}
+		
+		if (!isset($_GET['newer'])) {
+			$this->e400("'newer' parameter must be provided");
+		}
+		
+		$deleted = array(
+			"collections" => Zotero_Collections::getDeleteLogKeys(
+				$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"items" => Zotero_Items::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"searches" => Zotero_Searches::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"tags" => Zotero_Tags::getDeleteLogKeys(
+				$this->objectLibraryID, $this->queryParams['newer']
+			)
+		);
+		echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
+		$this->end();
+	}
+	
+	
+	public function groups() {
 		$groupID = $this->groupID;
 		
 		//
@@ -1830,13 +2155,14 @@ class ApiController extends Controller {
 				}
 			}
 			
-			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
+			$this->queryParams['content'] = 'full';
+			$this->responseXML = $group->toAtom($this->queryParams);
 			
 			Zotero_DB::commit();
 			
-			$url = Zotero_Atom::getGroupURI($group);
+			$url = Zotero_API::getGroupURI($group);
+			$this->responseCode = 201;
 			header("Location: " . $url, false, 201);
-			
 			$this->end();
 		}
 		
@@ -1895,7 +2221,8 @@ class ApiController extends Controller {
 				$this->handleException($e);
 			}
 			
-			$this->responseXML = $group->toAtom(array('full'), $this->queryParams);
+			$this->queryParams['content'] = 'full';
+			$this->responseXML = $group->toAtom($this->queryParams);
 			
 			Zotero_DB::commit();
 			
@@ -1942,7 +2269,8 @@ class ApiController extends Controller {
 			if (!$group) {
 				$this->e404("Group not found");
 			}
-			$this->responseXML = $group->toAtom($this->queryParams['content'], $this->queryParams);
+			header("ETag: " . $group->etag);
+			$this->responseXML = $group->toAtom($this->queryParams);
 		}
 		// Multiple groups
 		else {
@@ -1972,14 +2300,32 @@ class ApiController extends Controller {
 			$groups = $results['groups'];
 			$totalResults = $results['totalResults'];
 			
-			$this->responseXML = Zotero_Atom::createAtomFeed(
-				$title,
-				$this->uri,
-				$groups,
-				$totalResults,
-				$this->queryParams,
-				$this->permissions
-			);
+			switch ($this->queryParams['format']) {
+				case 'atom':
+					$this->responseXML = Zotero_Atom::createAtomFeed(
+						$title,
+						$this->uri,
+						$groups,
+						$totalResults,
+						$this->queryParams,
+						$this->permissions
+					);
+					break;
+				
+				case 'etags':
+					$json = array();
+					foreach ($groups as $group) {
+						$json[$group->id] = $group->etag;
+					}
+					if ($this->queryParams['pprint']) {
+						header("Content-Type: text/plain");
+					}
+					else {
+						header("Content-Type: application/json");
+					}
+					echo json_encode($json);
+					break;
+			}
 		}
 		
 		$this->end();
@@ -2037,10 +2383,6 @@ class ApiController extends Controller {
 	
 	
 	public function groupUsers() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
-		}
-		
 		// For now, only allow root and user access
 		if (!$this->permissions->isSuper()) {
 			$this->e403();
@@ -2277,10 +2619,6 @@ class ApiController extends Controller {
 	
 	
 	public function keys() {
-		if (($this->method == 'POST' || $this->method == 'PUT') && !$this->body) {
-			$this->e400("$this->method data not provided");
-		}
-		
 		$userID = $this->objectUserID;
 		$key = $this->objectName;
 		
@@ -2379,7 +2717,9 @@ class ApiController extends Controller {
 				Zotero_DB::commit();
 				
 				$url = Zotero_API::getKeyURI($keyObj);
+				$this->responseCode = 201;
 				header("Location: " . $url, false, 201);
+				$this->end();
 			}
 			
 			if ($this->method == 'PUT') {
@@ -2672,7 +3012,11 @@ class ApiController extends Controller {
 		
 		// TODO: check If-Modified-Since and return 304 if not changed
 		
-		$cacheKey = "newItemJSON_" . $itemTypeID;
+		$cacheVersion = 1;
+		$cacheKey = "newItemJSON"
+			. "_" . $this->queryParams['apiVersion']
+			. "_" . $itemTypeID
+			. "_" . $cacheVersion;
 		if ($itemType == 'attachment') {
 			$cacheKey .= "_" . $linkMode;
 		}
@@ -2726,10 +3070,16 @@ class ApiController extends Controller {
 		}
 		
 		$json['tags'] = array();
+		if ($this->queryParams['apiVersion'] >= 2) {
+			$json['collections'] = array();
+			$json['relations'] = new stdClass;
+		}
 		
-		if ($itemType != 'note' && $itemType != 'attachment') {
-			$json['attachments'] = array();
-			$json['notes'] = array();
+		if ($this->queryParams['apiVersion'] == 1) {
+			if ($itemType != 'note' && $itemType != 'attachment') {
+				$json['attachments'] = array();
+				$json['notes'] = array();
+			}
 		}
 		
 		if ($itemType == 'attachment') {
@@ -2831,11 +3181,126 @@ class ApiController extends Controller {
 	/**
 	 * Verify the HTTP method
 	 */
-	private function allowMethods($methods, $message=false) {
+	private function allowMethods($methods, $message="Method not allowed") {
 		if (!in_array($this->method, $methods)) {
-			header("HTTP/1.1 405 Method Not Allowed");
 			header("Allow: " . implode(", ", $methods));
-			die($message ? $message : "Method not allowed");
+			$this->e405($message);
+		}
+	}
+	
+	
+	private function isWriteMethod() {
+		return in_array($this->method, array('POST', 'PUT', 'PATCH', 'DELETE'));
+	}
+	
+	
+	/**
+	 * For single-object requests for some actions, require
+	 * Zotero-If-Unmodified-Since-Version (or the deprecated If-Match)
+	 * and make sure the object hasn't been modified
+	 */
+	private function checkObjectIfUnmodifiedSinceVersion($object, $required=false) {
+		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+			throw new Exception("Invalid object type");
+		}
+		
+		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
+			return true;
+		}
+		
+		// If-Match (deprecated)
+		if ($this->queryParams['apiVersion'] < 2) {
+			if (empty($_SERVER['HTTP_IF_MATCH'])) {
+				if ($required) {
+					$this->e428("If-Match must be provided for write requests");
+				}
+				else {
+					return false;
+				}
+			}
+			
+			if (!preg_match('/^"?([a-f0-9]{32})"?$/', $_SERVER['HTTP_IF_MATCH'], $matches)) {
+				$this->e400("Invalid ETag in If-Match header");
+			}
+			
+			if ($object->etag != $matches[1]) {
+				$this->e412("ETag does not match current version of $objectType");
+			}
+		}
+		// Zotero-If-Unmodified-Since-Version
+		else {
+			if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+				if ($required) {
+					$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+				}
+				else {
+					return false;
+				}
+			}
+			$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+			
+			if (!is_numeric($version)) {
+				$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+			}
+			
+			// Zotero_Item requires 'itemVersion'
+			$prop = $objectType == 'item' ? 'itemVersion' : 'version';
+			
+			if ($object->$prop != $version) {
+				$this->libraryVersion = $object->$prop;
+				$this->e412(ucwords($objectType)
+					. " has been modified since specified version "
+					. "(expected $version, found " . $object->$prop . ")");
+			}
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * For multi-object requests for some actions, require
+	 * Zotero-If-Unmodified-Since-Version and make sure the library
+	 * hasn't been modified
+	 *
+	 * @return {Boolean}  True if library version was checked, false if not
+	 */
+	private function checkLibraryIfUnmodifiedSinceVersion() {
+		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
+			continue;
+		}
+		
+		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+			return false;
+		}
+		
+		$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+		
+		if (!is_numeric($version)) {
+			$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+		}
+		
+		$libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		if ($libraryVersion > $version) {
+			$this->e412("Library has been modified since specified version");
+		}
+		return true;
+	}
+	
+	
+	/**
+	 * For multi-object requests for some actions, return 304 Not Modified
+	 * if the library hasn't been updated since Zotero-If-Modified-Since-Version
+	 */
+	private function checkLibraryIfModifiedSinceVersion($action) {
+		if (!$this->singleObject
+				&& in_array($action, array("items", "collections", "searches"))
+				&& !empty($_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION'])
+				&& !$this->isWriteMethod()
+				&& $this->permissions->canAccess($this->objectLibraryID)
+				&& Zotero_Libraries::getVersion($this->objectLibraryID)
+					<= $_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION']) {
+			$this->e304("Library has not been modified");
 		}
 	}
 	
@@ -2889,20 +3354,134 @@ class ApiController extends Controller {
 	}
 	
 	
+	/**
+	 * Handler for HTTP shortcut functions (e404(), e500())
+	 */
+	public function __call($name, $arguments) {
+		if (!preg_match("/^e([1-5])([0-9]{2})$/", $name, $matches)) {
+			throw new Exception("Invalid function $name");
+		}
+		
+		$this->responseCode = (int) ($matches[1] . $matches[2]);
+		
+		// On 4xx or 5xx errors, rollback all open transactions
+		// and don't send Zotero-Last-Modified-Version
+		if ($matches[1] == "4" || $matches[1] == "5") {
+			$this->libraryVersion = null;
+			Zotero_DB::rollback(true);
+		}
+		
+		if (isset($arguments[0])) {
+			echo htmlspecialchars($arguments[0]);
+		}
+		else {
+			// Default messages for some codes
+			switch ($this->responseCode) {
+				case 401:
+					echo "Access denied";
+					break;
+				
+				case 403:
+					echo "Forbidden";
+					break;
+				
+				case 404:
+					echo "Not found";
+					break;
+				
+				case 405:
+					echo "Method not allowed";
+					break;
+				
+				case 429:
+					echo "Too many requests";
+					break;
+				
+				case 500:
+					echo "An error occurred";
+					break;
+				
+				case 501:
+					echo "Method is not implemented";
+					break;
+				
+				case 503:
+					echo "Service unavailable";
+					break;
+			}
+		}
+		
+		$this->end();
+	}
+	
+	
+	private function redirect($url, $httpCode=302) {
+		if (!in_array($httpCode, array(301, 302, 303))) {
+			throw new Exception("Invalid redirect code");
+		}
+		
+		$this->libraryVersion = null;
+		$this->responseXML = null;
+		
+		$this->responseCode = $httpCode;
+		header("Location: " . $url, false, $httpCode);
+		$this->end();
+	}
+	
+	
 	private function end() {
 		if ($this->profile) {
 			Zotero_DB::profileEnd($this->profileShard, false);
 		}
 		
-		if ($this->responseCode) {
-			switch ($this->responseCode) {
-				case 201:
-					header("HTTP/1.1 201 Created");
-					break;
-				
-				default:
-					throw new Exception("Unsupported response code");
-			}
+		switch ($this->responseCode) {
+			case 200:
+				break;
+			
+			case 301:
+			case 302:
+			case 303:
+				// Handled in $this->redirect()
+				break;
+			
+			case 401:
+				header('WWW-Authenticate: Basic realm="Zotero API"');
+				header('HTTP/1.1 401 Unauthorized');
+				break;
+			
+			// PHP completes these automatically
+			case 201:
+			case 204:
+			case 300:
+			case 304:
+			case 400:
+			case 403:
+			case 404:
+			case 405:
+			case 409:
+			case 412:
+			case 413:
+			case 422:
+			case 500:
+			case 501:
+			case 503:
+				header("HTTP/1.1 " . $this->responseCode);
+				break;
+			
+			case 428:
+				header("HTTP/1.1 428 Precondition Required");
+				break;
+			
+			case 429:
+				header("HTTP/1.1 429 Too Many Requests");
+				break;
+			
+			default:
+				throw new Exception("Unsupported response code " . $this->responseCode);
+		}
+		
+		if ($this->libraryVersion && $this->queryParams['apiVersion'] >= 2) {
+			header("Zotero-Last-Modified-Version: " . $this->libraryVersion);
 		}
 		
 		if ($this->responseXML instanceof SimpleXMLElement) {
@@ -3011,58 +3590,35 @@ class ApiController extends Controller {
 	
 	
 	public function handleException(Exception $e) {
-		$msg = $e->getMessage();
-		if ($msg[0] == '=') {
-			$msg = substr($msg, 1);
-			$explicit = true;
-		}
-		else {
-			$explicit = false;
-		}
+		$error = Zotero_Errors::parseException($e);
 		
-		switch ($e->getCode()) {
-			case Z_ERROR_INVALID_INPUT:
-			case Z_ERROR_NOTE_TOO_LONG:
-			case Z_ERROR_FIELD_TOO_LONG:
-			case Z_ERROR_CREATOR_TOO_LONG:
-			case Z_ERROR_COLLECTION_TOO_LONG:
-			case Z_ERROR_CITESERVER_INVALID_STYLE:
-				error_log($msg);
-				$this->e400(htmlspecialchars($msg));
-				break;
+		if (!empty($error['log'])) {
+			$id = substr(md5(uniqid(rand(), true)), 0, 10);
+			$str = date("D M j G:i:s T Y") . "  \n";
+			$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "  \n";
+			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
+			}
+			$str .= $_SERVER['REQUEST_URI'] . "  \n";
+			$str .= $error['exception'] . "  \n";
+			// Show request body unless it's too big
+			if ($error['code'] != 413) {
+				$str .= $this->body;
+			}
 			
-			case Z_ERROR_UPLOAD_TOO_LARGE:
-				error_log($msg);
-				$this->e413(htmlspecialchars($msg));
-				break;
+			if (!Z_ENV_TESTING_SITE) {
+				file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
+			}
 			
-			// 404?
-			case Z_ERROR_TAG_NOT_FOUND:
-				$this->e400(htmlspecialchars($e->getMessage()));
+			error_log($str);
 		}
 		
-		$id = substr(md5(uniqid(rand(), true)), 0, 10);
-		$str = date("D M j G:i:s T Y") . "  \n";
-		$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "  \n";
-		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-			$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
-		}
-		$str .= $_SERVER['REQUEST_URI'] . "  \n";
-		$str .= $e . "  \n";
-		$str .= $this->body;
-		
-		if (!Z_ENV_TESTING_SITE) {
-			file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
+		if ($error['code'] != '500') {
+			$errFunc = "e" . $error['code'];
+			$this->$errFunc($error['message']);
 		}
 		
-		error_log($str);
-		
-		switch ($e->getCode()) {
-			case Z_ERROR_SHARD_READ_ONLY:
-			case Z_ERROR_SHARD_UNAVAILABLE:
-				$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
-		}
-		
+		// On testing site, display unexpected error messages
 		if (Z_ENV_TESTING_SITE) {
 			$this->e500($str);
 		}
@@ -3075,7 +3631,25 @@ class ApiController extends Controller {
 		$this->handleException($e);
 	}
 	
-	public function onShutdown() {
+	
+	public function checkDBTransactionState() {
+		if (Zotero_DB::transactionInProgress()) {
+			error_log("Transaction still in progress at request end! "
+				. "[" . $this->method . " " . $_SERVER['REQUEST_URI'] . "]");
+		}
+	}
+	
+	
+	public function checkForFatalError() {
+		$lastError = error_get_last();
+		if (!empty($lastError) && $lastError['type'] == E_ERROR) {
+			header('Status: 500 Internal Server Error');
+			header('HTTP/1.0 500 Internal Server Error');
+		}
+	}
+	
+	
+	public function logTotalRequestTime() {
 		StatsD::timing("api.request.total", (microtime(true) - $this->startTime) * 1000, 0.25);
 	}
 }

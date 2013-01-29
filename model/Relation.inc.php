@@ -39,7 +39,9 @@ class Zotero_Relation {
 		if ($this->id && !$this->loaded) {
 			$this->load();
 		}
-		
+		if ($field == 'key') {
+			return $this->getKey();
+		}
 		if (!property_exists('Zotero_Relation', $field)) {
 			throw new Exception("Zotero_Relation property '$field' doesn't exist");
 		}
@@ -170,10 +172,37 @@ class Zotero_Relation {
 		
 		$xml = new SimpleXMLElement('<relation/>');
 		$xml['libraryID'] = $this->libraryID;
-		$xml->subject = $this->subject;
-		$xml->predicate = $this->predicate;
-		$xml->object = $this->object;
+		
+		// Swap dc:replaces for dc:isReplacedBy
+		if ($this->predicate == 'dc:replaces') {
+			$xml->subject = $this->object;
+			$xml->predicate = 'dc:isReplacedBy';
+			$xml->object = $this->subject;
+		}
+		else {
+			$xml->subject = $this->subject;
+			$xml->predicate = $this->predicate;
+			$xml->object = $this->object;
+		}
 		return $xml;
+	}
+	
+	
+	public function toJSON($asArray=false, $prettyPrint=false) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$arr = array();
+		$arr['subject'] = $this->subject;
+		$arr['predicate'] = $this->predicate;
+		$arr['object'] = $this->object;
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
 	}
 	
 	
