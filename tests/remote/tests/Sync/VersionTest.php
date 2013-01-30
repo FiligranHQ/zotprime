@@ -36,11 +36,15 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useFutureVersion(true);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -64,8 +68,7 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 	private function _testAPINewerTimestamp($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$lastSyncTimestamp = $xml['timestamp'];
 		
 		// Create via sync
@@ -102,8 +105,7 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 		}
 		
 		// Should be empty with later timestamp
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$lastSyncTimestamp = $xml['timestamp'];
 		
 		$response = API::userGet(
@@ -133,8 +135,7 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 		), null, 'data');
 		
 		// Upload unchanged via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = $xml['updateKey'];
 		$lastSyncTimestamp = $xml['timestamp'];
 		

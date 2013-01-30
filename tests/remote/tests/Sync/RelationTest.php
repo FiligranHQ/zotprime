@@ -36,11 +36,15 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useFutureVersion(true);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -60,8 +64,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 			)
 		);
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = $xml['updateKey'];
 		$lastSyncTimestamp = $xml['timestamp'];
 		
@@ -97,8 +100,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 			}
 		}
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		
 		// Deleting item via API should log sync deletes for relations
 		$item = $items[0];
@@ -119,8 +121,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		);
 		$this->assertEquals(204, $response->getStatus());
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		
 		$this->assertEquals(0, $xml->updated[0]->relations->count());
 		$this->assertEquals(1, $xml->updated[0]->deleted[0]->items[0]->item->count());
@@ -133,8 +134,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testIsReplacedBy() {
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = $xml['updateKey'];
 		$lastSyncTimestamp = $xml['timestamp'];
 		
@@ -149,8 +149,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$libraryVersion = $data['version'];
 		$uri2 = "http://zotero.org/users/" . self::$config['userID'] . '/items/' . $key2;
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		
 		// For classic sync, dc:replaces should be swapped for dc:isReplacedBy
 		$this->assertEquals($uri1, (string) $xml->updated[0]->relations->relation[0]->subject);
@@ -164,8 +163,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		);
 		$this->assertEquals(204, $response->getStatus());
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		
 		$this->assertEquals(1, $xml->updated[0]->relations->count());
 		$this->assertEquals(1, $xml->updated[0]->deleted[0]->items[0]->item->count());
@@ -193,8 +191,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$libraryVersion = API::getLibraryVersion();
 		
 		// Add related items via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = $xml['updateKey'];
 		$lastSyncTimestamp = $xml['timestamp'];
 		

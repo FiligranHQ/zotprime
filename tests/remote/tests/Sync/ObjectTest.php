@@ -36,11 +36,15 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useFutureVersion(true);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -67,8 +71,7 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$lastSyncTimestamp = $xml['timestamp'];
 		
 		// Create via sync
@@ -155,8 +158,7 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		}
 		
 		// Should be empty with later newertime
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$lastSyncTimestamp = $xml['timestamp'];
 		
 		$response = API::userGet(

@@ -44,8 +44,7 @@ class Sync {
 	
 	
 	public static function createItem($sessionID, $libraryID, $itemType, $data=array(), $context) {
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$key = Zotero_Utilities::randomString(8, 'key', true);
@@ -80,8 +79,7 @@ class Sync {
 	
 	
 	public static function deleteItem($sessionID, $libraryID, $itemKey, $context=null) {
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$xmlstr = '<data version="9">'
@@ -98,8 +96,7 @@ class Sync {
 	
 	
 	public static function createCollection($sessionID, $libraryID, $name, $parent, $context) {
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$key = Zotero_Utilities::randomString(8, 'key', true);
@@ -136,8 +133,7 @@ class Sync {
 			);
 		}
 		
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$key = Zotero_Utilities::randomString(8, 'key', true);
@@ -197,8 +193,41 @@ class Sync {
 	}
 	
 	
-	public static function updated($sessionID, $lastsync=1) {
-		return self::req($sessionID, "updated", array("lastsync" => $lastsync));
+	public static function updated($sessionID, $lastsync=1, $allowError=false, $allowQueued=false) {
+		$response = self::req($sessionID, "updated", array("lastsync" => $lastsync));
+		$xml = Sync::getXMLFromResponse($response);
+		
+		if (isset($xml->updated) || (isset($xml->error) && $allowError)
+				|| (isset($xml->locked) && $allowQueued)) {
+			return $xml;
+		}
+		
+		if (!isset($xml->locked)) {
+			var_dump($xml->asXML());
+			throw new Exception("Not locked");
+		}
+		
+		$max = 5;
+		do {
+			$wait = (int) $xml->locked['wait'];
+			sleep($wait / 1000);
+			
+			$xml = Sync::updated($sessionID, $lastsync, $allowError, true);
+			
+			$max--;
+		}
+		while (isset($xml->locked) && $max > 0);
+		
+		if (!$max) {
+			throw new Exception("Download did not finish after $max attempts");
+		}
+		
+		if (!$allowError && !isset($xml->updated)) {
+			var_dump($xml->asXML());
+			throw new Exception("<updated> not found");
+		}
+		
+		return $xml;
 	}
 	
 	

@@ -36,12 +36,15 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useFutureVersion(true);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
 		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -55,8 +58,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	public function testTagAddItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -78,8 +80,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$version = $data['version'];
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		
@@ -122,8 +123,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 				'password' => self::$config['password2']
 			)
 		);
-		$response = Sync::updated($sessionID2);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID2);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -157,8 +157,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(self::$config['username2'], $lastModifiedByUser);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		
@@ -204,8 +203,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	public function testTagAddUnmodifiedItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -227,8 +225,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$version = $data['version'];
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		
@@ -267,8 +264,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	public function testTagRemoveItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -311,8 +307,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("Test2", $json->tags[1]->tag);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
@@ -331,8 +326,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$this->assertEquals(2, sizeOf($xml->updated->tags->tag));
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
 		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[1]->items));
@@ -355,8 +349,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	public function testTagDeleteItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -390,8 +383,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("Test", $json->tags[0]->tag);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
@@ -406,8 +398,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$this->assertEquals(1, sizeOf(isset($xml->updated->tags->tag)));
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
 		
@@ -429,8 +420,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	public function testTagDeleteUnmodifiedItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -464,8 +454,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("Test", $json->tags[0]->tag);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
@@ -485,8 +474,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$this->assertEquals(1, sizeOf(isset($xml->updated->tags->tag)));
 		$this->assertFalse(isset($xml->updated->tags->tag[0]->items));
 		

@@ -36,11 +36,15 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useFutureVersion(true);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -54,8 +58,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 	public function testCreatorItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -84,8 +87,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$version = $data['version'];
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		

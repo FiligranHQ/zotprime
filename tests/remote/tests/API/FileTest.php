@@ -285,8 +285,7 @@ class FileTests extends APITests {
 		// Get a sync timestamp from before the file is updated
 		require_once 'include/sync.inc.php';
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$lastsync = (int) $xml['timestamp'];
 		Sync::logout($sessionID);
 		
@@ -383,8 +382,7 @@ class FileTests extends APITests {
 		
 		// Make sure new attachment is passed via sync
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID, $lastsync);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID, $lastsync);
 		Sync::logout($sessionID);
 		$this->assertGreaterThan(0, $xml->updated[0]->count());
 	}
@@ -474,8 +472,7 @@ class FileTests extends APITests {
 		// Get a sync timestamp from before the file is updated
 		require_once 'include/sync.inc.php';
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$lastsync = (int) $xml['timestamp'];
 		Sync::logout($sessionID);
 		
@@ -574,8 +571,7 @@ class FileTests extends APITests {
 			
 			// Make sure new attachment is passed via sync
 			$sessionID = Sync::login();
-			$response = Sync::updated($sessionID, $lastsync);
-			$xml = Sync::getXMLFromResponse($response);
+			$xml = Sync::updated($sessionID, $lastsync);
 			Sync::logout($sessionID);
 			$this->assertGreaterThan(0, $xml->updated[0]->count());
 			
@@ -624,8 +620,7 @@ class FileTests extends APITests {
 		sleep(1);
 		require_once 'include/sync.inc.php';
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$lastsync = (int) $xml['timestamp'];
 		Sync::logout($sessionID);
 		
@@ -742,8 +737,7 @@ class FileTests extends APITests {
 		// Make sure attachment item wasn't updated (or else the client
 		// will get a conflict when it tries to update the metadata)
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID, $lastsync);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID, $lastsync);
 		Sync::logout($sessionID);
 		$this->assertEquals(0, $xml->updated[0]->count());
 		
@@ -781,8 +775,7 @@ class FileTests extends APITests {
 		
 		// Make sure attachment item still wasn't updated
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID, $lastsync);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID, $lastsync);
 		Sync::logout($sessionID);
 		$this->assertEquals(0, $xml->updated[0]->count());
 	}
@@ -837,8 +830,7 @@ class FileTests extends APITests {
 		sleep(1);
 		require_once 'include/sync.inc.php';
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID);
 		$lastsync = (int) $xml['timestamp'];
 		Sync::logout($sessionID);
 		
@@ -939,8 +931,7 @@ class FileTests extends APITests {
 		// Make sure attachment item wasn't updated (or else the client
 		// will get a conflict when it tries to update the metadata)
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID, $lastsync);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID, $lastsync);
 		Sync::logout($sessionID);
 		$this->assertEquals(0, $xml->updated[0]->count());
 		
@@ -979,8 +970,7 @@ class FileTests extends APITests {
 		
 		// Make sure attachment item still wasn't updated
 		$sessionID = Sync::login();
-		$response = Sync::updated($sessionID, $lastsync);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated($sessionID, $lastsync);
 		Sync::logout($sessionID);
 		$this->assertEquals(0, $xml->updated[0]->count());
 	}

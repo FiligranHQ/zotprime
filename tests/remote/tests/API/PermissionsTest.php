@@ -182,6 +182,7 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'] . "&format=keys"
 		);
+		$this->assert200($response);
 		$this->assertCount(sizeOf($keys), explode("\n", trim($response->getBody())));
 		
 		// Top
@@ -189,6 +190,7 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"items/top?key=" . self::$config['apiKey'] . "&format=keys"
 		);
+		$this->assert200($response);
 		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
 		
 		// Collection
@@ -196,6 +198,7 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"collections/$collectionKey/items?key=" . self::$config['apiKey'] . "&format=keys"
 		);
+		$this->assert200($response);
 		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
 		
 		// Remove notes privilege from key

@@ -542,7 +542,7 @@ class API {
 	
 	public static function groupClear($groupID) {
 		self::loadConfig();
-		return self::groupPost(
+		$response = self::groupPost(
 			$groupID,
 			"clear",
 			"",
@@ -552,6 +552,10 @@ class API {
 				"password" => self::$config['rootPassword']
 			)
 		);
+		if ($response->getStatus() != 204) {
+			var_dump($response->getBody());
+			throw new Exception("Error clearing group $groupID");
+		}
 	}
 	
 	
@@ -639,7 +643,13 @@ class API {
 			throw new Exception("GET returned " . $response->getStatus());
 		}
 		
-		$xml = new SimpleXMLElement($response->getBody());
+		try {
+			$xml = new SimpleXMLElement($response->getBody());
+		}
+		catch (Exception $e) {
+			var_dump($response->getBody());
+			throw $e;
+		}
 		foreach ($xml->access as $access) {
 			switch ($option) {
 			case 'libraryNotes':

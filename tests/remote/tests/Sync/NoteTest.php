@@ -36,11 +36,15 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useFutureVersion(true);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -52,8 +56,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testNoteTooLong() {
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$content = str_repeat("1234567890", 25001);
@@ -89,8 +92,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
 		
 		// Create note under the length limit
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$content = str_repeat("1234567890", 24999);
