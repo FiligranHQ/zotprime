@@ -78,6 +78,9 @@ else {
 
 $match = $router->match($_SERVER['REQUEST_URI']);
 
-//var_dump($match);
+if (Z_ENV_TESTING_SITE && !empty($_GET['showroute'])) {
+	var_dump($match);
+	exit;
+}
 
 return $match;
