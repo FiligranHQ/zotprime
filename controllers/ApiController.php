@@ -456,14 +456,18 @@ class ApiController extends Controller {
 	 * Zotero-If-Unmodified-Since-Version and make sure the library
 	 * hasn't been modified
 	 *
-	 * @return {Boolean}  True if library version was checked, false if not
+	 * @param boolean $required Return 428 if header is missing
+	 * @return boolean True if library version was checked, false if not
 	 */
-	protected function checkLibraryIfUnmodifiedSinceVersion() {
+	protected function checkLibraryIfUnmodifiedSinceVersion($required=false) {
 		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
 			continue;
 		}
 		
 		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+			if ($required) {
+				$this->e428("Zotero-If-Unmodified-Since-Version not provided");
+			}
 			return false;
 		}
 		

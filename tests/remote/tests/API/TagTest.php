@@ -228,15 +228,38 @@ class TagTests extends APITests {
 			}, $tags3)
 		), $this, 'key');
 		
+		$libraryVersion = API::getLibraryVersion();
 		
+		// Missing version header
 		$response = API::userDelete(
 			self::$config['userID'],
 			"tags?key=" . self::$config['apiKey']
 				. "&content=json&tag="
 				. implode("%20||%20", array_merge($tags1, $tags2))
 		);
+		$this->assert428($response);
+		
+		// Outdated version header
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2)),
+			array("Zotero-If-Unmodified-Since-Version: " . ($libraryVersion - 1))
+		);
+		$this->assert412($response);
+		
+		// Delete
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2)),
+			array("Zotero-If-Unmodified-Since-Version: $libraryVersion")
+		);
 		$this->assert204($response);
 		
+		// Make sure they're gone
 		$response = API::userGet(
 			self::$config['userID'],
 			"tags?key=" . self::$config['apiKey']
