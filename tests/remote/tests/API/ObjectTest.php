@@ -113,6 +113,9 @@ class ObjectTests extends APITests {
 		);
 		$this->assert200($response);
 		$json = json_decode($response->getBody(), true);
+		$version = $response->getHeader("Zotero-Last-Modified-Version");
+		$this->assertNotNull($version);
+		$this->assertContentType("application/json", $response);
 		
 		// Verify keys
 		$func = function ($json, $objectType, $objectKeys) use ($self) {

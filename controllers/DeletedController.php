@@ -28,11 +28,17 @@ require('ApiController.php');
 
 class DeletedController extends ApiController {
 	public function deleted() {
+		if ($this->queryParams['apiVersion'] < 2) {
+			$this->e404();
+		}
+		
 		$this->allowMethods(array('GET'));
 		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
 		}
+		
+		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		// TEMP: sync transition
 		if (isset($_GET['newertime'])) {
@@ -72,6 +78,8 @@ class DeletedController extends ApiController {
 				$this->objectLibraryID, $this->queryParams['newer']
 			)
 		);
+		
+		header("Content-Type: application/json");
 		echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
 		$this->end();
 	}
