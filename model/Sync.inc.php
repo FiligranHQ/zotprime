@@ -499,14 +499,13 @@ class Zotero_Sync {
 			// As of PHP 5.3.2 we can't serialize objects containing SimpleXMLElements,
 			// and since the stack trace includes one, we have to catch this and
 			// manually reconstruct an exception
-			try {
-				$serialized = serialize($e);
-			}
-			catch (Exception $e2) {
-				//$id = substr(md5(uniqid(rand(), true)), 0, 10);
-				//file_put_contents("/tmp/uploadError_$id", $e);
-				$serialized = serialize(new Exception($msg, $e->getCode()));
-			}
+			$serialized = serialize(
+				new Exception(
+					// Strip invalid \xa0 (due to note sanitizing and &nbsp;?)
+					iconv("utf-8", "utf-8//IGNORE", $msg),
+					$e->getCode()
+				)
+			);
 			
 			Z_Core::logError($e);
 			$sql = "UPDATE syncUploadQueue SET finished=?, errorCode=?, errorMessage=? WHERE syncUploadQueueID=?";
@@ -1020,13 +1019,6 @@ class Zotero_Sync {
 		}
 		
 		$e = @unserialize($row['errorMessage']);
-		
-		// In case it's not a valid exception for some reason, make one
-		//
-		// TODO: This can probably be removed after the transition
-		if (!($e instanceof Exception)) {
-			$e = new Exception($row['errorMessage'], $row['errorCode']);
-		}
 		
 		return array('timestamp' => $row['finished'], 'xmldata' => $row['xmldata'], 'exception' => $e);
 	}

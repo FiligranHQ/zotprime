@@ -102,5 +102,26 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 	}
+	
+	
+	public function testNoteTooLongWithA0() {
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$content = file_get_contents('data/bad_string.xml') . str_repeat("1234567890", 25001);
+		
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" itemType="note" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="AAAAAAAA"><note>' . $content . '</note></item></items></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
+		$this->assertRegExp('/^The note \'.+\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
+	}
 }
 ?>
