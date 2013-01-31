@@ -17,7 +17,7 @@ class Router {
 		$path = parse_url($url, PHP_URL_PATH);
 		$pathParts = explode("/", str_replace("//", "/", trim($path, "/")));
 		
-		if ($url == '/') {
+		if ($path == '/') {
 			return $this->routes['/']['params'];
 		}
 		unset($this->routes['/']);
