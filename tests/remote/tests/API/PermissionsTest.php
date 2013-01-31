@@ -28,6 +28,13 @@ require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
 class PermissionsTest extends APITests {
+	public function tearDown() {
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
+		);
+	}
+	
+	
 	public function testUserGroupsAnonymous() {
 		$response = API::get("users/" . self::$config['userID'] . "/groups?content=json");
 		$this->assert200($response);
@@ -255,5 +262,38 @@ class PermissionsTest extends APITests {
 				array_diff($bookKeys, $keys), array_diff($keys, $bookKeys)
 			)
 		);
+	}
+	
+	
+	public function testTagDeletePermissions() {
+		API::userClear(self::$config['userID']);
+		
+		$xml = API::createItem('book', array(
+			"tags" => array(
+				array(
+					"tag" => "A"
+				)
+			)
+		), $this);
+		
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 0
+		);
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?tag=A&key=" . self::$config['apiKey']
+		);
+		$this->assert403($response);
+		
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
+		);
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?tag=A&key=" . self::$config['apiKey']
+		);
+		$this->assert204($response);
 	}
 }

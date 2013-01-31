@@ -653,26 +653,50 @@ class API {
 		foreach ($xml->access as $access) {
 			switch ($option) {
 			case 'libraryNotes':
-				if (isset($access['library'])) {
-					$current = (int) $access['notes'];
-					if ($current != $val) {
-						$access['notes'] = (int) $val;
-						$response = API::put(
-							"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
-							$xml->asXML(),
-							array(),
-							array(
-								"username" => self::$config['rootUsername'],
-								"password" => self::$config['rootPassword']
-							)
-						);
-						if ($response->getStatus() != 200) {
-							var_dump($response->getBody());
-							throw new Exception("PUT returned " . $response->getStatus());
-						}
-						break;
+				if (!isset($access['library'])) {
+					break;
+				}
+				$current = (int) $access['notes'];
+				if ($current != $val) {
+					$access['notes'] = (int) $val;
+					$response = API::put(
+						"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+						$xml->asXML(),
+						array(),
+						array(
+							"username" => self::$config['rootUsername'],
+							"password" => self::$config['rootPassword']
+						)
+					);
+					if ($response->getStatus() != 200) {
+						var_dump($response->getBody());
+						throw new Exception("PUT returned " . $response->getStatus());
 					}
 				}
+				break;
+			
+			case 'libraryWrite':
+				if (!isset($access['library'])) {
+					continue;
+				}
+				$current = (int) $access['write'];
+				if ($current != $val) {
+					$access['write'] = (int) $val;
+					$response = API::put(
+						"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+						$xml->asXML(),
+						array(),
+						array(
+							"username" => self::$config['rootUsername'],
+							"password" => self::$config['rootPassword']
+						)
+					);
+					if ($response->getStatus() != 200) {
+						var_dump($response->getBody());
+						throw new Exception("PUT returned " . $response->getStatus());
+					}
+				}
+				break;
 			}
 		}
 	}

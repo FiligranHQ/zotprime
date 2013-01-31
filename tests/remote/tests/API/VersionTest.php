@@ -118,6 +118,14 @@ class VersionTests extends APITests {
 				. "&newer=" . $data1['version']
 		);
 		$this->assertNumResults(2, $response);
+		$libraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&newer=" . $libraryVersion
+		);
+		$this->assertNumResults(0, $response);
 	}
 	
 	

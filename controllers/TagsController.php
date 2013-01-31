@@ -34,11 +34,25 @@ class TagsController extends ApiController {
 			$this->e403();
 		}
 		
+		if ($this->isWriteMethod()) {
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			// Make sure library hasn't been modified
+			$libraryTimestampChecked = $this->checkLibraryIfUnmodifiedSinceVersion();
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+		}
+		
 		$tagIDs = array();
 		$results = array();
 		$totalResults = 0;
 		$name = $this->objectName;
 		$fixedValues = array();
+		
+		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		// Set of tags matching name
 		if ($name && $this->subset != 'tags') {
