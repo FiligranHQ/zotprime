@@ -276,6 +276,8 @@ class PermissionsTest extends APITests {
 			)
 		), $this);
 		
+		$libraryVersion = API::getLibraryVersion();
+		
 		API::setKeyOption(
 			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 0
 		);
@@ -292,7 +294,8 @@ class PermissionsTest extends APITests {
 		
 		$response = API::userDelete(
 			self::$config['userID'],
-			"tags?tag=A&key=" . self::$config['apiKey']
+			"tags?tag=A&key=" . self::$config['apiKey'],
+			array("Zotero-If-Unmodified-Since-Version: $libraryVersion")
 		);
 		$this->assert204($response);
 	}
