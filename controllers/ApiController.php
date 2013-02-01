@@ -491,7 +491,9 @@ class ApiController extends Controller {
 	 */
 	protected function checkLibraryIfModifiedSinceVersion($action) {
 		if (!$this->singleObject
-				&& in_array($action, array("items", "collections", "searches"))
+				&& in_array(
+					$action, array("items", "collections", "searches", "tags")
+				)
 				&& !empty($_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION'])
 				&& !$this->isWriteMethod()
 				&& $this->permissions->canAccess($this->objectLibraryID)
