@@ -34,7 +34,7 @@ if (!$params || !isset($params['controller']) || $params['controller'] == 404) {
 
 // Parse variables from router
 $controllerName = ucwords($params['controller']);
-$action = !empty($params['action']) ? $params['action'] : strtolower($controllerName);
+$action = !empty($params['action']) ? $params['action'] : lcfirst($controllerName);
 $directory = !empty($params['directory']) ? $params['directory'] . '/' : "";
 $extra = !empty($params['extra']) ? $params['extra'] : array();
 
