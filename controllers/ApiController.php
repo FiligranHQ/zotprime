@@ -389,7 +389,7 @@ class ApiController extends Controller {
 	
 	/**
 	 * For single-object requests for some actions, require
-	 * Zotero-If-Unmodified-Since-Version (or the deprecated If-Match)
+	 * If-Unmodified-Since-Version (or the deprecated If-Match)
 	 * and make sure the object hasn't been modified
 	 */
 	protected function checkObjectIfUnmodifiedSinceVersion($object, $required=false) {
@@ -421,20 +421,20 @@ class ApiController extends Controller {
 				$this->e412("ETag does not match current version of $objectType");
 			}
 		}
-		// Zotero-If-Unmodified-Since-Version
+		// If-Unmodified-Since-Version
 		else {
-			if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+			if (empty($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
 				if ($required) {
-					$this->e428("Zotero-If-Unmodified-Since must be provided for write requests");
+					$this->e428("If-Unmodified-Since-Version must be provided for write requests");
 				}
 				else {
 					return false;
 				}
 			}
-			$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+			$version = $_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'];
 			
 			if (!is_numeric($version)) {
-				$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+				$this->e400("Invalid If-Unmodified-Since-Version value");
 			}
 			
 			// Zotero_Item requires 'itemVersion'
@@ -453,7 +453,7 @@ class ApiController extends Controller {
 	
 	/**
 	 * For multi-object requests for some actions, require
-	 * Zotero-If-Unmodified-Since-Version and make sure the library
+	 * If-Unmodified-Since-Version and make sure the library
 	 * hasn't been modified
 	 *
 	 * @param boolean $required Return 428 if header is missing
@@ -464,17 +464,17 @@ class ApiController extends Controller {
 			continue;
 		}
 		
-		if (empty($_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'])) {
+		if (empty($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
 			if ($required) {
-				$this->e428("Zotero-If-Unmodified-Since-Version not provided");
+				$this->e428("If-Unmodified-Since-Version not provided");
 			}
 			return false;
 		}
 		
-		$version = $_SERVER['HTTP_ZOTERO_IF_UNMODIFIED_SINCE_VERSION'];
+		$version = $_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'];
 		
 		if (!is_numeric($version)) {
-			$this->e400("Invalid Zotero-If-Unmodified-Since-Version value");
+			$this->e400("Invalid If-Unmodified-Since-Version value");
 		}
 		
 		$libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
@@ -487,18 +487,18 @@ class ApiController extends Controller {
 	
 	/**
 	 * For multi-object requests for some actions, return 304 Not Modified
-	 * if the library hasn't been updated since Zotero-If-Modified-Since-Version
+	 * if the library hasn't been updated since If-Modified-Since-Version
 	 */
 	protected function checkLibraryIfModifiedSinceVersion($action) {
 		if (!$this->singleObject
 				&& in_array(
 					$action, array("items", "collections", "searches", "tags")
 				)
-				&& !empty($_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION'])
+				&& !empty($_SERVER['HTTP_IF_MODIFIED_SINCE_VERSION'])
 				&& !$this->isWriteMethod()
 				&& $this->permissions->canAccess($this->objectLibraryID)
 				&& Zotero_Libraries::getVersion($this->objectLibraryID)
-					<= $_SERVER['HTTP_ZOTERO_IF_MODIFIED_SINCE_VERSION']) {
+					<= $_SERVER['HTTP_IF_MODIFIED_SINCE_VERSION']) {
 			$this->e304("Library has not been modified");
 		}
 	}
@@ -564,7 +564,7 @@ class ApiController extends Controller {
 		$this->responseCode = (int) ($matches[1] . $matches[2]);
 		
 		// On 4xx or 5xx errors, rollback all open transactions
-		// and don't send Zotero-Last-Modified-Version
+		// and don't send Last-Modified-Version
 		if ($matches[1] == "4" || $matches[1] == "5") {
 			$this->libraryVersion = null;
 			Zotero_DB::rollback(true);
@@ -680,7 +680,7 @@ class ApiController extends Controller {
 		}
 		
 		if ($this->libraryVersion && $this->queryParams['apiVersion'] >= 2) {
-			header("Zotero-Last-Modified-Version: " . $this->libraryVersion);
+			header("Last-Modified-Version: " . $this->libraryVersion);
 		}
 		
 		if ($this->responseXML instanceof SimpleXMLElement) {

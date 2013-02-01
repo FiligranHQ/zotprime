@@ -90,7 +90,7 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 				"$objectTypePlural/$key?key=" . self::$config['apiKey']
 			);
 			$this->assertEquals(200, $response->getStatus());
-			$version = $response->getHeader("Zotero-Last-Modified-Version");
+			$version = $response->getHeader("Last-Modified-Version");
 			$this->assertNotNull($version);
 		}
 		

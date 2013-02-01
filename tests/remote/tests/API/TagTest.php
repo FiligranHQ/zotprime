@@ -245,7 +245,7 @@ class TagTests extends APITests {
 			"tags?key=" . self::$config['apiKey']
 				. "&content=json&tag="
 				. implode("%20||%20", array_merge($tags1, $tags2)),
-			array("Zotero-If-Unmodified-Since-Version: " . ($libraryVersion - 1))
+			array("If-Unmodified-Since-Version: " . ($libraryVersion - 1))
 		);
 		$this->assert412($response);
 		
@@ -255,7 +255,7 @@ class TagTests extends APITests {
 			"tags?key=" . self::$config['apiKey']
 				. "&content=json&tag="
 				. implode("%20||%20", array_merge($tags1, $tags2)),
-			array("Zotero-If-Unmodified-Since-Version: $libraryVersion")
+			array("If-Unmodified-Since-Version: $libraryVersion")
 		);
 		$this->assert204($response);
 		

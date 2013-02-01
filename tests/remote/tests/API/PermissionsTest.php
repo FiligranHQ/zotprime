@@ -295,7 +295,7 @@ class PermissionsTest extends APITests {
 		$response = API::userDelete(
 			self::$config['userID'],
 			"tags?tag=A&key=" . self::$config['apiKey'],
-			array("Zotero-If-Unmodified-Since-Version: $libraryVersion")
+			array("If-Unmodified-Since-Version: $libraryVersion")
 		);
 		$this->assert204($response);
 	}

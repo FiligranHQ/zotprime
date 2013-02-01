@@ -86,7 +86,7 @@ class ObjectTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
 		);
-		$libraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		
 		// Delete objects
 		$config = self::$config;
@@ -97,10 +97,10 @@ class ObjectTests extends APITests {
 				$config['userID'],
 				"$objectTypePlural?key=" . $config['apiKey']
 					. "&$keyProp=" . implode(',', $objectKeys[$objectType]),
-				array("Zotero-If-Unmodified-Since-Version: " . $libraryVersion)
+				array("If-Unmodified-Since-Version: " . $libraryVersion)
 			);
 			$self->assert204($response);
-			return $response->getHeader("Zotero-Last-Modified-Version");
+			return $response->getHeader("Last-Modified-Version");
 		};
 		$newLibraryVersion = $func('collection', $libraryVersion);
 		$newLibraryVersion = $func('item', $newLibraryVersion);
@@ -113,7 +113,7 @@ class ObjectTests extends APITests {
 		);
 		$this->assert200($response);
 		$json = json_decode($response->getBody(), true);
-		$version = $response->getHeader("Zotero-Last-Modified-Version");
+		$version = $response->getHeader("Last-Modified-Version");
 		$this->assertNotNull($version);
 		$this->assertContentType("application/json", $response);
 		
@@ -137,7 +137,7 @@ class ObjectTests extends APITests {
 			self::$config['userID'],
 			"tags?key=" . self::$config['apiKey']
 			. "&tag=" . implode('%20||%20', $objectKeys['tag']),
-			array("Zotero-If-Unmodified-Since-Version: " . $newLibraryVersion)
+			array("If-Unmodified-Since-Version: " . $newLibraryVersion)
 		);
 		$self->assert204($response);
 		
@@ -198,7 +198,7 @@ class ObjectTests extends APITests {
 			self::$config['userID'],
 			"$objectTypePlural/$objectKey?key=" . self::$config['apiKey'],
 			array(
-				"Zotero-If-Unmodified-Since-Version: " . $objectVersion
+				"If-Unmodified-Since-Version: " . $objectVersion
 			)
 		);
 		$this->assert204($response);
@@ -243,14 +243,14 @@ class ObjectTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertNumResults(sizeOf($deleteKeys) + sizeOf($keepKeys), $response);
-		$libraryVersion = $response->getHeader("Zotero-Last-Modified-Version");
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		
 		$response = API::userDelete(
 			self::$config['userID'],
 			"$objectTypePlural?key=" . self::$config['apiKey']
 				. "&$keyProp=" . implode(',', $deleteKeys),
 			array(
-				"Zotero-If-Unmodified-Since-Version: " . $libraryVersion
+				"If-Unmodified-Since-Version: " . $libraryVersion
 			)
 		);
 		$this->assert204($response);

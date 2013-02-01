@@ -107,7 +107,7 @@ class ItemTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $version"
+				"If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert204($response);
@@ -159,7 +159,7 @@ class ItemTests extends APITests {
 			json_encode($json2),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $version"
+				"If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert204($response);
@@ -194,7 +194,7 @@ class ItemTests extends APITests {
 				json_encode($newData),
 				array(
 					"Content-Type: application/json",
-					"Zotero-If-Unmodified-Since-Version: $itemVersion"
+					"If-Unmodified-Since-Version: $itemVersion"
 				)
 			);
 			$context->assert204($response);
@@ -205,7 +205,7 @@ class ItemTests extends APITests {
 			foreach ($itemData as $field => $val) {
 				$context->assertEquals($val, $json[$field]);
 			}
-			$headerVersion = $response->getHeader("Zotero-Last-Modified-Version");
+			$headerVersion = $response->getHeader("Last-Modified-Version");
 			$context->assertGreaterThan($itemVersion, $headerVersion);
 			$context->assertEquals($json['itemVersion'], $headerVersion);
 			
@@ -265,7 +265,7 @@ class ItemTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: {$data['version']}"
+				"If-Unmodified-Since-Version: {$data['version']}"
 			)
 		);
 		$this->assert204($response);
@@ -385,7 +385,7 @@ class ItemTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $version"
+				"If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert204($response);
@@ -412,7 +412,7 @@ class ItemTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $version"
+				"If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert204($response);
@@ -445,7 +445,7 @@ class ItemTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $version"
+				"If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert204($response);
@@ -562,7 +562,7 @@ class ItemTests extends APITests {
 				json_encode($json2),
 				array(
 					"Content-Type: application/json",
-					"Zotero-If-Unmodified-Since-Version: $version"
+					"If-Unmodified-Since-Version: $version"
 				)
 			);
 			$this->assert400($response);

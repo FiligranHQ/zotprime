@@ -112,12 +112,12 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 			"items/{$item['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$this->assertEquals(200, $response->getStatus());
-		$libraryVersion = $response->getHeader('Zotero-Last-Modified-Version');
+		$libraryVersion = $response->getHeader('Last-Modified-Version');
 		
 		$response = API::userDelete(
 			self::$config['userID'],
 			"items/{$item['key']}?key=" . self::$config['apiKey'],
-			array("Zotero-If-Unmodified-Since-Version: $libraryVersion")
+			array("If-Unmodified-Since-Version: $libraryVersion")
 		);
 		$this->assertEquals(204, $response->getStatus());
 		
@@ -159,7 +159,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$response = API::userDelete(
 			self::$config['userID'],
 			"items/$key2?key=" . self::$config['apiKey'],
-			array("Zotero-If-Unmodified-Since-Version: $libraryVersion")
+			array("If-Unmodified-Since-Version: $libraryVersion")
 		);
 		$this->assertEquals(204, $response->getStatus());
 		

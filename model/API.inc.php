@@ -644,14 +644,14 @@ class Zotero_API {
 		else {
 			if ($requireVersion == 1 && isset($json->$keyProp)) {
 				throw new HTTPException(
-					"Either Zotero-If-Unmodified-Since-Version or "
+					"Either If-Unmodified-Since-Version or "
 					. "'$versionProp' property must be provided for "
 					. "'$keyProp'-based writes", 428
 				);
 			}
 			else if ($requireVersion == 2) {
 				throw new HTTPException(
-					"Either Zotero-If-Unmodified-Since-Version or "
+					"Either If-Unmodified-Since-Version or "
 					. "'$versionProp' property must be provided for "
 					. "single-object writes", 428
 				);

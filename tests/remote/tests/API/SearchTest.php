@@ -97,7 +97,7 @@ class SearchTests extends APITests {
 			json_encode($json),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $version"
+				"If-Unmodified-Since-Version: $version"
 			)
 		);
 		$this->assert204($response);

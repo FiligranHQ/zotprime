@@ -148,7 +148,7 @@ class CollectionTests extends APITests {
 			)),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: " . $data['version']
+				"If-Unmodified-Since-Version: " . $data['version']
 			)
 		);
 		$this->assert200($response);
@@ -203,7 +203,7 @@ class CollectionTests extends APITests {
 			)),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $itemVersion1"
+				"If-Unmodified-Since-Version: $itemVersion1"
 			)
 		);
 		$this->assert204($response);
@@ -215,7 +215,7 @@ class CollectionTests extends APITests {
 			)),
 			array(
 				"Content-Type: application/json",
-				"Zotero-If-Unmodified-Since-Version: $itemVersion2"
+				"If-Unmodified-Since-Version: $itemVersion2"
 			)
 		);
 		$this->assert204($response);

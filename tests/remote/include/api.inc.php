@@ -372,7 +372,7 @@ class API {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
 		);
-		return $response->getHeader("Zotero-Last-Modified-Version");
+		return $response->getHeader("Last-Modified-Version");
 	}
 	
 	
