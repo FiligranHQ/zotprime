@@ -369,17 +369,27 @@ class Zotero_Key {
 			throw new Exception("Key not loaded");
 		}
 		
+		$ip = IPAddress::getIP();
+		
+		// If we already logged access by this key from this IP address
+		// in the last minute, don't do it again
+		$cacheKey = "keyAccessLogged_" . $this->id . "_" . md5($ip);
+		if (Z_Core::$MC->get($cacheKey)) {
+			return;
+		}
+		
 		try {
 			$sql = "UPDATE `keys` SET lastUsed=NOW() WHERE keyID=?";
 			Zotero_DB::query($sql, $this->id);
 			
-			$ip = IPAddress::getIP();
 			$sql = "REPLACE INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
 			Zotero_DB::query($sql, array($this->id, $ip));
 		}
 		catch (Exception $e) {
 			error_log("WARNING: " . $e);
 		}
+		
+		Z_Core::$MC->set($cacheKey, "1", 60);
 	}
 	
 	
