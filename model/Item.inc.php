@@ -1984,11 +1984,11 @@ class Zotero_Item {
 		$this->reload();
 		
 		if ($isNew) {
-			//Zotero.Notifier.trigger('add', 'item', $this->getID());
+			Zotero_Notifier::trigger('add', 'item', $this->libraryID . "/" . $this->key);
 			return $this->id;
 		}
 		
-		//Zotero.Notifier.trigger('modify', 'item', $this->getID(), { old: $this->_preChangeArray });
+		Zotero_Notifier::trigger('modify', 'item', $this->libraryID . "/" . $this->key);
 		return true;
 	}
 	

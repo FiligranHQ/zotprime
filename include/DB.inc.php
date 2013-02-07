@@ -50,6 +50,12 @@ class Zotero_DB {
 	
 	private $preparedStatements = array();
 	
+	private $callbacks = array(
+		'begin' => array(),
+		'commit' => array(),
+		'rollback' => array()
+	);
+	
 	protected $db = 'master';
 	
 	protected function __construct() {
@@ -156,6 +162,10 @@ class Zotero_DB {
 		$instance->transactionTimestampUnix = null;
 		
 		Z_Core::debug("Starting transaction");
+		
+		foreach ($instance->callbacks['begin'] as $callback) {
+			call_user_func($callback);
+		}
 	}
 	
 	
@@ -192,6 +202,10 @@ class Zotero_DB {
 		rsort($shardIDs);
 		foreach ($shardIDs as $shardID) {
 			$instance->commitReal($shardID);
+		}
+		
+		foreach ($instance->callbacks['commit'] as $callback) {
+			call_user_func($callback);
 		}
 	}
 	
@@ -230,6 +244,16 @@ class Zotero_DB {
 		
 		$instance->transactionLevel--;
 		$instance->transactionRollback = false;
+		
+		foreach ($instance->callbacks['rollback'] as $callback) {
+			call_user_func($callback);
+		}
+	}
+	
+	
+	public static function addCallback($action, $cb) {
+		$instance = self::getInstance();
+		$instance->callbacks[$action][] = $cb;
 	}
 	
 	
