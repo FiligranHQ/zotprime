@@ -978,6 +978,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			)
 			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
 				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
+				: "")
+			// If there's bib content, include the bib cache version
+			. ((in_array('bib', $queryParams['content'])
+					&& isset(Z_CONFIG::$CACHE_VERSION_BIB))
+				? "_" . Z_CONFIG::$CACHE_VERSION_BIB
 				: "");
 		
 		$xmlstr = Z_Core::$MC->get($cacheKey);
