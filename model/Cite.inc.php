@@ -444,6 +444,11 @@ class Zotero_Cite {
 			
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			
+			if ($code != 200) {
+				error_log($code . " from citation server -- trying another "
+					. "[INPUT: '$json'] [URL: '$url'] [RESPONSE: '$response']");
+			}
+			
 			if ($code == 404) {
 				throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
 			}
