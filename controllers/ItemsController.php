@@ -98,8 +98,9 @@ class ItemsController extends ApiController {
 				$this->e404("Item does not exist");
 			}
 			
+			// If no access to the note, don't show that it exists
 			if ($item->isNote() && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
-				$this->e403();
+				$this->e404();
 			}
 			
 			// Make sure URL libraryID matches item libraryID
@@ -111,6 +112,7 @@ class ItemsController extends ApiController {
 			if ($this->fileMode) {
 				$this->_handleFileRequest($item);
 			}
+			
 			
 			if ($this->scopeObject) {
 				switch ($this->scopeObject) {
