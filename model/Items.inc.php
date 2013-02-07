@@ -554,7 +554,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			if ($userID && isset($shardGroupItemIDs[$shardID])) {
 				$sql = "UPDATE groupItems SET lastModifiedByUserID=? "
 					. "WHERE itemID IN ("
-					. implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
+					. implode(',', array_fill(0, sizeOf($shardGroupItemIDs[$shardID]), '?')) . ")";
 				Zotero_DB::query(
 					$sql,
 					array_merge(array($userID), $shardGroupItemIDs[$shardID]),
