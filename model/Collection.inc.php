@@ -386,10 +386,29 @@ class Zotero_Collection {
 		
 		$this->childItems = array_values(array_unique($itemIDs));
 		
-		// TODO: remove once classic syncing is removed
+		//
+		// TODO: remove UPDATE statements below once classic syncing is removed
+		//
+		// Update timestamp of collection
 		$sql = "UPDATE collections SET serverDateModified=? WHERE collectionID=?";
 		$ts = Zotero_DB::getTransactionTimestamp();
 		Zotero_DB::query($sql, array($ts, $this->id), $shardID);
+		
+		// Update version of new and removed items
+		if ($new || $removed) {
+			$sql = "UPDATE items SET version=? WHERE itemID IN ("
+				. implode(', ', array_fill(0, sizeOf($new) + sizeOf($removed), '?'))
+				. ")";
+			Zotero_DB::query(
+				$sql,
+				array_merge(
+					array(Zotero_Libraries::getUpdatedVersion($this->libraryID)),
+					$new,
+					$removed
+				),
+				$shardID
+			);
+		}
 		
 		Zotero_DB::commit();
 	}
