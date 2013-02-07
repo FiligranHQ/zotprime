@@ -326,6 +326,8 @@ class Zotero_Libraries {
 		
 		Zotero_Notifier::trigger("clear", "library", $libraryID);
 		
+		Zotero_FullText::deleteByLibrary($libraryID);
+		
 		Zotero_DB::commit();
 	}
 	

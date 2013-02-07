@@ -461,6 +461,9 @@ class Zotero_API {
 				break;
 			}
 		}
+		else if ($action == 'fulltext') {
+			return $format == 'versions';
+		}
 		else if ($action == 'groups') {
 			switch ($format) {
 				case 'atom':

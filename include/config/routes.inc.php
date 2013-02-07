@@ -31,6 +31,12 @@ else {
 	$router->map('/groups/i:objectGroupID/items/:objectKey/file', array('controller' => 'Items', 'extra' => array('allowHTTP' => true, 'file' => true)));
 	$router->map('/groups/i:objectGroupID/items/:objectKey/file/view', array('controller' => 'Items', 'extra' => array('allowHTTP' => true, 'file' => true, 'view' => true)));
 	
+	// Full-text content
+	$router->map('/users/i:objectUserID/items/:objectKey/fulltext', array('controller' => 'FullText', 'action' => 'itemContent'));
+	$router->map('/groups/i:objectGroupID/items/:objectKey/fulltext', array('controller' => 'FullText', 'action' => 'itemContent'));
+	$router->map('/users/i:objectUserID/fulltext', array('controller' => 'FullText', 'action' => 'fulltext'));
+	$router->map('/groups/i:objectGroupID/fulltext', array('controller' => 'FullText', 'action' => 'fulltext'));
+	
 	// All deleted items
 	$router->map('/users/i:objectUserID/items/trash', array('controller' => 'Items', 'extra' => array('subset' => 'trash')));
 	$router->map('/groups/i:objectGroupID/items/trash', array('controller' => 'Items', 'extra' => array('subset' => 'trash')));

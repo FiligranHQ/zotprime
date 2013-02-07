@@ -38,6 +38,9 @@ class Z_CONFIG {
 		"citeserver1.localdomain:8080", "citeserver2.localdomain:8080"
 	);
 	
+	public static $SEARCH_HOST = '';
+	public static $SEARCH_INDEX = '';
+	
 	public static $SQS_QUEUE_URL_PREFIX = '';
 	public static $SQS_QUEUE_ITEM_UPDATES = 'item-updates';
 	
