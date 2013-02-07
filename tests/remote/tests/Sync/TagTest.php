@@ -184,7 +184,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
-		$this->assertNotEquals($version, $data['version']);
+		$this->assertGreaterThan($version, $data['version']);
 		
 		// Verify createdByUserID and lastModifiedByUserID
 		$response = API::groupGet(
@@ -257,7 +257,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
-		$this->assertNotEquals($version, $data['version']);
+		$this->assertGreaterThan($version, $data['version']);
 	}
 	
 	
@@ -340,7 +340,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$this->assertNotEquals($originalVersion, $data['version']);
+		$this->assertGreaterThan($originalVersion, $data['version']);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(1, $json->tags);
 	}
@@ -413,7 +413,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(0, $json->tags);
-		$this->assertNotEquals($originalVersion, $data['version']);
+		$this->assertGreaterThan($originalVersion, $data['version']);
 	}
 	
 	
@@ -489,6 +489,6 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(0, $json->tags);
-		$this->assertNotEquals($originalVersion, $data['version']);
+		$this->assertGreaterThan($originalVersion, $data['version']);
 	}
 }
