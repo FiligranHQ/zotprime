@@ -27,6 +27,16 @@
 require('ApiController.php');
 
 class FullTextController extends ApiController {
+	public function __construct($controllerName, $action, $params) {
+		parent::__construct($controllerName, $action, $params);
+		
+		// Only available on testing site for now
+		if (!Z_ENV_TESTING_SITE) {
+			$this->e404();
+		}
+	}
+	
+	
 	public function fulltext() {
 		$this->allowMethods(array('GET'));
 		
