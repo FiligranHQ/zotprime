@@ -72,11 +72,6 @@ class RelationTests extends APITests {
 			)
 		), $this, 'response');
 		$this->assert400ForObject($response, "'relations' values currently must be Zotero item URIs");
-		
-		$response = API::createItem("book", array(
-			"relations" => array()
-		), $this, 'response');
-		$this->assert400ForObject($response, "'relations' property must be an object");
 	}
 	
 	
