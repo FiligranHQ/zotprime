@@ -1851,7 +1851,9 @@ class Zotero_Items extends Zotero_DataObjects {
 						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					
-					if (!is_object($val)) {
+					if (!is_object($val)
+							// Allow an empty array, because it's annoying for clients otherwise
+							&& !(is_array($val) && empty($val))) {
 						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
 					}
 					foreach ($val as $predicate => $object) {
