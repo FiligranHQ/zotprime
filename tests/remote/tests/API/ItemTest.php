@@ -597,6 +597,86 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testParentItem() {
+		$xml = API::createItem("book", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$parentKey = $data['key'];
+		$parentVersion = $data['version'];
+		
+		$xml = API::createAttachmentItem("linked_url", $parentKey, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$childKey = $data['key'];
+		$childVersion = $data['version'];
+		
+		$this->assertArrayHasKey('parentItem', $json);
+		$this->assertEquals($parentKey, $json['parentItem']);
+		
+		// Remove the parent, making the child a standalone attachment
+		unset($json['parentItem']);
+		
+		// The parent item version should have been updated when a child
+		// was added, so this should fail
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$childKey?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("If-Unmodified-Since-Version: " . $parentVersion)
+		);
+		$this->assert412($response);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$childKey?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("If-Unmodified-Since-Version: " . $childVersion)
+		);
+		$this->assert204($response);
+		
+		$xml = API::getItemXML($childKey);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertArrayNotHasKey('parentItem', $json);
+	}
+	
+	
+	public function testParentItemPatch() {
+		$xml = API::createItem("book", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$parentKey = $data['key'];
+		$parentVersion = $data['version'];
+		
+		$xml = API::createAttachmentItem("linked_url", $parentKey, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$childKey = $data['key'];
+		$childVersion = $data['version'];
+		
+		$this->assertArrayHasKey('parentItem', $json);
+		$this->assertEquals($parentKey, $json['parentItem']);
+		
+		$json = array(
+			'title' => 'Test'
+		);
+		
+		// With PATCH, parent shouldn't be removed even though unspecified
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$childKey?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("If-Unmodified-Since-Version: " . $childVersion)
+		);
+		$this->assert204($response);
+		
+		$xml = API::getItemXML($childKey);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertArrayHasKey('parentItem', $json);
+	}
+	
+	
 	public function testDate() {
 		$date = "Sept 18, 2012";
 		

@@ -1638,6 +1638,10 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($parentItem) {
 			$item->setSource($parentItem->id);
 		}
+		// Clear parent if not a partial update and a parentItem isn't provided
+		else if (!$partialUpdate && $item->getSourceKey() && !isset($json->parentItem)) {
+			$item->setSourceKey(false);
+		}
 		
 		$item->deleted = !empty($json->deleted);
 		

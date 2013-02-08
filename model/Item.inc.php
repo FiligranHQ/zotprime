@@ -2272,7 +2272,7 @@ class Zotero_Item {
 			return false;
 		}
 		
-		$this->sourceItem = $sourceItemKey ? $sourceItemKey : null;
+		$this->sourceItem = $sourceItemKey ? $sourceItemKey : false;
 		$this->changed['source'] = true;
 		
 		return true;
@@ -3399,6 +3399,11 @@ class Zotero_Item {
 		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
 			$arr['itemKey'] = $this->key;
 			$arr['itemVersion'] = $this->itemVersion;
+			
+			$key = $this->getSourceKey();
+			if ($key) {
+				$arr['parentItem'] = $key;
+			}
 		}
 		$arr['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
 		
