@@ -269,8 +269,12 @@ class ApiController extends Controller {
 			$_SERVER['QUERY_STRING'],
 			$this->action,
 			$this->singleObject,
-			!empty($_SERVER['HTTP_THE_FUTURE_IS_NOW'])
+			!empty($_SERVER['HTTP_ZOTERO_API_VERSION'])
+				? (int) $_SERVER['HTTP_ZOTERO_API_VERSION']
+				: false
 		);
+		
+		header("Zotero-API-Version: " . $this->queryParams['apiVersion']);
 	}
 	
 	

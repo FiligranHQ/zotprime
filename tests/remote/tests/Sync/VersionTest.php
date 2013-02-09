@@ -37,7 +37,7 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 			self::$config[$k] = $v;
 		}
 		
-		API::useFutureVersion(true);
+		API::useAPIVersion(2);
 	}
 	
 	

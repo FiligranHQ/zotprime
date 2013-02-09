@@ -45,12 +45,12 @@ class APITests extends PHPUnit_Framework_TestCase {
 			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
 		);
 		
-		API::useFutureVersion(true);
+		API::useAPIVersion(2);
 	}
 	
 	
 	public function setUp() {
-		API::useFutureVersion(true);
+		API::useAPIVersion(2);
 	}
 	
 	

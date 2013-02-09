@@ -29,7 +29,7 @@ require_once 'include/http.inc.php';
 class API {
 	private static $config;
 	private static $nsZAPI;
-	private static $futureAPIVersion = false;
+	private static $apiVersion = false;
 	
 	private static function loadConfig() {
 		require 'include/config.inc.php';
@@ -40,8 +40,8 @@ class API {
 	}
 	
 	
-	public static function useFutureVersion($enable) {
-		self::$futureAPIVersion = $enable;
+	public static function useAPIVersion($apiVersion) {
+		self::$apiVersion = $apiVersion;
 	}
 	
 	
@@ -421,8 +421,8 @@ class API {
 	public static function get($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
-		if (self::$futureAPIVersion) {
-			$headers[] = "The-Future-Is-Now: 1";
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
 		$response = HTTP::get($url, $headers, $auth);
 		if (self::$config['verbose']) {
@@ -442,8 +442,8 @@ class API {
 	public static function post($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
-		if (self::$futureAPIVersion) {
-			$headers[] = "The-Future-Is-Now: 1";
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
 		$response = HTTP::post($url, $data, $headers, $auth);
 		return $response;
@@ -460,8 +460,8 @@ class API {
 	public static function put($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
-		if (self::$futureAPIVersion) {
-			$headers[] = "The-Future-Is-Now: 1";
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
 		$response = HTTP::put($url, $data, $headers, $auth);
 		return $response;
@@ -478,8 +478,8 @@ class API {
 	public static function patch($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
-		if (self::$futureAPIVersion) {
-			$headers[] = "The-Future-Is-Now: 1";
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
 		$response = HTTP::patch($url, $data, $headers, $auth);
 		return $response;
@@ -492,8 +492,8 @@ class API {
 	public static function head($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
-		if (self::$futureAPIVersion) {
-			$headers[] = "The-Future-Is-Now: 1";
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
 		$response = HTTP::head($url, $headers, $auth);
 		return $response;
@@ -506,8 +506,8 @@ class API {
 	public static function delete($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
-		if (self::$futureAPIVersion) {
-			$headers[] = "The-Future-Is-Now: 1";
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
 		$response = HTTP::delete($url, $headers, $auth);
 		return $response;

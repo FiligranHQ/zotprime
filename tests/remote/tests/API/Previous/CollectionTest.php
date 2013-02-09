@@ -41,7 +41,7 @@ class PreviousCollectionTests extends APITests {
 	
 	public function setUp() {
 		parent::setUp();
-		API::useFutureVersion(false);
+		API::useAPIVersion(1);
 	}
 	
 	
