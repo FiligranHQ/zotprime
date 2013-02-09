@@ -149,7 +149,7 @@ class ApiController extends Controller {
 				$this->userID = $keyObj->userID;
 				$this->permissions = $keyObj->getPermissions();
 				
-				// Check X-Zotero-Write-Token if it exists to make sure
+				// Check Zotero-Write-Token if it exists to make sure
 				// this isn't a duplicate request
 				if ($this->method == 'POST' || $this->method == 'PUT') {
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
@@ -544,16 +544,16 @@ class ApiController extends Controller {
 	
 	
 	protected function getWriteTokenCacheKey() {
-		if (empty($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN'])) {
+		if (empty($_SERVER['HTTP_ZOTERO_WRITE_TOKEN'])) {
 			return false;
 		}
-		if (strlen($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN']) < 5 || strlen($_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN']) > 32) {
+		if (strlen($_SERVER['HTTP_ZOTERO_WRITE_TOKEN']) < 5 || strlen($_SERVER['HTTP_ZOTERO_WRITE_TOKEN']) > 32) {
 			$this->e400("Write token must be 5-32 characters in length");
 		}
 		if (!$this->apiKey) {
 			$this->e400("Write token cannot be used without an API key");
 		}
-		return "writeToken_" . md5($this->apiKey . "_" . $_SERVER['HTTP_X_ZOTERO_WRITE_TOKEN']);
+		return "writeToken_" . md5($this->apiKey . "_" . $_SERVER['HTTP_ZOTERO_WRITE_TOKEN']);
 	}
 	
 	
