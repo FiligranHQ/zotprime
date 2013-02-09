@@ -261,5 +261,49 @@ class CollectionTests extends APITests {
 		$this->assert400($response);
 		$this->assertEquals("Child items cannot be assigned to collections", $response->getBody());
 	}
+	
+	
+	public function testCollectionItems() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		
+		$xml = API::createItem("book", array('collections' => array($collectionKey)), $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$itemKey1 = $data['key'];
+		$itemVersion1 = $data['version'];
+		$json = json_decode($data['content']);
+		$this->assertEquals(array($collectionKey), $json->collections);
+		
+		$xml = API::createItem("journalArticle", array('collections' => array($collectionKey)), $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$itemKey2 = $data['key'];
+		$itemVersion2 = $data['version'];
+		$json = json_decode($data['content']);
+		$this->assertEquals(array($collectionKey), $json->collections);
+		
+		$childItemKey1 = API::createAttachmentItem("linked_url", $itemKey1, $this, 'key');
+		$childItemKey2 = API::createAttachmentItem("linked_url", $itemKey2, $this, 'key');
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(4, $keys);
+		$this->assertContains($itemKey1, $keys);
+		$this->assertContains($itemKey2, $keys);
+		$this->assertContains($childItemKey1, $keys);
+		$this->assertContains($childItemKey2, $keys);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($itemKey1, $keys);
+		$this->assertContains($itemKey2, $keys);
+	}
 }
 ?>

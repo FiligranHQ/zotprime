@@ -298,8 +298,14 @@ class ItemsController extends ApiController {
 							$this->e204();
 						}
 						
-						$title = "Items in Collection ‘" . $collection->name . "’";
-						$itemIDs = $collection->getChildItems();
+						if ($this->subset == 'top' || $this->queryParams['apiVersion'] < 2) {
+							$title = "Top-Level Items in Collection ‘" . $collection->name . "’";
+							$itemIDs = $collection->getItems();
+						}
+						else {
+							$title = "Items in Collection ‘" . $collection->name . "’";
+							$itemIDs = $collection->getItems(true);
+						}
 						break;
 					
 					case 'tags':

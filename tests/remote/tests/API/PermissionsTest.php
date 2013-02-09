@@ -176,7 +176,7 @@ class PermissionsTest extends APITests {
 		// Collection
 		$response = API::userGet(
 			self::$config['userID'],
-			"collections/$collectionKey/items?key=" . self::$config['apiKey']
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey']
 		);
 		$this->assertNumResults(sizeOf($topKeys), $response);
 		$this->assertTotalResults(sizeOf($topKeys), $response);
@@ -203,7 +203,7 @@ class PermissionsTest extends APITests {
 		// Collection
 		$response = API::userGet(
 			self::$config['userID'],
-			"collections/$collectionKey/items?key=" . self::$config['apiKey'] . "&format=keys"
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey'] . "&format=keys"
 		);
 		$this->assert200($response);
 		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));

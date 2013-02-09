@@ -16,7 +16,7 @@ else {
 	$router->map('/groups/i:objectGroupID', array('controller' => 'Groups'));
 	$router->map('/groups/i:scopeObjectID/users/i:objectID', array('controller' => 'Groups', 'action' => 'groupUsers'));
 	
-	// Top level objects
+	// Top-level objects
 	$router->map('/users/i:objectUserID/:controller/top', array('extra' => array('subset' => 'top')));
 	$router->map('/groups/i:objectGroupID/:controller/top', array('extra' => array('subset' => 'top')));
 	
@@ -57,6 +57,10 @@ else {
 	// Tags within something else
 	$router->map('/users/i:objectUserID/:scopeObject/:scopeObjectKey/tags/:objectKey/:subset', array('controller' => 'Tags'));
 	$router->map('/groups/i:objectGroupID/:scopeObject/:scopeObjectKey/tags/:objectKey/:subset', array('controller' => 'Tags'));
+	
+	// Top-level items within something else
+	$router->map('/users/i:objectUserID/:scopeObject/:scopeObjectKey/items/top', array('controller' => 'Items', 'extra' => array('subset' => 'top')));
+	$router->map('/groups/i:objectGroupID/:scopeObject/:scopeObjectKey/items/top', array('controller' => 'Items', 'extra' => array('subset' => 'top')));
 	
 	// Items within something else
 	$router->map('/users/i:objectUserID/:scopeObject/:scopeObjectKey/items/:objectKey/:subset', array('controller' => 'Items'));

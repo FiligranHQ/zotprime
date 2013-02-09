@@ -40,8 +40,8 @@ class Zotero_Collection {
 	private $childCollectionsLoaded;
 	private $childCollections = array();
 	
-	private $childItemsLoaded;
-	private $childItems = array();
+	private $itemsLoaded;
+	private $items = array();
 	
 	public function __construct() {
 		$numArgs = func_num_args();
@@ -338,24 +338,43 @@ class Zotero_Collection {
 	 *
 	 * @return {Integer[]}	Array of itemIDs
 	 */
-	public function getChildItems() {
-		if (!$this->childItemsLoaded) {
-			$this->loadChildItems();
+	public function getItems($includeChildItems=false) {
+		if (!$this->itemsLoaded) {
+			$this->loadItems();
 		}
-		return $this->childItems;
+		
+		if ($includeChildItems) {
+			$sql = "(SELECT INo.itemID FROM itemNotes INo "
+				. "JOIN items I ON (INo.sourceItemID=I.itemID) "
+				. "JOIN collectionItems CI ON (I.itemID=CI.itemID) "
+				. "WHERE collectionID=?)"
+				. " UNION "
+				. "(SELECT IA.itemID FROM itemAttachments IA "
+				. "JOIN items I ON (IA.sourceItemID=I.itemID) "
+				. "JOIN collectionItems CI ON (I.itemID=CI.itemID) "
+				. "WHERE collectionID=?)";
+			$childItemIDs = Zotero_DB::columnQuery(
+				$sql, array($this->id, $this->id), Zotero_Shards::getByLibraryID($this->libraryID)
+			);
+			if ($childItemIDs) {
+				return array_merge($this->items, $childItemIDs);
+			}
+		}
+		
+		return $this->items;
 	}
 	
 	
-	public function setChildItems($itemIDs) {
+	public function setItems($itemIDs) {
 		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 		
 		Zotero_DB::beginTransaction();
 		
-		if (!$this->childItemsLoaded) {
-			$this->loadChildItems();
+		if (!$this->itemsLoaded) {
+			$this->loadItems();
 		}
 		
-		$current = $this->childItems;
+		$current = $this->items;
 		$removed = array_diff($current, $itemIDs);
 		$new = array_diff($itemIDs, $current);
 		
@@ -384,7 +403,7 @@ class Zotero_Collection {
 			Zotero_DB::query($sql, $params, $shardID);
 		}
 		
-		$this->childItems = array_values(array_unique($itemIDs));
+		$this->items = array_values(array_unique($itemIDs));
 		
 		//
 		// TODO: remove UPDATE statements below once classic syncing is removed
@@ -428,7 +447,7 @@ class Zotero_Collection {
 			return;
 		}
 		
-		$this->setChildItems(array_merge($this->getChildItems(), array($itemID)));
+		$this->setItems(array_merge($this->getItems(), array($itemID)));
 	}
 	
 	
@@ -437,8 +456,8 @@ class Zotero_Collection {
 	 * separately.
 	 */
 	public function addItems($itemIDs) {
-		$childItems = array_merge($this->getChildItems(), $itemIDs);
-		$this->setChildItems($childItems);
+		$items = array_merge($this->getItems(), $itemIDs);
+		$this->setItems($items);
 	}
 	
 	
@@ -452,9 +471,9 @@ class Zotero_Collection {
 			return false;
 		}
 		
-		$childItems = $this->getChildItems();
-		array_splice($childItems, array_search($itemID, $childItems), 1);
-		$this->setChildItems($childItems);
+		$items = $this->getItems();
+		array_splice($items, array_search($itemID, $items), 1);
+		$this->setItems($items);
 		
 		return true;
 	}
@@ -465,11 +484,11 @@ class Zotero_Collection {
 	 * Check if an item belongs to the collection
 	 */
 	public function hasItem($itemID) {
-		if (!$this->childItemsLoaded) {
-			$this->loadChildItems();
+		if (!$this->itemsLoaded) {
+			$this->loadItems();
 		}
 		
-		return in_array($itemID, $this->childItems);
+		return in_array($itemID, $this->items);
 	}
 	
 	
@@ -937,10 +956,10 @@ class Zotero_Collection {
 	}
 	
 	
-	private function loadChildItems() {
+	private function loadItems() {
 		Z_Core::debug("Loading child items for collection $this->id");
 		
-		if ($this->childItemsLoaded) {
+		if ($this->itemsLoaded) {
 			trigger_error("Child items for collection $this->id already loaded", E_USER_ERROR);
 		}
 		
@@ -951,8 +970,8 @@ class Zotero_Collection {
 		$sql = "SELECT itemID FROM collectionItems WHERE collectionID=?";
 		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
-		$this->childItems = $ids ? $ids : array();
-		$this->childItemsLoaded = true;
+		$this->items = $ids ? $ids : array();
+		$this->itemsLoaded = true;
 	}
 	
 	

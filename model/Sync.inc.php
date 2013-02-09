@@ -1530,7 +1530,7 @@ class Zotero_Sync {
 							}
 							$ids[] = $item->id;
 						}
-						$collection['obj']->setChildItems($ids);
+						$collection['obj']->setItems($ids);
 					}
 				}
 				unset($collectionSets);
