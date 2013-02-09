@@ -371,13 +371,14 @@ class ItemTests extends APITests {
 	}
 	
 	
-	/**
-	 * @depends testNewEmptyLinkAttachmentItem
-	 */
-	public function testEditEmptyLinkAttachmentItem($newItemData) {
-		$key = $newItemData['key'];
-		$version = $newItemData['version'];
-		$json = json_decode($newItemData['content']);
+	public function testEditEmptyLinkAttachmentItem() {
+		$key = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("linked_url", $key, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		
+		$key = $data['key'];
+		$version = $data['version'];
+		$json = json_decode($data['content']);
 		
 		$response = API::userPut(
 			self::$config['userID'],
@@ -394,7 +395,7 @@ class ItemTests extends APITests {
 		// Item shouldn't change
 		$this->assertEquals($version, $data['version']);
 		
-		return $newItemData;
+		return $data;
 	}
 	
 	
@@ -454,6 +455,29 @@ class ItemTests extends APITests {
 		$json = json_decode($data['content']);
 		$this->assertEquals($contentType, $json->contentType);
 		$this->assertEquals($charset, $json->charset);
+	}
+	
+	
+	public function testEditAttachmentUpdatedTimestamp() {
+		$xml = API::createAttachmentItem("linked_file", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$atomUpdated = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$json = json_decode($data['content'], true);
+		$json['note'] = "Test";
+		
+		sleep(1);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("If-Unmodified-Since-Version: " . $data['version'])
+		);
+		$this->assert204($response);
+		
+		$xml = API::getItemXML($data['key']);
+		$atomUpdated2 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$this->assertNotEquals($atomUpdated2, $atomUpdated);
 	}
 	
 	

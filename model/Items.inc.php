@@ -1653,6 +1653,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$item->deleted = !empty($json->deleted);
 		
+		// If item has changed, update it with the current timestamp
+		if ($item->hasChanged()) {
+			$item->dateModified = Zotero_DB::getTransactionTimestamp();
+		}
+		
 		$changed = $item->save($userID) || $changed;
 		
 		// Additional steps that have to be performed on a saved object
