@@ -340,6 +340,14 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		$changed = false;
 		
+		if (!Zotero_DB::transactionInProgress()) {
+			Zotero_DB::beginTransaction();
+			$transactionStarted = true;
+		}
+		else {
+			$transactionStarted = false;
+		}
+		
 		$collection->name = $json->name;
 		
 		if ($requestParams['apiVersion'] >= 2 && isset($json->parentCollection)) {
@@ -361,6 +369,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 			else {
 				$changed = $collection->setRelations(new stdClass(), $userID) || $changed;
 			}
+		}
+		
+		if ($transactionStarted) {
+			Zotero_DB::commit();
 		}
 		
 		return $changed;

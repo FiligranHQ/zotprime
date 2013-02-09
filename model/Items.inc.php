@@ -1455,6 +1455,14 @@ class Zotero_Items extends Zotero_DataObjects {
 		$changed = false;
 		$twoStage = false;
 		
+		if (!Zotero_DB::transactionInProgress()) {
+			Zotero_DB::beginTransaction();
+			$transactionStarted = true;
+		}
+		else {
+			$transactionStarted = false;
+		}
+		
 		// Set itemType first
 		if (isset($json->itemType)) {
 			$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
@@ -1705,6 +1713,10 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 				}
 			}
+		}
+		
+		if ($transactionStarted) {
+			Zotero_DB::commit();
 		}
 		
 		return $changed;
