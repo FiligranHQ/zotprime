@@ -75,7 +75,12 @@ class Zotero_Errors {
 			
 			default:
 				$error['code'] = 500;
-				$error['message'] = "An error occurred";
+				if (Z_ENV_TESTING_SITE) {
+					$error['message'] = $e;
+				}
+				else {
+					$error['message'] = "An error occurred";
+				}
 				$error['log'] = true;
 		}
 		
