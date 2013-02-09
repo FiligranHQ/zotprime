@@ -1356,7 +1356,6 @@ class Zotero_Sync {
 		}
 		
 		try {
-			Z_Core::$MC->begin();
 			Zotero_DB::beginTransaction();
 			
 			// Mark libraries as updated
@@ -1709,7 +1708,6 @@ class Zotero_Sync {
 			}
 			
 			Zotero_DB::commit();
-			Z_Core::$MC->commit();
 			
 			if ($profile) {
 				$shardID = Zotero_Shards::getByUserID($userID);
@@ -1721,7 +1719,6 @@ class Zotero_Sync {
 			return $timestamp + 1;
 		}
 		catch (Exception $e) {
-			Z_Core::$MC->rollback();
 			Zotero_DB::rollback(true);
 			self::removeUploadProcess($processID);
 			throw $e;

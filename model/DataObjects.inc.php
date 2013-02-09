@@ -562,7 +562,6 @@ class Zotero_DataObjects {
 		
 		$i = 0;
 		foreach ($json->$types as $prop => $jsonObject) {
-			Z_Core::$MC->begin();
 			Zotero_DB::beginTransaction();
 			
 			try {
@@ -592,7 +591,6 @@ class Zotero_DataObjects {
 					);
 				}
 				Zotero_DB::commit();
-				Z_Core::$MC->commit();
 				
 				if ($changed) {
 					$results->addSuccess($i, $obj->key);
@@ -603,7 +601,6 @@ class Zotero_DataObjects {
 			}
 			catch (Exception $e) {
 				Zotero_DB::rollback();
-				Z_Core::$MC->rollback();
 				
 				if ($requestParams['apiVersion'] < 2) {
 					throw ($e);

@@ -201,7 +201,9 @@ Z_Core::$MC = new Z_MemcachedClientLocal(
 		'servers' => Z_CONFIG::$MEMCACHED_SERVERS
 	)
 );
-
+Zotero_DB::addCallback("begin", array(Z_Core::$MC, "begin"));
+Zotero_DB::addCallback("commit", array(Z_Core::$MC, "commit"));
+Zotero_DB::addCallback("reset", array(Z_Core::$MC, "reset"));
 
 Z_Core::$Elastica = new \Elastica\Client(array(
 	'host' => Z_CONFIG::$SEARCH_HOST
