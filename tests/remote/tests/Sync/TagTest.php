@@ -81,8 +81,15 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		
 		// Get item via sync
 		$xml = Sync::updated(self::$sessionID);
-		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
+		
+		// Increment the library version, since we're testing the
+		// version below
+		API::createItem('newspaperArticle', false, false, 'key');
+		$libraryVersion = API::getLibraryVersion();
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
 		
 		// Add tag to item via sync
 		$data = '<data version="9"><tags><tag libraryID="'
@@ -107,7 +114,10 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertCount(1, $json->tags);
 		$this->assertTrue(isset($json->tags[0]->tag));
 		$this->assertEquals("Test", $json->tags[0]->tag);
-		$this->assertNotEquals($version, $data['version']);
+		// Item version should be increased
+		$this->assertGreaterThan($version, $data['version']);
+		// And should be one more than previous version
+		$this->assertEquals($libraryVersion + 1, $data['version']);
 	}
 	
 	
@@ -455,11 +465,18 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		
 		// Get item via sync
 		$xml = Sync::updated(self::$sessionID);
-		$updateKey = (string) $xml['updateKey'];
-		
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		$this->assertEquals(1, sizeOf($xml->updated->tags->tag));
 		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[0]->items));
+		$lastsync = (int) $xml['timestamp'];
+		
+		// Increment the library version, since we're testing the
+		// version below
+		API::createItem('newspaperArticle', false, false, 'key');
+		$libraryVersion = API::getLibraryVersion();
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
 		
 		// Delete tag via sync, with unmodified item
 		$data = '<data version="9"><items><item libraryID="'
@@ -489,6 +506,13 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
 		$this->assertCount(0, $json->tags);
+		// New item version should be greater than before
 		$this->assertGreaterThan($originalVersion, $data['version']);
+		// And should be one more than previous version
+		$this->assertEquals($libraryVersion + 1, $data['version']);
+		
+		// Only the newspaperArticle should be updated
+		$xml = Sync::updated(self::$sessionID, $lastsync);
+		$this->assertEquals(1, $xml->updated[0]->items[0]->count());
 	}
 }

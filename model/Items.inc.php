@@ -556,15 +556,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		Zotero_DB::beginTransaction();
-		$timestamp = Zotero_DB::getTransactionTimestamp();
-		
 		foreach ($shardItemIDs as $shardID => $itemIDs) {
-			$sql = "UPDATE items SET serverDateModified=?, "
-				. "version=IF(version = 65535, 0, version + 1) "
-				. "WHERE itemID IN "
-				. "(" . implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
-			Zotero_DB::query($sql, array_merge(array($timestamp), $itemIDs), $shardID);
-			
 			// Group item data
 			if ($userID && isset($shardGroupItemIDs[$shardID])) {
 				$sql = "UPDATE groupItems SET lastModifiedByUserID=? "
@@ -577,7 +569,16 @@ class Zotero_Items extends Zotero_DataObjects {
 				);
 			}
 		}
-		
+		foreach ($libraryItems as $libraryID => $items) {
+			$itemIDs = array();
+			foreach ($items as $item) {
+				$itemIDs[] = $item->id;
+			}
+			$version = Zotero_Libraries::getUpdatedVersion($libraryID);
+			$sql = "UPDATE items SET version=? WHERE itemID IN "
+				. "(" . implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
+			Zotero_DB::query($sql, array_merge(array($version), $itemIDs), $shardID);
+		}
 		Zotero_DB::commit();
 		
 		foreach ($libraryItems as $libraryID => $items) {
