@@ -1648,7 +1648,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$item->setSource($parentItem->id);
 		}
 		// Clear parent if not a partial update and a parentItem isn't provided
-		else if (!$partialUpdate && $item->getSourceKey() && !isset($json->parentItem)) {
+		else if ($requestParams['apiVersion'] >= 2 && !$partialUpdate
+				&& $item->getSourceKey() && !isset($json->parentItem)) {
 			$item->setSourceKey(false);
 		}
 		
