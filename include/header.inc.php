@@ -54,10 +54,23 @@ function zotero_autoload($className) {
 	
 	// Get everything else from include path
 	
+	switch ($className) {
+	case 'HTTPException':
+		require_once $className . '.inc.php';
+		return;
+	}
+	
 	// Strip "Z_" namespace
 	if (strpos($className, 'Z_') === 0) {
 		$className = str_replace('Z_', '', $className);
 		require_once $className . '.inc.php';
+		return;
+	}
+	
+	// Elastica
+	if (strpos($className, 'Elastica\\') === 0) {
+		$className = str_replace('\\', '/', $className);
+		require_once 'Elastica/lib/' . $className . '.php';
 		return;
 	}
 }
@@ -129,6 +142,9 @@ if (file_exists(Z_ENV_BASE_PATH . 'include/config/custom.inc.php')) {
 	require('config/custom.inc.php');
 }
 
+// Composer autoloads
+//require Z_ENV_BASE_PATH . 'vendor/autoload.php';
+
 require('HTMLPurifier/HTMLPurifier.standalone.php');
 $c = HTMLPurifier_Config::createDefault();
 $c->set('HTML.Doctype', 'XHTML 1.0 Strict');
@@ -171,6 +187,11 @@ require('config/dbconnect.inc.php');
 
 require('StatsD.inc.php');
 
+Zotero_DB::addCallback("begin", array("Zotero_Notifier", "begin"));
+Zotero_DB::addCallback("commit", array("Zotero_Notifier", "commit"));
+Zotero_DB::addCallback("callback", array("Zotero_Notifier", "reset"));
+Zotero_NotifierObserver::init();
+
 // Memcached
 require('Memcached.inc.php');
 Z_Core::$MC = new Z_MemcachedClientLocal(
@@ -180,6 +201,13 @@ Z_Core::$MC = new Z_MemcachedClientLocal(
 		'servers' => Z_CONFIG::$MEMCACHED_SERVERS
 	)
 );
+Zotero_DB::addCallback("begin", array(Z_Core::$MC, "begin"));
+Zotero_DB::addCallback("commit", array(Z_Core::$MC, "commit"));
+Zotero_DB::addCallback("reset", array(Z_Core::$MC, "reset"));
+
+Z_Core::$Elastica = new \Elastica\Client(array(
+	'host' => Z_CONFIG::$SEARCH_HOST
+));
 
 require('interfaces/IAuthenticationPlugin.inc.php');
 

@@ -29,6 +29,10 @@ class Zotero_URI {
 		return Z_CONFIG::$BASE_URI;
 	}
 	
+	public static function getBaseWWWURI() {
+		return Z_CONFIG::$WWW_BASE_URI;
+	}
+	
 	public static function getLibraryURI($libraryID, $skipNames=false) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
@@ -79,12 +83,16 @@ class Zotero_URI {
 		return self::getGroupURI($group) . "/items/$item->key";
 	}
 	
-	public static function getCollectionURI(Zotero_Collection $collection) {
-		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
+	public static function getCollectionURI(Zotero_Collection $collection, $skipNames=false) {
+		return self::getLibraryURI($collection->libraryID, true) . "/collections/$collection->key";
 	}
 	
 	public static function getCreatorURI(Zotero_Creator $creator) {
 		return self::getLibraryURI($creator->libraryID) . "/creators/$creator->key";
+	}
+	
+	public static function getSearchURI(Zotero_Search $search) {
+		return self::getLibraryURI($search->libraryID) . "/searches/$search->key";
 	}
 	
 	public static function getTagURI(Zotero_Tag $tag) {

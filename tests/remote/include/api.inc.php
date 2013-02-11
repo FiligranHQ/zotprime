@@ -29,6 +29,7 @@ require_once 'include/http.inc.php';
 class API {
 	private static $config;
 	private static $nsZAPI;
+	private static $apiVersion = false;
 	
 	private static function loadConfig() {
 		require 'include/config.inc.php';
@@ -36,6 +37,11 @@ class API {
 			self::$config[$k] = $v;
 		}
 		self::$nsZAPI = 'http://zotero.org/ns/api';
+	}
+	
+	
+	public static function useAPIVersion($apiVersion) {
+		self::$apiVersion = $apiVersion;
 	}
 	
 	
@@ -48,7 +54,7 @@ class API {
 	}
 	
 	
-	public function createItem($itemType, $data=array(), $context=null) {
+	public function createItem($itemType, $data=array(), $context=null, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$json = self::getItemTemplate($itemType);
@@ -67,10 +73,8 @@ class API {
 			)),
 			array("Content-Type: application/json")
 		);
-		if ($context) {
-			$context->assert201($response);
-		}
-		return API::getXMLFromResponse($response);
+		
+		return self::handleCreateResponse('item', $response, $responseFormat, $context);
 	}
 	
 	
@@ -99,7 +103,7 @@ class API {
 	}
 	
 	
-	public function groupCreateItem($groupID, $itemType, $context=null) {
+	public function groupCreateItem($groupID, $itemType, $context=null, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=$itemType");
@@ -114,112 +118,300 @@ class API {
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
-		return API::getXMLFromResponse($response);
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
+		switch ($responseFormat) {
+		case 'json':
+			return $json;
+		
+		case 'key':
+			return array_shift($json['success']);
+		
+		case 'atom':
+			$itemKey = array_shift($json['success']);
+			return self::groupGetItemXML($groupID, $itemKey, $context);
+		
+		default:
+			throw new Exception("Invalid response format '$responseFormat'");
+		}
 	}
 	
 	
-	public function createAttachmentItem($linkMode, $parentKey=false, $context=false) {
+	public function createAttachmentItem($linkMode, $parentKey=false, $context=false, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
-		
 		if ($parentKey) {
-			$url = "items/$parentKey/children";
-		}
-		else {
-			$url = "items";
+			$json->parentItem = $parentKey;
 		}
 		
 		$response = API::userPost(
 			self::$config['userID'],
-			$url . "?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		if ($context) {
-			$json = json_decode($data['content']);
-			$context->assertEquals($linkMode, $json->linkMode);
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
 		}
-		return $xml;
+		
+		switch ($responseFormat) {
+		case 'json':
+			return $json;
+		
+		case 'key':
+			return array_shift($json['success']);
+		
+		case 'atom':
+			$itemKey = array_shift($json['success']);
+			$xml = self::getItemXML($itemKey, $context);
+			if ($context) {
+				$data = API::parseDataFromAtomEntry($xml);
+				$json = json_decode($data['content']);
+				$context->assertEquals($linkMode, $json->linkMode);
+			}
+			return $xml;
+			
+			return API::getXMLFromResponse($response);
+		
+		default:
+			throw new Exception("Invalid response format '$responseFormat'");
+		}
 	}
 	
 	
-	public function groupCreateAttachmentItem($groupID, $linkMode, $parentKey=false, $context=false) {
+	public function groupCreateAttachmentItem($groupID, $linkMode, $parentKey=false, $context=false, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
-		
 		if ($parentKey) {
-			$url = "items/$parentKey/children";
-		}
-		else {
-			$url = "items";
+			$json->parentItem = $parentKey;
 		}
 		
 		$response = API::groupPost(
 			$groupID,
-			$url . "?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		if ($context) {
-			$json = json_decode($data['content']);
-			$context->assertEquals($linkMode, $json->linkMode);
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
 		}
-		return $xml;
+		
+		switch ($responseFormat) {
+		case 'json':
+			return $json;
+		
+		case 'key':
+			return array_shift($json['success']);
+		
+		case 'atom':
+			$itemKey = array_shift($json['success']);
+			$xml = self::groupGetItemXML($groupID, $itemKey, $context);
+			if ($context) {
+				$data = API::parseDataFromAtomEntry($xml);
+				$json = json_decode($data['content']);
+				$context->assertEquals($linkMode, $json->linkMode);
+			}
+			return $xml;
+		
+		default:
+			throw new Exception("Invalid response format '$responseFormat'");
+		}
 	}
 	
 	
-	public function createNoteItem($text="", $parentKey=false, $context=false) {
+	public function createNoteItem($text="", $parentKey=false, $context=false, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
 		$json->note = $text;
-		
 		if ($parentKey) {
-			$url = "items/$parentKey/children";
-		}
-		else {
-			$url = "items";
+			$json->parentItem = $parentKey;
 		}
 		
 		$response = API::userPost(
 			self::$config['userID'],
-			$url . "?key=" . self::$config['apiKey'],
+			"items?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"items" => array($json)
 			)),
 			array("Content-Type: application/json")
 		);
 		if ($context) {
-			$context->assert201($response);
+			$context->assert200($response);
 		}
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("Item creation failed");
+		}
+		
+		switch ($responseFormat) {
+		case 'json':
+			return $json;
+		
+		case 'key':
+			return array_shift($json['success']);
+		
+		case 'atom':
+			$itemKey = array_shift($json['success']);
+			$xml = self::getItemXML($itemKey, $context);
+			if ($context) {
+				$data = API::parseDataFromAtomEntry($xml);
+				$json = json_decode($data['content']);
+				$context->assertEquals($text, $json->note);
+			}
+			return $xml;
+		
+		default:
+			throw new Exception("Invalid response format '$responseFormat'");
+		}
+	}
+	
+	
+	public function createCollection($name, $data=array(), $context=null, $responseFormat='atom') {
+		self::loadConfig();
+		
+		if (is_array($data)) {
+			$parent = isset($data['parentCollection']) ? $data['parentCollection'] : false;
+			$relations = isset($data['relations']) ? $data['relations'] : new stdClass;
+		}
+		else {
+			$parent = $data ? $data : false;
+			$relations = new stdClass;
+		}
+		
+		$json = array(
+			"collections" => array(
+				array(
+					'name' => $name,
+					'parentCollection' => $parent,
+					'relations' => $relations
+				)
+			)
+		);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		
+		return self::handleCreateResponse('collection', $response, $responseFormat, $context);
+	}
+	
+	
+	public function createSearch($name, $conditions=array(), $context=null, $responseFormat='atom') {
+		self::loadConfig();
+		
+		if ($conditions == 'default') {
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'test'
+				)
+			);
+		}
+		
+		$json = array(
+			"searches" => array(
+				array(
+					'name' => $name,
+					'conditions' => $conditions
+				)
+			)
+		);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"searches?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		
+		return self::handleCreateResponse('search', $response, $responseFormat, $context);
+	}
+	
+	
+	public static function getLibraryVersion() {
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
+		);
+		return $response->getHeader("Last-Modified-Version");
+	}
+	
+	
+	public static function getItemXML($keys, $context=null) {
+		return self::getObjectXML('item', $keys, $context);
+	}
+	
+	
+	public static function groupGetItemXML($groupID, $keys, $context=null) {
+		if (is_scalar($keys)) {
+			$keys = array($keys);
+		}
+		
+		$response = API::groupGet(
+			$groupID,
+			"items?key=" . self::$config['apiKey']
+				. "&itemKey=" . implode(',', $keys) . "&order=itemKeyList"
+				. "&content=json"
+		);
 		if ($context) {
-			$json = json_decode($data['content']);
-			$context->assertEquals($text, $json->note);
+			$context->assert200($response);
 		}
-		return $xml;
+		return API::getXMLFromResponse($response);
+	}
+	
+	
+	public static function getXMLFromFirstSuccessItem($response) {
+		$key = self::getFirstSuccessKeyFromResponse($response);
+		self::getItemXML($key);
+	}
+	
+	
+	public static function getCollectionXML($keys, $context=null) {
+		return self::getObjectXML('collection', $keys, $context);
+	}
+	
+	
+	public static function getSearchXML($keys, $context=null) {
+		return self::getObjectXML('search', $keys, $context);
 	}
 	
 	
@@ -229,6 +421,9 @@ class API {
 	public static function get($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
+		}
 		$response = HTTP::get($url, $headers, $auth);
 		if (self::$config['verbose']) {
 			echo "\n\n" . $response->getBody() . "\n";
@@ -247,6 +442,9 @@ class API {
 	public static function post($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
+		}
 		$response = HTTP::post($url, $data, $headers, $auth);
 		return $response;
 	}
@@ -262,6 +460,9 @@ class API {
 	public static function put($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
+		}
 		$response = HTTP::put($url, $data, $headers, $auth);
 		return $response;
 	}
@@ -277,6 +478,9 @@ class API {
 	public static function patch($url, $data, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
+		}
 		$response = HTTP::patch($url, $data, $headers, $auth);
 		return $response;
 	}
@@ -288,6 +492,9 @@ class API {
 	public static function head($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
+		}
 		$response = HTTP::head($url, $headers, $auth);
 		return $response;
 	}
@@ -299,6 +506,9 @@ class API {
 	public static function delete($url, $headers=array(), $auth=false) {
 		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
+		if (self::$apiVersion) {
+			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
+		}
 		$response = HTTP::delete($url, $headers, $auth);
 		return $response;
 	}
@@ -314,7 +524,7 @@ class API {
 	
 	public static function userClear($userID) {
 		self::loadConfig();
-		return self::userPost(
+		$response = self::userPost(
 			$userID,
 			"clear",
 			"",
@@ -324,11 +534,15 @@ class API {
 				"password" => self::$config['rootPassword']
 			)
 		);
+		if ($response->getStatus() != 204) {
+			var_dump($response->getBody());
+			throw new Exception("Error clearing user $userID");
+		}
 	}
 	
 	public static function groupClear($groupID) {
 		self::loadConfig();
-		return self::groupPost(
+		$response = self::groupPost(
 			$groupID,
 			"clear",
 			"",
@@ -338,8 +552,16 @@ class API {
 				"password" => self::$config['rootPassword']
 			)
 		);
+		if ($response->getStatus() != 204) {
+			var_dump($response->getBody());
+			throw new Exception("Error clearing group $groupID");
+		}
 	}
 	
+	
+	//
+	// Response parsing
+	//
 	public static function getXMLFromResponse($response) {
 		try {
 			$xml = new SimpleXMLElement($response->getBody());
@@ -354,13 +576,34 @@ class API {
 	}
 	
 	
-	public static function parseDataFromItemEntry($itemEntryXML) {
-		$key = (string) array_shift($itemEntryXML->xpath('//atom:entry/zapi:key'));
-		$etag = (string) array_shift($itemEntryXML->xpath('//atom:entry/atom:content/@zapi:etag'));
-		$content = array_shift($itemEntryXML->xpath('//atom:entry/atom:content'));
-		if (!$content) {
-			throw new Exception("<content> does not exist");
+	public static function getJSONFromResponse($response) {
+		$json = json_decode($response->getBody(), true);
+		if (is_null($json)) {
+			var_dump($response->getBody());
+			throw new Exception("JSON response could not be parsed");
 		}
+		return $json;
+	}
+	
+	
+	public static function getFirstSuccessKeyFromResponse($response) {
+		$json = self::getJSONFromResponse($response);
+		if (empty($json['success'])) {
+			var_dump($response->getBody());
+			throw new Exception("No success keys found in response");
+		}
+		return array_shift($json['success']);
+	}
+	
+	
+	public static function parseDataFromAtomEntry($entryXML) {
+		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
+		$version = (string) array_shift($entryXML->xpath('//atom:entry/zapi:version'));
+		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
+		if (!$content) {
+			throw new Exception("Atom response does not contain <content>");
+		}
+		
 		// If 'content' contains XML, serialize all subnodes
 		if ($content->count()) {
 			$content = $content->asXML();
@@ -372,7 +615,7 @@ class API {
 		
 		return array(
 			"key" => $key,
-			"etag" => $etag,
+			"version" => $version,
 			"content" => $content
 		);
 	}
@@ -380,7 +623,7 @@ class API {
 	
 	public static function getContentFromResponse($response) {
 		$xml = self::getXMLFromResponse($response);
-		$data = self::parseDataFromItemEntry($xml);
+		$data = self::parseDataFromAtomEntry($xml);
 		return $data['content'];
 	}
 	
@@ -400,31 +643,137 @@ class API {
 			throw new Exception("GET returned " . $response->getStatus());
 		}
 		
-		$xml = new SimpleXMLElement($response->getBody());
+		try {
+			$xml = new SimpleXMLElement($response->getBody());
+		}
+		catch (Exception $e) {
+			var_dump($response->getBody());
+			throw $e;
+		}
 		foreach ($xml->access as $access) {
 			switch ($option) {
 			case 'libraryNotes':
-				if (isset($access['library'])) {
-					$current = (int) $access['notes'];
-					if ($current != $val) {
-						$access['notes'] = (int) $val;
-						$response = API::put(
-							"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
-							$xml->asXML(),
-							array(),
-							array(
-								"username" => self::$config['rootUsername'],
-								"password" => self::$config['rootPassword']
-							)
-						);
-						if ($response->getStatus() != 200) {
-							var_dump($response->getBody());
-							throw new Exception("PUT returned " . $response->getStatus());
-						}
-						break;
+				if (!isset($access['library'])) {
+					break;
+				}
+				$current = (int) $access['notes'];
+				if ($current != $val) {
+					$access['notes'] = (int) $val;
+					$response = API::put(
+						"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+						$xml->asXML(),
+						array(),
+						array(
+							"username" => self::$config['rootUsername'],
+							"password" => self::$config['rootPassword']
+						)
+					);
+					if ($response->getStatus() != 200) {
+						var_dump($response->getBody());
+						throw new Exception("PUT returned " . $response->getStatus());
 					}
 				}
+				break;
+			
+			case 'libraryWrite':
+				if (!isset($access['library'])) {
+					continue;
+				}
+				$current = (int) $access['write'];
+				if ($current != $val) {
+					$access['write'] = (int) $val;
+					$response = API::put(
+						"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+						$xml->asXML(),
+						array(),
+						array(
+							"username" => self::$config['rootUsername'],
+							"password" => self::$config['rootPassword']
+						)
+					);
+					if ($response->getStatus() != 200) {
+						var_dump($response->getBody());
+						throw new Exception("PUT returned " . $response->getStatus());
+					}
+				}
+				break;
 			}
 		}
+	}
+	
+	
+	public static function getPluralObjectType($objectType) {
+		if ($objectType == 'search') {
+			return $objectType . "es";
+		}
+		return $objectType . "s";
+	}
+	
+	
+	private static function getObjectXML($objectType, $keys, $context=null) {
+		$objectTypePlural = self::getPluralObjectType($objectType);
+		
+		if (is_scalar($keys)) {
+			$keys = array($keys);
+		}
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&{$objectType}Key=" . implode(',', $keys) . "&order={$objectType}KeyList"
+				. "&content=json"
+		);
+		if ($context) {
+			$context->assert200($response);
+		}
+		return API::getXMLFromResponse($response);
+	}
+	
+	
+	private function handleCreateResponse($objectType, $response, $responseFormat, $context=null) {
+		$uctype = ucwords($objectType);
+		
+		if ($context) {
+			$context->assert200($response);
+		}
+		
+		if ($responseFormat == 'response') {
+			return $response;
+		}
+		
+		$json = self::getJSONFromResponse($response);
+		
+		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+			var_dump($json);
+			throw new Exception("$uctype creation failed");
+		}
+		
+		if ($responseFormat == 'json') {
+			return $json;
+		}
+		
+		$key = array_shift($json['success']);
+		
+		if ($responseFormat == 'key') {
+			return $key;
+		}
+		
+		$func = 'get' . $uctype . 'XML';
+		$xml = self::$func($key, $context);
+		
+		if ($responseFormat == 'atom') {
+			return $xml;
+		}
+		
+		$data = self::parseDataFromAtomEntry($xml);
+		
+		if ($responseFormat == 'data') {
+			return $data;
+		}
+		if ($responseFormat == 'content') {
+			return $data['content'];
+		}
+		
+		throw new Exception("Invalid response format '$responseFormat'");
 	}
 }

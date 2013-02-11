@@ -161,7 +161,7 @@ class Zotero_Creator {
 			
 			Z_Core::debug("Saving creator $this->id");
 			
-			$key = $this->key ? $this->key : $this->generateKey();
+			$key = $this->key ? $this->key : Zotero_ID::getKey();
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			
@@ -369,10 +369,6 @@ class Zotero_Creator {
 		}
 	}
 	
-	
-	private function generateKey() {
-		return Zotero_ID::getKey();
-	}
 	
 	
 	private function invalidValueError($field, $value) {

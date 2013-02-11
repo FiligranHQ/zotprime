@@ -32,6 +32,7 @@ class Zotero_Collection {
 	private $_parent = false;
 	private $_dateAdded;
 	private $_dateModified;
+	private $_version;
 	
 	private $loaded;
 	private $changed;
@@ -39,8 +40,8 @@ class Zotero_Collection {
 	private $childCollectionsLoaded;
 	private $childCollections = array();
 	
-	private $childItemsLoaded;
-	private $childItems = array();
+	private $itemsLoaded;
+	private $items = array();
 	
 	public function __construct() {
 		$numArgs = func_num_args();
@@ -151,11 +152,12 @@ class Zotero_Collection {
 			
 			Z_Core::debug("Saving collection $this->id");
 			
-			$key = $this->key ? $this->key : $this->generateKey();
+			$key = $this->key ? $this->key : Zotero_ID::getKey();
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
+			$version = Zotero_Libraries::getUpdatedVersion($this->libraryID);
 			
 			// Verify parent
 			if ($this->_parent) {
@@ -189,7 +191,7 @@ class Zotero_Collection {
 			}
 			
 			$fields = "collectionName=?, parentCollectionID=?, libraryID=?, `key`=?,
-						dateAdded=?, dateModified=?, serverDateModified=?";
+						dateAdded=?, dateModified=?, serverDateModified=?, version=?";
 			$params = array(
 				$this->name,
 				$parent,
@@ -197,7 +199,8 @@ class Zotero_Collection {
 				$key,
 				$dateAdded,
 				$dateModified,
-				$timestamp
+				$timestamp,
+				$version
 			);
 			
 			$params = array_merge(array($collectionID), $params, $params);
@@ -228,7 +231,8 @@ class Zotero_Collection {
 					'name' => $this->name,
 					'dateAdded' => $dateAdded,
 					'dateModified' => $dateModified,
-					'parent' => $parent
+					'parent' => $parent,
+					'version' => $version
 				)
 			);
 
@@ -238,15 +242,23 @@ class Zotero_Collection {
 			throw ($e);
 		}
 		
-		// If successful, set values in object
-		if (!$this->id) {
+		if (!$this->_id) {
 			$this->_id = $collectionID;
 		}
-		if (!$this->key) {
+		if (!$this->_key) {
 			$this->_key = $key;
 		}
 		
-		return $this->id;
+		return $this->_id;
+	}
+	
+	
+	/**
+	 * Update the collection's version without changing any data
+	 */
+	public function updateVersion($userID) {
+		$this->changed = true;
+		$this->save($userID);
 	}
 	
 	
@@ -326,24 +338,43 @@ class Zotero_Collection {
 	 *
 	 * @return {Integer[]}	Array of itemIDs
 	 */
-	public function getChildItems() {
-		if (!$this->childItemsLoaded) {
-			$this->loadChildItems();
+	public function getItems($includeChildItems=false) {
+		if (!$this->itemsLoaded) {
+			$this->loadItems();
 		}
-		return $this->childItems;
+		
+		if ($includeChildItems) {
+			$sql = "(SELECT INo.itemID FROM itemNotes INo "
+				. "JOIN items I ON (INo.sourceItemID=I.itemID) "
+				. "JOIN collectionItems CI ON (I.itemID=CI.itemID) "
+				. "WHERE collectionID=?)"
+				. " UNION "
+				. "(SELECT IA.itemID FROM itemAttachments IA "
+				. "JOIN items I ON (IA.sourceItemID=I.itemID) "
+				. "JOIN collectionItems CI ON (I.itemID=CI.itemID) "
+				. "WHERE collectionID=?)";
+			$childItemIDs = Zotero_DB::columnQuery(
+				$sql, array($this->id, $this->id), Zotero_Shards::getByLibraryID($this->libraryID)
+			);
+			if ($childItemIDs) {
+				return array_merge($this->items, $childItemIDs);
+			}
+		}
+		
+		return $this->items;
 	}
 	
 	
-	public function setChildItems($itemIDs) {
+	public function setItems($itemIDs) {
 		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 		
 		Zotero_DB::beginTransaction();
 		
-		if (!$this->childItemsLoaded) {
-			$this->loadChildItems();
+		if (!$this->itemsLoaded) {
+			$this->loadItems();
 		}
 		
-		$current = $this->childItems;
+		$current = $this->items;
 		$removed = array_diff($current, $itemIDs);
 		$new = array_diff($itemIDs, $current);
 		
@@ -372,18 +403,40 @@ class Zotero_Collection {
 			Zotero_DB::query($sql, $params, $shardID);
 		}
 		
-		$this->childItems = array_values(array_unique($itemIDs));
+		$this->items = array_values(array_unique($itemIDs));
 		
+		//
+		// TODO: remove UPDATE statements below once classic syncing is removed
+		//
+		// Update timestamp of collection
 		$sql = "UPDATE collections SET serverDateModified=? WHERE collectionID=?";
-		//$sql = "UPDATE collections SET dateModified=?, serverDateModified=? WHERE collectionID=?
 		$ts = Zotero_DB::getTransactionTimestamp();
 		Zotero_DB::query($sql, array($ts, $this->id), $shardID);
-		//Zotero_DB::query($sql, array($ts, $ts, $this->id), $shardID);
+		
+		// Update version of new and removed items
+		if ($new || $removed) {
+			$sql = "UPDATE items SET version=? WHERE itemID IN ("
+				. implode(', ', array_fill(0, sizeOf($new) + sizeOf($removed), '?'))
+				. ")";
+			Zotero_DB::query(
+				$sql,
+				array_merge(
+					array(Zotero_Libraries::getUpdatedVersion($this->libraryID)),
+					$new,
+					$removed
+				),
+				$shardID
+			);
+		}
 		
 		Zotero_DB::commit();
 	}
 	
 	
+	/**
+	 * Add an item to the collection. The item's version must be updated
+	 * separately.
+	 */
 	public function addItem($itemID) {
 		if (!Zotero_Items::get($this->libraryID, $itemID)) {
 			throw new Exception("Item does not exist");
@@ -394,25 +447,33 @@ class Zotero_Collection {
 			return;
 		}
 		
-		$this->setChildItems(array_merge($this->getChildItems(), array($itemID)));
+		$this->setItems(array_merge($this->getItems(), array($itemID)));
 	}
 	
 	
+	/**
+	 * Add items to the collection. The items' versions must be updated
+	 * separately.
+	 */
 	public function addItems($itemIDs) {
-		$childItems = array_merge($this->getChildItems(), $itemIDs);
-		$this->setChildItems($childItems);
+		$items = array_merge($this->getItems(), $itemIDs);
+		$this->setItems($items);
 	}
 	
 	
+	/**
+	 * Remove an item from the collection. The item's version must be updated
+	 * separately.
+	 */
 	public function removeItem($itemID) {
 		if (!$this->hasItem($itemID)) {
 			Z_Core::debug("Item $itemID is not a child of collection $this->id");
 			return false;
 		}
 		
-		$childItems = $this->getChildItems();
-		array_splice($childItems, array_search($itemID, $childItems), 1);
-		$this->setChildItems($childItems);
+		$items = $this->getItems();
+		array_splice($items, array_search($itemID, $items), 1);
+		$this->setItems($items);
 		
 		return true;
 	}
@@ -423,11 +484,11 @@ class Zotero_Collection {
 	 * Check if an item belongs to the collection
 	 */
 	public function hasItem($itemID) {
-		if (!$this->childItemsLoaded) {
-			$this->loadChildItems();
+		if (!$this->itemsLoaded) {
+			$this->loadItems();
 		}
 		
-		return in_array($itemID, $this->childItems);
+		return in_array($itemID, $this->items);
 	}
 	
 	
@@ -646,6 +707,89 @@ class Zotero_Collection {
 	}
 	
 	
+	//
+	// Methods dealing with relations
+	//
+	// save() is not required for relations functions
+	//
+	/**
+	 * Returns all relations of the collection
+	 *
+	 * @return object Object with predicates as keys and URIs as values
+	 */
+	public function getRelations() {
+		if (!$this->_id) {
+			return array();
+		}
+		$relations = Zotero_Relations::getByURIs(
+			$this->libraryID,
+			Zotero_URI::getCollectionURI($this, true)
+		);
+		
+		$toReturn = new stdClass;
+		foreach ($relations as $relation) {
+			$toReturn->{$relation->predicate} = $relation->object;
+		}
+		return $toReturn;
+	}
+	
+	
+	/**
+	 * Updates the collection's relations. No separate save of the collection is required.
+	 *
+	 * @param object $newRelations Object with predicates as keys and URIs as values
+	 * @param int $userID User making the change
+	 */
+	public function setRelations($newRelations, $userID) {
+		if (!$this->_id) {
+			throw new Exception('collectionID not set');
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		// Get arrays from objects
+		$oldRelations = get_object_vars($this->getRelations());
+		$newRelations = get_object_vars($newRelations);
+		
+		$toAdd = array_diff($newRelations, $oldRelations);
+		$toRemove = array_diff($oldRelations, $newRelations);
+		
+		if (!$toAdd && !$toRemove) {
+			Zotero_DB::commit();
+			return false;
+		}
+		
+		$subject = Zotero_URI::getCollectionURI($this, true);
+		
+		foreach ($toAdd as $predicate => $object) {
+			Zotero_Relations::add(
+				$this->libraryID,
+				$subject,
+				$predicate,
+				$object
+			);
+		}
+		
+		foreach ($toRemove as $predicate => $object) {
+			$relations = Zotero_Relations::getByURIs(
+				$this->libraryID,
+				$subject,
+				$predicate,
+				$object
+			);
+			foreach ($relations as $relation) {
+				Zotero_Relations::delete($this->libraryID, $relation->key);
+			}
+		}
+		
+		$this->updateVersion($userID);
+		
+		Zotero_DB::commit();
+		
+		return true;
+	}
+	
+	
 	/**
 	 * Returns all tags assigned to items in this collection
 	 */
@@ -690,38 +834,38 @@ class Zotero_Collection {
 	}
 	
 	
-	public function toJSON($asArray=false, $prettyPrint=false) {
+	public function toJSON($asArray=false, $requestParams=array()) {
 		if (!$this->loaded) {
 			$this->load();
 		}
 		
+		$arr['collectionKey'] = $this->key;
+		$arr['collectionVersion'] = $this->version;
+		
 		$arr['name'] = $this->name;
 		$parentKey = $this->getParentKey();
-		$arr['parent'] = $parentKey ? $parentKey : false;
+		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
+			$arr['parentCollection'] = $parentKey ? $parentKey : false;
+			$arr['relations'] = $this->getRelations();
+		}
+		else {
+			$arr['parent'] = $parentKey ? $parentKey : false;
+		}
 		
 		if ($asArray) {
 			return $arr;
 		}
 		
-		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
-		if ($prettyPrint) {
-			$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
-		}
-		else {
-			$json = json_encode($arr, $mask);
-		}
-		// Until JSON_UNESCAPED_SLASHES is available
-		$json = str_replace('\\/', '/', $json);
-		return $json;
+		return Zotero_Utilities::formatJSON($arr, !empty($requestParams['pprint']));
 	}
 	
 	
 	private function load() {
-		Z_Core::debug("Loading data for collection $this->_id");
-		
 		$libraryID = $this->_libraryID;
 		$id = $this->_id;
 		$key = $this->_key;
+		
+		Z_Core::debug("Loading data for collection " . ($id ? $id : $key));
 		
 		if (!$libraryID) {
 			throw new Exception("Library ID not set");
@@ -812,10 +956,10 @@ class Zotero_Collection {
 	}
 	
 	
-	private function loadChildItems() {
+	private function loadItems() {
 		Z_Core::debug("Loading child items for collection $this->id");
 		
-		if ($this->childItemsLoaded) {
+		if ($this->itemsLoaded) {
 			trigger_error("Child items for collection $this->id already loaded", E_USER_ERROR);
 		}
 		
@@ -826,8 +970,8 @@ class Zotero_Collection {
 		$sql = "SELECT itemID FROM collectionItems WHERE collectionID=?";
 		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
-		$this->childItems = $ids ? $ids : array();
-		$this->childItemsLoaded = true;
+		$this->items = $ids ? $ids : array();
+		$this->itemsLoaded = true;
 	}
 	
 	
@@ -846,7 +990,7 @@ class Zotero_Collection {
 				break;
 			
 			case 'key':
-				if (!preg_match('/^[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}$/', $value)) {
+				if (!Zotero_ID::isValidKey($value)) {
 					$this->invalidValueError($field, $value);
 				}
 				break;
@@ -873,11 +1017,6 @@ class Zotero_Collection {
 		}
 		
 		return md5($this->name . "_" . $this->getParent());
-	}
-	
-	
-	private function generateKey() {
-		return Zotero_ID::getKey();
 	}
 	
 	

@@ -36,11 +36,15 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useAPIVersion(2);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -54,8 +58,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 	public function testCreatorItemChange() {
 		$key = 'AAAAAAAA';
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Create item via sync
@@ -80,12 +83,11 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$etag = $data['etag'];
+		$data = API::parseDataFromAtomEntry($xml);
+		$version = $data['version'];
 		
 		// Get item via sync
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		
@@ -113,12 +115,12 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
-		$this->assertNotEquals($etag, $data['etag']);
+		$this->assertNotEquals($version, $data['version']);
 		
 		return $data;
 	}

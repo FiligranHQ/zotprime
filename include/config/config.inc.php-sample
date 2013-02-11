@@ -11,14 +11,14 @@ class Z_CONFIG {
 	public static $DEBUG_LOG = false;
 	
 	public static $BASE_URI = '';
+	public static $API_BASE_URI = '';
+	public static $WWW_BASE_URI = '';
+	public static $SYNC_DOMAIN = '';
 	
 	public static $AUTH_SALT = '';
 	public static $API_SUPER_USERNAME = '';
 	public static $API_SUPER_PASSWORD = '';
 	public static $SESSION_AUTH_KEY = '';
-	
-	public static $API_BASE_URI = '';
-	public static $SYNC_DOMAIN = '';
 	
 	public static $AWS_ACCESS_KEY = '';
 	public static $AWS_SECRET_KEY = '';
@@ -37,6 +37,12 @@ class Z_CONFIG {
 	public static $CITATION_SERVERS = array(
 		"citeserver1.localdomain:8080", "citeserver2.localdomain:8080"
 	);
+	
+	public static $SEARCH_HOST = '';
+	public static $SEARCH_INDEX = '';
+	
+	public static $SQS_QUEUE_URL_PREFIX = '';
+	public static $SQS_QUEUE_ITEM_UPDATES = 'item-updates';
 	
 	public static $ATTACHMENT_SERVER_HOSTS = array("files1.localdomain", "files2.localdomain");
 	public static $ATTACHMENT_SERVER_DYNAMIC_PORT = 80;

@@ -1172,7 +1172,6 @@ class Zotero_Sync {
 					$updatedIDsByLibraryID = call_user_func(array($className, 'getUpdated'), $userID, $lastsync, $updatedLibraryIDs);
 					if ($updatedIDsByLibraryID) {
 						$node = $doc->createElement($names);
-						$updatedNode->appendChild($node);
 						foreach ($updatedIDsByLibraryID as $libraryID=>$ids) {
 							if ($name == 'creator') {
 								$updatedCreators[$libraryID] = $ids;
@@ -1205,6 +1204,10 @@ class Zotero_Sync {
 										$node->appendChild($xmlElement);
 									}
 									else if ($name == 'relation') {
+										// Skip new-style related items
+										if ($obj->predicate == 'dc:relation') {
+											continue;
+										}
 										$xmlElement = call_user_func(array($className, "convert{$Name}ToXML"), $obj);
 										if ($apiVersion <= 8) {
 											unset($xmlElement['libraryID']);
@@ -1225,6 +1228,9 @@ class Zotero_Sync {
 									$node->appendChild($newNode);
 								}
 							}
+						}
+						if ($node->hasChildNodes()) {
+							$updatedNode->appendChild($node);
 						}
 					}
 				}
@@ -1342,10 +1348,12 @@ class Zotero_Sync {
 		}
 		
 		try {
-			Z_Core::$MC->begin();
 			Zotero_DB::beginTransaction();
 			
 			// Mark libraries as updated
+			foreach ($affectedLibraries as $libraryID) {
+				Zotero_Libraries::updateVersion($libraryID);
+			}
 			$timestamp = Zotero_Libraries::updateTimestamps($affectedLibraries);
 			Zotero_DB::registerTransactionTimestamp($timestamp);
 			
@@ -1414,7 +1422,6 @@ class Zotero_Sync {
 			$savedItems = array();
 			if ($xml->items) {
 				$childItems = array();
-				$relatedItemsStore = array();
 				
 				// DOM
 				$xmlElements = dom_import_simplexml($xml->items);
@@ -1427,11 +1434,7 @@ class Zotero_Sync {
 						throw new Exception("Item $libraryID/$key already processed");
 					}
 					
-					$missing = Zotero_Items::removeMissingRelatedItems($xmlElement);
 					$itemObj = Zotero_Items::convertXMLToItem($xmlElement);
-					if ($missing) {
-						$relatedItemsStore[$libraryID . '_' . $key] = $missing;
-					}
 					
 					if (!$itemObj->getSourceKey()) {
 						try {
@@ -1465,20 +1468,6 @@ class Zotero_Sync {
 						$savedItems[$libraryID . "/" . $key] = true;
 					}
 				}
-				
-				// Add back related items (which now exist)
-				foreach ($relatedItemsStore as $itemLibraryKey=>$relset) {
-					$lk = explode('_', $itemLibraryKey);
-					$libraryID = $lk[0];
-					$key = $lk[1];
-					$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
-					foreach ($relset as $relKey) {
-						$relItem = Zotero_Items::getByLibraryAndKey($libraryID, $relKey);
-						$item->addRelatedItem($relItem->id);
-					}
-					$item->save();
-				}
-				unset($relatedItemsStore);
 			}
 			
 			// Add/update collections
@@ -1533,7 +1522,7 @@ class Zotero_Sync {
 							}
 							$ids[] = $item->id;
 						}
-						$collection['obj']->setChildItems($ids);
+						$collection['obj']->setItems($ids);
 					}
 				}
 				unset($collectionSets);
@@ -1711,7 +1700,6 @@ class Zotero_Sync {
 			}
 			
 			Zotero_DB::commit();
-			Z_Core::$MC->commit();
 			
 			if ($profile) {
 				$shardID = Zotero_Shards::getByUserID($userID);
@@ -1723,7 +1711,6 @@ class Zotero_Sync {
 			return $timestamp + 1;
 		}
 		catch (Exception $e) {
-			Z_Core::$MC->rollback();
 			Zotero_DB::rollback(true);
 			self::removeUploadProcess($processID);
 			throw $e;
@@ -1882,7 +1869,9 @@ class Zotero_Sync {
 		foreach ($shardLibraryIDs as $shardID=>$libraryIDs) {
 			$sql = "SELECT COUNT(*) FROM syncDeleteLogKeys WHERE libraryID IN ("
 					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
-					. ")";
+					. ") "
+					// API only
+					. "AND objectType != 'tagName'";
 			$params = $libraryIDs;
 			if ($timestamp) {
 				$sql .= " AND timestamp >= FROM_UNIXTIME(?)";
@@ -1945,7 +1934,9 @@ class Zotero_Sync {
 			$sql = "SELECT libraryID, objectType, `key`, timestamp
 					FROM syncDeleteLogKeys WHERE libraryID IN ("
 					. implode(', ', array_fill(0, sizeOf($libraryIDs), '?'))
-					. ")";
+					. ")"
+					// API only
+					. " AND objectType != 'tagName'";
 			$params = $libraryIDs;
 			if ($timestamp) {
 				$sql .= " AND timestamp >= FROM_UNIXTIME(?)";

@@ -50,6 +50,12 @@ class Zotero_DB {
 	
 	private $preparedStatements = array();
 	
+	private $callbacks = array(
+		'begin' => array(),
+		'commit' => array(),
+		'rollback' => array()
+	);
+	
 	protected $db = 'master';
 	
 	protected function __construct() {
@@ -156,6 +162,10 @@ class Zotero_DB {
 		$instance->transactionTimestampUnix = null;
 		
 		Z_Core::debug("Starting transaction");
+		
+		foreach ($instance->callbacks['begin'] as $callback) {
+			call_user_func($callback);
+		}
 	}
 	
 	
@@ -193,6 +203,10 @@ class Zotero_DB {
 		foreach ($shardIDs as $shardID) {
 			$instance->commitReal($shardID);
 		}
+		
+		foreach ($instance->callbacks['commit'] as $callback) {
+			call_user_func($callback);
+		}
 	}
 	
 	
@@ -204,14 +218,14 @@ class Zotero_DB {
 	public static function rollback($all=false) {
 		$instance = self::getInstance();
 		
-		if ($all) {
-			$instance->transactionLevel = 1;
-			self::rollback();
+		if ($instance->transactionLevel == 0) {
+			Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
 			return;
 		}
 		
-		if ($instance->transactionLevel == 0) {
-			Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
+		if ($all) {
+			$instance->transactionLevel = 1;
+			self::rollback();
 			return;
 		}
 		
@@ -230,6 +244,22 @@ class Zotero_DB {
 		
 		$instance->transactionLevel--;
 		$instance->transactionRollback = false;
+		
+		foreach ($instance->callbacks['rollback'] as $callback) {
+			call_user_func($callback);
+		}
+	}
+	
+	
+	public static function addCallback($action, $cb) {
+		$instance = self::getInstance();
+		$instance->callbacks[$action][] = $cb;
+	}
+	
+	
+	public static function transactionInProgress() {
+		$instance = self::getInstance();
+		return $instance->transactionLevel > 0;
 	}
 	
 	
@@ -255,7 +285,7 @@ class Zotero_DB {
 			throw new Exception("Transaction not open");
 		}
 		
-		if (empty($instance->transactionTimestamp)) {
+		if (empty($instance->transactionTimestampUnix)) {
 			$ts = self::getTransactionTimestamp();
 			$instance->transactionTimestampUnix = strtotime($ts);
 		}

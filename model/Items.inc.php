@@ -31,12 +31,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		'dateAdded', 'dateModified', 'serverDateModified', 'itemVersion',
 		'numNotes', 'numAttachments');
 	public static $maxDataValueLength = 65535;
-	public static $cacheVersion = 1;
 	
 	private static $itemsByID = array();
 	
 	
-	public static function get($libraryID, $itemIDs) {
+	public static function get($libraryID, $itemIDs, $skipCheck=false) {
 		$numArgs = func_num_args();
 		if ($numArgs != 2) {
 			throw new Exception('Zotero_Items::get() takes two parameters');
@@ -107,19 +106,10 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	public static function search($libraryID, $onlyTopLevel=false, $params=array(), $includeTrashed=false, Zotero_Permissions $permissions=null) {
 		$rnd = "_" . uniqid($libraryID . "_");
-		$asKeys = $params['format'] == 'keys';
 		
-		if ($asKeys) {
-			$results = array('keys' => array(), 'total' => 0);
-		}
-		else {
-			$results = array('items' => array(), 'total' => 0);
-		}
+		$results = array('results' => array(), 'total' => 0);
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		$itemIDs = array();
-		$keys = array();
 		
 		$includeNotes = true;
 		if ($permissions && !$permissions->canAccess($libraryID, 'notes')) {
@@ -127,19 +117,22 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Pass a list of itemIDs, for when the initial search is done via SQL
-		if (!empty($params['itemIDs'])) {
-			$itemIDs = $params['itemIDs'];
-		}
-		
-		if (!empty($params['itemKey'])) {
-			$keys = explode(',', $params['itemKey']);
-		}
+		$itemIDs = !empty($params['itemIDs']) ? $params['itemIDs'] : array();
+		$itemKeys = !empty($params['itemKey']) ? explode(',', $params['itemKey']) : array();
 		
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT "
-				. ($asKeys ? "I.key" : "I.itemID")
-				. " FROM items I ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
+		if ($params['format'] == 'keys') {
+			$sql .= "I.key";
+		}
+		else if ($params['format'] == 'versions') {
+			$sql .= "I.key, I.version";
+		}
+		else {
+			$sql .= "I.itemID";
+		}
+		$sql .= " FROM items I ";
 		$sqlParams = array($libraryID);
 		
 		if (!empty($params['q']) || $titleSort) {
@@ -300,6 +293,17 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "AND I.itemTypeID != 1 ";
 		}
 		
+		if (!empty($params['newer'])) {
+			$sql .= "AND version > ? ";
+			$sqlParams[] = $params['newer'];
+		}
+		
+		// TEMP: for sync transition
+		if (!empty($params['newertime'])) {
+			$sql .= "AND serverDateModified >= FROM_UNIXTIME(?) ";
+			$sqlParams[] = $params['newertime'];
+		}
+		
 		// Tags
 		//
 		// ?tag=foo
@@ -356,10 +360,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				return $results;
 			}
 			
-			// Combine with passed keys
+			// Combine with passed ids
 			if ($itemIDs) {
 				$itemIDs = array_intersect($itemIDs, $tagItems);
-				// None of the tag matches match the passed keys
+				// None of the tag matches match the passed ids
 				if (!$itemIDs) {
 					return $results;
 				}
@@ -376,11 +380,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams = array_merge($sqlParams, $itemIDs);
 		}
 		
-		if ($keys) {
+		if ($itemKeys) {
 			$sql .= "AND `key` IN ("
-					. implode(', ', array_fill(0, sizeOf($keys), '?'))
+					. implode(', ', array_fill(0, sizeOf($itemKeys), '?'))
 					. ") ";
-			$sqlParams = array_merge($sqlParams, $keys);
+			$sqlParams = array_merge($sqlParams, $itemKeys);
 		}
 		
 		$sql .= "ORDER BY ";
@@ -422,8 +426,8 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'itemKeyList':
 					$orderSQL = "FIELD(I.key,"
-						. implode(',', array_fill(0, sizeOf($keys), '?')) . ")";
-					$sqlParams = array_merge($sqlParams, $keys);
+						. implode(',', array_fill(0, sizeOf($itemKeys), '?')) . ")";
+					$sqlParams = array_merge($sqlParams, $itemKeys);
 					break;
 				
 				default:
@@ -445,30 +449,41 @@ class Zotero_Items extends Zotero_DataObjects {
 				$dir = "ASC";
 			}
 			
-			
 			if (!$params['emptyFirst']) {
 				$sql .= "IFNULL($orderSQL, '') = '' $dir, ";
 			}
 			
-			$sql .= $orderSQL;
-			
-			$sql .= " $dir, ";
+			$sql .= $orderSQL . " $dir, ";
 		}
-		$sql .= "I.itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
+		$sql .= "I.version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
+			. ", I.itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
 			$sqlParams[] = $params['limit'];
 		}
-		$itemIDs = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
-		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
-		if ($itemIDs) {
-			if ($asKeys) {
-				$results['keys'] = $itemIDs;
+		if ($params['format'] == 'versions') {
+			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
+		}
+		// keys and ids
+		else {
+			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
+		}
+		
+		if ($rows) {
+			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
+			
+			if ($params['format'] == 'keys') {
+				$results['results'] = $rows;
+			}
+			else if ($params['format'] == 'versions') {
+				foreach ($rows as $row) {
+					$results['results'][$row['key']] = $row['version'];
+				}
 			}
 			else {
-				$results['items'] = Zotero_Items::get($libraryID, $itemIDs);
+				$results['results'] = Zotero_Items::get($libraryID, $rows);
 			}
 		}
 		
@@ -541,15 +556,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		Zotero_DB::beginTransaction();
-		$timestamp = Zotero_DB::getTransactionTimestamp();
-		
 		foreach ($shardItemIDs as $shardID => $itemIDs) {
-			$sql = "UPDATE items SET serverDateModified=?, "
-				. "version=IF(version = 65535, 0, version + 1) "
-				. "WHERE itemID IN "
-				. "(" . implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
-			Zotero_DB::query($sql, array_merge(array($timestamp), $itemIDs), $shardID);
-			
 			// Group item data
 			if ($userID && isset($shardGroupItemIDs[$shardID])) {
 				$sql = "UPDATE groupItems SET lastModifiedByUserID=? "
@@ -562,7 +569,16 @@ class Zotero_Items extends Zotero_DataObjects {
 				);
 			}
 		}
-		
+		foreach ($libraryItems as $libraryID => $items) {
+			$itemIDs = array();
+			foreach ($items as $item) {
+				$itemIDs[] = $item->id;
+			}
+			$version = Zotero_Libraries::getUpdatedVersion($libraryID);
+			$sql = "UPDATE items SET version=? WHERE itemID IN "
+				. "(" . implode(',', array_fill(0, sizeOf($itemIDs), '?')) . ")";
+			Zotero_DB::query($sql, array_merge(array($version), $itemIDs), $shardID);
+		}
 		Zotero_DB::commit();
 		
 		foreach ($libraryItems as $libraryID => $items) {
@@ -573,6 +589,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$libraryKeys = array_map(function ($item) use ($libraryID) {
 				return $libraryID . "/" . $item->key;
 			}, $items);
+			
+			Zotero_Notifier::trigger('modify', 'item', $libraryKeys);
 		}
 	}
 	
@@ -731,50 +749,16 @@ class Zotero_Items extends Zotero_DataObjects {
 			$itemObj->attachmentPath = $xmlPath ? $xmlPath->nodeValue : "";
 		}
 		
-		$related = $xmlRelated ? $xmlRelated->nodeValue : null;
-		$relatedIDs = array();
-		if ($related) {
-			$related = explode(' ', $related);
-			foreach ($related as $key) {
-				$relItem = Zotero_Items::getByLibraryAndKey($itemObj->libraryID, $key, 'items'); // TODO:
-				if (!$relItem) {
-					throw new Exception("Related item $itemObj->libraryID/$key
-						doesn't exist in Zotero.Sync.Server.Data.xmlToItem()");
-				}
-				$relatedIDs[] = $relItem->id;
-			}
+		// Related items
+		if ($xmlRelated && $xmlRelated->nodeValue) {
+			$relatedKeys = explode(' ', $xmlRelated->nodeValue);
 		}
-		$itemObj->relatedItems = $relatedIDs;
+		else {
+			$relatedKeys = array();
+		}
+		$itemObj->relatedItems = $relatedKeys;
+		
 		return $itemObj;
-	}
-	
-	
-	/**
-	 * Temporarily remove and store related items that don't
-	 * yet exist
-	 *
-	 * @param	DOMElement		$xmlElement
-	 * @return	array
-	 */
-	public static function removeMissingRelatedItems(DOMElement $xmlElement) {
-		$missing = array();
-		$related = $xmlElement->getElementsByTagName('related')->item(0);
-		if ($related && $related->nodeValue) {
-			$relKeys = explode(' ', $related->nodeValue);
-			$exist = array();
-			$missing = array();
-			foreach ($relKeys as $key) {
-				$item = Zotero_Items::getByLibraryAndKey((int) $xmlElement->getAttribute('libraryID'), $key);
-				if ($item) {
-					$exist[] = $key;
-				}
-				else {
-					$missing[] = $key;
-				}
-			}
-			$related->nodeValue = implode(' ', $exist);
-		}
-		return $missing;
 	}
 	
 	
@@ -785,7 +769,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @param	array				$data
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
-	public static function convertItemToXML(Zotero_Item $item, $data=array(), $apiVersion=null) {
+	public static function convertItemToXML(Zotero_Item $item, $data=array()) {
 		$xml = new SimpleXMLElement('<item/>');
 		
 		// Primary fields
@@ -857,17 +841,17 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($item->isAttachment()) {
 			$xml['linkMode'] = $item->attachmentLinkMode;
 			$xml['mimeType'] = $item->attachmentMIMEType;
-			if ($apiVersion == 1 || $item->attachmentCharset) {
+			if ($item->attachmentCharset) {
 				$xml['charset'] = $item->attachmentCharset;
 			}
 			
 			$storageModTime = $item->attachmentStorageModTime;
-			if ($apiVersion > 1 && $storageModTime) {
+			if ($storageModTime) {
 				$xml['storageModTime'] = $storageModTime;
 			}
 			
 			$storageHash = $item->attachmentStorageHash;
-			if ($apiVersion > 1 && $storageHash) {
+			if ($storageHash) {
 				$xml['storageHash'] = $storageHash;
 			}
 			
@@ -909,16 +893,15 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Related items
-		$related = $item->relatedItems;
-		if ($related) {
-			$related = Zotero_Items::get($item->libraryID, $related);
-			$keys = array();
-			foreach ($related as $item) {
-				$keys[] = $item->key;
+		$relatedKeys = $item->relatedItems;
+		$keys = array();
+		foreach ($relatedKeys as $relatedKey) {
+			if (Zotero_Items::getByLibraryAndKey($item->libraryID, $relatedKey)) {
+				$keys[] = $relatedKey;
 			}
-			if ($keys) {
-				$xml->related = implode(' ', $keys);
-			}
+		}
+		if ($keys) {
+			$xml->related = implode(' ', $keys);
 		}
 		
 		return $xml;
@@ -939,7 +922,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$t = microtime(true);
 		
 		// Uncached stuff or parts of the cache key
-		$etag = $item->etag;
+		$version = $item->itemVersion;
 		$parent = $item->getSource();
 		$isRegularItem = !$parent && $item->isRegularItem();
 		$downloadDetails = $permissions->canAccess($item->libraryID, 'files')
@@ -951,16 +934,17 @@ class Zotero_Items extends Zotero_DataObjects {
 								: $item->numAttachments();
 		}
 		// <id> changes based on group visibility, for now
-		$id = Zotero_URI::getItemURI($item);
-		/*if (!$contentIsHTML) {
-			$id .= "?content=$content";
-		}*/
+		if ($queryParams['apiVersion'] < 2) {
+			$id = Zotero_URI::getItemURI($item);
+		}
+		else {
+			$id = Zotero_URI::getItemURI($item, true);
+		}
 		$libraryType = Zotero_Libraries::getType($item->libraryID);
 		
 		// Any query parameters that have an effect on the output
 		// need to be added here
 		$allowedParams = array(
-			'version',
 			'content',
 			'pprint',
 			'style',
@@ -969,13 +953,18 @@ class Zotero_Items extends Zotero_DataObjects {
 		);
 		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
 		
+		$cacheVersion = 1;
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
 			. md5(
-				$etag
+				$version
 				. json_encode($cachedParams)
 				. ($downloadDetails ? 'hasFile' : '')
 				. ($libraryType == 'group' ? 'id' . $id : '')
 			)
+			. "_" . $queryParams['apiVersion']
+			// For code-based changes
+			. "_" . $cacheVersion
+			// For data-based changes
 			. (isset(Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY)
 				? "_" . Z_CONFIG::$CACHE_VERSION_ATOM_ENTRY
 				: "")
@@ -1091,7 +1080,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
-		$apiVersion = $queryParams['version'];
 		$content = $queryParams['content'];
 		$contentIsHTML = sizeOf($content) == 1 && $content[0] == 'html';
 		$contentParamString = urlencode(implode(',', $content));
@@ -1106,9 +1094,12 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$author = $xml->addChild('author');
 		$createdByUserID = null;
+		$lastModifiedByUserID = null;
 		switch (Zotero_Libraries::getType($item->libraryID)) {
 			case 'group':
 				$createdByUserID = $item->createdByUserID;
+				// Used for zapi:lastModifiedByUser below
+				$lastModifiedByUserID = $item->lastModifiedByUserID;
 				break;
 		}
 		if ($createdByUserID) {
@@ -1128,7 +1119,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$href = Zotero_Atom::getItemURI($item);
+		$href = Zotero_API::getItemURI($item);
 		if (!$contentIsHTML) {
 			$href .= "?content=$contentParamString";
 		}
@@ -1140,7 +1131,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
-			$href = Zotero_Atom::getItemURI($parentItem);
+			$href = Zotero_API::getItemURI($parentItem);
 			if (!$contentIsHTML) {
 				$href .= "?content=$contentParamString";
 			}
@@ -1171,6 +1162,16 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		$xml->addChild('zapi:key', $item->key, Zotero_Atom::$nsZoteroAPI);
+		$xml->addChild('zapi:version', $item->itemVersion, Zotero_Atom::$nsZoteroAPI);
+		
+		if ($lastModifiedByUserID) {
+			$xml->addChild(
+				'zapi:lastModifiedByUser',
+				Zotero_Users::getUsername($lastModifiedByUserID),
+				Zotero_Atom::$nsZoteroAPI
+			);
+		}
+		
 		$xml->addChild(
 			'zapi:itemType',
 			Zotero_ItemTypes::getName($item->itemTypeID),
@@ -1297,12 +1298,14 @@ class Zotero_Items extends Zotero_DataObjects {
 				$target->appendChild($importedNode);
 			}
 			else if ($type == 'json') {
-				$target->setAttributeNS(
-					Zotero_Atom::$nsZoteroAPI,
-					"zapi:etag",
-					$etag
-				);
-				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams['pprint'], true));
+				if ($queryParams['apiVersion'] < 2) {
+					$target->setAttributeNS(
+						Zotero_Atom::$nsZoteroAPI,
+						"zapi:etag",
+						$item->etag
+					);
+				}
+				$textNode = $domDoc->createTextNode($item->toJSON(false, $queryParams, true));
 				$target->appendChild($textNode);
 			}
 			else if ($type == 'csljson') {
@@ -1311,18 +1314,6 @@ class Zotero_Items extends Zotero_DataObjects {
 				$textNode = $domDoc->createTextNode($json);
 				$target->appendChild($textNode);
 			}
-			// Deprecated and not for public consumption
-			else if ($type == 'full') {
-				if (!$multiFormat) {
-					$target->setAttribute('type', 'xhtml');
-				}
-				$fullXML = Zotero_Items::convertItemToXML($item, array(), $apiVersion);
-				$fullXML->addAttribute("xmlns", Zotero_Atom::$nsZoteroTransfer);
-				$subNode = dom_import_simplexml($fullXML);
-				$importedNode = $domDoc->importNode($subNode, true);
-				$target->appendChild($importedNode);
-			}
-			
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
 				$export = Zotero_Translate::doExport(array($item), $type);
 				$target->setAttribute('type', $export['mimeType']);
@@ -1390,33 +1381,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	
 	
 	/**
-	 * Create new items from a decoded JSON object
-	 */
-	public static function addFromJSON($json, $libraryID, Zotero_Item $parentItem=null, $userID=null) {
-		self::validateJSONItems($json);
-		
-		$keys = array();
-		
-		Zotero_DB::beginTransaction();
-		
-		// Mark library as updated
-		$timestamp = Zotero_Libraries::updateTimestamps($libraryID);
-		Zotero_DB::registerTransactionTimestamp($timestamp);
-		
-		foreach ($json->items as $jsonItem) {
-			$item = new Zotero_Item;
-			$item->libraryID = $libraryID;
-			self::updateFromJSON($item, $jsonItem, true, $parentItem, $userID);
-			$keys[] = $item->key;
-		}
-		
-		Zotero_DB::commit();
-		
-		return $keys;
-	}
-	
-	
-	/**
 	 * Import an item by URL using the translation server
 	 *
 	 * Initial request:
@@ -1435,7 +1399,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	 *   }
 	 * }
 	 *
-	 * Returns an array of keys of added items (like addFromJSON) or an object
+	 * Returns an array of keys of added items (like updateMultipleFromJSON) or an object
 	 * with a 'select' property containing an array of titles for multi-item results
 	 */
 	public static function addFromURL($json, $libraryID, $userID, $translationToken) {
@@ -1453,7 +1417,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if (isset($response->items)) {
 			try {
-				self::validateJSONItems($response);
+				self::validateMultiObjectJSON('items', $response);
 			}
 			catch (Exception $e) {
 				error_log($e);
@@ -1469,33 +1433,58 @@ class Zotero_Items extends Zotero_DataObjects {
 			throw new Exception("Invalid return value from doWeb()");
 		}
 		
-		return self::addFromJSON($response, $libraryID, null, $userID);
+		return self::updateMultipleFromJSON($response, $libraryID, null, $userID);
 	}
 	
 	
-	public static function updateFromJSON(Zotero_Item $item, $json, $isNew=false, Zotero_Item $parentItem=null, $userID=null) {
-		self::validateJSONItem($json, $item->libraryID, $isNew ? null : $item, !is_null($parentItem));
+	public static function updateFromJSON(Zotero_Item $item,
+	                                      $json,
+	                                      Zotero_Item $parentItem=null,
+	                                      $requestParams,
+	                                      $userID,
+	                                      $requireVersion=0,
+	                                      $partialUpdate=false) {
+		$exists = Zotero_API::processJSONObjectKey($item, $json);
+		Zotero_API::checkJSONObjectVersion(
+			$item, $json, $requestParams, $requireVersion
+		);
 		
-		Zotero_DB::beginTransaction();
+		self::validateJSONItem(
+			$json,
+			$item->libraryID,
+			$exists ? $item : null,
+			$parentItem || ($exists ? !!$item->getSourceKey() : false),
+			$requestParams,
+			$partialUpdate
+		);
 		
-		// Mark library as updated
-		if (!$isNew) {
-			$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
-			Zotero_DB::registerTransactionTimestamp($timestamp);
-		}
-		
+		$changed = false;
 		$twoStage = false;
 		
+		if (!Zotero_DB::transactionInProgress()) {
+			Zotero_DB::beginTransaction();
+			$transactionStarted = true;
+		}
+		else {
+			$transactionStarted = false;
+		}
+		
 		// Set itemType first
-		$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
+		if (isset($json->itemType)) {
+			$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
+		}
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				case 'itemKey':
+				case 'itemVersion':
 				case 'itemType':
-					continue;
-				
 				case 'deleted':
 					continue;
+				
+				case 'parentItem':
+					$item->setSourceKey($val);
+					break;
 				
 				case 'creators':
 					if (!$val && !$item->numCreators()) {
@@ -1509,7 +1498,7 @@ class Zotero_Items extends Zotero_DataObjects {
 								&& (!isset($newCreatorData->firstName) || trim($newCreatorData->firstName) == "")
 								&& (!isset($newCreatorData->lastName) || trim($newCreatorData->lastName) == "")) {
 							// This should never happen, because of check in validateJSONItem()
-							if (!$isNew) {
+							if ($exists) {
 								throw new Exception("Nameless creator in update request");
 							}
 							// On item creation, ignore creators with empty names,
@@ -1575,7 +1564,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					// Remove all existing creators above the current index
-					if (!$isNew && $indexes = array_keys($item->getCreators())) {
+					if ($exists && $indexes = array_keys($item->getCreators())) {
 						$i = max($indexes);
 						while ($i>$orderIndex) {
 							$item->removeCreator($i);
@@ -1591,8 +1580,35 @@ class Zotero_Items extends Zotero_DataObjects {
 						$twoStage = true;
 						break;
 					}
+					$changed = $item->setTags($val, $userID) || $changed;
+					break;
+				
+				case 'collections':
+					// If item isn't yet saved, add collections below
+					if (!$item->id) {
+						$twoStage = true;
+						break;
+					}
 					
-					$item->setTags($val, $userID);
+					try {
+						 $changed = $item->setCollections($val, $userID) || $changed;
+					}
+					catch (Exception $e) {
+						if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
+							throw new Exception($e->getMessage(), Z_ERROR_INVALID_INPUT);
+						}
+						throw $e;
+					}
+					break;
+				
+				case 'relations':
+					// If item isn't yet saved, add relations below
+					if (!$item->id) {
+						$twoStage = true;
+						break;
+					}
+					
+					$changed = $item->setRelations($val, $userID) || $changed;
 					break;
 				
 				case 'attachments':
@@ -1636,10 +1652,20 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($parentItem) {
 			$item->setSource($parentItem->id);
 		}
+		// Clear parent if not a partial update and a parentItem isn't provided
+		else if ($requestParams['apiVersion'] >= 2 && !$partialUpdate
+				&& $item->getSourceKey() && !isset($json->parentItem)) {
+			$item->setSourceKey(false);
+		}
 		
 		$item->deleted = !empty($json->deleted);
 		
-		$item->save($userID);
+		// If item has changed, update it with the current timestamp
+		if ($item->hasChanged()) {
+			$item->dateModified = Zotero_DB::getTransactionTimestamp();
+		}
+		
+		$changed = $item->save($userID) || $changed;
 		
 		// Additional steps that have to be performed on a saved object
 		if ($twoStage) {
@@ -1649,10 +1675,16 @@ class Zotero_Items extends Zotero_DataObjects {
 						if (!$val) {
 							continue;
 						}
-						foreach ($val as $attachment) {
+						foreach ($val as $attachmentJSON) {
 							$childItem = new Zotero_Item;
 							$childItem->libraryID = $item->libraryID;
-							self::updateFromJSON($childItem, $attachment, true, $item, $userID);
+							self::updateFromJSON(
+								$childItem,
+								$attachmentJSON,
+								$item,
+								$requestParams,
+								$userID
+							);
 						}
 						break;
 					
@@ -1673,35 +1705,37 @@ class Zotero_Items extends Zotero_DataObjects {
 						break;
 					
 					case 'tags':
-						$item->setTags($val, $userID);
+						$changed = $item->setTags($val, $userID) || $changed;
+						break;
+					
+					case 'collections':
+						try {
+							$changed = $item->setCollections($val, $userID) || $changed;
+						}
+						catch (Exception $e) {
+							if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
+								throw new Exception($e->getMessage(), Z_ERROR_INVALID_INPUT);
+							}
+							throw $e;
+						}
+						break;
+					
+					case 'relations':
+						$changed = $item->setRelations($val, $userID) || $changed;
 						break;
 				}
 			}
-			
-			$item->save($userID);
 		}
 		
-		Zotero_DB::commit();
+		if ($transactionStarted) {
+			Zotero_DB::commit();
+		}
+		
+		return $changed;
 	}
 	
 	
-	private static function validateJSONItems($json) {
-		if (!is_object($json)) {
-			throw new Exception("Invalid items object (found " . gettype($json) . " '" . $json . "')", Z_ERROR_INVALID_INPUT);
-		}
-		
-		foreach ($json as $key=>$val) {
-			if ($key != 'items') {
-				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
-			}
-			if (sizeOf($val) > Zotero_API::$maxWriteItems) {
-				throw new Exception("Cannot add more than " . Zotero_API::$maxWriteItems . " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
-			}
-		}
-	}
-	
-	
-	private static function validateJSONItem($json, $libraryID, $item=null, $isChild=false) {
+	private static function validateJSONItem($json, $libraryID, $item=null, $isChild, $requestParams, $partialUpdate=false) {
 		$isNew = !$item;
 		
 		if (!is_object($json)) {
@@ -1709,10 +1743,13 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		if (isset($json->items) && is_array($json->items)) {
-			throw new Exception("An 'items' array is not valid for item updates", Z_ERROR_INVALID_INPUT);
+			throw new Exception("An 'items' array is not valid for single-item updates", Z_ERROR_INVALID_INPUT);
 		}
 		
-		if (isset($json->itemType) && $json->itemType == "attachment") {
+		if ($partialUpdate) {
+			$requiredProps = array();
+		}
+		else if (isset($json->itemType) && $json->itemType == "attachment") {
 			$requiredProps = array('linkMode', 'tags');
 		}
 		else if (isset($json->itemType) && $json->itemType == "attachment") {
@@ -1721,8 +1758,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		else if ($isNew) {
 			$requiredProps = array('itemType');
 		}
+		else if ($requestParams['apiVersion'] < 2) {
+			$requiredProps = array('itemType', 'tags');
+		}
 		else {
-			$requiredProps = array('itemType', 'creators', 'tags');
+			$requiredProps = array('itemType', 'tags', 'collections', 'relations');
 		}
 		
 		foreach ($requiredProps as $prop) {
@@ -1733,12 +1773,29 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
+				// Handled by Zotero_API::checkJSONObjectVersion()
+				case 'itemKey':
+				case 'itemVersion':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'parentItem':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					if (!Zotero_ID::isValidKey($val)) {
+						throw new Exception("'$key' must be a valid item key", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
 				case 'itemType':
 					if (!is_string($val)) {
 						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);
 					}
 					
-					if ($isChild) {
+					if ($isChild || !empty($json->parentItem)) {
 						switch ($val) {
 							case 'note':
 							case 'attachment':
@@ -1763,7 +1820,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'tags':
 					if (!is_array($val)) {
-						throw new Exception("'tags' property must be an array", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
 					}
 					
 					foreach ($val as $tag) {
@@ -1798,10 +1855,51 @@ class Zotero_Items extends Zotero_DataObjects {
 						}
 					}
 					break;
+				
+				case 'collections':
+					if (!is_array($val)) {
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
+					}
+					if ($isChild && $val) {
+						throw new Exception("Child items cannot be assigned to collections", Z_ERROR_INVALID_INPUT);
+					}
+					foreach ($val as $k) {
+						if (!Zotero_ID::isValidKey($k)) {
+							throw new Exception("'$k' is not a valid collection key", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					break;
+				
+				case 'relations':
+					if ($requestParams['apiVersion'] < 2) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
 					
+					if (!is_object($val)
+							// Allow an empty array, because it's annoying for clients otherwise
+							&& !(is_array($val) && empty($val))) {
+						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
+					}
+					foreach ($val as $predicate => $object) {
+						switch ($predicate) {
+						case 'owl:sameAs':
+						case 'dc:replaces':
+						case 'dc:relation':
+							break;
+						
+						default:
+							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
+						}
+						
+						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/items\/[A-Z0-9]{8}$/', $object)) {
+							throw new Exception("'$key' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
+						}
+					}
+					break;
+				
 				case 'creators':
 					if (!is_array($val)) {
-						throw new Exception("'creators' property must be an array", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' property must be an array", Z_ERROR_INVALID_INPUT);
 					}
 					
 					foreach ($val as $creator) {
@@ -1890,6 +1988,10 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'attachments':
 				case 'notes':
+					if ($requestParams['apiVersion'] > 1) {
+						throw new Exception("'$key' property is no longer supported", Z_ERROR_INVALID_INPUT);
+					}
+					
 					if (!$isNew) {
 						throw new Exception("'$key' property is valid only for new items", Z_ERROR_INVALID_INPUT);
 					}

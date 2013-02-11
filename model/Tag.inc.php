@@ -32,6 +32,7 @@ class Zotero_Tag {
 	private $type;
 	private $dateAdded;
 	private $dateModified;
+	private $version;
 	
 	private $loaded;
 	private $changed;
@@ -189,13 +190,16 @@ class Zotero_Tag {
 			
 			Z_Core::debug("Saving tag $tagID");
 			
-			$key = $this->key ? $this->key : $this->generateKey();
+			$key = $this->key ? $this->key : Zotero_ID::getKey();
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
 			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
+			$version = ($this->changed['name'] || $this->changed['type'])
+				? Zotero_Libraries::getUpdatedVersion($this->libraryID)
+				: $this->version;
 			
 			$fields = "name=?, `type`=?, dateAdded=?, dateModified=?,
-				libraryID=?, `key`=?, serverDateModified=?";
+				libraryID=?, `key`=?, serverDateModified=?, version=?";
 			$params = array(
 				$this->name,
 				$this->type ? $this->type : 0,
@@ -203,7 +207,8 @@ class Zotero_Tag {
 				$dateModified,
 				$this->libraryID,
 				$key,
-				$timestamp
+				$timestamp,
+				$version
 			);
 			
 			try {
@@ -213,8 +218,16 @@ class Zotero_Tag {
 					Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
 					
 					// Remove from delete log if it's there
-					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='tag' AND `key`=?";
-					Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+					        AND objectType='tag' AND `key`=?";
+					Zotero_DB::query(
+						$sql, array($this->libraryID, $key), $shardID
+					);
+					$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+					        AND objectType='tagName' AND `key`=?";
+					Zotero_DB::query(
+						$sql, array($this->libraryID, $this->name), $shardID
+					);
 				}
 				else {
 					$sql = "UPDATE tags SET $fields WHERE tagID=?";
@@ -247,8 +260,17 @@ class Zotero_Tag {
 						Zotero_DB::queryFromStatement($stmt, array_merge(array($tagID), $params));
 						
 						// Remove from delete log if it's there
-						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='tag' AND `key`=?";
-						Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+						        AND objectType='tag' AND `key`=?";
+						Zotero_DB::query(
+							$sql, array($this->libraryID, $key), $shardID
+						);
+						$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=?
+						        AND objectType='tagName' AND `key`=?";
+						Zotero_DB::query(
+							$sql, array($this->libraryID, $this->name), $shardID
+						);
+
 					}
 					else {
 						$sql = "UPDATE tags SET $fields WHERE tagID=?";
@@ -334,7 +356,8 @@ class Zotero_Tag {
 					'name' => $this->name,
 					'type' => $this->type ? $this->type : 0,
 					'dateAdded' => $dateAdded,
-					'dateModified' => $dateModified
+					'dateModified' => $dateModified,
+					'version' => $version
 				)
 			);
 		}
@@ -451,12 +474,7 @@ class Zotero_Tag {
 			$this->load();
 		}
 		
-		$xml = '<tag';
-		/*if (!$syncMode) {
-			$xml .= ' xmlns="' . Zotero_Atom::$nsZoteroTransfer . '"';
-		}*/
-		$xml .= '/>';
-		$xml = new SimpleXMLElement($xml);
+		$xml = new SimpleXMLElement('<tag/>');
 		
 		$xml['libraryID'] = $this->libraryID;
 		$xml['key'] = $this->key;
@@ -478,21 +496,40 @@ class Zotero_Tag {
 	}
 	
 	
+	public function toJSON($asArray=false, $prettyPrint=false) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$arr['tag'] = $this->name;
+		$arr['type'] = $this->type;
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
+	}
+	
+	
 	/**
 	 * Converts a Zotero_Tag object to a SimpleXMLElement Atom object
 	 *
-	 * @param	object				$tag		Zotero_Tag object
-	 * @param	string				$content
 	 * @return	SimpleXMLElement					Tag data as SimpleXML element
 	 */
-	public function toAtom($content=array('none'), $apiVersion=null, $fixedValues=null) {
+	public function toAtom($queryParams, $fixedValues=null) {
+		if (!empty($queryParams['content'])) {
+			$content = $queryParams['content'];
+		}
+		else {
+			$content = array('none');
+		}
 		// TEMP: multi-format support
 		$content = $content[0];
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
-			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '
-			. 'xmlns:zxfer="' . Zotero_Atom::$nsZoteroTransfer . '"/>'
+			'<entry xmlns="' . Zotero_Atom::$nsAtom
+			. '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
 		);
 		
 		$xml->title = $this->name;
@@ -509,7 +546,7 @@ class Zotero_Tag {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = Zotero_Atom::getTagURI($this);
+		$link['href'] = Zotero_API::getTagURI($this);
 		
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
@@ -532,31 +569,18 @@ class Zotero_Tag {
 		if ($content == 'html') {
 			$xml->content['type'] = 'xhtml';
 			
-			//$fullXML = Zotero_Tags::convertTagToXML($tag);
-			$fullStr = "<div/>";
-			$fullXML = new SimpleXMLElement($fullStr);
-			$fullXML->addAttribute(
+			$contentXML = new SimpleXMLElement("<div/>");
+			$contentXML->addAttribute(
 				"xmlns", Zotero_Atom::$nsXHTML
 			);
 			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
+			$subNode = dom_import_simplexml($contentXML);
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
-			
-			//$arr = $tag->serialize();
-			//require_once("views/zotero/tags.php")
 		}
-		// Not for public consumption
-		else if ($content == 'full') {
-			$xml->content['type'] = 'application/xml';
-			$fullXML = $this->toXML();
-			$fullXML->addAttribute(
-				"xmlns", Zotero_Atom::$nsZoteroTransfer
-			);
-			$fNode = dom_import_simplexml($xml->content);
-			$subNode = dom_import_simplexml($fullXML);
-			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
-			$fNode->appendChild($importedNode);
+		else if ($content == 'json') {
+			$xml->content['type'] = 'application/json';
+			$xml->content = $this->toJSON();
 		}
 		
 		return $xml;
@@ -713,11 +737,6 @@ class Zotero_Tag {
 		if ($this->id && $this->exists() && !$this->previousData) {
 			$this->previousData = $this->serialize();
 		}
-	}
-	
-	
-	private function generateKey() {
-		return Zotero_ID::getKey();
 	}
 	
 	

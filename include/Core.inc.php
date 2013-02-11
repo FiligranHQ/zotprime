@@ -25,8 +25,9 @@
 */
 
 class Z_Core {
-	public static $MC = null; // Memcached
-	public static $debug = false;
+	public static $MC = null; // Memcached (set in header.inc.php)
+	public static $Elastica = null; // ElasticSearch client (set in header.inc.php)
+	public static $debug = false; // (set in config.inc.php)
 	
 	public static function debug($str, $level=false) {
 		if (self::$debug) {

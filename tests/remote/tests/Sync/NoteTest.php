@@ -36,11 +36,15 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useAPIVersion(2);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -52,8 +56,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testNoteTooLong() {
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$content = str_repeat("1234567890", 25001);
@@ -69,7 +72,8 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertTrue(isset($xml->error));
 		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
-		$this->assertRegExp('/^Note \'.+\' too long for item \'AAAAAAAA\'$/', (string) $xml->error);
+		$this->assertRegExp('/^The note \'.+\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
 		
 		// Create too-long note with content within HTML tags
 		$content = "<p><!-- $content --></p>";
@@ -84,11 +88,11 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertTrue(isset($xml->error));
 		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
-		$this->assertRegExp('/^Note \'<p><!-- 12345678901234567890123456789012345678901234567890123456789012345678901...\' too long for item \'AAAAAAAA\'$/', (string) $xml->error);
+		$this->assertRegExp('/^The note \'<p><!-- 12345678901234567890[0-9]+…\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
 		
 		// Create note under the length limit
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$content = str_repeat("1234567890", 24999);

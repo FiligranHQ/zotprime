@@ -25,6 +25,7 @@
 */
 
 require_once 'include/http.inc.php';
+require_once '../../model/Utilities.inc.php';
 
 class Sync {
 	private static $config;
@@ -37,8 +38,136 @@ class Sync {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		date_default_timezone_set('UTC');
 	}
 	
+	
+	public static function createItem($sessionID, $libraryID, $itemType, $data=array(), $context) {
+		$xml = Sync::updated($sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. '<item libraryID="' . $libraryID . '" '
+				. 'itemType="' . $itemType . '" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '">';
+		if ($data) {
+			$relatedstr = "";
+			foreach ($data as $key => $val) {
+				$xmlstr .= '<field name="' . $key . '">' . $val . '</field>';
+				if ($key == 'related') {
+					$relatedstr .= "<related>$val</related>";
+				}
+			}
+			$xmlstr .= $relatedstr;
+		}
+		$xmlstr .= '</item>'
+			. '</items>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+		
+		return $key;
+	}
+	
+	
+	public static function deleteItem($sessionID, $libraryID, $itemKey, $context=null) {
+		$xml = Sync::updated($sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$xmlstr = '<data version="9">'
+			. '<deleted>'
+			. '<items>'
+			. '<item libraryID="' . self::$config['libraryID']
+				. '" key="' . $itemKey . '"/>'
+			. '</items>'
+			. '</deleted>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+	}
+	
+	
+	public static function createCollection($sessionID, $libraryID, $name, $parent, $context) {
+		$xml = Sync::updated($sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		$xmlstr = '<data version="9">'
+			. '<collections>'
+			. '<collection libraryID="' . $libraryID . '" '
+				. 'name="' . $name . '" ';
+		if ($parent) {
+			$xmlstr .= 'parent="' . $name . '" ';
+		}
+		$xmlstr .= 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '"/>'
+			. '</collections>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+		
+		return $key;
+	}
+	
+	
+	public static function createSearch($sessionID, $libraryID, $name, $conditions, $context) {
+		if ($conditions == 'default') {
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'test'
+				)
+			);
+		}
+		
+		$xml = Sync::updated($sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		$xmlstr = '<data version="9">'
+			. '<searches>'
+			. '<search libraryID="' . $libraryID . '" '
+				. 'name="' . $name . '" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '">';
+		$i = 1;
+		foreach ($conditions as $condition) {
+			$xmlstr .= '<condition id="' . $i . '" '
+				. 'condition="' . $condition['condition'] . '" '
+				. 'operator="' . $condition['operator'] . '" '
+				. 'value="' . $condition['value'] . '"/>';
+			$i++;
+		}
+		$xmlstr .= '</search>'
+			. '</searches>'
+			. '</data>';
+		$response = Sync::upload($sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($sessionID, $response, $context);
+		
+		return $key;
+	}
+	
+	
+	//
+	// Sync operations
+	//
 	public static function login($credentials=false) {
 		self::loadConfig();
 		
@@ -64,8 +193,41 @@ class Sync {
 	}
 	
 	
-	public static function updated($sessionID, $lastsync=1) {
-		return self::req($sessionID, "updated", array("lastsync" => $lastsync));
+	public static function updated($sessionID, $lastsync=1, $allowError=false, $allowQueued=false) {
+		$response = self::req($sessionID, "updated", array("lastsync" => $lastsync));
+		$xml = Sync::getXMLFromResponse($response);
+		
+		if (isset($xml->updated) || (isset($xml->error) && $allowError)
+				|| (isset($xml->locked) && $allowQueued)) {
+			return $xml;
+		}
+		
+		if (!isset($xml->locked)) {
+			var_dump($xml->asXML());
+			throw new Exception("Not locked");
+		}
+		
+		$max = 5;
+		do {
+			$wait = (int) $xml->locked['wait'];
+			sleep($wait / 1000);
+			
+			$xml = Sync::updated($sessionID, $lastsync, $allowError, true);
+			
+			$max--;
+		}
+		while (isset($xml->locked) && $max > 0);
+		
+		if (!$max) {
+			throw new Exception("Download did not finish after $max attempts");
+		}
+		
+		if (!$allowError && !isset($xml->updated)) {
+			var_dump($xml->asXML());
+			throw new Exception("<updated> not found");
+		}
+		
+		return $xml;
 	}
 	
 	
@@ -170,8 +332,18 @@ class Sync {
 	
 	
 	public static function getXMLFromResponse($response) {
-		return new SimpleXMLElement($response->getBody());
+		try {
+			$xml = new SimpleXMLElement($response->getBody());
+		}
+		catch (Exception $e) {
+			var_dump($response->getBody());
+			throw $e;
+		}
+		$xml->registerXPathNamespace('atom', 'http://www.w3.org/2005/Atom');
+		$xml->registerXPathNamespace('zapi', 'http://zotero.org/ns/api');
+		return $xml;
 	}
+
 	
 	
 	private static function req($sessionID, $path, $params=array(), $gzip=false, $allowError=false) {

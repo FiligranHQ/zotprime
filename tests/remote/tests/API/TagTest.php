@@ -49,65 +49,7 @@ class TagTests extends APITests {
 		);
 		
 		$response = API::postItem($json);
-		$this->assert400($response);
-	}
-	
-	
-	public function testTagAddItemETag() {
-		$xml = API::createItem("book", false, $this);
-		$t = time();
-		$data = API::parseDataFromItemEntry($xml);
-		$etag = $data['etag'];
-		
-		$json = json_decode($data['content']);
-		$json->tags[] = array(
-			"tag" => "Test"
-		);
-		$json->tags[] = array(
-			"tag" => "Test2"
-		);
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: " . $etag
-			)
-		);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
-		$data = API::parseDataFromItemEntry($xml);
-		$this->assertNotEquals($etag, (string) $data['etag']);
-		
-		return $data;
-	}
-	
-	
-	/**
-	 * @depends testTagAddItemETag
-	 */
-	public function testTagRemoveItemETag($data) {
-		$originalETag = $data['etag'];
-		$json = json_decode($data['content']);
-		$json->tags = array(
-			array(
-				"tag" => "Test2"
-			)
-		);
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/{$data['key']}?key=" . self::$config['apiKey'],
-			json_encode($json),
-			array(
-				"Content-Type: application/json",
-				"If-Match: " . $data['etag']
-			)
-		);
-		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numTags')));
-		$data = API::parseDataFromItemEntry($xml);
-		$this->assertNotEquals($originalETag, (string) $data['etag']);
+		$this->assert400ForObject($response);
 	}
 	
 	
@@ -115,23 +57,19 @@ class TagTests extends APITests {
 		API::userClear(self::$config['userID']);
 		
 		// Create items with tags
-		$xml = API::createItem("book", array(
+		$key1 = API::createItem("book", array(
 			"tags" => array(
 				array("tag" => "a"),
 				array("tag" => "b")
 			)
-		), $this);
-		$data = API::parseDataFromItemEntry($xml);
-		$key1 = $data['key'];
+		), $this, 'key');
 		
-		$xml = API::createItem("book", array(
+		$key2 = API::createItem("book", array(
 			"tags" => array(
 				array("tag" => "a"),
 				array("tag" => "c")
 			)
-		), $this);
-		$data = API::parseDataFromItemEntry($xml);
-		$key2 = $data['key'];
+		), $this, 'key');
 		
 		//
 		// Searches
@@ -236,5 +174,99 @@ class TagTests extends APITests {
 		$this->assertCount(2, $keys);
 		$this->assertContains($key1, $keys);
 		$this->assertContains($key2, $keys);
+	}
+	
+	
+	public function testTagSearch() {
+		$tags1 = array("a", "aa", "b");
+		$tags2 = array("b", "c", "cc");
+		
+		$itemKey1 = API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags1)
+		), $this, 'key');
+		
+		$itemKey2 = API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags2)
+		), $this, 'key');
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag=" . implode("%20||%20", $tags1)
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($tags1), $response);
+	}
+	
+	
+	public function testMultiTagDelete() {
+		API::userClear(self::$config['userID']);
+		
+		$tags1 = array("a", "aa", "b");
+		$tags2 = array("b", "c", "cc");
+		$tags3 = array("Foo");
+		
+		API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags1)
+		), $this, 'key');
+		
+		API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag, "type" => 1);
+			}, $tags2)
+		), $this, 'key');
+		
+		API::createItem("book", array(
+			"tags" => array_map(function ($tag) {
+				return array("tag" => $tag);
+			}, $tags3)
+		), $this, 'key');
+		
+		$libraryVersion = API::getLibraryVersion();
+		
+		// Missing version header
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2))
+		);
+		$this->assert428($response);
+		
+		// Outdated version header
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2)),
+			array("If-Unmodified-Since-Version: " . ($libraryVersion - 1))
+		);
+		$this->assert412($response);
+		
+		// Delete
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2)),
+			array("If-Unmodified-Since-Version: $libraryVersion")
+		);
+		$this->assert204($response);
+		
+		// Make sure they're gone
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey']
+				. "&content=json&tag="
+				. implode("%20||%20", array_merge($tags1, $tags2, $tags3))
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
 	}
 }

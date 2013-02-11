@@ -31,14 +31,13 @@ class Zotero_Search {
 	private $name;
 	private $dateAdded;
 	private $dateModified;
+	private $version;
+	
+	private $conditions = array();
 	
 	private $loaded;
 	private $changed;
 	
-	private $conditions = array();
-	private $maxSearchConditionID;
-	//private $sql;
-	//private $sqlParams;
 	
 	public function __construct() {
 		$numArgs = func_num_args();
@@ -86,6 +85,7 @@ class Zotero_Search {
 		$this->checkValue($field, $value);
 		
 		if ($this->$field != $value) {
+			//Z_Core::debug("Search field '$field' has changed from '{$this->$field}' to '$value'");
 			$this->changed = true;
 			$this->$field = $value;
 		}
@@ -110,13 +110,9 @@ class Zotero_Search {
 	/*
 	 * Save the search to the DB and return a savedSearchID
 	 *
-	 * If there are gaps in the searchConditionIDs, |fixGaps| must be true
-	 * and the caller must dispose of the search or reload the condition ids,
-	 * which may change after the save.
-	 *
 	 * For new searches, setName() must be called before saving
 	 */
-	public function save($fixGaps=false) {
+	public function save() {
 		if (!$this->libraryID) {
 			throw new Exception("Library ID must be set before saving");
 		}
@@ -148,10 +144,10 @@ class Zotero_Search {
 				Zotero_DB::query($sql, $searchID, $shardID);
 			}
 			
-			$key = $this->key ? $this->key : $this->generateKey();
+			$key = $this->key ? $this->key : Zotero_ID::getKey();
 			
 			$fields = "searchName=?, libraryID=?, `key`=?, dateAdded=?, dateModified=?,
-						serverDateModified=?";
+						serverDateModified=?, version=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$params = array(
 				$this->name,
@@ -159,7 +155,8 @@ class Zotero_Search {
 				$key,
 				$this->dateAdded ? $this->dateAdded : $timestamp,
 				$this->dateModified ? $this->dateModified : $timestamp,
-				$timestamp
+				$timestamp,
+				Zotero_Libraries::getUpdatedVersion($this->libraryID)
 			);
 			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
 			
@@ -179,33 +176,19 @@ class Zotero_Search {
 				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($searchID)));
 			}
 			
-			// Close gaps in savedSearchIDs
-			$saveConditions = array();
-			$i = 1;
-			
-			foreach ($this->conditions as $id=>$condition) {
-				if (!$fixGaps && $id != $i) {
-					trigger_error('searchConditionIDs not contiguous and |fixGaps| not set in save() of saved search ' . $this->id, E_USER_ERROR);
-				}
-				$saveConditions[$i] = $condition;
-				$i++;
-			}
-			
-			$this->conditions = $saveConditions;
-			
-			// TODO: use proper bound parameters once DB class is updated
 			foreach ($this->conditions as $searchConditionID => $condition) {
 				$sql = "INSERT INTO savedSearchConditions (searchID,
 						searchConditionID, `condition`, mode, operator,
 						value, required) VALUES (?,?,?,?,?,?,?)";
-				
 				$sqlParams = array(
-					$searchID, $searchConditionID,
+					$searchID,
+					// Index search conditions from 1
+					$searchConditionID + 1,
 					$condition['condition'],
 					$condition['mode'] ? $condition['mode'] : '',
 					$condition['operator'] ? $condition['operator'] : '',
 					$condition['value'] ? $condition['value'] : '',
-					$condition['required'] ? 1 : 0
+					!empty($condition['required']) ? 1 : 0
 				);
 				try {
 					Zotero_DB::query($sql, $sqlParams, $shardID);
@@ -226,7 +209,6 @@ class Zotero_Search {
 			throw ($e);
 		}
 		
-		// If successful, set values in object
 		if (!$this->id) {
 			$this->id = $searchID;
 		}
@@ -238,98 +220,42 @@ class Zotero_Search {
 	}
 	
 	
-	public function addCondition($condition, $mode, $operator, $value, $required) {
+	public function updateConditions($conditions) {
 		if ($this->id && !$this->loaded) {
-			$this->load(false);
+			$this->load();
 		}
-		
-		/*
-		if (!Zotero_SearchConditions.hasOperator(condition, operator)){
-			throw ("Invalid operator '" . operator . "' for condition " . condition);
+		for ($i = 1, $len = sizeOf($conditions); $i <= $len; $i++) {
+			// Compare existing values to new values
+			if (isset($this->conditions[$i])) {
+				if ($this->conditions[$i]['condition'] == $conditions[$i - 1]['condition']
+						&& $this->conditions[$i]['mode'] == $conditions[$i - 1]['mode']
+						&& $this->conditions[$i]['operator'] == $conditions[$i - 1]['operator']
+						&& $this->conditions[$i]['value'] == $conditions[$i - 1]['value']) {
+					continue;
+				}
+			}
+			$this->changed = true;
 		}
-		*/
-		
-		$searchConditionID = ++$this->maxSearchConditionID;
-		
-		$this->conditions[$searchConditionID] = array(
-			'id' => $searchConditionID,
-			'condition' => $condition,
-			'mode' => $mode,
-			'operator' => $operator,
-			'value' => $value,
-			'required' => $required
-		);
-		
-		$this->changed = true;
-		
-		//$this->sql = null;
-		//$this->sqlParams = null;
-		return $searchConditionID;
-	}
-	
-	
-	public function updateCondition($searchConditionID, $condition, $mode, $operator, $value, $required) {
-		if ($this->id && !$this->loaded) {
-			$this->load(false);
+		if ($this->changed || sizeOf($this->conditions) > $conditions) {
+			$this->conditions = $conditions;
 		}
-		
-		if (!isset($this->conditions[$searchConditionID])) {
-			trigger_error("Invalid searchConditionID $searchConditionID", E_USER_ERROR);
+		else {
+			Z_Core::debug("Conditions have not changed for search $this->id");
 		}
-		
-		/*
-		if (!Zotero_SearchConditions::hasOperator($condition, $operator)) {
-			trigger_error("Invalid operator $operator", E_USER_ERROR);
-		}
-		*/
-		
-		$existingCondition = $this->conditions[$searchConditionID];
-		
-		if ($existingCondition['condition'] == $condition
-				&& $existingCondition['mode'] == $mode
-				&& $existingCondition['operator'] == $operator
-				&& $existingCondition['value'] == $value
-				&& $existingCondition['required'] == $required) {
-			Z_Core::debug("Condition $searchConditionID for search
-				$this->id has not changed");
-			return;
-		}
-		
-		$this->conditions[$searchConditionID] = array(
-			'id' => $searchConditionID,
-			'condition' => $condition,
-			'mode' => $mode,
-			'operator' => $operator,
-			'value' => $value,
-			'required' => $required
-		);
-		
-		$this->changed = true;
-		
-		//$this->sql = null;
-		//$this->sqlParams = null;
-	}
-	
-	
-	public function removeCondition($searchConditionID) {
-		if (!isset($this->conditions[$searchConditionID])) {
-			trigger_error("Invalid searchConditionID $searchConditionID", E_USER_ERROR);
-		}
-		unset($this->conditions[$searchConditionID]);
-		$this->changed = true;
 	}
 	
 	
 	/**
-	  * Returns an array with 'condition', 'mode', 'operator', 'value', 'required'
+	  * Returns an array with 'condition', 'mode', 'operator', and 'value'
 	  * for the given searchConditionID
 	  */
 	public function getSearchCondition($searchConditionID) {
 		if ($this->id && !$this->loaded) {
-			$this->load(false);
+			$this->load();
 		}
 		
-		return isset($this->conditions[$searchConditionID]) ? $this->conditions[$searchConditionID] : false;
+		return isset($this->conditions[$searchConditionID])
+			? $this->conditions[$searchConditionID] : false;
 	}
 	
 	
@@ -339,36 +265,121 @@ class Zotero_Search {
 	  */
 	public function getSearchConditions() {
 		if ($this->id && !$this->loaded) {
-			$this->load(false);
+			$this->load();
 		}
 		
 		return $this->conditions;
 	}
 	
 	
-	private function load() {
-		//Z_Core::debug("Loading data for search $this->id");
+	public function toJSON($asArray=false, $prettyPrint=false) {
+		if (!$this->loaded) {
+			$this->load();
+		}
 		
-		if (!$this->libraryID) {
+		$arr['searchKey'] = $this->key;
+		$arr['searchVersion'] = $this->version;
+		$arr['name'] = $this->name;
+		$arr['conditions'] = array();
+		
+		foreach ($this->conditions as $condition) {
+			$arr['conditions'][] = array(
+				'condition' => $condition['condition']
+					. ($condition['mode'] ? "/{$condition['mode']}" : ""),
+				'operator' => $condition['operator'],
+				'value' => $condition['value']
+			);
+		}
+		
+		if ($asArray) {
+			return $arr;
+		}
+		
+		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
+	}
+	
+	
+	/**
+	 * Generate a SimpleXMLElement Atom object for the search
+	 *
+	 * @param array $queryParams
+	 * @return SimpleXMLElement
+	 */
+	public function toAtom($queryParams) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		// TEMP: multi-format support
+		if (!empty($queryParams['content'])) {
+			$content = $queryParams['content'];
+		}
+		else {
+			$content = array('none');
+		}
+		$content = $content[0];
+		
+		$xml = new SimpleXMLElement(
+			'<entry xmlns="' . Zotero_Atom::$nsAtom
+				. '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
+		);
+		
+		$xml->title = $this->name ? $this->name : '[Untitled]';
+		
+		$author = $xml->addChild('author');
+		// TODO: group item creator
+		$author->name = Zotero_Libraries::getName($this->libraryID);
+		$author->uri = Zotero_URI::getLibraryURI($this->libraryID);
+		
+		$xml->id = Zotero_URI::getSearchURI($this);
+		
+		$xml->published = Zotero_Date::sqlToISO8601($this->dateAdded);
+		$xml->updated = Zotero_Date::sqlToISO8601($this->dateModified);
+		
+		$link = $xml->addChild("link");
+		$link['rel'] = "self";
+		$link['type'] = "application/atom+xml";
+		$link['href'] = Zotero_API::getSearchURI($this);
+		
+		$xml->addChild('zapi:key', $this->key, Zotero_Atom::$nsZoteroAPI);
+		$xml->addChild('zapi:version', $this->version, Zotero_Atom::$nsZoteroAPI);
+		
+		if ($content == 'json') {
+			$xml->content['type'] = 'application/json';
+			$xml->content = $this->toJSON();
+		}
+		
+		return $xml;
+	}
+	
+	
+	private function load() {
+		$libraryID = $this->libraryID;
+		$id = $this->id;
+		$key = $this->key;
+		
+		Z_Core::debug("Loading data for search " . ($id ? $id : $key));
+		
+		if (!$libraryID) {
 			throw new Exception("Library ID not set");
 		}
 		
-		if (!$this->id && !$this->key) {
+		if (!$id && !$key) {
 			throw new Exception("ID or key not set");
 		}
 		
-		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
-		$sql = "SELECT searchID AS id, searchName AS name, dateAdded, dateModified, libraryID, `key`,
-				MAX(searchConditionID) AS maxSearchConditionID FROM savedSearches
-				LEFT JOIN savedSearchConditions USING (searchID) WHERE ";
-		if ($this->id) {
+		$sql = "SELECT searchID AS id, searchName AS name, dateAdded,
+				dateModified, libraryID, `key`, version
+				FROM savedSearches WHERE ";
+		if ($id) {
 			$sql .= "searchID=?";
-			$params = $this->id;
+			$params = $id;
 		}
 		else {
 			$sql .= "libraryID=? AND `key`=?";
-			$params = array($this->libraryID, $this->key);
+			$params = array($libraryID, $key);
 		}
 		$sql .= " GROUP BY searchID";
 		$data = Zotero_DB::rowQuery($sql, $params, $shardID);
@@ -379,7 +390,7 @@ class Zotero_Search {
 			return;
 		}
 		
-		foreach ($data as $key=>$val) {
+		foreach ($data as $key => $val) {
 			$this->$key = $val;
 		}
 		
@@ -388,13 +399,7 @@ class Zotero_Search {
 		$conditions = Zotero_DB::query($sql, $this->id, $shardID);
 		
 		foreach ($conditions as $condition) {
-			/*
-			if (!Zotero.SearchConditions.get(condition)){
-				Zotero.debug("Invalid saved search condition '"
-					+ condition + "' -- skipping", 2);
-				continue;
-			}
-			*/
+			
 			$searchConditionID = $condition['searchConditionID'];
 			$this->conditions[$searchConditionID] = array(
 				'id' => $searchConditionID,
@@ -423,7 +428,7 @@ class Zotero_Search {
 				break;
 			
 			case 'key':
-				if (!preg_match('/^[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}$/', $value)) {
+				if (!Zotero_ID::isValidKey($value)) {
 					$this->invalidValueError($field, $value);
 				}
 				break;

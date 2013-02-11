@@ -284,7 +284,7 @@ class Zotero_S3 {
 					exec('xdelta3 -d -s original patch new 2>&1', $output, $ret);
 					if ($ret) {
 						if ($ret == 2) {
-							Z_HTTP::e400("Invalid delta");
+							throw new Exception("Invalid delta", Z_ERROR_INVALID_INPUT);
 						}
 						throw new Exception("Error applying patch ($ret): " . implode("\n", $output));
 					}
@@ -304,19 +304,20 @@ class Zotero_S3 {
 			// Check MD5 hash
 			if (md5_file("new") != $info->hash) {
 				$cleanup();
-				Z_HTTP::e409("Patched file does not match hash");
+				throw new HTTPException("Patched file does not match hash", 409);
 			}
 			
 			// Check file size
 			if (filesize("new") != $info->size) {
 				$cleanup();
-				Z_HTTP::e409("Patched file size does not match (" . filesize("new") . " != {$info->size})");
+				throw new HTTPException("Patched file size does not match "
+						. "(" . filesize("new") . " != {$info->size})", 409);
 			}
 			
 			// If ZIP, make sure it's a ZIP
 			if ($info->zip && file_get_contents("new", false, null, 0, 4) != "PK" . chr(03) . chr(04)) {
 				$cleanup();
-				Z_HTTP::e409("Patched file is not a ZIP file");
+				throw new HTTPException("Patched file is not a ZIP file", 409);
 			}
 			
 			// Upload to S3
@@ -445,8 +446,7 @@ class Zotero_S3 {
 		Zotero_DB::beginTransaction();
 		
 		if (!$client) {
-			$timestamp = Zotero_Libraries::updateTimestamps($item->libraryID);
-			Zotero_DB::registerTransactionTimestamp($timestamp);
+			Zotero_Libraries::updateVersionAndTimestamp($item->libraryID);
 		}
 		
 		self::updateLastAdded($storageFileID);

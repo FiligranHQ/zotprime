@@ -55,7 +55,7 @@ class SyncController extends Controller {
 		}
 	}
 	
-	public function __construct($action, $settings, $extra) {
+	public function init($extra) {
 		require_once('../model/Error.inc.php');
 		
 		if ($this->profile) {
@@ -88,7 +88,7 @@ class SyncController extends Controller {
 		}
 		
 		if (empty($_REQUEST['version'])) {
-			if ($action == 'index') {
+			if ($this->action == 'index') {
 				echo "Nothing to see here.";
 				exit;
 			}

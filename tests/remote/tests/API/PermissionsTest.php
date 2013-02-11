@@ -28,6 +28,13 @@ require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
 class PermissionsTest extends APITests {
+	public function tearDown() {
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
+		);
+	}
+	
+	
 	public function testUserGroupsAnonymous() {
 		$response = API::get("users/" . self::$config['userID'] . "/groups?content=json");
 		$this->assert200($response);
@@ -90,39 +97,39 @@ class PermissionsTest extends APITests {
 		$bookKeys = array();
 		
 		$xml = API::createItem('book', array("title" => "A"), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		$bookKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("B", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("C", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("D", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("E", false, $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
 		$xml = API::createItem('book', array("title" => "F"), $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		$bookKeys[] = $data['key'];
 		
 		$xml = API::createNoteItem("G", $data['key'], $this);
-		$data = API::parseDataFromItemEntry($xml);
+		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		
 		// Create collection and add items to it
@@ -130,16 +137,17 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"collections?key=" . self::$config['apiKey'],
 			json_encode(array(
-				"name" => "Test",
-				"parent" => false
+				"collections" => array(
+					array(
+						"name" => "Test",
+						"parentCollection" => false
+					)
+				)
 			)),
 			array("Content-Type: application/json")
 		);
-		// TEMP: should be 201
-		$this->assert200($response);
-		$xml = API::getXMLFromResponse($response);
-		$data = API::parseDataFromItemEntry($xml);
-		$collectionKey = $data['key'];
+		$this->assert200ForObject($response);
+		$collectionKey = API::getFirstSuccessKeyFromResponse($response);
 		
 		$response = API::userPost(
 			self::$config['userID'],
@@ -168,7 +176,7 @@ class PermissionsTest extends APITests {
 		// Collection
 		$response = API::userGet(
 			self::$config['userID'],
-			"collections/$collectionKey/items?key=" . self::$config['apiKey']
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey']
 		);
 		$this->assertNumResults(sizeOf($topKeys), $response);
 		$this->assertTotalResults(sizeOf($topKeys), $response);
@@ -181,6 +189,7 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'] . "&format=keys"
 		);
+		$this->assert200($response);
 		$this->assertCount(sizeOf($keys), explode("\n", trim($response->getBody())));
 		
 		// Top
@@ -188,13 +197,15 @@ class PermissionsTest extends APITests {
 			self::$config['userID'],
 			"items/top?key=" . self::$config['apiKey'] . "&format=keys"
 		);
+		$this->assert200($response);
 		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
 		
 		// Collection
 		$response = API::userGet(
 			self::$config['userID'],
-			"collections/$collectionKey/items?key=" . self::$config['apiKey'] . "&format=keys"
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey'] . "&format=keys"
 		);
+		$this->assert200($response);
 		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
 		
 		// Remove notes privilege from key
@@ -251,5 +262,41 @@ class PermissionsTest extends APITests {
 				array_diff($bookKeys, $keys), array_diff($keys, $bookKeys)
 			)
 		);
+	}
+	
+	
+	public function testTagDeletePermissions() {
+		API::userClear(self::$config['userID']);
+		
+		$xml = API::createItem('book', array(
+			"tags" => array(
+				array(
+					"tag" => "A"
+				)
+			)
+		), $this);
+		
+		$libraryVersion = API::getLibraryVersion();
+		
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 0
+		);
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?tag=A&key=" . self::$config['apiKey']
+		);
+		$this->assert403($response);
+		
+		API::setKeyOption(
+			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
+		);
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?tag=A&key=" . self::$config['apiKey'],
+			array("If-Unmodified-Since-Version: $libraryVersion")
+		);
+		$this->assert204($response);
 	}
 }

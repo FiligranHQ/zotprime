@@ -218,12 +218,14 @@ class Zotero_Users {
 		$parts = array();
 		foreach ($libraryIDs as $libraryID) {
 			if ($oldStyle) {
-				$sql = "SELECT UNIX_TIMESTAMP(lastUpdated) FROM libraries WHERE libraryID=?";
+				$sql = "SELECT UNIX_TIMESTAMP(lastUpdated) FROM shardLibraries WHERE libraryID=?";
 			}
 			else {
-				$sql = "SELECT version FROM libraries WHERE libraryID=?";
+				$sql = "SELECT version FROM shardLibraries WHERE libraryID=?";
 			}
-			$timestamp = Zotero_DB::valueQuery($sql, $libraryID);
+			$timestamp = Zotero_DB::valueQuery(
+				$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
+			);
 			$parts[] = $libraryID . ':' . $timestamp;
 		}
 		return md5(implode(',', $parts));

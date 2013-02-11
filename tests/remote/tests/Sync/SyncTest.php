@@ -36,11 +36,15 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
 		}
+		
+		API::useAPIVersion(2);
 	}
 	
 	
 	public function setUp() {
 		API::userClear(self::$config['userID']);
+		API::groupClear(self::$config['ownedPrivateGroupID']);
+		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
 	}
 	
@@ -52,8 +56,7 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testSyncEmpty() {
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$this->assertEquals("0", (string) $xml['earliest']);
 		$this->assertFalse(isset($xml->updated->items));
 		$this->assertEquals(self::$config['userID'], (int) $xml['userID']);
@@ -64,43 +67,20 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 	 * @depends testSyncEmpty
 	 */
 	public function testSync() {
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		
 		// Upload
 		$data = file_get_contents("data/sync1upload.xml");
 		$data = str_replace('libraryID=""', 'libraryID="' . self::$config['libraryID'] . '"', $data);
 		
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
 		// Download
-		$response = Sync::updated(self::$sessionID);
-		$xml = Sync::getXMLFromResponse($response);
-		
-		$max = 5;
-		do {
-			$wait = (int) $xml->locked['wait'];
-			sleep($wait / 1000);
-			
-			$response = Sync::updated(self::$sessionID);
-			$xml = Sync::getXMLFromResponse($response);
-			
-			//var_dump($response->getBody());
-			
-			$max--;
-		}
-		while (isset($xml->locked) && $max > 0);
-		
-		if (!$max) {
-			$this->fail("Download did not finish after $max attempts");
-		}
-		
-		$xml = Sync::getXMLFromResponse($response);
+		$xml = Sync::updated(self::$sessionID);
 		unset($xml->updated->groups);
 		$xml['timestamp'] = "";
 		$xml['updateKey'] = "";
