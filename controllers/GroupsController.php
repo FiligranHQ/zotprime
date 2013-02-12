@@ -78,7 +78,7 @@ class GroupsController extends ApiController {
 				}
 			}
 			
-			$this->queryParams['content'] = 'full';
+			$this->queryParams['content'] = array('full');
 			$this->responseXML = $group->toAtom($this->queryParams);
 			
 			Zotero_DB::commit();
@@ -144,7 +144,7 @@ class GroupsController extends ApiController {
 				$this->handleException($e);
 			}
 			
-			$this->queryParams['content'] = 'full';
+			$this->queryParams['content'] = array('full');
 			$this->responseXML = $group->toAtom($this->queryParams);
 			
 			Zotero_DB::commit();
