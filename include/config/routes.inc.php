@@ -6,6 +6,7 @@ $router = new Router();
 
 // Sync
 if ($_SERVER['HTTP_HOST'] == Z_CONFIG::$SYNC_DOMAIN) {
+	$router->map('/', array('controller' => 'Sync', 'action' => 'index'));
 	$router->map('/:action', array('controller' => 'Sync'));
 }
 // API
