@@ -1931,7 +1931,10 @@ class Zotero_Items extends Zotero_DataObjects {
 									}
 									$itemTypeID = Zotero_ItemTypes::getID($json->itemType);
 									if (!Zotero_CreatorTypes::isValidForItemType($creatorTypeID, $itemTypeID)) {
-										throw new Exception("'$v' is not a valid creator type for item type '" . $json->itemType . "'", Z_ERROR_INVALID_INPUT);
+										// Allow 'author' in all item types, but reject other invalid creator types
+										if ($creatorTypeID != Zotero_CreatorTypes::getID('author')) {
+											throw new Exception("'$v' is not a valid creator type for item type '" . $json->itemType . "'", Z_ERROR_INVALID_INPUT);
+										}
 									}
 									break;
 								

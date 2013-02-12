@@ -595,6 +595,43 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testMappedCreatorTypes() {
+		$json = array(
+			"items" => array(
+				array(
+					'itemType' => 'presentation',
+					'title' => 'Test',
+					'creators' => array(
+						array(
+							"creatorType" => "author",
+							"name" => "Foo"
+						)
+					)
+				),
+				array(
+					'itemType' => 'presentation',
+					'title' => 'Test',
+					'creators' => array(
+						array(
+							"creatorType" => "editor",
+							"name" => "Foo"
+						)
+					)
+				)
+			)
+		);
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		// 'author' gets mapped automatically
+		$this->assert200ForObject($response);
+		// Others don't
+		$this->assert400ForObject($response, false, 1);
+	}
+	
+	
 	public function testNumChildren() {
 		$xml = API::createItem("book", false, $this);
 		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
