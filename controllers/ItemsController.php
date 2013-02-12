@@ -252,7 +252,13 @@ class ItemsController extends ApiController {
 				
 				switch ($this->scopeObject) {
 					case 'collections':
-						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
+						// TEMP
+						if (Zotero_ID::isValidKey($this->scopeObjectKey)) {
+							$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
+						}
+						else {
+							$collection = false;
+						}
 						if (!$collection) {
 							// If old collectionID, redirect
 							if ($this->method == 'GET' && Zotero_Utilities::isPosInt($this->scopeObjectKey)) {
