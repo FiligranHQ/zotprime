@@ -108,6 +108,11 @@ class GroupTests extends APITests {
 			)
 		);
 		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$xml->registerXPathNamespace('zxfer', 'http://zotero.org/ns/transfer');
+		$group = $xml->xpath('//atom:entry/atom:content/zxfer:group');
+		$this->assertCount(1, $group);
+		$this->assertEquals($name, $group[0]['name']);
 		
 		$response = API::userGet(
 			self::$config['userID'],

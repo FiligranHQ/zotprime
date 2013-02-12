@@ -1008,6 +1008,10 @@ class Zotero_Group {
 			$fNode->appendChild($importedNode);
 		}
 		
+		error_log('=====');
+		error_log($content);
+		error_log($xml->asXML());
+		
 		return $xml;
 	}
 	

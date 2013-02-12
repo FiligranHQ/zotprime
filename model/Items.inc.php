@@ -1067,7 +1067,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				StatsD::increment("memcached.items.itemToAtom.hit");
 				
 				// Skip the cache every 10 times for now, to ensure cache sanity
-				if (Z_Core::probability(10)) {
+				if (true || Z_Core::probability(10)) {
 					$xmlstr = $xml->saveXML();
 				}
 				else {
