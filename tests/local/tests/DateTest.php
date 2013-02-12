@@ -32,7 +32,7 @@ class DateTests extends PHPUnit_Framework_TestCase {
 			"2011-02-28",
 			"28-02-2011",
 			"Feb 28 2011",
-			"28 Feb 2011",
+			"28 Feb 2011"
 		);
 		
 		foreach ($patterns as $pattern) {

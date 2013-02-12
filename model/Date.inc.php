@@ -299,8 +299,8 @@ class Zotero_Date {
 		}
 		
 		$multi = (!empty($parts['year']) ? str_pad($parts['year'], 4, '0', STR_PAD_LEFT) : '0000') . '-'
-			. (!empty($parts['month']) ? str_pad($parts['month'], 2, '0', STR_PAD_LEFT) : '00') . '-'
-			. (!empty($parts['day']) ? str_pad($parts['day'], 2, '0', STR_PAD_LEFT) : '00')
+			. ((!empty($parts['month']) && $parts['month'] <= 12) ? str_pad($parts['month'], 2, '0', STR_PAD_LEFT) : '00') . '-'
+			. ((!empty($parts['day']) && $parts['day'] <= 31) ? str_pad($parts['day'], 2, '0', STR_PAD_LEFT) : '00')
 			. ' '
 			. $str;
 		return $multi;
