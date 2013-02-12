@@ -108,6 +108,9 @@ class CollectionsController extends ApiController {
 				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
 					$this->e204();
 				}
+				else {
+					$this->queryParams['content'] = array('json');
+				}
 			}
 			
 			$this->libraryVersion = $collection->version;

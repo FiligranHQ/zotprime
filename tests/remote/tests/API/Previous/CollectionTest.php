@@ -135,4 +135,40 @@ class PreviousCollectionTests extends APITests {
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
 	}
+	
+	
+	public function testEditSingleCollection() {
+		API::useAPIVersion(2);
+		$xml = API::createCollection("Test", false, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
+		$version = $data['version'];
+		API::useAPIVersion(1);
+		
+		$xml = API::getCollectionXML($data['key']);
+		$etag = (string) array_shift($xml->xpath('//atom:entry/atom:content/@etag'));
+		$this->assertNotNull($etag);
+		
+		$newName = "Test 2";
+		$json = array(
+			"name" => $newName,
+			"parent" => false
+		);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"collections/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array(
+				"Content-Type: application/json",
+				"If-Match: $etag"
+			)
+		);
+		$this->assert200($response);
+		
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals($newName, (string) $json->name);
+	}
 }
