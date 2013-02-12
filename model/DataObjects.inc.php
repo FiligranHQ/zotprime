@@ -165,7 +165,7 @@ class Zotero_DataObjects {
 			self::$idCache[$type][$libraryID] = array();
 			
 			$cacheKey = "{$type}IDsByKey_{$libraryID}_"
-				. Zotero_Libraries::getOriginalVersion($libraryID, true)
+				. Zotero_Libraries::getOriginalVersion($libraryID)
 				. "_" . self::$cacheVersion;
 			$ids = Z_Core::$MC->get($cacheKey);
 			if ($ids === false) {
@@ -286,7 +286,7 @@ class Zotero_DataObjects {
 		self::$primaryDataByID[$type][$libraryID] = array();
 		
 		$cacheKey = "{$type}Data_{$libraryID}_"
-			. Zotero_Libraries::getOriginalVersion($libraryID, true)
+			. Zotero_Libraries::getOriginalVersion($libraryID)
 			. "_" . self::$cacheVersion;
 		$rows = Z_Core::$MC->get($cacheKey);
 		if ($rows === false) {
