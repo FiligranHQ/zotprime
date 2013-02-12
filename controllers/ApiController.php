@@ -64,6 +64,8 @@ class ApiController extends Controller {
 	
 	
 	public function init($extra) {
+		$this->startTime = microtime(true);
+		
 		if (!Z_CONFIG::$API_ENABLED) {
 			$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
 		}
@@ -72,7 +74,6 @@ class ApiController extends Controller {
 		set_error_handler(array($this, 'handleError'), E_USER_ERROR | E_RECOVERABLE_ERROR);
 		require_once('../model/Error.inc.php');
 		
-		$this->startTime = microtime(true);
 		register_shutdown_function(array($this, 'checkDBTransactionState'));
 		register_shutdown_function(array($this, 'logTotalRequestTime'));
 		register_shutdown_function(array($this, 'checkForFatalError'));
