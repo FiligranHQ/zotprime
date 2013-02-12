@@ -326,7 +326,10 @@ class Zotero_Libraries {
 		
 		Zotero_Notifier::trigger("clear", "library", $libraryID);
 		
-		Zotero_FullText::deleteByLibrary($libraryID);
+		// Only available on testing site for now
+		if (Z_ENV_TESTING_SITE) {
+			Zotero_FullText::deleteByLibrary($libraryID);
+		}
 		
 		Zotero_DB::commit();
 	}
