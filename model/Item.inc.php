@@ -3119,6 +3119,11 @@ class Zotero_Item {
 		
 		Zotero_DB::beginTransaction();
 		
+		// An empty array is allowed by updateFromJSON()
+		if (is_array($newRelations) && empty($newRelations)) {
+			$newRelations = new stdClass;
+		}
+		
 		// Get arrays from objects
 		$oldRelations = get_object_vars($this->getRelations());
 		$newRelations = get_object_vars($newRelations);
