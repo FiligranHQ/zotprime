@@ -1,4 +1,4 @@
-<?
+<?php
 /*
     ***** BEGIN LICENSE BLOCK *****
     
@@ -77,12 +77,14 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
-		// Get item ETag via API
+		// Get item version via API and check creatorSummary
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
+		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$this->assertEquals("Last", $creatorSummary);
 		$data = API::parseDataFromAtomEntry($xml);
 		$version = $data['version'];
 		
@@ -92,15 +94,9 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, sizeOf($xml->updated->items->item));
 		
 		//
-		// Modify creator, and include unmodified item
+		// Modify creator
 		//
-		$data = '<data version="9"><items><item libraryID="'
-			. self::$config['libraryID'] . '" itemType="book" '
-			. 'dateAdded="2009-03-07 04:53:20" '
-			. 'dateModified="2009-03-07 04:54:09" '
-			. 'key="' . $key . '">'
-			. '<creator key="BBBBBBBB" creatorType="author" index="0"/>'
-			. '</item></items>'
+		$data = '<data version="9">'
 			. '<creators><creator libraryID="' . self::$config['libraryID'] . '" '
 			. 'key="BBBBBBBB" dateAdded="2009-03-07 04:53:20" dateModified="2009-03-07 04:54:09">'
 			. '<name>First Last</name>'
@@ -118,9 +114,51 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
+		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$this->assertEquals("First Last", $creatorSummary);
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
-		$this->assertNotEquals($version, $data['version']);
+		$this->assertEquals($version + 1, $data['version']);
+		$version = $data['version'];
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		//
+		// Modify creator, and include unmodified item
+		//
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" itemType="book" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="' . $key . '">'
+			. '<creator key="BBBBBBBB" creatorType="author" index="0"/>'
+			. '</item></items>'
+			. '<creators><creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="BBBBBBBB" dateAdded="2009-03-07 04:53:20" dateModified="2009-03-07 04:54:09">'
+			. '<firstName>Foo</firstName>'
+			. '<lastName>Bar</lastName>'
+			. '<fieldMode>0</fieldMode>'
+			. '</creator></creators></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get item via API
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		
+		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$this->assertEquals("Bar", $creatorSummary);
+		$this->assertTrue(isset($json->creators[0]->firstName));
+		$this->assertEquals("Foo", $json->creators[0]->firstName);
+		$this->assertTrue(isset($json->creators[0]->lastName));
+		$this->assertEquals("Bar", $json->creators[0]->lastName);
+		$this->assertEquals($version + 1, $data['version']);
 		
 		return $data;
 	}
