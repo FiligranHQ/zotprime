@@ -174,6 +174,17 @@ class TagTests extends APITests {
 		$this->assertCount(2, $keys);
 		$this->assertContains($key1, $keys);
 		$this->assertContains($key2, $keys);
+		
+		// A (case-insensitive search)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&format=keys&"
+				. "tag=B"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(1, $keys);
+		$this->assertContains($key1, $keys);
 	}
 	
 	

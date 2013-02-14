@@ -324,7 +324,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				$tagIDs = array();
 				
 				foreach ($set['values'] as $tag) {
-					$ids = Zotero_Tags::getIDs($libraryID, $tag);
+					$ids = Zotero_Tags::getIDs($libraryID, $tag, true);
 					if (!$ids) {
 						$ids = array(0);
 					}

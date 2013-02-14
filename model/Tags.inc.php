@@ -104,8 +104,12 @@ class Zotero_Tags extends Zotero_DataObjects {
 	/*
 	 * Returns array of all tagIDs for this tag (of all types)
 	 */
-	public static function getIDs($libraryID, $name) {
-		$sql = "SELECT tagID FROM tags WHERE libraryID=? AND name=?";
+	public static function getIDs($libraryID, $name, $caseInsensitive=false) {
+		$sql = "SELECT tagID FROM tags WHERE libraryID=? AND name";
+		if ($caseInsensitive) {
+			$sql .= " COLLATE utf8_general_ci ";
+		}
+		$sql .= "=?";
 		$tagIDs = Zotero_DB::columnQuery($sql, array($libraryID, $name), Zotero_Shards::getByLibraryID($libraryID));
 		if (!$tagIDs) {
 			return array();
