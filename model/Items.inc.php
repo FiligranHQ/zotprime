@@ -314,8 +314,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		$tagSets = Zotero_API::getSearchParamValues($params, 'tag');
 		
 		if ($tagSets) {
-			$sql2 = "SELECT itemID FROM items WHERE 1\n";
-			$sqlParams2 = array();
+			$sql2 = "SELECT itemID FROM items WHERE libraryID=?\n";
+			$sqlParams2 = array($libraryID);
 			
 			$positives = array();
 			$negatives = array();
