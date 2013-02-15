@@ -87,5 +87,23 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		$xml['earliest'] = "";
 		
 		$this->assertXmlStringEqualsXmlFile("data/sync1download.xml", $xml->asXML());
+		
+		// Test fully cached download
+		$xml = Sync::updated(self::$sessionID);
+		unset($xml->updated->groups);
+		$xml['timestamp'] = "";
+		$xml['updateKey'] = "";
+		$xml['earliest'] = "";
+		
+		$this->assertXmlStringEqualsXmlFile("data/sync1download.xml", $xml->asXML());
+		
+		// Test item-level cached download
+		$xml = Sync::updated(self::$sessionID, 2);
+		unset($xml->updated->groups);
+		$xml['timestamp'] = "";
+		$xml['updateKey'] = "";
+		$xml['earliest'] = "";
+		
+		$this->assertXmlStringEqualsXmlFile("data/sync1download.xml", $xml->asXML());
 	}
 }

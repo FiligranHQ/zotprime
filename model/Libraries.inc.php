@@ -384,10 +384,6 @@ class Zotero_Libraries {
 		foreach (Zotero_DataObjects::$objectTypes as $type=>$arr) {
 			$className = "Zotero_" . $arr['plural'];
 			call_user_func(array($className, "clearPrimaryDataCache"), $libraryID);
-			call_user_func(array($className, "clearLibraryKeyCache"), $libraryID);
-			
-			$cacheKey = $type . 'IDsByKey_' . $libraryID;
-			Z_Core::$MC->delete($cacheKey);
 		}
 	}
 }

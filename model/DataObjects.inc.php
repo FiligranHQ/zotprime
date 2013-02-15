@@ -43,7 +43,6 @@ class Zotero_DataObjects {
 	
 	private static $cacheVersion = 3;
 	
-	private static $idCache = array();
 	private static $primaryDataByID = array();
 	private static $primaryDataByKey = array();
 	
@@ -119,20 +118,20 @@ class Zotero_DataObjects {
 			case 'item':
 			case 'relation':
 				$className = "Zotero_" . ucwords($types);
-				return call_user_func(array($className, 'get'), $libraryID, self::$idCache[$type][$libraryID][$key]);
+				return call_user_func(array($className, 'get'), $libraryID, self::$primaryDataByKey[$type][$libraryID][$key]['id']);
 			
 			// Pass skipCheck, since we've already checked for existence
 			case 'collection':
 			case 'creator':
 			case 'tag':
 				$className = "Zotero_" . ucwords($types);
-				return call_user_func(array($className, 'get'), $libraryID, self::$idCache[$type][$libraryID][$key], true);
+				return call_user_func(array($className, 'get'), $libraryID, self::$primaryDataByKey[$type][$libraryID][$key]['id'], true);
 			
 			default:
 				$className = "Zotero_" . ucwords($type);
 				$obj = new $className;
 				$obj->libraryID = $libraryID;
-				$obj->id = self::$idCache[$type][$libraryID][$key];
+				$obj->id = self::$primaryDataByKey[$type][$libraryID][$key]['id'];
 				return $obj;
 		}
 	}
@@ -156,95 +155,30 @@ class Zotero_DataObjects {
 			throw new Exception("Invalid key '$key'");
 		}
 		
-		if (!isset(self::$idCache[$type])) {
-			self::$idCache[$type] = array();
-		}
-		
-		// Cache object ids in library if not done yet
-		if (!isset(self::$idCache[$type][$libraryID])) {
-			self::$idCache[$type][$libraryID] = array();
-			
-			$cacheKey = "{$type}IDsByKey_{$libraryID}_"
-				. Zotero_Libraries::getOriginalVersion($libraryID)
-				. "_" . self::$cacheVersion;
-			$ids = Z_Core::$MC->get($cacheKey);
-			if ($ids === false) {
-				if ($type == 'relation') {
-					$sql = "SELECT $id AS id, MD5(CONCAT(subject, '_', predicate, '_', object)) AS `key` FROM $table WHERE libraryID=?";
-				}
-				else {
-					$sql = "SELECT $id AS id, `key` FROM $table WHERE libraryID=?";
-				}
-				$rows = Zotero_DB::query($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
-				
-				if (!$rows) {
-					return false;
-				}
-				
-				foreach ($rows as $row) {
-					self::$idCache[$type][$libraryID][$row['key']] = $row['id'];
-				}
-				
-				Z_Core::debug("Caching $cacheKey");
-				Z_Core::$MC->set($cacheKey, self::$idCache[$type][$libraryID]);
-			}
-			else {
-				self::$idCache[$type][$libraryID] = $ids;
-			}
-		}
-		
-		return isset(self::$idCache[$type][$libraryID][$key]);
-	}
-	
-	
-	/**
-	 * Cache a new libraryID/key/id combination
-	 *
-     * Newly created ids must be registered here or getByLibraryAndKey() won't work
-	 */
-	public static function cacheLibraryKeyID($libraryID, $key, $id) {
-		$type = static::field('object');
-		
-		// Trigger caching of library object ids
-		$existingObj = static::getByLibraryAndKey($libraryID, $key);
-		
-		// The first-inserted object in a new library will get cached by the above,
-		// so only protest if the id is different
-		if ($existingObj && $existingObj->id != $id) {
-			throw new Exception($type . " with id " . $existingObj->id . " is already cached for library and key");
-		}
-		
-		if (!$id || !is_numeric($id)) {
-			throw new Exception("id '$id' must be a positive integer");
-		}
-		
-		self::$idCache[$type][$libraryID][$key] = $id;
-	}
-	
-	
-	public static function clearLibraryKeyCache($libraryID) {
-		$type = static::field('object');
-		unset(self::$idCache[$type][$libraryID]);
+		return !!self::getPrimaryDataByKey($libraryID, $key);
 	}
 	
 	
 	public static function getPrimaryDataByID($libraryID, $id) {
+		$idCol = static::field('id');
 		$type = static::field('object');
 		
 		if (!is_numeric($id)) {
 			throw new Exception("Invalid id '$id'");
 		}
 		
-		// If primary data isn't cached for library, do so now
-		if (!isset(self::$primaryDataByID[$type][$libraryID])) {
-			self::cachePrimaryDataByLibrary($libraryID);
+		if (isset(self::$primaryDataByID[$type][$libraryID][$id])) {
+			return self::$primaryDataByID[$type][$libraryID][$id];
 		}
 		
-		if (!isset(self::$primaryDataByID[$type][$libraryID][$id])) {
-			return false;
-		}
+		$sql = self::getPrimaryDataSQL() . "libraryID=? AND $idCol=?";
+		$row = Zotero_DB::rowQuery(
+			$sql, array($libraryID, $id), Zotero_Shards::getByLibraryID($libraryID)
+		);
 		
-		return self::$primaryDataByID[$type][$libraryID][$id];
+		self::cachePrimaryData($row, $libraryID, false, $id);
+		
+		return $row;
 	}
 	
 	
@@ -254,93 +188,76 @@ class Zotero_DataObjects {
 		if (!is_numeric($libraryID)) {
 			throw new Exception("Invalid libraryID '$libraryID'");
 		}
-		if (!preg_match('/[A-Z0-9]{8}/', $key)) {
+		if ($type == 'relation') {
+			if (!preg_match('/[a-f0-9]{32}/', $key)) {
+				throw new Exception("Invalid key '$key'");
+			}
+		}
+		else if (!preg_match('/[A-Z0-9]{8}/', $key)) {
 			throw new Exception("Invalid key '$key'");
 		}
 		
-		// If primary data isn't cached for library, do so now
-		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
-			self::cachePrimaryDataByLibrary($libraryID);
+		if (isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
+			return self::$primaryDataByKey[$type][$libraryID][$key];
 		}
 		
-		if (!isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
-			return false;
+		if ($type == 'relation') {
+			$sql = self::getPrimaryDataSQL() . "libraryID=? AND "
+				. "MD5(CONCAT(subject, '_', predicate, '_', object))=?";
 		}
+		else {
+			$sql = self::getPrimaryDataSQL() . "libraryID=? AND `key`=?";
+		}
+		$row = Zotero_DB::rowQuery(
+			$sql, array($libraryID, $key), Zotero_Shards::getByLibraryID($libraryID)
+		);
 		
-		return self::$primaryDataByKey[$type][$libraryID][$key];
+		self::cachePrimaryData($row, $libraryID, $key);
+		
+		return $row;
 	}
 	
 	
-	private static function cachePrimaryDataByLibrary($libraryID) {
+	public static function cachePrimaryData($row, $libraryID=false, $key=false, $id=false) {
 		$type = static::field('object');
-		$types = static::field('objects');
 		
-		if (isset(self::$primaryDataByKey[$type][$libraryID])) {
-			Z_Core::debug("Primary $type data already cached for library $libraryID");
-			return;
+		if (!$row && (!$libraryID || !($key || $id))) {
+			throw new Exception("libraryID and either key or id must be set if row is empty");
 		}
 		
-		Z_Core::debug("Caching primary $type data for library $libraryID");
+		$libraryID = $row ? $row['libraryID'] : $libraryID;
 		
-		self::$primaryDataByKey[$type][$libraryID] = array();
-		self::$primaryDataByID[$type][$libraryID] = array();
+		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
+			self::$primaryDataByKey[$type][$libraryID] = array();
+			self::$primaryDataByID[$type][$libraryID] = array();
+		}
 		
-		$cacheKey = "{$type}Data_{$libraryID}_"
-			. Zotero_Libraries::getOriginalVersion($libraryID)
-			. "_" . self::$cacheVersion;
-		$rows = Z_Core::$MC->get($cacheKey);
-		if ($rows === false) {
-			$className = "Zotero_" . ucwords($types);
-			$sql = self::getPrimaryDataSQL() . "libraryID=?";
+		if ($row) {
+			$found = 0;
+			$expected = sizeOf(static::$primaryFields);
 			
-			$shardID = Zotero_Shards::getByLibraryID($libraryID);
-			$rows = Zotero_DB::query($sql, $libraryID, $shardID);
+			foreach ($row as $field => $val) {
+				if (isset(static::$primaryFields[$field])) {
+					$found++;
+				}
+				else {
+					throw new Exception("Unknown $type primary data field '$field'");
+				}
+			}
 			
-			Z_Core::debug("Caching $cacheKey");
-			Z_Core::$MC->set($cacheKey, $rows ? $rows : array());
-		}
-		else {
-			Z_Core::debug("Retrieved " . $cacheKey);
-		}
-		
-		if (!$rows) {
-			return;
-		}
-		
-		foreach ($rows as $row) {
+			if ($found != $expected) {
+				throw new Exception("$found $type primary data fields provided -- expected $expected");
+			}
+			
 			self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
 			self::$primaryDataByID[$type][$libraryID][$row['id']] =& self::$primaryDataByKey[$type][$libraryID][$row['key']];
 		}
-	}
-	
-	
-	public static function cachePrimaryData($row) {
-		$type = static::field('object');
-		
-		$libraryID = $row['libraryID'];
-		
-		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
-			self::cachePrimaryDataByLibrary($libraryID);
+		else if ($key) {
+			self::$primaryDataByKey[$type][$libraryID][$key] = false;
 		}
-		
-		$found = 0;
-		$expected = sizeOf(static::$primaryFields);
-		
-		foreach ($row as $key=>$val) {
-			if (isset(static::$primaryFields[$key])) {
-				$found++;
-			}
-			else {
-				throw new Exception("Unknown $type primary data field '$key'");
-			}
+		else if ($id) {
+			self::$primaryDataByID[$type][$libraryID][$id] = false;
 		}
-		
-		if ($found != $expected) {
-			throw new Exception("$found $type primary data fields provided -- expected $expected");
-		}
-		
-		self::$primaryDataByKey[$type][$libraryID][$row['key']] = $row;
-		self::$primaryDataByID[$type][$libraryID][$row['id']] =& self::$primaryDataByKey[$type][$libraryID][$row['key']];
 	}
 	
 	
@@ -366,7 +283,7 @@ class Zotero_DataObjects {
 		$fields = array();
 		foreach (static::$primaryFields as $field => $dbField) {
 			if ($dbField) {
-				$fields[] = "`" . $dbField . "` AS `" . $field . "`";
+				$fields[] = $dbField . " AS `" . $field . "`";
 			}
 			else {
 				$fields[] = "`" . $field . "`";
@@ -708,7 +625,6 @@ class Zotero_DataObjects {
 			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
 		}
 		
-		unset(self::$idCache[$type][$libraryID][$key]);
 		static::uncachePrimaryData($libraryID, $key);
 		
 		if ($deleted) {

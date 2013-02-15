@@ -164,7 +164,6 @@ class Zotero_Search {
 				$sql = "INSERT INTO savedSearches SET searchID=?, $fields";
 				$stmt = Zotero_DB::getStatement($sql, true, $shardID);
 				Zotero_DB::queryFromStatement($stmt, array_merge(array($searchID), $params));
-				Zotero_Searches::cacheLibraryKeyID($this->libraryID, $key, $searchID);
 				
 				// Remove from delete log if it's there
 				$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='search' AND `key`=?";

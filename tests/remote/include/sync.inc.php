@@ -60,8 +60,8 @@ class Sync {
 				. 'key="' . $key . '">';
 		if ($data) {
 			$relatedstr = "";
-			foreach ($data as $key => $val) {
-				$xmlstr .= '<field name="' . $key . '">' . $val . '</field>';
+			foreach ($data as $field => $val) {
+				$xmlstr .= '<field name="' . $field . '">' . $val . '</field>';
 				if ($key == 'related') {
 					$relatedstr .= "<related>$val</related>";
 				}

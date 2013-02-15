@@ -27,6 +27,15 @@
 class Zotero_Relations extends Zotero_DataObjects {
 	protected static $ZDO_object = 'relation';
 	
+	protected static $primaryFields = array(
+		'id' => 'relationID',
+		'libraryID' => '',
+		'key' => "MD5(CONCAT(subject, '_', predicate, '_', object))",
+		'subject' => '',
+		'predicate' => '',
+		'object' => ''
+	);
+	
 	public static $relatedItemPredicate = 'dc:relation';
 	public static $linkedObjectPredicate = 'owl:sameAs';
 	public static $deletedItemPredicate = 'dc:replaces';

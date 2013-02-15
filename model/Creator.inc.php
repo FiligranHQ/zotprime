@@ -256,7 +256,6 @@ class Zotero_Creator {
 		
 		if ($isNew) {
 			Zotero_Creators::cache($this);
-			Zotero_Creators::cacheLibraryKeyID($this->libraryID, $key, $creatorID);
 		}
 		
 		// TODO: invalidate memcache?

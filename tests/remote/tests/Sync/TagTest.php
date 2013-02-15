@@ -470,7 +470,7 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, sizeOf($xml->updated->tags->tag[0]->items));
 		$lastsync = (int) $xml['timestamp'];
 		
-		sleep(1);
+		usleep(1500000);
 		
 		// Increment the library version, since we're testing the
 		// version below

@@ -378,7 +378,6 @@ class Zotero_Tag {
 		
 		if ($isNew) {
 			Zotero_Tags::cache($this);
-			Zotero_Tags::cacheLibraryKeyID($this->libraryID, $key, $tagID);
 		}
 		
 		return $this->id;

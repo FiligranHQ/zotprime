@@ -159,7 +159,83 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$this->assertTrue(isset($json->creators[0]->lastName));
 		$this->assertEquals("Bar", $json->creators[0]->lastName);
 		$this->assertEquals($version + 1, $data['version']);
+	}
+	
+	
+	public function testCreatorItemChangeViaAPI() {
+		$key = 'AAAAAAAA';
 		
-		return $data;
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Create item via sync
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" itemType="book" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="' . $key . '">'
+			. '<creator key="BBBBBBBB" creatorType="author" index="0">'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="BBBBBBBB" dateAdded="2009-03-07 04:53:20" dateModified="2009-03-07 04:54:09">'
+			. '<firstName>First</firstName>'
+			. '<lastName>Last</lastName>'
+			. '<fieldMode>0</fieldMode>'
+			. '</creator></creator></item></items></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get item version via API and check creatorSummary
+		API::useAPIVersion(1);
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$this->assertEquals("Last", $creatorSummary);
+		$data = API::parseDataFromAtomEntry($xml);
+		$etag = (string) array_shift($xml->xpath('//atom:entry/atom:content/@zapi:etag'));
+		$this->assertNotEquals("", $etag);
+		
+		// Modify creator
+		$json = json_decode($data['content'], true);
+		$json['creators'][0] = array(
+			"name" => "First Last",
+			"creatorType" => "author"
+		);
+		
+		// Modify via API
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("If-Match: $etag")
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		
+		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$this->assertEquals("First Last", $creatorSummary);
+		$this->assertTrue(isset($json->creators[0]->name));
+		$this->assertEquals("First Last", $json->creators[0]->name);
+		$newETag = (string) array_shift($xml->xpath('//atom:entry/zapi:etag'));
+		$this->assertNotEquals($etag, $newETag);
+		
+		// Get item again via API
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		
+		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$this->assertEquals("First Last", $creatorSummary);
+		$this->assertTrue(isset($json->creators[0]->name));
+		$this->assertEquals("First Last", $json->creators[0]->name);
+		$newETag = (string) array_shift($xml->xpath('//atom:entry/zapi:etag'));
+		$this->assertNotEquals($etag, $newETag);
 	}
 }

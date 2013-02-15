@@ -214,7 +214,6 @@ class Zotero_Collection {
 					throw new Exception("Collection id not available after INSERT");
 				}
 				$collectionID = $insertID;
-				Zotero_Collections::cacheLibraryKeyID($this->libraryID, $key, $insertID);
 			}
 			
 			// Remove from delete log if it's there
@@ -235,7 +234,6 @@ class Zotero_Collection {
 					'version' => $version
 				)
 			);
-
 		}
 		catch (Exception $e) {
 			Zotero_DB::rollback();

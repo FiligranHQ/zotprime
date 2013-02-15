@@ -29,6 +29,16 @@ class Zotero_Searches extends Zotero_DataObjects {
 	protected static $ZDO_objects = 'searches';
 	protected static $ZDO_table = 'savedSearches';
 	
+	protected static $primaryFields = array(
+		'id' => 'searchID',
+		'libraryID' => '',
+		'key' => '',
+		'dateAdded' => '',
+		'dateModified' => '',
+		'version' => ''
+	);
+
+	
 	
 	public static function search($libraryID, $params) {
 		$results = array('results' => array(), 'total' => 0);

@@ -27,9 +27,16 @@
 class Zotero_Items extends Zotero_DataObjects {
 	protected static $ZDO_object = 'item';
 	
-	public static $primaryFields = array('itemID', 'libraryID', 'key', 'itemTypeID',
-		'dateAdded', 'dateModified', 'serverDateModified', 'itemVersion',
-		'numNotes', 'numAttachments');
+	public static $primaryFields = array(
+		'id' => 'itemID',
+		'libraryID' => '',
+		'key' => '',
+		'itemTypeID' => '',
+		'dateAdded' => '',
+		'dateModified' => '',
+		'serverDateModified' => '',
+		'itemVersion' => 'version'
+	);
 	public static $maxDataValueLength = 65535;
 	
 	private static $itemsByID = array();
@@ -770,16 +777,43 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * @return	SimpleXMLElement					Item data as SimpleXML element
 	 */
 	public static function convertItemToXML(Zotero_Item $item, $data=array()) {
+		$t = microtime(true);
+		
+		$cacheVersion = 1;
+		$cacheKey = "syncXMLItem_" . $item->libraryID . "/" . $item->id . "_"
+			. $item->itemVersion
+			. "_" . md5(json_encode($data))
+			// For code-based changes
+			. "_" . $cacheVersion
+			// For data-based changes
+			. (isset(Z_CONFIG::$CACHE_VERSION_SYNC_XML_ITEM)
+				? "_" . Z_CONFIG::$CACHE_VERSION_SYNC_XML_ITEM
+				: "");
+		$xmlstr = Z_Core::$MC->get($cacheKey);
+		if ($xmlstr) {
+			$xml = new SimpleXMLElement($xmlstr);
+			
+			StatsD::timing("api.items.itemToSyncXML.cached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.items.itemToSyncXML.hit");
+			
+			// Skip the cache every 10 times for now, to ensure cache sanity
+			if (Z_Core::probability(10)) {
+				//$xmlstr = $xml->saveXML();
+			}
+			else {
+				Z_Core::debug("Using cached sync XML item");
+				return $xml;
+			}
+		}
+		
 		$xml = new SimpleXMLElement('<item/>');
 		
 		// Primary fields
-		foreach (Zotero_Items::$primaryFields as $field) {
+		foreach (array_keys(Zotero_Items::$primaryFields) as $field) {
 			switch ($field) {
-				case 'itemID':
+				case 'id':
 				case 'serverDateModified':
 				case 'itemVersion':
-				case 'numAttachments':
-				case 'numNotes':
 					continue (2);
 				
 				case 'itemTypeID':
@@ -904,6 +938,21 @@ class Zotero_Items extends Zotero_DataObjects {
 			$xml->related = implode(' ', $keys);
 		}
 		
+		if ($xmlstr) {
+			$uncached = $xml->saveXML();
+			if ($xmlstr != $uncached) {
+				error_log("Cached sync XML item does not match");
+				error_log("  Cached: " . $xmlstr);
+				error_log("Uncached: " . $uncached);
+			}
+		}
+		else {
+			$xmlstr = $xml->saveXML();
+			Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
+			StatsD::timing("api.items.itemToSyncXML.uncached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.items.itemToSyncXML.miss");
+		}
+		
 		return $xml;
 	}
 	
@@ -954,7 +1003,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
 		
 		$cacheVersion = 1;
-		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->key . "_"
+		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->id . "_"
 			. md5(
 				$version
 				. json_encode($cachedParams)
@@ -2120,14 +2169,7 @@ class Zotero_Items extends Zotero_DataObjects {
 	private static function loadItems($libraryID, $itemIDs=array()) {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
-		$sql = 'SELECT I.*,
-				(SELECT COUNT(*) FROM itemNotes INo
-					WHERE sourceItemID=I.itemID AND INo.itemID NOT IN
-					(SELECT itemID FROM deletedItems)) AS numNotes,
-				(SELECT COUNT(*) FROM itemAttachments IA
-					WHERE sourceItemID=I.itemID AND IA.itemID NOT IN
-					(SELECT itemID FROM deletedItems)) AS numAttachments	
-			FROM items I WHERE 1';
+		$sql = self::getPrimaryDataSQL() . "1";
 		
 		// TODO: optimize
 		if ($itemIDs) {
@@ -2136,7 +2178,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					throw new Exception("Invalid itemID $itemID");
 				}
 			}
-			$sql .= ' AND I.itemID IN ('
+			$sql .= ' AND itemID IN ('
 					. implode(',', array_fill(0, sizeOf($itemIDs), '?'))
 					. ')';
 		}
@@ -2151,7 +2193,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					throw new Exception("Item $itemID isn't in library $libraryID", Z_ERROR_OBJECT_LIBRARY_MISMATCH);
 				}
 				
-				$itemID = $row['itemID'];
+				$itemID = $row['id'];
 				$loadedItemIDs[] = $itemID;
 				
 				// Item isn't loaded -- create new object and stuff in array
@@ -2176,12 +2218,6 @@ class Zotero_Items extends Zotero_DataObjects {
 					//$this->unload($id);
 				}
 			}
-			
-			/*
-			_cachedFields = ['itemID', 'itemTypeID', 'dateAdded', 'dateModified',
-				'numNotes', 'numAttachments', 'numChildren'];
-			*/
-			//this._reloadCache = false;
 		}
 	}
 	
