@@ -466,8 +466,15 @@ class Zotero_S3 {
 		}
 		$item->attachmentStorageHash = $info->hash;
 		$item->attachmentStorageModTime = $info->mtime;
-		$item->attachmentMIMEType = $info->contentType;
-		$item->attachmentCharset = $info->charset;
+		// contentType and charset may not have been included in the
+		// upload authorization, in which case we shouldn't overwrite
+		// any values that may already be set on the attachment
+		if (isset($info->contentType)) {
+			$item->attachmentMIMEType = $info->contentType;
+		}
+		if (isset($info->charset)) {
+			$item->attachmentCharset = $info->charset;
+		}
 		$item->save();
 		
 		Zotero_DB::commit();

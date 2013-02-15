@@ -779,17 +779,26 @@ class Zotero_Items extends Zotero_DataObjects {
 	public static function convertItemToXML(Zotero_Item $item, $data=array()) {
 		$t = microtime(true);
 		
-		$cacheVersion = 1;
-		$cacheKey = "syncXMLItem_" . $item->libraryID . "/" . $item->id . "_"
-			. $item->itemVersion
-			. "_" . md5(json_encode($data))
-			// For code-based changes
-			. "_" . $cacheVersion
-			// For data-based changes
-			. (isset(Z_CONFIG::$CACHE_VERSION_SYNC_XML_ITEM)
-				? "_" . Z_CONFIG::$CACHE_VERSION_SYNC_XML_ITEM
-				: "");
-		$xmlstr = Z_Core::$MC->get($cacheKey);
+		// Check cache for all items except imported attachments,
+		// which don't have their versions updated when the client
+		// updates their file metadata
+		if (!$item->isImportedAttachment()) {
+			$cacheVersion = 1;
+			$cacheKey = "syncXMLItem_" . $item->libraryID . "/" . $item->id . "_"
+				. $item->itemVersion
+				. "_" . md5(json_encode($data))
+				// For code-based changes
+				. "_" . $cacheVersion
+				// For data-based changes
+				. (isset(Z_CONFIG::$CACHE_VERSION_SYNC_XML_ITEM)
+					? "_" . Z_CONFIG::$CACHE_VERSION_SYNC_XML_ITEM
+					: "");
+			$xmlstr = Z_Core::$MC->get($cacheKey);
+		}
+		else {
+			$cacheKey = false;
+			$xmlstr = false;
+		}
 		if ($xmlstr) {
 			$xml = new SimpleXMLElement($xmlstr);
 			
@@ -948,7 +957,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		else {
 			$xmlstr = $xml->saveXML();
-			Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
+			if ($cacheKey) {
+				Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
+			}
 			StatsD::timing("api.items.itemToSyncXML.uncached", (microtime(true) - $t) * 1000);
 			StatsD::increment("memcached.items.itemToSyncXML.miss");
 		}

@@ -783,14 +783,14 @@ class ItemsController extends ApiController {
 					$this->e400("Invalid file size");
 				}
 				
-				$info->contentType = isset($_REQUEST['contentType']) ? $_REQUEST['contentType'] : "";
+				$info->contentType = isset($_REQUEST['contentType']) ? $_REQUEST['contentType'] : null;
 				if (!preg_match("/^[a-zA-Z0-9\-\/]+$/", $info->contentType)) {
-					$info->contentType = "";
+					$info->contentType = null;
 				}
 				
-				$info->charset = isset($_REQUEST['charset']) ? $_REQUEST['charset'] : "";
+				$info->charset = isset($_REQUEST['charset']) ? $_REQUEST['charset'] : null;
 				if (!preg_match("/^[a-zA-Z0-9\-]+$/", $info->charset)) {
-					$info->charset = "";
+					$info->charset = null;
 				}
 				
 				$contentTypeHeader = $info->contentType . (($info->contentType && $info->charset) ? "; charset=" . $info->charset : "");

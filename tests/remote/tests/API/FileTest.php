@@ -598,6 +598,9 @@ class FileTests extends APITests {
 	public function testAddFileClient() {
 		API::userClear(self::$config['userID']);
 		
+		$fileContentType = "text/html";
+		$fileCharset = "utf-8";
+		
 		$auth = array(
 			'username' => self::$config['username'],
 			'password' => self::$config['password']
@@ -615,6 +618,18 @@ class FileTests extends APITests {
 		$xml = API::createAttachmentItem("imported_file", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$originalVersion = $data['version'];
+		$json = json_decode($data['content']);
+		$json->contentType = $fileContentType;
+		$json->charset = $fileCharset;
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		$this->assert204($response);
+		$originalVersion = $response->getHeader("Last-Modified-Version");
 		
 		// Get a sync timestamp from before the file is updated
 		sleep(1);
@@ -776,8 +791,18 @@ class FileTests extends APITests {
 		// Make sure attachment item still wasn't updated
 		$sessionID = Sync::login();
 		$xml = Sync::updated($sessionID, $lastsync);
-		Sync::logout($sessionID);
 		$this->assertEquals(0, $xml->updated[0]->count());
+		
+		// Get attachment
+		$xml = Sync::updated($sessionID, 2);
+		$this->assertEquals(1, $xml->updated[0]->items->count());
+		$itemXML = $xml->updated[0]->items[0]->item[0]->asXML();
+		$this->assertEquals($fileContentType, (string) $xml->updated[0]->items[0]->item[0]['mimeType']);
+		$this->assertEquals($fileCharset, (string) $xml->updated[0]->items[0]->item[0]['charset']);
+		$this->assertEquals($hash, (string) $xml->updated[0]->items[0]->item[0]['storageHash']);
+		$this->assertEquals($mtime + 1000, (string) $xml->updated[0]->items[0]->item[0]['storageModTime']);
+		
+		Sync::logout($sessionID);
 	}
 	
 	

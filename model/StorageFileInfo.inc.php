@@ -4,7 +4,7 @@ class Zotero_StorageFileInfo {
 	public $filename;
 	public $mtime;
 	public $size;
-	public $contentType = "";
-	public $charset = "";
+	public $contentType;
+	public $charset;
 	public $zip = false;
 }
