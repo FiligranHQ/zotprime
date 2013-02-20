@@ -3685,10 +3685,11 @@ class Zotero_Item {
 			$itemURI = $baseURI . $this->key;
 			$len = strlen($baseURI);
 			$sql = "SELECT SUBSTR(object, $len + 1) FROM relations "
-			     . "WHERE subject=? AND predicate=? AND object LIKE ?";
+			     . "WHERE libraryID=? AND subject=? AND predicate=? AND object LIKE ?";
 			$keys2 = Zotero_DB::columnQuery(
 				$sql,
 				array(
+					$this->libraryID,
 					$itemURI,
 					Zotero_Relations::$relatedItemPredicate,
 					$baseURI . "%"
