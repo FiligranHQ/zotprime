@@ -641,7 +641,9 @@ class Zotero_API {
 			}
 			if ($object->$objectVersionProp > $json->$versionProp) {
 				throw new HTTPException(ucwords($objectType)
-					. " has been modified since specified version", 412);
+					. " has been modified since specified version "
+					. "(expected {$json->$versionProp}, found {$object->$objectVersionProp})"
+					, 412);
 			}
 		}
 		else {

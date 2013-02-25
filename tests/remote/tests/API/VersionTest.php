@@ -428,7 +428,9 @@ class VersionTests extends APITests {
 				"Content-Type: application/json"
 			)
 		);
-		$this->assert412ForObject($response);
+		$this->assert412ForObject($response, ucwords($objectType)
+			. " has been modified since specified version "
+			. "(expected {$json->$objectVersionProp}, found $version)");
 		
 		// Modify object, using object version property
 		$json->$objectVersionProp = $version;

@@ -74,12 +74,14 @@ class Zotero_Errors {
 				break;
 			
 			default:
-				$error['code'] = 500;
-				if (Z_ENV_TESTING_SITE) {
-					$error['message'] = $e;
-				}
-				else {
-					$error['message'] = "An error occurred";
+				if (!($e instanceof HTTPException) || $errorCode == 500) {
+					$error['code'] = 500;
+					if (Z_ENV_TESTING_SITE) {
+						$error['message'] = $e;
+					}
+					else {
+						$error['message'] = "An error occurred";
+					}
 				}
 				$error['log'] = true;
 		}
