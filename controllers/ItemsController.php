@@ -445,15 +445,32 @@ class ItemsController extends ApiController {
 						$this->queryParams['format'] = 'writereport';
 						
 						$obj = $this->jsonDecode($this->body);
+						
+						// Server-side translation
 						if (isset($obj->url)) {
-							$response = Zotero_Items::addFromURL($obj, $this->objectLibraryID, $this->userID, $this->getTranslationToken());
-							if ($response instanceof stdClass) {
+							if ($this->queryParams['apiVersion'] < 2) {
+								Zotero_DB::beginTransaction();
+							}
+							
+							$results = Zotero_Items::addFromURL(
+								$obj,
+								$this->objectLibraryID,
+								$this->userID,
+								$this->getTranslationToken(),
+								$this->queryParams
+							);
+							
+							if ($this->queryParams['apiVersion'] < 2) {
+								Zotero_DB::commit();
+							}
+							
+							if ($results instanceof stdClass) {
 								header("Content-Type: application/json");
-								echo json_encode($response->select);
+								echo json_encode($results->select);
 								$this->e300();
 							}
-							else if (is_int($response)) {
-								switch ($response) {
+							else if (is_int($results)) {
+								switch ($results) {
 									case 501:
 										$this->e501("No translators found for URL");
 										break;
@@ -462,14 +479,41 @@ class ItemsController extends ApiController {
 										$this->e500("Error translating URL");
 								}
 							}
+							else if ($this->queryParams['apiVersion'] < 2) {
+								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
+								$keys = array_merge(
+									get_object_vars($results['success']),
+									get_object_vars($results['unchanged'])
+								);
+								$queryString = "itemKey="
+									. urlencode(implode(",", $keys))
+									. "&format=atom&content=json&order=itemKeyList&sort=asc";
+								if ($this->apiKey) {
+									$queryString .= "&key=" . $this->apiKey;
+								}
+								$uri .= "?" . $queryString;
+								$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, false);
+								$this->responseCode = 201;
+								
+								$title = "Items";
+								$results = Zotero_Items::search(
+									$this->objectLibraryID,
+									false,
+									$this->queryParams,
+									$includeTrashed,
+									$this->permissions
+								);
+							}
+							// FIXME
 							else {
 								$keys = $response;
-							}
-							
-							if (!$keys) {
-								throw new Exception("No items added");
+								
+								if (!$keys) {
+									throw new Exception("No items added");
+								}
 							}
 						}
+						// Uploaded items
 						else {
 							if ($this->queryParams['apiVersion'] < 2) {
 								Zotero_DB::beginTransaction();
