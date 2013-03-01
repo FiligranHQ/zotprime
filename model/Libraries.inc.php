@@ -324,7 +324,7 @@ class Zotero_Libraries {
 		
 		$tables = array(
 			'collections', 'creators', 'items', 'relations', 'savedSearches', 'tags',
-			'syncDeleteLogIDs', 'syncDeleteLogKeys'
+			'syncDeleteLogIDs', 'syncDeleteLogKeys', 'settings'
 		);
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);

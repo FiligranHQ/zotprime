@@ -176,6 +176,14 @@ start =
 			element object { xsd:anyURI }
 		}+
 	}?
+	& element settings {
+		element setting {
+			libraryID,
+			attribute name { text },
+			attribute version { xsd:integer }?,
+			text
+		}+
+	}?
 	& element deleted {
 		element items {
 			element item {
@@ -209,6 +217,11 @@ start =
 			element relation {
 				libraryID?,
 				attribute key {md5Pattern }
+			}+
+		}? &
+		element settings {
+			element setting {
+				libraryID, attribute key { text }
 			}+
 		}?
 	}?

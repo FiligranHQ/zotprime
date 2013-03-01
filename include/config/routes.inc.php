@@ -67,7 +67,12 @@ else {
 	$router->map('/users/i:objectUserID/:scopeObject/:scopeObjectKey/items/:objectKey/:subset', array('controller' => 'Items'));
 	$router->map('/groups/i:objectGroupID/:scopeObject/:scopeObjectKey/items/:objectKey/:subset', array('controller' => 'Items'));
 	
+	// User API keys
 	$router->map('/users/i:objectUserID/keys/:objectName', array('controller' => 'Keys'));
+	
+	// User/library settings
+	$router->map('/users/i:objectUserID/settings/:objectKey', array('controller' => 'settings'));
+	$router->map('/groups/i:objectGroupID/settings/:objectKey', array('controller' => 'settings'));
 	
 	// Clear (for testing)
 	$router->map('/users/i:objectUserID/clear', array('controller' => 'Api', 'action' => 'clear'));

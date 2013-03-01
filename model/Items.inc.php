@@ -1477,7 +1477,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if (isset($response->items)) {
 			try {
-				self::validateMultiObjectJSON('items', $response, $requestParams);
+				self::validateMultiObjectJSON($response, $requestParams);
 			}
 			catch (Exception $e) {
 				error_log($e);
@@ -1512,10 +1512,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                      $requireVersion=0,
 	                                      $partialUpdate=false) {
 		$exists = Zotero_API::processJSONObjectKey($item, $json);
-		Zotero_API::checkJSONObjectVersion(
-			$item, $json, $requestParams, $requireVersion
-		);
-		
 		self::validateJSONItem(
 			$json,
 			$item->libraryID,
@@ -1523,6 +1519,9 @@ class Zotero_Items extends Zotero_DataObjects {
 			$parentItem || ($exists ? !!$item->getSourceKey() : false),
 			$requestParams,
 			$partialUpdate
+		);
+		Zotero_API::checkJSONObjectVersion(
+			$item, $json, $requestParams, $requireVersion
 		);
 		
 		$changed = false;

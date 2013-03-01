@@ -234,11 +234,22 @@ CREATE TABLE `savedSearches` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-CREATE TABLE IF NOT EXISTS `shardLibraries` (
+CREATE TABLE `settings` (
+  `libraryID` int(10) unsigned NOT NULL,
+  `setting` varchar(25) NOT NULL,
+  `value` varchar(1000) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `version` int(10) unsigned NOT NULL,
+  `lastUpdated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`libraryID`,`setting`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+CREATE TABLE `shardLibraries` (
   `libraryID` int(10) unsigned NOT NULL,
   `libraryType` enum('user','group') NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `version` int(10) unsigned NOT NULL DEFAULT '1',  PRIMARY KEY (`libraryID`),
+  `version` int(10) unsigned NOT NULL DEFAULT '1',
+  PRIMARY KEY (`libraryID`),
   KEY `libraryType` (`libraryType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -268,7 +279,7 @@ CREATE TABLE `syncDeleteLogIDs` (
 
 CREATE TABLE `syncDeleteLogKeys` (
   `libraryID` int(10) unsigned NOT NULL,
-  `objectType` enum('collection','creator','item','relation','search','tag','tagName') NOT NULL,
+  `objectType` enum('collection','creator','item','relation','search','setting','tag','tagName') NOT NULL,
   `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` int(10) unsigned NOT NULL DEFAULT '1',

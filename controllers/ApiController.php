@@ -399,7 +399,7 @@ class ApiController extends Controller {
 	 */
 	protected function checkObjectIfUnmodifiedSinceVersion($object, $required=false) {
 		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
-		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+		if (!in_array($objectType, array('item', 'collection', 'search', 'setting'))) {
 			throw new Exception("Invalid object type");
 		}
 		

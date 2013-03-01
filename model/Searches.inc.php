@@ -232,10 +232,10 @@ class Zotero_Searches extends Zotero_DataObjects {
 	                                      $requestParams,
 	                                      $requireVersion=0) {
 		Zotero_API::processJSONObjectKey($search, $json);
+		self::validateJSONSearch($json, $requestParams);
 		Zotero_API::checkJSONObjectVersion(
 			$search, $json, $requestParams, $requireVersion
 		);
-		self::validateJSONSearch($json, $requestParams);
 		
 		$search->name = $json->name;
 		

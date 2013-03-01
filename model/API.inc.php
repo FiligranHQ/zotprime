@@ -29,6 +29,7 @@ class Zotero_API {
 	public static $maxWriteCollections = 50;
 	public static $maxWriteItems = 50;
 	public static $maxWriteSearches = 50;
+	public static $maxWriteSettings = 50;
 	public static $maxTranslateItems = 10;
 	
 	private static $defaultQueryParams = array(
@@ -605,7 +606,7 @@ class Zotero_API {
 	
 	
 	/**
-	 * @param object $object Zotero object (Zotero_Item, Zotero_Collection, Zotero_Search)
+	 * @param object $object Zotero object (Zotero_Item, Zotero_Collection, Zotero_Search, Zotero_Setting)
 	 * @param object $json JSON object to check
 	 * @param array $requestParams
 	 * @param int $requireVersion If 0, don't require; if 1, require if there's
@@ -614,12 +615,12 @@ class Zotero_API {
 	 */
 	public static function checkJSONObjectVersion($object, $json, $requestParams, $requireVersion) {
 		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
-		if (!in_array($objectType, array('item', 'collection', 'search'))) {
+		if (!in_array($objectType, array('item', 'collection', 'search', 'setting'))) {
 			throw new Exception("Invalid object type");
 		}
 		
 		$keyProp = $objectType . "Key";
-		$versionProp = $objectType . "Version";
+		$versionProp = $objectType == 'setting' ? 'version' : $objectType . "Version";
 		$objectVersionProp = $objectType == 'item' ? 'itemVersion' : 'version';
 		
 		if (isset($json->$versionProp)) {
@@ -633,9 +634,9 @@ class Zotero_API {
 					"'$versionProp' must be an integer", Z_ERROR_INVALID_INPUT
 				);
 			}
-			if (!isset($json->$keyProp)) {
+			if (!isset($json->$keyProp) && $objectType != 'setting') {
 				throw new Exception(
-					"'$versionProp' is valid only with an '$keyProp' property",
+					"'$versionProp' is valid only with '$keyProp' property",
 					Z_ERROR_INVALID_INPUT
 				);
 			}
@@ -648,17 +649,25 @@ class Zotero_API {
 		}
 		else {
 			if ($requireVersion == 1 && isset($json->$keyProp)) {
-				throw new HTTPException(
-					"Either If-Unmodified-Since-Version or "
-					. "'$versionProp' property must be provided for "
-					. "'$keyProp'-based writes", 428
-				);
+				if ($objectType == 'setting') {
+					throw new HTTPException(
+						"Either If-Unmodified-Since-Version or "
+						. "'$versionProp' property must be provided", 428
+					);
+				}
+				else {
+					throw new HTTPException(
+						"Either If-Unmodified-Since-Version or "
+						. "'$versionProp' property must be provided for "
+						. "'$keyProp'-based writes", 428
+					);
+				}
 			}
 			else if ($requireVersion == 2) {
 				throw new HTTPException(
 					"Either If-Unmodified-Since-Version or "
 					. "'$versionProp' property must be provided for "
-					. "single-object writes", 428
+					. "single-$objectType writes", 428
 				);
 			}
 		}

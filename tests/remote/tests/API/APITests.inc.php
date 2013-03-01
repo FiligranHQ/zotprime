@@ -59,6 +59,10 @@ class APITests extends PHPUnit_Framework_TestCase {
 	public function __call($name, $arguments) {
 		if (preg_match("/^assert([1-5][0-9]{2})$/", $name, $matches)) {
 			$this->assertHTTPStatus($arguments[0], $matches[1]);
+			// Check response body
+			if (isset($arguments[1])) {
+				$this->assertEquals($arguments[1], $arguments[0]->getBody());
+			}
 			return;
 		}
 		// assertNNNForObject($response, $message=false, $pos=0)

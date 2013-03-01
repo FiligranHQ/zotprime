@@ -63,6 +63,7 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		//$this->_testDeleteAndDeleted('collection');
 		$this->_testDeleteAndDeleted('item');
 		//$this->_testDeleteAndDeleted('search');
+		$this->_testDeleteAndDeleted('setting');
 	}
 	
 	
@@ -72,7 +73,7 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
 		$xml = Sync::updated(self::$sessionID);
-		$lastSyncTimestamp = $xml['timestamp'];
+		$lastSyncTimestamp = (int) $xml['timestamp'];
 		
 		// Create via sync
 		switch ($objectType) {
@@ -80,6 +81,28 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 			$keys[] = Sync::createItem(
 				self::$sessionID, self::$config['libraryID'], "book", false, $this
 			);
+			break;
+		
+		case 'setting':
+			$settingKey = "tagColors";
+			$response = API::userPut(
+				self::$config['userID'],
+				"settings/$settingKey?key=" . self::$config['apiKey'],
+				json_encode(array(
+					"value" => array(
+						array(
+							"name" => "_READ",
+							"color" => "#990000"
+						)
+					)
+				)),
+				array(
+					"Content-Type: application/json",
+					"If-Unmodified-Since-Version: 0"
+				)
+			);
+			$this->assertEquals(204, $response->getStatus());
+			$keys[] = $settingKey;
 			break;
 		}
 		
@@ -117,6 +140,22 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 			switch ($objectType) {
 			case 'item':
 				Sync::deleteItem(self::$sessionID, self::$config['libraryID'], $key, $this);
+				break;
+			
+			case 'setting':
+				// Delete via sync
+				$xml = Sync::updated(self::$sessionID);
+				$updateKey = (string) $xml['updateKey'];
+				$xmlstr = '<data version="9">'
+					. '<deleted>'
+					. '<settings>'
+					. '<setting libraryID="' . self::$config['libraryID']
+						. '" key="' . $key . '"/>'
+					. '</settings>'
+					. '</deleted>'
+					. '</data>';
+				$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
+				Sync::waitForUpload(self::$sessionID, $response, $this);
 				break;
 			}
 		}
@@ -159,7 +198,7 @@ class SyncObjectTests extends PHPUnit_Framework_TestCase {
 		
 		// Should be empty with later newertime
 		$xml = Sync::updated(self::$sessionID);
-		$lastSyncTimestamp = $xml['timestamp'];
+		$lastSyncTimestamp = (int) $xml['timestamp'];
 		
 		$response = API::userGet(
 			self::$config['userID'],

@@ -411,6 +411,22 @@
         </element>
       </optional>
       <optional>
+        <element name="settings">
+          <oneOrMore>
+            <element name="setting">
+              <ref name="libraryID"/>
+              <attribute name="name"/>
+              <optional>
+                <attribute name="version">
+                  <data type="integer"/>
+                </attribute>
+              </optional>
+              <text/>
+            </element>
+          </oneOrMore>
+        </element>
+      </optional>
+      <optional>
         <element name="deleted">
           <interleave>
             <optional>
@@ -492,6 +508,16 @@
                     <attribute name="key">
                       <ref name="md5Pattern"/>
                     </attribute>
+                  </element>
+                </oneOrMore>
+              </element>
+            </optional>
+            <optional>
+              <element name="settings">
+                <oneOrMore>
+                  <element name="setting">
+                    <ref name="libraryID"/>
+                    <attribute name="key"/>
                   </element>
                 </oneOrMore>
               </element>

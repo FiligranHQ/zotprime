@@ -248,6 +248,9 @@ class Zotero_Users {
 				if ($table == 'relations') {
 					$field = 'serverDateModified';
 				}
+				else if ($table == 'settings') {
+					$field = 'lastUpdated';
+				}
 				else {
 					$field = 'dateModified';
 				}

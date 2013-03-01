@@ -54,7 +54,10 @@ class DeletedController extends ApiController {
 				),
 				"tags" => Zotero_Tags::getDeleteLogKeys(
 					$this->objectLibraryID, $this->queryParams['newertime'], true
-				)
+				),
+				"settings" => Zotero_Settings::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newertime'], true
+				),
 			);
 			echo Zotero_Utilities::formatJSON($deleted, $this->queryParams['pprint']);
 			$this->end();
@@ -76,6 +79,9 @@ class DeletedController extends ApiController {
 			),
 			"tags" => Zotero_Tags::getDeleteLogKeys(
 				$this->objectLibraryID, $this->queryParams['newer']
+			),
+			"settings" => Zotero_Settings::getDeleteLogKeys(
+					$this->objectLibraryID, $this->queryParams['newer']
 			)
 		);
 		

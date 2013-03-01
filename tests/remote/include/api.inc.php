@@ -376,6 +376,15 @@ class API {
 	}
 	
 	
+	public static function getGroupLibraryVersion($groupID) {
+		$response = API::groupGet(
+			$groupID,
+			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
+		);
+		return $response->getHeader("Last-Modified-Version");
+	}
+	
+	
 	public static function getItemXML($keys, $context=null) {
 		return self::getObjectXML('item', $keys, $context);
 	}
