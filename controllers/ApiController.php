@@ -428,7 +428,7 @@ class ApiController extends Controller {
 		}
 		// If-Unmodified-Since-Version
 		else {
-			if (empty($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
+			if (!isset($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
 				if ($required) {
 					$this->e428("If-Unmodified-Since-Version must be provided for write requests");
 				}
