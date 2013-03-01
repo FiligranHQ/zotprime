@@ -181,7 +181,7 @@ abstract class Zotero_Processor_Daemon {
 				}
 				catch (Exception $e) {
 					// If lost connection to MySQL, exit so we can be restarted
-					if (strpos($e->getMessage(), "MySQL error: MySQL server has gone away") === 0) {
+					if (strpos($e->getMessage(), "MySQL server has gone away") === 0) {
 						$this->log($e);
 						$this->log("Lost connection to DB — exiting");
 						exit;
