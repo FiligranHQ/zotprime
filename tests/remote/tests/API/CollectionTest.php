@@ -190,11 +190,16 @@ class CollectionTests extends APITests {
 		$this->assertEquals(array($collectionKey2), $json->collections);
 		
 		$xml = API::getCollectionXML($collectionKey1);
+		$collectionData1 = API::parseDataFromAtomEntry($xml);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
 		
 		$xml = API::getCollectionXML($collectionKey2);
+		$collectionData2 = API::parseDataFromAtomEntry($xml);
 		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
 		
+		$libraryVersion = API::getLibraryVersion();
+		
+		// Add items to collection
 		$response = API::userPatch(
 			self::$config['userID'],
 			"items/$itemKey1?key=" . self::$config['apiKey'],
@@ -207,6 +212,22 @@ class CollectionTests extends APITests {
 			)
 		);
 		$this->assert204($response);
+		
+		// Item version should change
+		$xml = API::getItemXML($itemKey1);
+		$data = API::parseDataFromAtomEntry($xml);
+		$this->assertEquals($libraryVersion + 1, $data['version']);
+		
+		// Collection timestamp shouldn't change, but numItems should
+		$xml = API::getCollectionXML($collectionKey2);
+		$data = API::parseDataFromAtomEntry($xml);
+		$this->assertEquals(2, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals($collectionData2['version'], $data['version']);
+		$collectionData2 = $data;
+		
+		$libraryVersion = API::getLibraryVersion();
+		
+		// Remove collections
 		$response = API::userPatch(
 			self::$config['userID'],
 			"items/$itemKey2?key=" . self::$config['apiKey'],
@@ -220,6 +241,18 @@ class CollectionTests extends APITests {
 		);
 		$this->assert204($response);
 		
+		// Item version should change
+		$xml = API::getItemXML($itemKey2);
+		$data = API::parseDataFromAtomEntry($xml);
+		$this->assertEquals($libraryVersion + 1, $data['version']);
+		
+		// Collection timestamp shouldn't change, but numItems should
+		$xml = API::getCollectionXML($collectionKey2);
+		$data = API::parseDataFromAtomEntry($xml);
+		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals($collectionData2['version'], $data['version']);
+		
+		// Check collections arrays and numItems
 		$xml = API::getItemXML($itemKey1);
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
