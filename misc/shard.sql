@@ -236,11 +236,11 @@ CREATE TABLE `savedSearches` (
 
 CREATE TABLE `settings` (
   `libraryID` int(10) unsigned NOT NULL,
-  `setting` varchar(25) NOT NULL,
+  `name` varchar(25) NOT NULL,
   `value` varchar(1000) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   `version` int(10) unsigned NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`libraryID`,`setting`)
+  PRIMARY KEY (`libraryID`,`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
