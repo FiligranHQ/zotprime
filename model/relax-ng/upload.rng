@@ -2,20 +2,10 @@
 <grammar xmlns="http://relaxng.org/ns/structure/1.0">
   <start>
     <element name="data">
-      <choice>
-        <group>
-          <attribute name="version">
-            <value>8</value>
-          </attribute>
-          <externalRef href="data8.rng"/>
-        </group>
-        <group>
-          <attribute name="version">
-            <value>9</value>
-          </attribute>
-          <externalRef href="data9.rng"/>
-        </group>
-      </choice>
+      <attribute name="version">
+        <value>9</value>
+      </attribute>
+      <externalRef href="data9.rng"/>
     </element>
   </start>
 </grammar>

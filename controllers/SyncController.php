@@ -25,7 +25,7 @@
 */
 
 class SyncController extends Controller {
-	private $validAPIVersions = array(8, 9);
+	private $validAPIVersions = array(9);
 	private $sessionLifetime = 3600;
 	
 	private $profile = false;
@@ -96,32 +96,32 @@ class SyncController extends Controller {
 			$this->error(400, 'NO_API_VERSION', "API version not specified");
 		}
 		
-		$upgradeMessage = "Due to improvements made to sync functionality, you must upgrade to Zotero 2.0 or later (via Firefox's Tools menu -> Add-ons -> Extensions -> Find Updates or from zotero.org) to sync your Zotero library.";
+		$upgradeMessage = "Due to improvements made to sync functionality, you must upgrade to Zotero 3.0 or later from zotero.org to sync your Zotero library.";
 		
 		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 			require_once('../model/ToolkitVersionComparator.inc.php');
 			
+			// Avoid infinite loop due to client bug
 			if ($_SERVER['HTTP_X_ZOTERO_VERSION'] == "2.0b6") {
-				die ("Please upgrade to Zotero 2.0 via Tools -> Add-ons -> Extensions -> Find Updates or from zotero.org.");
+				die ("Please upgrade to the latest version of Zotero from zotero.org.");
 			}
-			else if (preg_match("/2.0b[0-9].SVN/", $_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-				// Can't use version for SVN builds
-			}
-			else if (ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "2.0rc.r5716") < 0) {
+			else if (ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "3.0") < 0) {
 				$this->error(400, 'UPGRADE_REQUIRED', $upgradeMessage);
 			}
 			else if (isset($_SERVER['HTTP_USER_AGENT'])
 					&& (strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/17") !== false
 						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/18") !== false
 						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/19") !== false
-						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/20") !== false)
+						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/20") !== false
+						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/21") !== false
+						|| strpos($_SERVER['HTTP_USER_AGENT'], "Firefox/22") !== false)
 					&& ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "3.0.9") < 0) {
-				$this->error(400, 'UPGRADE_REQUIRED', "Your version of Zotero is not compatible with Firefox 17 or later. Please upgrade to Zotero 3.0.10 or later from zotero.org.");
+				$this->error(400, 'UPGRADE_REQUIRED', "Your version of Zotero is not compatible with Firefox 17 or later. Please upgrade to the latest version of Zotero from zotero.org.");
 			}
 		}
 		
 		if (!in_array($_REQUEST['version'], $this->validAPIVersions)) {
-			if ($_REQUEST['version'] < 8) {
+			if ($_REQUEST['version'] < 9) {
 				$this->error(400, 'UPGRADE_REQUIRED', $upgradeMessage);
 			}
 			$this->error(400, 'INVALID_API_VERSION', "Invalid request API version '{$_REQUEST['version']}'");

@@ -1,10 +1,5 @@
 start = element data {
 	(
-		attribute version { "8" },
-		external "data8.rnc"
-	)
-		|
-	(
 		attribute version { "9" },
 		external "data9.rnc"
 	)

@@ -2,11 +2,6 @@ start = element response {
 	attribute timestamp { xsd:decimal  },
 	(
 		(
-			attribute version { "8" },
-			element updated { external "data8.rnc" }
-		)
-			|
-		(
 			attribute version { "9" },
 			element updated { external "data9.rnc" }
 		)
