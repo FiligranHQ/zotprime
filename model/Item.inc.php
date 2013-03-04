@@ -759,16 +759,18 @@ class Zotero_Item {
 				trigger_error("Value '$value' of type " . gettype($value) . " does not validate for field '$field'", E_USER_ERROR);
 			}
 			
-			if ($this->$field != $value) {
-				Z_Core::debug("Field $field has changed from {$this->$field} to $value", 4);
-				
-				if ($field == 'itemTypeID') {
-					$this->setType($value, $loadIn);
-				}
-				else {
-					$this->$field = $value;
-					$this->changed['primaryData'][$field] = true;
-				}
+			if ($this->$field == $value) {
+				return false;
+			}
+			
+			Z_Core::debug("Field $field has changed from {$this->$field} to $value", 4);
+			
+			if ($field == 'itemTypeID') {
+				$this->setType($value, $loadIn);
+			}
+			else {
+				$this->$field = $value;
+				$this->changed['primaryData'][$field] = true;
 			}
 			
 			return true;

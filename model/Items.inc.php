@@ -1540,6 +1540,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
 		}
 		
+		$changedDateModified = false;
+		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
 				case 'itemKey':
@@ -1709,6 +1711,10 @@ class Zotero_Items extends Zotero_DataObjects {
 					$item->attachmentStorageModTime = $val;
 					break;
 				
+				case 'dateModified':
+					$changedDateModified = $item->setField($key, $val);
+					break;
+				
 				default:
 					$item->setField($key, $val);
 					break;
@@ -1727,7 +1733,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$item->deleted = !empty($json->deleted);
 		
 		// If item has changed, update it with the current timestamp
-		if ($item->hasChanged()) {
+		if ($item->hasChanged() && !$changedDateModified) {
 			$item->dateModified = Zotero_DB::getTransactionTimestamp();
 		}
 		
@@ -2144,6 +2150,22 @@ class Zotero_Items extends Zotero_DataObjects {
 						if ($val && !preg_match("/^[a-f0-9]{32}$/", $val)) {
 							throw new Exception("'$val' is not a valid MD5 hash", Z_ERROR_INVALID_INPUT);
 						}
+					}
+					break;
+				
+				case 'dateAdded':
+					if (!Zotero_Date::isSQLDateTime($val)) {
+						throw new Exception("'$key' must be in the form 'YYYY-MM-DD HH:MM:SS'", Z_ERROR_INVALID_INPUT);
+					}
+					
+					if (!$isNew && $val != $item->$key) {
+						throw new Exception("'$key' cannot be modified for existing items", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'dateModified':
+					if (!Zotero_Date::isSQLDateTime($val)) {
+						throw new Exception("'$key' must be in the form 'YYYY-MM-DD HH:MM:SS'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
