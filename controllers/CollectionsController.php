@@ -56,7 +56,6 @@ class CollectionsController extends ApiController {
 		if ($this->singleObject) {
 			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
 			
-			// TEMP
 			if (!Zotero_ID::isValidKey($this->objectKey)) {
 				$this->e404();
 			}

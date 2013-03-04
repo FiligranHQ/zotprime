@@ -73,6 +73,10 @@ class ItemsController extends ApiController {
 				$this->allowMethods(array('GET', 'PUT', 'PATCH', 'DELETE'));
 			}
 			
+			if (!Zotero_ID::isValidKey($this->objectKey)) {
+				$this->e404();
+			}
+			
 			$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 			if (!$item) {
 				// Possibly temporary workaround to block unnecessary full syncs
