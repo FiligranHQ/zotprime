@@ -609,7 +609,7 @@ class API {
 		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
 		$version = (string) array_shift($entryXML->xpath('//atom:entry/zapi:version'));
 		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
-		if (!$content) {
+		if (is_null($content)) {
 			throw new Exception("Atom response does not contain <content>");
 		}
 		
