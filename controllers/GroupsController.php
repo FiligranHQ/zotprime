@@ -495,18 +495,9 @@ class GroupsController extends ApiController {
 		$fields['ownerUserID'] = (int) $group['owner'];
 		$fields['name'] = (string) $group['name'];
 		$fields['type'] = (string) $group['type'];
-		if (isset($group['libraryEnabled'])) {
-			$fields['libraryEnabled'] = (bool) (int) $group['libraryEnabled'];
-			
-			if ($fields['libraryEnabled']) {
-				$fields['libraryEditing'] = (string) $group['libraryEditing'];
-				$fields['libraryReading'] = (string) $group['libraryReading'];
-				$fields['fileEditing'] = (string) $group['fileEditing'];
-			}
-		}
-		else {
-			$this->e400("libraryEnabled not specified");
-		}
+		$fields['libraryEditing'] = (string) $group['libraryEditing'];
+		$fields['libraryReading'] = (string) $group['libraryReading'];
+		$fields['fileEditing'] = (string) $group['fileEditing'];
 		$fields['description'] = (string) $group->description;
 		$fields['url'] = (string) $group->url;
 		$fields['hasImage'] = (bool) (int) $group['hasImage'];

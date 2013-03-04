@@ -30,7 +30,6 @@ class Zotero_Group {
 	private $ownerUserID;
 	private $name;
 	private $type;
-	private $libraryEnabled = false;
 	private $libraryEditing;
 	private $libraryReading;
 	private $fileEditing;
@@ -61,7 +60,6 @@ class Zotero_Group {
 			case 'name':
 			case 'type':
 			case 'ownerUserID':
-			case 'libraryEnabled':
 			case 'libraryEditing':
 			case 'libraryReading':
 			case 'fileEditing':
@@ -107,7 +105,6 @@ class Zotero_Group {
 			case 'ownerUserID':
 				break;
 			
-			case 'libraryEnabled':
 			case 'hasImage':
 				if (!is_bool($value)) {
 					throw new Exception("hasImage must be a bool (was " . gettype($value) . ")");
@@ -428,10 +425,6 @@ class Zotero_Group {
 			$this->load();
 		}
 		
-		if (!$this->libraryEnabled) {
-			return false;
-		}
-		
 		// All members can read
 		$role = $this->getUserRole($userID);
 		if ($role) {
@@ -445,10 +438,6 @@ class Zotero_Group {
 	public function userCanEdit($userID) {
 		if (($this->id || $this->libraryID) && !$this->loaded) {
 			$this->load();
-		}
-		
-		if (!$this->libraryEnabled) {
-			return false;
 		}
 		
 		$role = $this->getUserRole($userID);
@@ -469,10 +458,6 @@ class Zotero_Group {
 	public function userCanEditFiles($userID) {
 		if (($this->id || $this->libraryID) && !$this->loaded) {
 			$this->load();
-		}
-		
-		if (!$this->libraryEnabled) {
-			return false;
 		}
 		
 		if ($this->fileEditing == 'none') {
@@ -565,7 +550,6 @@ class Zotero_Group {
 			'name',
 			'slug',
 			'type',
-			'libraryEnabled',
 			'description',
 			'url',
 			'hasImage'
@@ -578,16 +562,7 @@ class Zotero_Group {
 			}
 		}
 		
-		if (!empty($this->changed['libraryEnabled'])) {
-			// If turning off the group library, log for sync users as if the group was deleted
-			if (!$this->libraryEnabled) {
-				$this->logGroupLibraryRemoval();
-			}
-		}
-		
-		if ($this->libraryEnabled) {
-			$fields = array_merge($fields, array('libraryEditing', 'libraryReading', 'fileEditing'));
-		}
+		$fields = array_merge($fields, array('libraryEditing', 'libraryReading', 'fileEditing'));
 		
 		$sql = "INSERT INTO groups
 					(groupID, libraryID, " . implode(", ", $fields) . ", dateModified)
@@ -765,13 +740,9 @@ class Zotero_Group {
 		Zotero_Atom::addHTMLRow($html, '', "Description", $this->description);
 		Zotero_Atom::addHTMLRow($html, '', "URL", $this->url);
 		
-		Zotero_Atom::addHTMLRow($html, '', "Group Library", $this->libraryEnabled ? "Yes" : "No");
-		
-		if ($this->libraryEnabled) {
-			Zotero_Atom::addHTMLRow($html, '', "Library Reading", ucwords($this->libraryReading));
-			Zotero_Atom::addHTMLRow($html, '', "Library Editing", ucwords($this->libraryEditing));
-			Zotero_Atom::addHTMLRow($html, '', "File Editing", ucwords($this->fileEditing));
-		}
+		Zotero_Atom::addHTMLRow($html, '', "Library Reading", ucwords($this->libraryReading));
+		Zotero_Atom::addHTMLRow($html, '', "Library Editing", ucwords($this->libraryEditing));
+		Zotero_Atom::addHTMLRow($html, '', "File Editing", ucwords($this->fileEditing));
 		
 		$admins = $this->getAdmins();
 		if ($admins) {
@@ -812,15 +783,9 @@ class Zotero_Group {
 			$arr['hasImage'] = 1;
 		}
 		
-		if ($this->libraryEnabled) {
-			$arr['libraryEnabled'] = 1;
-			$arr['libraryEditing'] = $this->libraryEditing;
-			$arr['libraryReading'] = $this->libraryReading;
-			$arr['fileEditing'] = $this->fileEditing;
-		}
-		else {
-			$arr['libraryEnabled'] = 0;
-		}
+		$arr['libraryEditing'] = $this->libraryEditing;
+		$arr['libraryReading'] = $this->libraryReading;
+		$arr['fileEditing'] = $this->fileEditing;
 		
 		$admins = $this->getAdmins();
 		if ($admins) {
@@ -877,23 +842,14 @@ class Zotero_Group {
 			$xml['type'] = $this->type;
 		}
 		$xml['name'] = $this->name;
-		if ($this->libraryEnabled) {
-			if ($syncMode) {
-				$xml['editable'] = (int) $this->userCanEdit($userID);
-				$xml['filesEditable'] = (int) $this->userCanEditFiles($userID);
-			}
-			else {
-				$xml['libraryEnabled'] = 1;
-				$xml['libraryEditing'] = $this->libraryEditing;
-				$xml['libraryReading'] = $this->libraryReading;
-				$xml['fileEditing'] = $this->fileEditing;
-			}
+		if ($syncMode) {
+			$xml['editable'] = (int) $this->userCanEdit($userID);
+			$xml['filesEditable'] = (int) $this->userCanEditFiles($userID);
 		}
 		else {
-			if ($syncMode) {
-				throw new Exception("Group must have a library in sync mode");
-			}
-			$xml['libraryEnabled'] = 0;
+			$xml['libraryEditing'] = $this->libraryEditing;
+			$xml['libraryReading'] = $this->libraryReading;
+			$xml['fileEditing'] = $this->fileEditing;
 		}
 		if ($this->description) {
 			$xml->description = $this->description;

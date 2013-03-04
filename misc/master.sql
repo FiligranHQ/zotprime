@@ -85,7 +85,6 @@ CREATE TABLE `groups` (
   `name` varchar(255) NOT NULL,
   `slug` varchar(255) DEFAULT NULL,
   `type` enum('PublicOpen','PublicClosed','Private') NOT NULL DEFAULT 'Private',
-  `libraryEnabled` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `libraryEditing` enum('admins','members') NOT NULL DEFAULT 'admins',
   `libraryReading` enum('members','all') NOT NULL DEFAULT 'all',
   `fileEditing` enum('none','admins','members') NOT NULL DEFAULT 'admins',

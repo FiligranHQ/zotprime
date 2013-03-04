@@ -1141,9 +1141,6 @@ class Zotero_Sync {
 				foreach ($updatedIDs as $id) {
 					$group = new Zotero_Group;
 					$group->id = $id;
-					if (!$group->libraryEnabled) {
-						continue;
-					}
 					$xmlElement = $group->toXML($userID);
 					
 					$newNode = dom_import_simplexml($xmlElement);
