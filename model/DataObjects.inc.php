@@ -290,9 +290,11 @@ class Zotero_DataObjects {
 		$type = static::field('object');
 		
 		if (isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
-			$id = self::$primaryDataByKey[$type][$libraryID][$key]['id'];
+			if (isset(self::$primaryDataByKey[$type][$libraryID][$key]['id'])) {
+				$id = self::$primaryDataByKey[$type][$libraryID][$key]['id'];
+				unset(self::$primaryDataByID[$type][$libraryID][$id]);
+			}
 			unset(self::$primaryDataByKey[$type][$libraryID][$key]);
-			unset(self::$primaryDataByID[$type][$libraryID][$id]);
 		}
 	}
 	
