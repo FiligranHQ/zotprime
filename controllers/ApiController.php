@@ -504,7 +504,7 @@ class ApiController extends Controller {
 				&& $this->permissions->canAccess($this->objectLibraryID)
 				&& Zotero_Libraries::getVersion($this->objectLibraryID)
 					<= $_SERVER['HTTP_IF_MODIFIED_SINCE_VERSION']) {
-			$this->e304("Library has not been modified");
+			$this->e304();
 		}
 	}
 	
