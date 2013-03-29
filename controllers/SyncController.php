@@ -419,8 +419,55 @@ class SyncController extends Controller {
 		
 		$xmldata =& $_REQUEST['data'];
 		
-		$doc = new DOMDocument();
-		$doc->loadXML($xmldata);
+		try {
+			$doc = new DOMDocument();
+			$doc->loadXML($xmldata, LIBXML_PARSEHUGE);
+			
+			// For huge uploads, make sure notes aren't bigger than SimpleXML can parse
+			if (strlen($xmldata) > 7000000) {
+				$xpath = new DOMXPath($doc);
+				$results = $xpath->query('/data/items/item/note[string-length(text()) > ' . Zotero_Notes::$MAX_NOTE_LENGTH . ']');
+				if ($results->length) {
+					$noteElem = $results->item(0);
+					$text = $noteElem->textContent;
+					$libraryID = $noteElem->parentNode->getAttribute('libraryID');
+					$key = $noteElem->parentNode->getAttribute('key');
+					
+					// UTF-8 &nbsp; (0xC2 0xA0) isn't trimmed by default
+					$whitespace = chr(0x20) . chr(0x09) . chr(0x0A) . chr(0x0D)
+					. chr(0x00) . chr(0x0B) . chr(0xC2) . chr(0xA0);
+					$excerpt = iconv(
+						"UTF-8",
+						"UTF-8//IGNORE",
+						Zotero_Notes::noteToTitle(trim($text), true)
+					);
+					$excerpt = trim($excerpt, $whitespace);
+					// If tag-stripped version is empty, just return raw HTML
+					if ($excerpt == '') {
+						$excerpt = iconv(
+							"UTF-8",
+							"UTF-8//IGNORE",
+							preg_replace(
+								'/\s+/',
+								' ',
+								mb_substr(trim($text), 0, Zotero_Notes::$MAX_TITLE_LENGTH)
+								)
+							);
+						$excerpt = html_entity_decode($excerpt);
+						$excerpt = trim($excerpt, $whitespace);
+					}
+					
+					$msg = "=Note '" . $excerpt . "...' too long";
+					if ($key) {
+						$msg .= " for item '" . $libraryID . "/" . $key . "'";
+					}
+					throw new Exception($msg, Z_ERROR_NOTE_TOO_LONG);
+				}
+			}
+		}
+		catch (Exception $e) {
+			$this->handleUploadError($e, $xmldata);
+		}
 		
 		function relaxNGErrorHandler($errno, $errstr) {
 			//Z_Core::logError($errstr);
