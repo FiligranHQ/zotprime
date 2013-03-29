@@ -42,8 +42,8 @@ class StorageController extends ApiController {
 			//Zotero_Users::setLastStorageSync($this->userID);
 		}
 		
-		// Deprecated after 3.0.x, which used auth=1
-		if (!empty($_GET['auth'])) {
+		// Deprecated after 3.0, which used auth=1
+		if ($this->queryParams['apiVersion'] < 2 || !empty($_GET['auth'])) {
 			$lastSync = Zotero_Users::getLastStorageSync($this->objectUserID);
 		}
 		else {
