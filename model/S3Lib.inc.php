@@ -1233,11 +1233,6 @@ final class S3Request {
 		$curl = curl_init();
 		curl_setopt($curl, CURLOPT_USERAGENT, 'S3/php');
 
-		if (S3::$useSSL) {
-			curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, 1);
-			curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, 1);
-		}
-
 		curl_setopt($curl, CURLOPT_URL, $url);
 
 		// Headers
