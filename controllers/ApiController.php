@@ -25,7 +25,7 @@
 */
 
 class ApiController extends Controller {
-	private $writeTokenCacheTime = 43200; // 12 hours
+	protected $writeTokenCacheTime = 43200; // 12 hours
 	
 	private $profile = false;
 	private $profileShard = 0;

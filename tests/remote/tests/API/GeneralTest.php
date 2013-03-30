@@ -55,4 +55,37 @@ class GeneralTests extends APITests {
 		);
 		$this->assertEquals($defaultVersion, $response->getHeader("Zotero-API-Version"));
 	}
+	
+	
+	public function testZoteroWriteToken() {
+		$json = API::getItemTemplate("book");
+		
+		$token = md5(uniqid());
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array(
+				"Content-Type: application/json",
+				"Zotero-Write-Token: $token"
+			)
+		);
+		$this->assert200ForObject($response);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode(array(
+				"items" => array($json)
+			)),
+			array(
+				"Content-Type: application/json",
+				"Zotero-Write-Token: $token"
+			)
+		);
+		$this->assert412($response);
+	}
 }
