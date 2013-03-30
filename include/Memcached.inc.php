@@ -222,8 +222,10 @@ class Z_MemcachedClientLocal {
 	
 	public function begin() {
 		if ($this->queuing) {
+			//Z_Core::debug("Already queueing memcached transaction");
 			return false;
 		}
+		//Z_Core::debug("Beginning memcached transaction");
 		$this->queuing = true;
 		return true;
 	}
@@ -233,11 +235,14 @@ class Z_MemcachedClientLocal {
 			throw new Exception("Memcache wasn't queuing");
 		}
 		
+		//Z_Core::debug("Committing memcached transaction");
+		
+		$this->queuing = false;
+		
 		if (!$this->queue) {
 			return;
 		}
 		
-		$this->queuing = false;
 		foreach ($this->queue as $arr) {
 			if (!empty($arr['skip'])) {
 				continue;
