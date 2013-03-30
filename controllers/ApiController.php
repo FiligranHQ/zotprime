@@ -152,7 +152,7 @@ class ApiController extends Controller {
 				
 				// Check Zotero-Write-Token if it exists to make sure
 				// this isn't a duplicate request
-				if ($this->method == 'POST' || $this->method == 'PUT') {
+				if ($this->isWriteMethod()) {
 					if ($cacheKey = $this->getWriteTokenCacheKey()) {
 						if (Z_Core::$MC->get($cacheKey)) {
 							$this->e412("Write token already used");
