@@ -2101,7 +2101,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						throw new Exception("'$val' is not a valid linkMode", Z_ERROR_INVALID_INPUT);
 					}
 					// Don't allow changing of linkMode
-					if ($item && $linkMode != $item->attachmentLinkMode) {
+					if (!$isNew && $linkMode != $item->attachmentLinkMode) {
 						throw new Exception("Cannot change attachment linkMode", Z_ERROR_INVALID_INPUT);
 					}
 					break;

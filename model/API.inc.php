@@ -590,11 +590,11 @@ class Zotero_API {
 						. "$objectType key of request", 409);
 				}
 				
-				$exists = true;
+				$exists = !!$object->id;
 			}
 			else {
 				$object->key = $json->$keyProp;
-				$exists = !$object->id;
+				$exists = !!$object->id;
 			}
 		}
 		else {
