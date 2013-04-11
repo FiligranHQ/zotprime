@@ -49,7 +49,16 @@ class TagTests extends APITests {
 		);
 		
 		$response = API::postItem($json);
-		$this->assert400ForObject($response);
+		$this->assert400ForObject($response, "Tag cannot be empty");
+	}
+	
+	
+	public function testInvalidTagObject() {
+		$json = API::getItemTemplate("book");
+		$json->tags[] = array("invalid");
+		
+		$response = API::postItem($json);
+		$this->assert400ForObject($response, "Tag must be an object");
 	}
 	
 	

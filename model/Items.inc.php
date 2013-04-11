@@ -1898,6 +1898,10 @@ class Zotero_Items extends Zotero_DataObjects {
 					foreach ($val as $tag) {
 						$empty = true;
 						
+						if (!is_object($tag)) {
+							throw new Exception("Tag must be an object", Z_ERROR_INVALID_INPUT);
+						}
+						
 						foreach ($tag as $k=>$v) {
 							switch ($k) {
 								case 'tag':
