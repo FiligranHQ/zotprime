@@ -289,4 +289,48 @@ class TagTests extends APITests {
 		$this->assert200($response);
 		$this->assertNumResults(1, $response);
 	}
+	
+	
+	/**
+	 * When modifying a tag on an item, only the item itself should have its
+	 * version updated, not other items that had (and still have) the same tag
+	 */
+	public function testTagAddItemVersionChange() {
+		$data1 = API::createItem("book", array(
+			"tags" => array(
+				array("tag" => "a"),
+				array("tag" => "b")
+			)
+		), $this, 'data');
+		$json1 = json_decode($data1['content'], true);
+		$version1 = $data1['version'];
+		
+		$data2 = API::createItem("book", array(
+			"tags" => array(
+				array("tag" => "a"),
+				array("tag" => "c")
+			)
+		), $this, 'data');
+		$json2 = json_decode($data2['content'], true);
+		$version2 = $data2['version'];
+		
+		// Remove tag 'a' from item 1
+		$json1['tags'] = array(
+			array("tag" => "d"),
+			array("tag" => "c")
+		);
+		
+		$response = API::postItem($json1);
+		$this->assert200($response);
+		
+		// Item 1 version should be one greater than last update
+		$xml1 = API::getItemXML($json1['itemKey']);
+		$data1 = API::parseDataFromAtomEntry($xml1);
+		$this->assertEquals($version2 + 1, $data1['version']);
+		
+		// Item 2 version shouldn't have changed
+		$xml2 = API::getItemXML($json2['itemKey']);
+		$data2 = API::parseDataFromAtomEntry($xml2);
+		$this->assertEquals($version2, $data2['version']);
+	}
 }

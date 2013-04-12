@@ -121,6 +121,119 @@ class SyncTagTests extends PHPUnit_Framework_TestCase {
 	}
 	
 	
+	public function testTagModifyItemChange() {
+		$key1 = 'AAAAAAAA';
+		$key2 = 'BBBBBBBB';
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Create two items with the same tag via sync
+		$data = '<data version="9"><items>'
+			. '<item libraryID="'
+			. self::$config['libraryID'] . '" itemType="book" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="' . $key1 . '"/>'
+			. '<item libraryID="'
+			. self::$config['libraryID'] . '" itemType="book" '
+			. 'dateAdded="2011-03-07 04:53:20" '
+			. 'dateModified="2011-03-07 04:54:09" '
+			. 'key="' . $key2 . '"/>'
+			. '</items>'
+			. '<tags><tag libraryID="'
+			. self::$config['libraryID'] . '" name="Test1" '
+			. 'dateAdded="2009-03-07 04:54:56" '
+			. 'dateModified="2009-03-07 04:54:56" '
+			. 'key="CCCCCCCC">'
+			. '<items>' . $key1 . ' ' . $key2 . '</items>'
+			. '</tag></tags>'
+			.'</data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get item versions via API
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key1?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml1 = API::getXMLFromResponse($response);
+		$data1 = API::parseDataFromAtomEntry($xml1);
+		$version1 = $data1['version'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key2?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml2 = API::getXMLFromResponse($response);
+		$data2 = API::parseDataFromAtomEntry($xml2);
+		$version2 = $data2['version'];
+		
+		// Get items via sync
+		$xml = Sync::updated(self::$sessionID);
+		$this->assertEquals(2, sizeOf($xml->updated->items->item));
+		
+		// Increment the library version, since we're testing the
+		// version below
+		API::createItem('newspaperArticle', false, false, 'key');
+		$libraryVersion = API::getLibraryVersion();
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Modify tag on one item via sync
+		$data = '<data version="9">'
+		. '<tags>'
+		. '<tag libraryID="'
+		. self::$config['libraryID'] . '" name="Test1" '
+		. 'dateAdded="2009-03-07 04:54:56" '
+		. 'dateModified="2012-03-07 04:54:56" '
+		. 'key="CCCCCCCC">'
+		. '<items>' . $key2 . '</items>'
+		. '</tag>'
+		. '<tag libraryID="'
+		. self::$config['libraryID'] . '" name="Test2" '
+		. 'dateAdded="2013-03-07 04:54:56" '
+		. 'dateModified="2012-03-08 04:54:56" '
+		. 'key="DDDDDDDD">'
+		. '<items>' . $key1 . '</items>'
+		. '</tag>'
+		. '</tags>'
+		. '</data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get items via API
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key1?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml1 = API::getXMLFromResponse($response);
+		$data1 = API::parseDataFromAtomEntry($xml1);
+		$json1 = json_decode($data1['content'], true);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key2?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$xml2 = API::getXMLFromResponse($response);
+		$data2 = API::parseDataFromAtomEntry($xml2);
+		$json2 = json_decode($data2['content'], true);
+		
+		$this->assertCount(1, $json1['tags']);
+		$this->assertTrue(isset($json1['tags'][0]['tag']));
+		$this->assertEquals("Test2", $json1['tags'][0]['tag']);
+		
+		$this->assertCount(1, $json2['tags']);
+		$this->assertTrue(isset($json2['tags'][0]['tag']));
+		$this->assertEquals("Test1", $json2['tags'][0]['tag']);
+		
+		// Only item 1 version should have changed
+		$this->assertEquals($libraryVersion + 1, $json1['itemVersion']);
+		$this->assertEquals($version2, $json2['itemVersion']);
+	}
+	
+	
 	// Also tests lastModifiedByUserID
 	public function testGroupTagAddItemChange() {
 		$key = 'AAAAAAAA';

@@ -164,7 +164,12 @@ class Zotero_Tag {
 	
 	
 	public function hasChanged() {
-		return in_array(true, array_values($this->changed));
+		// Exclude 'dateModified' from test
+		$changed = $this->changed;
+		if (!empty($changed['dateModified'])) {
+			unset($changed['dateModified']);
+		}
+		return in_array(true, array_values($changed));
 	}
 	
 	
