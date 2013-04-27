@@ -132,12 +132,12 @@ class Zotero_Creator {
 	}
 	
 	
-	public function save() {
+	public function save($userID=false) {
 		if (!$this->libraryID) {
 			trigger_error("Library ID must be set before saving", E_USER_ERROR);
 		}
 		
-		Zotero_Creators::editCheck($this);
+		Zotero_Creators::editCheck($this, $userID);
 		
 		// If empty, move on
 		if ($this->firstName === '' && $this->lastName === '') {

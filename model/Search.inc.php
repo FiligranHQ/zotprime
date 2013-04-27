@@ -112,12 +112,12 @@ class Zotero_Search {
 	 *
 	 * For new searches, setName() must be called before saving
 	 */
-	public function save() {
+	public function save($userID=false) {
 		if (!$this->libraryID) {
 			throw new Exception("Library ID must be set before saving");
 		}
 		
-		Zotero_Searches::editCheck($this);
+		Zotero_Searches::editCheck($this, $userID);
 		
 		if (!$this->changed) {
 			Z_Core::debug("Search $this->id has not changed");

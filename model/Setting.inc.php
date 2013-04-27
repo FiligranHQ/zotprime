@@ -99,7 +99,7 @@ class Zotero_Setting {
 	/**
 	 * Save the setting to the DB
 	 */
-	public function save() {
+	public function save($userID=false) {
 		if (!$this->libraryID) {
 			throw new Exception("libraryID not set");
 		}
@@ -107,7 +107,7 @@ class Zotero_Setting {
 			throw new Exception("Setting name not provided");
 		}
 		
-		Zotero_Settings::editCheck($this);
+		Zotero_Settings::editCheck($this, $userID);
 		
 		if (!$this->changed) {
 			Z_Core::debug("Setting $this->libraryID/$this->name has not changed");

@@ -1025,7 +1025,7 @@ class Zotero_Item {
 			trigger_error("Library ID must be set before saving", E_USER_ERROR);
 		}
 		
-		Zotero_Items::editCheck($this);
+		Zotero_Items::editCheck($this, $userID);
 		
 		if (!$this->hasChanged()) {
 			Z_Core::debug("Item $this->id has not changed");

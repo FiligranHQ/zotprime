@@ -173,12 +173,12 @@ class Zotero_Tag {
 	}
 	
 	
-	public function save($full=false) {
+	public function save($userID=false, $full=false) {
 		if (!$this->libraryID) {
 			trigger_error("Library ID must be set before saving", E_USER_ERROR);
 		}
 		
-		Zotero_Tags::editCheck($this);
+		Zotero_Tags::editCheck($this, $userID);
 		
 		if (!$this->hasChanged()) {
 			Z_Core::debug("Tag $this->id has not changed");

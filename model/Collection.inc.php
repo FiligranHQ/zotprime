@@ -133,12 +133,12 @@ class Zotero_Collection {
 	}
 	
 	
-	public function save() {
+	public function save($userID=false) {
 		if (!$this->libraryID) {
 			trigger_error("Library ID must be set before saving", E_USER_ERROR);
 		}
 		
-		Zotero_Collections::editCheck($this);
+		Zotero_Collections::editCheck($this, $userID);
 		
 		if (!$this->changed) {
 			Z_Core::debug("Collection $this->id has not changed");

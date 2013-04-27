@@ -305,6 +305,36 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function userCanEdit($libraryID, $userID, $obj=null) {
+		$libraryType = Zotero_Libraries::getType($libraryID);
+		switch ($libraryType) {
+			case 'user':
+				$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+				if ($libraryID != $userLibraryID) {
+					return false;
+				}
+				return true;
+			
+			case 'group':
+				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+				$group = Zotero_Groups::get($groupID);
+				if (!$group->hasUser($userID) || !$group->userCanEdit($userID)) {
+					return false;
+				}
+				
+				if ($obj && $obj instanceof Zotero_Item
+						&& $obj->isImportedAttachment()
+						&& !$group->userCanEditFiles($userID)) {
+					return false;
+				}
+				return true;
+			
+			default:
+				throw new Exception("Unsupported library type '$libraryType'");
+		}
+	}
+	
+	
 	public static function getLastStorageSync($libraryID) {
 		$sql = "SELECT UNIX_TIMESTAMP(serverDateModified) AS time FROM items
 				JOIN storageFileItems USING (itemID) WHERE libraryID=?

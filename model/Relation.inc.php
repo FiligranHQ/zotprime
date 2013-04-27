@@ -110,10 +110,12 @@ class Zotero_Relation {
 	/*
 	 * Save the relation to the DB and return a relationID
 	 */
-	public function save() {
+	public function save($userID=false) {
 		if (!$this->libraryID) {
 			trigger_error("Library ID must be set before saving", E_USER_ERROR);
 		}
+		
+		Zotero_Creators::editCheck($this, $userID);
 		
 		Zotero_DB::beginTransaction();
 		

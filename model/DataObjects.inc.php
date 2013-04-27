@@ -690,12 +690,18 @@ class Zotero_DataObjects {
 	 * @param	SimpleXMLElement	$xml		Data necessary for delete as SimpleXML element
 	 * @return	void
 	 */
-	public static function deleteFromXML(SimpleXMLElement $xml) {
+	public static function deleteFromXML(SimpleXMLElement $xml, $userID) {
 		$parents = array();
 		
 		foreach ($xml->children() as $obj) {
 			$libraryID = (int) $obj['libraryID'];
 			$key = (string) $obj['key'];
+			
+			if ($userID && !Zotero_Libraries::userCanEdit($libraryID, $userID)) {
+				throw new Exception("Cannot edit " . static::field('object')
+					. " in library $obj->libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
+			}
+			
 			if ($obj->getName() == 'item') {
 				$item = Zotero_Items::getByLibraryAndKey($libraryID, $key);
 				if (!$item) {
@@ -715,57 +721,15 @@ class Zotero_DataObjects {
 	}
 	
 	
-	public static function isEditable($obj) {
-		$type = static::field('object');
-		
-		// Only enforce for sync controller for now
-		if (empty($GLOBALS['controller']) || !($GLOBALS['controller'] instanceof SyncController)) {
-			return true;
-		}
-		
-		// Make sure user has access privileges to delete
-		$userID = $GLOBALS['controller']->userID;
+	
+	public static function editCheck($obj, $userID=false) {
 		if (!$userID) {
 			return true;
 		}
 		
-		$objectLibraryID = $obj->libraryID;
-		
-		$libraryType = Zotero_Libraries::getType($objectLibraryID);
-		switch ($libraryType) {
-			case 'user':
-				if (!empty($GLOBALS['controller']->userLibraryID)) {
-					$userLibraryID = $GLOBALS['controller']->userLibraryID;
-				}
-				else {
-					$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-				}
-				if ($objectLibraryID != $userLibraryID) {
-					return false;
-				}
-				return true;
-			
-			case 'group':
-				$groupID = Zotero_Groups::getGroupIDFromLibraryID($objectLibraryID);
-				$group = Zotero_Groups::get($groupID);
-				if (!$group->hasUser($userID) || !$group->userCanEdit($userID)) {
-					return false;
-				}
-				
-				if ($type == 'item' && $obj->isImportedAttachment() && !$group->userCanEditFiles($userID)) {
-					return false;
-				}
-				return true;
-			
-			default:
-				throw new Exception("Unsupported library type '$libraryType'");
-		}
-	}
-	
-	
-	public static function editCheck($obj) {
-		if (!static::isEditable($obj)) {
-			throw new Exception("Cannot edit " . static::field('object') . " in library $obj->libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
+		if (!Zotero_Libraries::userCanEdit($obj->libraryID, $userID, $obj)) {
+			throw new Exception("Cannot edit " . static::field('object')
+				. " in library $obj->libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
 		}
 	}
 }

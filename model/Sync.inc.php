@@ -1392,7 +1392,7 @@ class Zotero_Sync {
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
 						$addedLibraryIDs[] = $creatorObj->libraryID;
 						
-						$changed = $creatorObj->save();
+						$changed = $creatorObj->save($userID);
 						
 						// If the creator changed, we need to update all linked items
 						if ($changed) {
@@ -1513,7 +1513,7 @@ class Zotero_Sync {
 				unset($keys);
 				unset($xml->collections);
 				
-				self::saveCollections($collections);
+				self::saveCollections($collections, $userID);
 				unset($collections);
 				
 				// Set child items
@@ -1547,7 +1547,7 @@ class Zotero_Sync {
 					$keys[$key] = true;
 					
 					$searchObj = Zotero_Searches::convertXMLToSearch($xmlElement);
-					$searchObj->save();
+					$searchObj->save($userID);
 				}
 				unset($xml->searches);
 			}
@@ -1584,7 +1584,7 @@ class Zotero_Sync {
 						)
 					);
 					
-					$tagObj->save(true);
+					$tagObj->save($userID, true);
 				}
 				unset($keys);
 				unset($xml->tags);
@@ -1600,7 +1600,7 @@ class Zotero_Sync {
 					if ($relationObj->exists()) {
 						continue;
 					}
-					$relationObj->save();
+					$relationObj->save($userID);
 				}
 				unset($keys);
 				unset($xml->relations);
@@ -1613,7 +1613,7 @@ class Zotero_Sync {
 				$xmlElements = $xmlElements->getElementsByTagName('setting');
 				foreach ($xmlElements as $xmlElement) {
 					$settingObj = Zotero_Settings::convertXMLToSetting($xmlElement);
-					$settingObj->save();
+					$settingObj->save($userID);
 				}
 				unset($xml->settings);
 			}
@@ -1622,22 +1622,22 @@ class Zotero_Sync {
 			if ($xml->deleted) {
 				// Delete collections
 				if ($xml->deleted->collections) {
-					Zotero_Collections::deleteFromXML($xml->deleted->collections);
+					Zotero_Collections::deleteFromXML($xml->deleted->collections, $userID);
 				}
 				
 				// Delete items
 				if ($xml->deleted->items) {
-					Zotero_Items::deleteFromXML($xml->deleted->items);
+					Zotero_Items::deleteFromXML($xml->deleted->items, $userID);
 				}
 				
 				// Delete creators
 				if ($xml->deleted->creators) {
-					Zotero_Creators::deleteFromXML($xml->deleted->creators);
+					Zotero_Creators::deleteFromXML($xml->deleted->creators, $userID);
 				}
 				
 				// Delete saved searches
 				if ($xml->deleted->searches) {
-					Zotero_Searches::deleteFromXML($xml->deleted->searches);
+					Zotero_Searches::deleteFromXML($xml->deleted->searches, $userID);
 				}
 				
 				// Delete tags
@@ -1664,17 +1664,17 @@ class Zotero_Sync {
 						);
 					}
 					
-					Zotero_Tags::deleteFromXML($xml->deleted->tags);
+					Zotero_Tags::deleteFromXML($xml->deleted->tags, $userID);
 				}
 				
 				// Delete relations
 				if ($xml->deleted->relations) {
-					Zotero_Relations::deleteFromXML($xml->deleted->relations);
+					Zotero_Relations::deleteFromXML($xml->deleted->relations, $userID);
 				}
 				
 				// Delete relations
 				if ($xml->deleted->settings) {
-					Zotero_Settings::deleteFromXML($xml->deleted->settings);
+					Zotero_Settings::deleteFromXML($xml->deleted->settings, $userID);
 				}
 			}
 			
@@ -1756,7 +1756,7 @@ class Zotero_Sync {
 	/**
 	 * Recursively save collections from the top down
 	 */
-	private static function saveCollections($collections) {
+	private static function saveCollections($collections, $userID) {
 		$originalLength = sizeOf($collections);
 		$unsaved = array();
 		
@@ -1772,14 +1772,14 @@ class Zotero_Sync {
 			$parentKey = $collection->parentKey;
 			// Top-level collection, so save
 			if (!$parentKey) {
-				$collection->save();
+				$collection->save($userID);
 				unset($toSave[$key]);
 				continue;
 			}
 			$parentCollection = Zotero_Collections::getByLibraryAndKey($collection->libraryID, $parentKey);
 			// Parent collection exists and doesn't need to be saved, so save
 			if ($parentCollection && empty($toSave[$parentCollection->key])) {
-				$collection->save();
+				$collection->save($userID);
 				unset($toSave[$key]);
 				continue;
 			}

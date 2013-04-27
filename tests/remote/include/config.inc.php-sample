@@ -16,12 +16,14 @@ $config = array(
 	'username' => "", // user used for sync tests
 	'password' => "",
 	'apiKey' => "",
-	'ownedPrivateGroupID' => 0,
+	'ownedPrivateGroupID' => 0, // should have libraryEditing='members'
 	'ownedPublicGroupID' => 0
 	
 	// User 2 (should be in user 1's private group)
 	'userID2' => 0,
 	'username2' => "",
-	'password2' => ""
+	'password2' => "",
+	'ownedPrivateGroupID2' => 0, // user 1 should not be a member
+	'ownedPrivateGroupLibraryID2' => 0
 );
 ?>
