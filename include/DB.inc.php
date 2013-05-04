@@ -311,7 +311,8 @@ class Zotero_DB {
 	 */
 	public static function getStatement($sql, $cache=false, $shardID=0) {
 		$instance = self::getInstance();
-		$link = $instance->getShardLink($shardID);
+		$isWriteQuery = self::isWriteQuery($sql);
+		$link = $instance->getShardLink($shardID, $isWriteQuery);
 		
 		if ($cache) {
 			if (is_bool($cache)) {
@@ -482,7 +483,8 @@ class Zotero_DB {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
-		$link = $instance->getShardLink($shardID);
+		$isWriteQuery = self::isWriteQuery($sql);
+		$link = $instance->getShardLink($shardID, $isWriteQuery);
 		$instance->checkShardTransaction($shardID);
 		
 		// TODO: Use instance->link->fetchCol once it supports type casting
@@ -558,7 +560,8 @@ class Zotero_DB {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
-		$link = $instance->getShardLink($shardID);
+		$isWriteQuery = self::isWriteQuery($sql);
+		$link = $instance->getShardLink($shardID, $isWriteQuery);
 		$instance->checkShardTransaction($shardID);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
@@ -629,7 +632,8 @@ class Zotero_DB {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
-		$link = $instance->getShardLink($shardID);
+		$isWriteQuery = self::isWriteQuery($sql);
+		$link = $instance->getShardLink($shardID, $isWriteQuery);
 		$instance->checkShardTransaction($shardID);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
