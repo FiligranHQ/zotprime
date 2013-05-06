@@ -483,6 +483,9 @@ class Zotero_API {
 			case 'keys':
 			case 'versions':
 				return 0;
+			
+			case 'bib':
+				return self::$maxBibliographyItems;
 		}
 		
 		return self::$defaultQueryParams['limit'];
@@ -494,6 +497,9 @@ class Zotero_API {
 			case 'keys':
 			case 'versions':
 				return 0;
+			
+			case 'bib':
+				return self::$maxBibliographyItems;
 		}
 		
 		return 100;
