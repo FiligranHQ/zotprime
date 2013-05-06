@@ -854,6 +854,7 @@ class ApiController extends Controller {
 	
 	
 	public function logTotalRequestTime() {
+		StatsD::timing("api.memcached", Z_Core::$MC->requestTime * 1000, 0.25);
 		StatsD::timing("api.request.total", (microtime(true) - $this->startTime) * 1000, 0.25);
 	}
 }
