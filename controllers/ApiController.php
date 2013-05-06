@@ -279,7 +279,9 @@ class ApiController extends Controller {
 				: false
 		);
 		
-		header("Zotero-API-Version: " . $this->queryParams['apiVersion']);
+		$version = $this->queryParams['apiVersion'];
+		header("Zotero-API-Version: " . $version);
+		StatsD::increment("api.request.version.v" . $version, 0.25);
 	}
 	
 	
