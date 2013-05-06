@@ -32,7 +32,7 @@ class StorageController extends ApiController {
 	//
 	
 	public function laststoragesync() {
-		if (!$this->httpAuth) {
+		if (!$this->httpAuth && !$this->permissions->isSuper()) {
 			$this->e403();
 		}
 		
