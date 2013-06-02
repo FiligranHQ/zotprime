@@ -112,7 +112,7 @@ class Zotero_Utilities {
     
 	
 	public static function formatJSON($jsonObj, $pretty=false) {
-		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
+		$mask = JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE;
 		if ($pretty) {
 			$json = self::json_encode_pretty($jsonObj, $mask);
 		}
