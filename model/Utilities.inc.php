@@ -199,6 +199,39 @@ class Zotero_Utilities {
 	}
 	
 	
+	/**
+	 * Strip control characters from string
+	 */
+	public static function cleanString($str) {
+		$chars = array();
+		for ($i = 0; $i < 32; $i++) {
+			// Don't strip line feed and tab
+			if ($i != 9 && $i != 10) {
+				$chars[] = chr($i);
+			}
+		}
+		$chars[] = chr(127);
+		return str_replace($chars, '', $str);
+	}
+	
+	
+	/**
+	 * Recursively call cleanString() on an object's scalar properties
+	 */
+	public static function cleanStringRecursive($obj) {
+		foreach ($obj as &$val) {
+			if (is_scalar($val) || $val === null) {
+				if (is_string($val)) {
+					$val = self::cleanString($val);
+				}
+			}
+			else {
+				self::{__FUNCTION__}($val);
+			}
+		}
+	}
+	
+	
 	public static function getObjectTypeFromObject($object) {
 		if (!preg_match("/(Item|Collection|Search|Setting)$/", get_class($object), $matches)) {
 			throw new Exception("Invalid object type");

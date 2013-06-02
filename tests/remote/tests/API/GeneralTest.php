@@ -28,6 +28,16 @@ require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
 class GeneralTests extends APITests {
+	public static function setUpBeforeClass() {
+		parent::setUpBeforeClass();
+		API::userClear(self::$config['userID']);
+	}
+	
+	public static function tearDownAfterClass() {
+		parent::tearDownAfterClass();
+		API::userClear(self::$config['userID']);
+	}
+	
 	public function testAPIVersion() {
 		$minVersion = 1;
 		$maxVersion = 2;
@@ -87,5 +97,29 @@ class GeneralTests extends APITests {
 			)
 		);
 		$this->assert412($response);
+	}
+	
+	
+	public function testInvalidCharacters() {
+		$data = array(
+			'title' => "A" . chr(0) . "A",
+			'creators' => array(
+				array(
+					'creatorType' => "author",
+					'name' => "B" . chr(1) . "B"
+				)
+			),
+			'tags' => array(
+				array(
+					'tag' => "C" . chr(2) . "C"
+				)
+			)
+		);
+		$xml = API::createItem("book", $data, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content']);
+		$this->assertEquals("AA", $json->title);
+		$this->assertEquals("BB", $json->creators[0]->name);
+		$this->assertEquals("CC", $json->tags[0]->tag);
 	}
 }

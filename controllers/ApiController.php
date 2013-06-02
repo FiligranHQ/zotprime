@@ -774,6 +774,8 @@ class ApiController extends Controller {
 	protected function jsonDecode($json) {
 		$obj = json_decode($json);
 		
+		Zotero_Utilities::cleanStringRecursive($obj);
+		
 		switch(json_last_error()) {
 			case JSON_ERROR_DEPTH:
 				$error = 'Maximum stack depth exceeded';
