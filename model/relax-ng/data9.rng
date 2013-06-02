@@ -348,7 +348,9 @@
               <ref name="dateModified"/>
               <optional>
                 <element name="items">
-                  <ref name="keys"/>
+                  <optional>
+                    <ref name="keys"/>
+                  </optional>
                 </element>
               </optional>
             </element>

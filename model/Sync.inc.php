@@ -1560,6 +1560,13 @@ class Zotero_Sync {
 				$xmlElements = dom_import_simplexml($xml->tags);
 				$xmlElements = $xmlElements->getElementsByTagName('tag');
 				foreach ($xmlElements as $xmlElement) {
+					// TEMP
+					$tagItems = $xmlElement->getElementsByTagName('items');
+					if ($tagItems->length && $tagItems->item(0)->nodeValue == "") {
+						error_log("Skipping tag with no linked items");
+						continue;
+					}
+					
 					$libraryID = (int) $xmlElement->getAttribute('libraryID');
 					$key = $xmlElement->getAttribute('key');
 					
