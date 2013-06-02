@@ -1,3 +1,11 @@
+# If on a testing site, deny by default unless IP is allowed
+SetEnvIf Host "apidev" ACCESS_CONTROL
+SetEnvIf Host "syncdev" ACCESS_CONTROL
+#######                   Local
+SetEnvIf X-Forwarded-For "192.168.1.|" !ACCESS_CONTROL
+order deny,allow
+deny from env=ACCESS_CONTROL
+
 php_flag zlib.output_compression On
 php_value zlib.output_compression_level 5
 
@@ -18,10 +26,3 @@ RewriteEngine On
 RewriteCond %{SCRIPT_FILENAME} !-f
 RewriteCond %{SCRIPT_FILENAME} !-d
 RewriteRule .* index.php [L]
-
-# If on a testing site, deny by default unless IP is allowed
-SetEnvIf Host "\:[0-9]{4}$" ACCESS_CONTROL
-#######                   Local
-SetEnvIf X-Forwarded-For "192.168.1.|" !ACCESS_CONTROL
-order deny,allow
-deny from env=ACCESS_CONTROL
