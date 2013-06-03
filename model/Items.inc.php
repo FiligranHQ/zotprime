@@ -1127,7 +1127,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				StatsD::increment("memcached.items.itemToAtom.hit");
 				
 				// Skip the cache every 10 times for now, to ensure cache sanity
-				if (true || Z_Core::probability(10)) {
+				if (Z_Core::probability(10)) {
 					$xmlstr = $xml->saveXML();
 				}
 				else {
@@ -1413,6 +1413,11 @@ class Zotero_Items extends Zotero_DataObjects {
 					$uncached
 				);
 				$uncached = str_replace(
+					'<title></title>',
+					'<title/>',
+					$uncached
+				);
+				$uncached = str_replace(
 					'<note></note>',
 					'<note/>',
 					$uncached
@@ -1420,6 +1425,11 @@ class Zotero_Items extends Zotero_DataObjects {
 				$uncached = str_replace(
 					'<path></path>',
 					'<path/>',
+					$uncached
+				);
+				$uncached = str_replace(
+					'<td></td>',
+					'<td/>',
 					$uncached
 				);
 				
