@@ -1145,7 +1145,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		$contentParamString = urlencode(implode(',', $content));
 		$style = $queryParams['style'];
 		
-		$entry = '<entry xmlns="' . Zotero_Atom::$nsAtom . '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>';
+		$entry = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<entry xmlns="' . Zotero_Atom::$nsAtom . '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>';
 		$xml = new SimpleXMLElement($entry);
 		
 		$title = $item->getDisplayTitle(true);

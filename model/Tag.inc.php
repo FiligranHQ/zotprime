@@ -532,7 +532,8 @@ class Zotero_Tag {
 		$content = $content[0];
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom
+			'<?xml version="1.0" encoding="UTF-8"?>'
+			. '<entry xmlns="' . Zotero_Atom::$nsAtom
 			. '" xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>'
 		);
 		

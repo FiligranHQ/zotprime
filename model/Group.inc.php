@@ -892,7 +892,8 @@ class Zotero_Group {
 		}
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
+			'<?xml version="1.0" encoding="UTF-8"?>'
+			. '<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '
 			. 'xmlns:zxfer="' . Zotero_Atom::$nsZoteroTransfer . '"/>'
 		);
@@ -987,7 +988,8 @@ class Zotero_Group {
 		}
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
+			'<?xml version="1.0" encoding="UTF-8"?>'
+			. '<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '
 			. 'xmlns:xfer="' . Zotero_Atom::$nsZoteroTransfer . '"/>'
 		);
@@ -1056,7 +1058,8 @@ class Zotero_Group {
 		}
 		
 		$xml = new SimpleXMLElement(
-			'<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
+			'<?xml version="1.0" encoding="UTF-8"?>'
+			. '<entry xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '" '
 			. 'xmlns:xfer="' . Zotero_Atom::$nsZoteroTransfer . '"/>'
 		);

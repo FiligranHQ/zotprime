@@ -902,4 +902,28 @@ class ItemTests extends APITests {
 		$json = json_decode($data['content']);
 		$this->assertEquals($date, $json->date);
 	}
+	
+	
+	public function testUnicodeTitle() {
+		$title = "Tést";
+		
+		$xml = API::createItem("book", array("title" => $title), $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
+		
+		// Test entry
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assertContains('"title":"Tést"', $response->getBody());
+		
+		// Test feed
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assertContains('"title":"Tést"', $response->getBody());
+		echo($response->getBody());
+	}
 }

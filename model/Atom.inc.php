@@ -46,7 +46,8 @@ class Zotero_Atom {
 			$nonDefaultParams = array();
 		}
 		
-		$feed = '<feed xmlns="' . Zotero_Atom::$nsAtom . '" '
+		$feed = '<?xml version="1.0" encoding="UTF-8"?>'
+			. '<feed xmlns="' . Zotero_Atom::$nsAtom . '" '
 			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"';
 		if ($queryParams && $queryParams['content'][0] == 'full') {
 			$feed .= ' xmlns:zxfer="' . Zotero_Atom::$nsZoteroTransfer . '"';
