@@ -1013,7 +1013,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		);
 		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
 		
-		$cacheVersion = 1;
+		$cacheVersion = 2;
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->id . "_"
 			. md5(
 				$version
