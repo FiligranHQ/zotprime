@@ -1037,6 +1037,9 @@ class Zotero_Items extends Zotero_DataObjects {
 		$xmlstr = Z_Core::$MC->get($cacheKey);
 		if ($xmlstr) {
 			try {
+				// TEMP: Strip control characters
+				$xmlstr = Zotero_Utilities::cleanString($xmlstr, true);
+				
 				$doc = new DOMDocument;
 				$doc->loadXML($xmlstr);
 				$xpath = new DOMXpath($doc);

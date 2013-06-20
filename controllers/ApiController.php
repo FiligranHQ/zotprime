@@ -714,8 +714,10 @@ class ApiController extends Controller {
 			
 			$xmlstr = $this->responseXML->asXML();
 			
-			$doc = new DOMDocument('1.0');
+			// TEMP: Strip control characters
+			$xmlstr = Zotero_Utilities::cleanString($xmlstr, true);
 			
+			$doc = new DOMDocument('1.0');
 			$doc->loadXML($xmlstr);
 			$doc->formatOutput = true;
 			
