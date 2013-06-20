@@ -764,8 +764,17 @@ class ApiController extends Controller {
 		$time = $this->currentRequestTime();
 		if ($time > $this->timeLogThreshold) {
 			$this->timeLogged = true;
+			
+			$shardHostStr = "";
+			if (!empty($this->objectLibraryID)) {
+				$shardID = Zotero_Shards::getByLibraryID($this->objectLibraryID);
+				$shardInfo = Zotero_Shards::getShardInfo($shardID);
+				$shardHostStr = " with shard host " . $shardInfo['shardHostID'];
+			}
+			
 			error_log(
-				"Slow API request " . ($point ? " at point " . $point : "") . ": "
+				"Slow API request" . ($point ? " at point " . $point : "")
+				. $shardHostStr . ": "
 				. $time . " sec for "
 				. $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI']
 			);
@@ -866,6 +875,22 @@ class ApiController extends Controller {
 	public function logTotalRequestTime() {
 		if (!Z_CONFIG::$STATSD_ENABLED) {
 			return;
+		}
+		
+		try {
+			if (!empty($this->objectLibraryID)) {
+				$shardID = Zotero_Shards::getByLibraryID($this->objectLibraryID);
+				$shardInfo = Zotero_Shards::getShardInfo($shardID);
+				$shardHostID = (int) $shardInfo['shardHostID'];
+				StatsD::timing(
+					"api.request.total_by_shard.$shardHostID",
+					(microtime(true) - $this->startTime) * 1000,
+					0.25
+				);
+			}
+		}
+		catch (Exception $e) {
+			error_log("WARNING: " . $e);
 		}
 		
 		StatsD::timing("api.memcached", Z_Core::$MC->requestTime * 1000, 0.25);
