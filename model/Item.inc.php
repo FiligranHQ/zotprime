@@ -3078,7 +3078,19 @@ class Zotero_Item {
 		
 		$toReturn = new stdClass;
 		foreach ($relations as $relation) {
-			$toReturn->{$relation->predicate} = $relation->object;
+			$predicate = $relation->predicate;
+			if (isset($toReturn->$predicate)) {
+				// If object with predicate exists, convert to an array
+				if (is_string($toReturn->$predicate)) {
+					$toReturn->$predicate = array($toReturn->$predicate);
+				}
+				// Add new object to array
+				$toReturn->{$predicate}[] = $relation->object;
+			}
+			// Add first object as a string
+			else {
+				$toReturn->$predicate = $relation->object;
+			}
 		}
 		return $toReturn;
 	}
@@ -3087,7 +3099,7 @@ class Zotero_Item {
 	/**
 	 * Updates the item's relations. No separate save of the item is required.
 	 *
-	 * @param object $newRelations Object with predicates as keys and URIs as values
+	 * @param object $newRelations Object with predicates as keys and URIs/arrays-of-URIs as values
 	 * @param int $userID User making the change
 	 */
 	public function setRelations($newRelations, $userID) {
@@ -3102,12 +3114,39 @@ class Zotero_Item {
 			$newRelations = new stdClass;
 		}
 		
-		// Get arrays from objects
-		$oldRelations = get_object_vars($this->getRelations());
-		$newRelations = get_object_vars($newRelations);
+		// There can be more than one object for a given predicate, so build
+		// flat arrays with individual predicate-object pairs converted to
+		// JSON strings so we can use array_diff to determine what changed
+		$oldRelations = [];
+		foreach ($this->getRelations() as $predicate => $object) {
+			if (is_array($object)) {
+				foreach ($object as $o) {
+					$oldRelations[] = json_encode([$predicate, $o]);
+				}
+			}
+			else {
+				$oldRelations[] = json_encode([$predicate, $object]);
+			}
+		}
+		$newRelations2 = [];
+		foreach ($newRelations as $predicate => $object) {
+			if (is_array($object)) {
+				foreach ($object as $o) {
+					$newRelations2[] = json_encode([$predicate, $o]);
+				}
+			}
+			else {
+				$newRelations2[] = json_encode([$predicate, $object]);
+			}
+		}
+		$newRelations = $newRelations2;
+		unset($newRelations2);
 		
 		$toAdd = array_diff($newRelations, $oldRelations);
 		$toRemove = array_diff($oldRelations, $newRelations);
+		
+		$toAdd = array_map(function ($val) { return json_decode($val); }, $toAdd);
+		$toRemove = array_map(function ($val) { return json_decode($val); }, $toRemove);
 		
 		if (!$toAdd && !$toRemove) {
 			Zotero_DB::commit();
@@ -3116,21 +3155,21 @@ class Zotero_Item {
 		
 		$subject = Zotero_URI::getItemURI($this, true);
 		
-		foreach ($toAdd as $predicate => $object) {
+		foreach ($toAdd as $pair) {
 			Zotero_Relations::add(
 				$this->libraryID,
 				$subject,
-				$predicate,
-				$object
+				$pair[0],
+				$pair[1]
 			);
 		}
 		
-		foreach ($toRemove as $predicate => $object) {
+		foreach ($toRemove as $pair) {
 			$relations = Zotero_Relations::getByURIs(
 				$this->libraryID,
 				$subject,
-				$predicate,
-				$object
+				$pair[0],
+				$pair[1]
 			);
 			foreach ($relations as $relation) {
 				Zotero_Relations::delete($this->libraryID, $relation->key);

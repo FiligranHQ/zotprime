@@ -1966,7 +1966,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					if (!is_object($val)
-							// Allow an empty array, because it's annoying for clients otherwise
+							// Allow an empty array, because it's annoying for some clients otherwise
 							&& !(is_array($val) && empty($val))) {
 						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
 					}
@@ -1981,8 +1981,11 @@ class Zotero_Items extends Zotero_DataObjects {
 							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
 						}
 						
-						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/items\/[A-Z0-9]{8}$/', $object)) {
-							throw new Exception("'$key' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
+						$arr = is_string($object) ? [$object] : $object;
+						foreach ($arr as $uri) {
+							if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/items\/[A-Z0-9]{8}$/', $uri)) {
+								throw new Exception("'$key' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
+							}
 						}
 					}
 					break;

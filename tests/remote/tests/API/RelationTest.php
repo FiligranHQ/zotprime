@@ -42,8 +42,10 @@ class RelationTests extends APITests {
 	public function testNewItemRelations() {
 		$relations = array(
 			"owl:sameAs" => "http://zotero.org/groups/1/items/AAAAAAAA",
-			"dc:relation" => "http://zotero.org/users/"
-				. self::$config['userID'] . "/items/AAAAAAAA",
+			"dc:relation" => array(
+				"http://zotero.org/users/" . self::$config['userID'] . "/items/AAAAAAAA",
+				"http://zotero.org/users/" . self::$config['userID'] . "/items/BBBBBBBB",
+			)
 		);
 		
 		$xml = API::createItem("book", array(
@@ -72,12 +74,22 @@ class RelationTests extends APITests {
 			)
 		), $this, 'response');
 		$this->assert400ForObject($response, "'relations' values currently must be Zotero item URIs");
+		
+		$response = API::createItem("book", array(
+			"relations" => array(
+				"owl:sameAs" => ["Not a URI"]
+			)
+		), $this, 'response');
+		$this->assert400ForObject($response, "'relations' values currently must be Zotero item URIs");
 	}
 	
 	
 	public function testDeleteItemRelation() {
 		$relations = array(
-			"owl:sameAs" => "http://zotero.org/groups/1/items/AAAAAAAA",
+			"owl:sameAs" => [
+				"http://zotero.org/groups/1/items/AAAAAAAA",
+				"http://zotero.org/groups/1/items/BBBBBBBB"
+			],
 			"dc:relation" => "http://zotero.org/users/"
 				. self::$config['userID'] . "/items/AAAAAAAA",
 		);
@@ -89,8 +101,7 @@ class RelationTests extends APITests {
 		$json = json_decode($data['content'], true);
 		
 		// Remove a relation
-		unset($json['relations']['owl:sameAs']);
-		unset($relations['owl:sameAs']);
+		$json['relations']['owl:sameAs'] = $relations['owl:sameAs'] = $relations['owl:sameAs'][0];
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}?key=" . self::$config['apiKey'],
