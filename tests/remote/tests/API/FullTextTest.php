@@ -71,7 +71,7 @@ class FullTextTests extends APITests {
 			array("Content-Type: text/plain")
 		);
 		
-		$this->assert200($response);
+		$this->assert204($response);
 		$contentVersion = $response->getHeader("Last-Modified-Version");
 		$this->assertGreaterThan($libraryVersion, $contentVersion);
 		
@@ -104,7 +104,7 @@ class FullTextTests extends APITests {
 			$content,
 			array("Content-Type: text/plain")
 		);
-		$this->assert200($response);
+		$this->assert204($response);
 		$contentVersion1 = $response->getHeader("Last-Modified-Version");
 		
 		// And another
@@ -119,7 +119,7 @@ class FullTextTests extends APITests {
 			$content,
 			array("Content-Type: text/plain")
 		);
-		$this->assert200($response);
+		$this->assert204($response);
 		$contentVersion2 = $response->getHeader("Last-Modified-Version");
 		
 		// Get newer one
@@ -151,7 +151,7 @@ class FullTextTests extends APITests {
 			$content,
 			array("Content-Type: text/plain")
 		);
-		$this->assert200($response);
+		$this->assert204($response);
 		$contentVersion = $response->getHeader("Last-Modified-Version");
 		
 		// Retrieve it
@@ -160,11 +160,14 @@ class FullTextTests extends APITests {
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
 		);
 		$this->assert200($response);
+		$this->assertEquals($content, $response->getBody());
 		
-		// Delete it
-		$response = API::userDelete(
+		// Set to empty string
+		$response = API::userPut(
 			self::$config['userID'],
-			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
+			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
+			"",
+			array("Content-Type: text/plain")
 		);
 		$this->assert204($response);
 		$this->assertGreaterThan($contentVersion, $response->getHeader("Last-Modified-Version"));
@@ -174,6 +177,7 @@ class FullTextTests extends APITests {
 			self::$config['userID'],
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
 		);
-		$this->assert404($response);
+		$this->assert200($response);
+		$this->assertEquals("", $response->getBody());
 	}
 }

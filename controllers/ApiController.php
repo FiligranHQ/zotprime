@@ -104,7 +104,8 @@ class ApiController extends Controller {
 					&& !in_array($this->action, array(
 						'clear',
 						'laststoragesync',
-						'removestoragefiles'))) {
+						'removestoragefiles',
+						'itemContent'))) {
 				$this->e400("$this->method data not provided");
 			}
 		}

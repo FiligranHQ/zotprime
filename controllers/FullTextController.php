@@ -60,7 +60,7 @@ class FullTextController extends ApiController {
 	
 	
 	public function itemContent() {
-		$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+		$this->allowMethods(array('GET', 'PUT'));
 		
 		// Check for general library access
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
@@ -102,16 +102,10 @@ class FullTextController extends ApiController {
 				$this->requireContentType("text/plain");
 				
 				Zotero_FullText::indexItem($item, $this->body);
-			}
-			else if ($this->method == 'DELETE') {
-				$deleted = Zotero_FullText::deleteItemContent($item);
-				if (!$deleted) {
-					$this->e404();
-				}
 				$this->e204();
 			}
 			else {
-				$this->e501();
+				$this->e405();
 			}
 		}
 		else {
