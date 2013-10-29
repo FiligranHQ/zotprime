@@ -50,7 +50,7 @@ class Zotero_Shards {
 					WHEN shardHosts.state='readonly' THEN
 						IF(shards.state='down', 'down', 'readonly')
 					WHEN shardHosts.state='down' THEN 'down'
-				END AS state
+				END AS state, shardHostID
 				FROM shards JOIN shardHosts USING (shardHostID) WHERE shardID=?";
 		$shardInfo = Zotero_DB::rowQuery($sql, $shardID);
 		if (!$shardInfo) {
