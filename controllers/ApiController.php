@@ -517,7 +517,7 @@ class ApiController extends Controller {
 	
 	
 	protected function requireContentType($contentType) {
-		if ($_SERVER['CONTENT_TYPE'] != $contentType) {
+		if (empty($_SERVER['CONTENT_TYPE']) || $_SERVER['CONTENT_TYPE'] != $contentType) {
 			throw new Exception("Content-Type must be $contentType", Z_ERROR_INVALID_INPUT);
 		}
 	}
