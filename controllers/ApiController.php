@@ -79,7 +79,7 @@ class ApiController extends Controller {
 		register_shutdown_function(array($this, 'checkForFatalError'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
-		if (!in_array($this->method, array('HEAD', 'GET', 'PUT', 'POST', 'DELETE', 'PATCH'))) {
+		if (!in_array($this->method, array('HEAD', 'OPTIONS', 'GET', 'PUT', 'POST', 'DELETE', 'PATCH'))) {
 			$this->e501();
 		}
 		
@@ -92,6 +92,17 @@ class ApiController extends Controller {
 		if (!empty($_SERVER['HTTP_EXPECT'])) {
 			header("HTTP/1.1 417 Expectation Failed");
 			die("Expect header is not supported");
+		}
+		
+		if (isset($_SERVER['HTTP_ORIGIN'])) {
+			header("Access-Control-Allow-Origin: *");
+			header("Access-Control-Allow-Methods: HEAD, GET, POST, PUT, PATCH, DELETE");
+			header("Access-Control-Allow-Headers: If-Match, If-None-Match, If-Modified-Since-Version, If-Unmodified-Since-Version, Zotero-API-Version, Zotero-Write-Token");
+			header("Access-Control-Expose-Headers: Backoff, ETag, Last-Modified-Version, Link, Retry-After, Zotero-API-Version");
+		}
+		
+		if ($this->method == 'OPTIONS') {
+			$this->end();
 		}
 		
 		if (in_array($this->method, array('POST', 'PUT', 'PATCH'))) {
