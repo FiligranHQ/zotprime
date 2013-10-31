@@ -153,9 +153,9 @@ class SettingsController extends ApiController {
 			else {
 				$settings = Zotero_Settings::search($this->objectLibraryID, $this->queryParams);
 				
-				$json = array();
+				$json = new stdClass;
 				foreach ($settings as $setting) {
-					$json[$setting->name] = $setting->toJSON(true);
+					$json->{$setting->name} = $setting->toJSON(true);
 				}
 				
 				if ($this->queryParams['pprint']) {
