@@ -3,4 +3,4 @@
 	url = git://github.com/amazonwebservices/aws-sdk-for-php.git
 [submodule "include/Elastica"]
 	path = include/Elastica
-	url = git://github.com/zotero/Elastica.git
+	url = https://github.com/ruflin/Elastica.git
