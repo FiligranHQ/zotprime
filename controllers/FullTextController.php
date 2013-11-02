@@ -48,6 +48,8 @@ class FullTextController extends ApiController {
 			$this->objectLibraryID, $this->queryParams['newer']
 		);
 		
+		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+		
 		if ($this->queryParams['pprint']) {
 			header("Content-Type: text/plain");
 		}

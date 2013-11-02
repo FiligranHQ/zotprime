@@ -1242,6 +1242,25 @@ class Zotero_Sync {
 				}
 			}
 			
+			// Add full-text content
+			$libraries = Zotero_Libraries::getUserLibraries($userID);
+			$fulltextNode = false;
+			foreach ($libraries as $libraryID) {
+				$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $lastsync);
+				if ($data) {
+					if (!$fulltextNode) {
+						$fulltextNode = $doc->createElement('fulltexts');
+					}
+					foreach ($data as $itemData) {
+						$node = Zotero_FullText::itemDataToXML($itemData, $doc);
+						$fulltextNode->appendChild($node);
+					}
+				}
+			}
+			if ($fulltextNode) {
+				$updatedNode->appendChild($fulltextNode);
+			}
+			
 			// Get earliest timestamp
 			$earliestModTime = Zotero_Users::getEarliestDataTimestamp($userID);
 			$doc->documentElement->setAttribute('earliest', $earliestModTime ? $earliestModTime : 0);
@@ -1623,6 +1642,16 @@ class Zotero_Sync {
 					$settingObj->save($userID);
 				}
 				unset($xml->settings);
+			}
+			
+			if ($xml->fulltexts) {
+				// DOM
+				$xmlElements = dom_import_simplexml($xml->fulltexts);
+				$xmlElements = $xmlElements->getElementsByTagName('fulltext');
+				foreach ($xmlElements as $xmlElement) {
+					Zotero_FullText::indexFromXML($xmlElement);
+				}
+				unset($xml->fulltexts);
 			}
 			
 			// TODO: loop

@@ -106,6 +106,7 @@ class FullTextTests extends APITests {
 		);
 		$this->assert204($response);
 		$contentVersion1 = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan(0, $contentVersion1);
 		
 		// And another
 		$key = API::createItem("book", false, $this, 'key');
@@ -121,18 +122,33 @@ class FullTextTests extends APITests {
 		);
 		$this->assert204($response);
 		$contentVersion2 = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan(0, $contentVersion2);
 		
 		// Get newer one
 		$response = API::userGet(
 			self::$config['userID'],
-			"fulltext?key=" . self::$config['apiKey']
-				. "&newer=$contentVersion1&format=versions"
+			"fulltext?key=" . self::$config['apiKey'] . "&newer=$contentVersion1"
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$this->assertEquals($contentVersion2, $response->getHeader("Last-Modified-Version"));
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(1, $json);
+		$this->assertArrayHasKey($key2, $json);
+		$this->assertEquals($contentVersion2, $json[$key2]);
+		
+		// Get both with newer=0
+		$response = API::userGet(
+			self::$config['userID'],
+			"fulltext?key=" . self::$config['apiKey'] . "&newer=0"
 		);
 		$this->assert200($response);
 		$this->assertContentType("application/json", $response);
 		$json = API::getJSONFromResponse($response);
-		$this->assertCount(1, $json);
-		$this->assertArrayHasKey($key2, $json);
+		$this->assertCount(2, $json);
+		$this->assertArrayHasKey($key1, $json);
+		$this->assertEquals($contentVersion1, $json[$key1]);
+		$this->assertArrayHasKey($key1, $json);
 		$this->assertEquals($contentVersion2, $json[$key2]);
 	}
 	

@@ -26,8 +26,9 @@
 
 class Zotero_FullText {
 	private static $elasticSearchType = "item_fulltext";
+	private static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
-	public static function indexItem(Zotero_Item $item, $content, $language='en') {
+	public static function indexItem(Zotero_Item $item, $content, $language='en', $stats=array()) {
 		$index = self::getIndex();
 		$type = self::getType();
 		
@@ -40,14 +41,25 @@ class Zotero_FullText {
 		
 		$id = $item->libraryID . "/" . $item->key;
 		$version = Zotero_Libraries::getUpdatedVersion($item->libraryID);
+		$timestamp = Zotero_DB::transactionInProgress()
+			? Zotero_DB::getTransactionTimestamp() : date("Y-m-d H:i:s");
 		$doc = array(
 			'id' => $id,
 			'libraryID' => $item->libraryID,
 			'fulltext' => (string) $content,
 			'language' => $language,
 			// We don't seem to be able to search on _version, so we duplicate it here
-			'version' => $version
+			'version' => $version,
+			// Add "T" between date and time for Elasticsearch
+			'timestamp' => str_replace(" ", "T", $timestamp)
 		);
+		if ($stats) {
+			foreach (self::$metadata as $prop) {
+				if (isset($stats[$prop])) {
+					$doc[$prop] = (int) $stats[$prop];
+				}
+			}
+		}
 		$doc = new \Elastica\Document($id, $doc, self::$elasticSearchType);
 		$doc->setVersion($version);
 		$doc->setVersionType('external');
@@ -59,23 +71,32 @@ class Zotero_FullText {
 	}
 	
 	
-	public static function deleteItemContent(Zotero_Item $item) {
+	public static function getItemData(Zotero_Item $item) {
 		$index = self::getIndex();
 		$type = self::getType();
 		
+		$id = $item->libraryID . "/" . $item->key;
 		try {
-			$response = $type->deleteById($item->libraryID . "/" . $item->key);
+			$document = $type->getDocument($id);
+			
 		}
-		catch (Elastica\Exception\NotFoundException $e) {
+		catch (\Elastica\Exception\NotFoundException $e) {
 			return false;
 		}
-		catch (Exception $e) {
-			throw $e;
+		
+		$data = $document->getData();
+		
+		$itemData = array(
+			"content" => $data['fulltext'],
+			"version" => $data['version'],
+		);
+		if (isset($data['language'])) {
+			$itemData['language'] = $data['language'];
 		}
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
+		foreach (self::$metadata as $prop) {
+			$itemData[$prop] = isset($data[$prop]) ? $data[$prop] : 0;
 		}
-		return true;
+		return $itemData;
 	}
 	
 	
@@ -110,29 +131,54 @@ class Zotero_FullText {
 	}
 	
 	
-	public static function getItemData(Zotero_Item $item) {
+	public static function getNewerInLibraryByTime($libraryID, $timestamp) {
 		$index = self::getIndex();
 		$type = self::getType();
 		
-		$id = $item->libraryID . "/" . $item->key;
-		try {
-			$document = $type->getDocument($id);
-			
+		$libraryFilter = new \Elastica\Filter\Term();
+		$libraryFilter->setTerm("libraryID", $libraryID);
+		$timeFilter = new \Elastica\Filter\Range(
+			// Add "T" between date and time for Elasticsearch
+			'timestamp', array('gte' => str_replace(" ", "T", date("Y-m-d H:i:s", $timestamp)))
+		);
+		
+		$andFilter = new \Elastica\Filter\BoolAnd();
+		$andFilter->addFilter($libraryFilter);
+		$andFilter->addFilter($timeFilter);
+		
+		$query = new \Elastica\Query();
+		$query->setFilter($andFilter);
+		//error_log(json_encode($query->toArray()));
+		$resultSet = $type->search($query);
+		if ($resultSet->getResponse()->hasError()) {
+			throw new Exception($resultSet->getResponse()->getError());
 		}
-		catch (\Elastica\Exception\NotFoundException $e) {
+		$results = $resultSet->getResults();
+		$data = array();
+		foreach ($results as $result) {
+			$data[] = $result->getData();
+		}
+		return $data;
+	}
+	
+	
+	public static function deleteItemContent(Zotero_Item $item) {
+		$index = self::getIndex();
+		$type = self::getType();
+		
+		try {
+			$response = $type->deleteById($item->libraryID . "/" . $item->key);
+		}
+		catch (Elastica\Exception\NotFoundException $e) {
 			return false;
 		}
-		
-		$data = $document->getData();
-		
-		$itemData = array(
-			"content" => $data['fulltext'],
-			"version" => $data['version']
-		);
-		if (isset($data['language'])) {
-			$itemData['language'] = $data['language'];
+		catch (Exception $e) {
+			throw $e;
 		}
-		return $itemData;
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
+		}
+		return true;
 	}
 	
 	
@@ -152,8 +198,38 @@ class Zotero_FullText {
 	}
 	
 	
+	public static function indexFromXML(DOMElement $xml) {
+		$item = Zotero_Items::getByLibraryAndKey(
+			$xml->getAttribute('libraryID'), $xml->getAttribute('key')
+		);
+		if (!$item) {
+			throw new Exception("Item not found");
+		}
+		$stats = array();
+		foreach (self::$metadata as $prop) {
+			$val = $xml->getAttribute($prop);
+			$stats[$prop] = $val;
+		}
+		self::indexItem($item, $xml->textContent, false, $stats);
+	}
+	
+	
+	public static function itemDataToXML($data, DOMDocument $doc) {
+		list($libraryID, $key) = explode("/", $data['id']);
+		$xmlNode = $doc->createElement('fulltext');
+		$xmlNode->setAttribute('libraryID', $libraryID);
+		$xmlNode->setAttribute('key', $key);
+		foreach (self::$metadata as $prop) {
+			$xmlNode->setAttribute($prop, $data[$prop]);
+		}
+		$xmlNode->setAttribute('version', $data['version']);
+		$xmlNode->appendChild($doc->createTextNode($data['fulltext']));
+		return $xmlNode;
+	}
+	
+	
 	private static function getIndex() {
-		return Z_Core::$Elastica->getIndex(Z_CONFIG::$SEARCH_INDEX);
+		return Z_Core::$Elastica->getIndex(self::$elasticSearchType . "_index");
 	}
 	
 	

@@ -184,6 +184,18 @@ start =
 			text
 		}+
 	}?
+	& element fulltexts {
+		element fulltext {
+			libraryID,
+			key,
+			attribute indexedChars { xsd:integer },
+			attribute totalChars { xsd:integer },
+			attribute indexedPages { xsd:integer },
+			attribute totalPages { xsd:integer },
+			attribute version { xsd:integer }?,
+			text
+		}+
+	}?
 	& element deleted {
 		element items {
 			element item {

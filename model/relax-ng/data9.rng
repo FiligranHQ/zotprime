@@ -429,6 +429,34 @@
         </element>
       </optional>
       <optional>
+        <element name="fulltexts">
+          <oneOrMore>
+            <element name="fulltext">
+              <ref name="libraryID"/>
+              <ref name="key"/>
+              <attribute name="indexedChars">
+                <data type="integer"/>
+              </attribute>
+              <attribute name="totalChars">
+                <data type="integer"/>
+              </attribute>
+              <attribute name="indexedPages">
+                <data type="integer"/>
+              </attribute>
+              <attribute name="totalPages">
+                <data type="integer"/>
+              </attribute>
+              <optional>
+                <attribute name="version">
+                  <data type="integer"/>
+                </attribute>
+              </optional>
+              <text/>
+            </element>
+          </oneOrMore>
+        </element>
+      </optional>
+      <optional>
         <element name="deleted">
           <interleave>
             <optional>
