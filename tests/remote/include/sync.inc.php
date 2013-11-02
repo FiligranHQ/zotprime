@@ -193,8 +193,8 @@ class Sync {
 	}
 	
 	
-	public static function updated($sessionID, $lastsync=1, $allowError=false, $allowQueued=false) {
-		$response = self::req($sessionID, "updated", array("lastsync" => $lastsync));
+	public static function updated($sessionID, $lastsync=1, $allowError=false, $allowQueued=false, $params=array()) {
+		$response = self::req($sessionID, "updated", array_merge(array("lastsync" => $lastsync), $params));
 		$xml = Sync::getXMLFromResponse($response);
 		
 		if (isset($xml->updated) || (isset($xml->error) && $allowError)
@@ -212,7 +212,7 @@ class Sync {
 			$wait = (int) $xml->locked['wait'];
 			sleep($wait / 1000);
 			
-			$xml = Sync::updated($sessionID, $lastsync, $allowError, true);
+			$xml = Sync::updated($sessionID, $lastsync, $allowError, true, $params);
 			
 			$max--;
 		}

@@ -292,10 +292,14 @@ class SyncController extends Controller {
 				$queue = false;
 			}
 			
+			// TEMP
+			$cacheKeyExtra = !empty($_POST['fulltextLibraryKeys'])
+				? json_encode($_POST['fulltextLibraryKeys']) : "";
+			
 			// If we have a cached response, return that
 			try {
 				$startedTimestamp = microtime(true);
-				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync, $this->apiVersion);
+				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync, $this->apiVersion, $cacheKeyExtra);
 				if ($cached) {
 					$this->responseXML = simplexml_load_string($cached);
 					

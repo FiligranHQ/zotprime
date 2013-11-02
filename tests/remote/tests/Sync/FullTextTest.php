@@ -98,4 +98,198 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$xml = Sync::updated(self::$sessionID, $initialTimestamp);
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 	}
+	
+	public function testLargeFullTextSync() {
+		$xml = Sync::updated(self::$sessionID);
+		$timestamp1 = (int) $xml['timestamp'];
+		$updateKey = (string) $xml['updateKey'];
+		
+		$key1 = Zotero_Utilities::randomString(8, 'key', true);
+		$key2 = Zotero_Utilities::randomString(8, 'key', true);
+		$key3 = Zotero_Utilities::randomString(8, 'key', true);
+		$key4 = Zotero_Utilities::randomString(8, 'key', true);
+		
+		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
+		$dateModified = date( 'Y-m-d H:i:s', time());
+		
+		$content1 = "This is test content";
+		$content2 = "This is more test content";
+		
+		$maxChars = 500000;
+		$str = "abcdf ghijklm ";
+		$content3 = str_repeat("abcdf ghijklm ", ceil($maxChars / strlen($str)) + 1);
+		
+		$content4 = "This is even more test content";
+		
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. '<item libraryID="' . self::$config['libraryID'] . '" '
+				. 'itemType="attachment" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key1 . '"/>'
+			. '<item libraryID="' . self::$config['libraryID'] . '" '
+				. 'itemType="attachment" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key2 . '"/>'
+			. '</items>'
+			. '<fulltexts>'
+			. '<fulltext libraryID="' . self::$config['libraryID'] . '" '
+				. 'key="' . $key1 . '" '
+				. 'indexedChars="' . strlen($content1) . '" '
+				. 'totalChars="200000" '
+				. 'indexedPages="0" '
+				. 'totalPages="0">'
+				. htmlspecialchars($content1)
+			. '</fulltext>'
+			. '<fulltext libraryID="' . self::$config['libraryID'] . '" '
+				. 'key="' . $key2 . '" '
+				. 'indexedChars="' . strlen($content2) . '" '
+				. 'totalChars="200000" '
+				. 'indexedPages="0" '
+				. 'totalPages="0">'
+				. htmlspecialchars($content2)
+			. '</fulltext>'
+			. '</fulltexts>'
+			. '</data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this);
+		$timestamp2 = (int) $xml['timestamp'];
+		
+		$xml = Sync::updated(self::$sessionID, $timestamp2);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Wait until the timestamp advances
+		do {
+			$xml = Sync::updated(self::$sessionID, $timestamp2);
+			usleep(500);
+		}
+		while ((int) $xml['timestamp'] <= ($timestamp2 + 2));
+		
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. '<item libraryID="' . self::$config['libraryID'] . '" '
+				. 'itemType="attachment" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key3 . '"/>'
+			. '<item libraryID="' . self::$config['libraryID'] . '" '
+				. 'itemType="attachment" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key4 . '"/>'
+			. '</items>'
+			. '<fulltexts>'
+			. '<fulltext libraryID="' . self::$config['libraryID'] . '" '
+				. 'key="' . $key3 . '" '
+				. 'indexedChars="' . strlen($content3) . '" '
+				. 'totalChars="200000" '
+				. 'indexedPages="0" '
+				. 'totalPages="0">'
+				. htmlspecialchars($content3)
+			. '</fulltext>'
+			. '<fulltext libraryID="' . self::$config['libraryID'] . '" '
+				. 'key="' . $key4 . '" '
+				. 'indexedChars="' . strlen($content4) . '" '
+				. 'totalChars="200000" '
+				. 'indexedPages="0" '
+				. 'totalPages="0">'
+				. htmlspecialchars($content4)
+			. '</fulltext>'
+			. '</fulltexts>'
+			. '</data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this);
+		$timestamp3 = (int) $xml['timestamp'];
+		
+		// Get all results
+		$xml = Sync::updated(self::$sessionID);
+		
+		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
+		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
+		
+		$resultContent1 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']"));
+		$resultContent2 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
+		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent4 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
+		
+		if ($resultContent3 === "") {
+			$this->assertEquals($content1, $resultContent1);
+			$this->assertEquals($content2, $resultContent2);
+			$this->assertEquals($content4, $resultContent4);
+		}
+		else {
+			$this->assertEquals("", $resultContent1);
+			$this->assertEquals("", $resultContent2);
+			$this->assertEquals($content3, $resultContent3);
+			$this->assertEquals("", $resultContent4);
+		}
+		
+		// Request past last content
+		$xml = Sync::updated(self::$sessionID, $timestamp3);
+		$this->assertEquals(0, $xml->updated[0]->fulltexts->count());
+		
+		// Request for explicit keys
+		$params = [];
+		$params["fulltextLibraryKeys"][self::$config['libraryID']] = [$key1, $key2, $key3, $key4];
+		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
+		
+		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
+		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
+		
+		$resultContent1 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']"));
+		$resultContent2 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
+		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent4 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
+		
+		if ($resultContent3 === "") {
+			$this->assertEquals($content1, $resultContent1);
+			$this->assertEquals($content2, $resultContent2);
+			$this->assertEquals($content4, $resultContent4);
+		}
+		else {
+			$this->assertEquals("", $resultContent1);
+			$this->assertEquals("", $resultContent2);
+			$this->assertEquals($content3, $resultContent3);
+			$this->assertEquals("", $resultContent4);
+		}
+		
+		// Request for combo of time and keys
+		$params = [];
+		$params["fulltextLibraryKeys"][self::$config['libraryID']] = [$key2];
+		$xml = Sync::updated(self::$sessionID, $timestamp2, false, false, $params);
+		
+		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
+		$this->assertEquals(3, $xml->updated[0]->fulltexts[0]->fulltext->count());
+		
+		$resultContent2 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
+		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent4 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
+		
+		if ($resultContent3 === "") {
+			$this->assertEquals($content2, $resultContent2);
+			$this->assertEquals($content4, $resultContent4);
+		}
+		else {
+			$this->assertEquals("", $resultContent2);
+			$this->assertEquals($content3, $resultContent3);
+			$this->assertEquals("", $resultContent4);
+		}
+		
+		// Request past last content, again
+		$xml = Sync::updated(self::$sessionID, $timestamp3);
+		$this->assertEquals(0, $xml->updated[0]->fulltexts->count());
+		
+		// Request for single long content
+		$params = [];
+		$params["fulltextLibraryKeys"][self::$config['libraryID']] = [$key3];
+		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
+		
+		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
+		$this->assertEquals(1, $xml->updated[0]->fulltexts[0]->fulltext->count());
+		
+		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$this->assertEquals($content3, $resultContent3);
+	}
 }

@@ -858,7 +858,7 @@ class Zotero_Sync {
 	}
 	
 	
-	public static function getCachedDownload($userID, $lastsync, $apiVersion) {
+	public static function getCachedDownload($userID, $lastsync, $apiVersion, $cacheKeyExtra="") {
 		if (!$lastsync) {
 			throw new Exception('$lastsync not provided');
 		}
@@ -872,6 +872,7 @@ class Zotero_Sync {
 			// Remove after 2.1 sync cutoff
 			. ($apiVersion >= 9 ? "_" . $apiVersion : "")
 			. "_" . self::$cacheVersion
+			. (!empty($cacheKeyExtra) ? "_" . $cacheKeyExtra : "")
 		);
 		
 		// Check S3 for file
@@ -913,7 +914,7 @@ class Zotero_Sync {
 	}
 	
 	
-	public static function cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $xmldata) {
+	public static function cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $xmldata, $cacheKeyExtra="") {
 		require_once 'AWS-SDK/sdk.class.php';
 		$s3 = new AmazonS3();
 		
@@ -922,6 +923,7 @@ class Zotero_Sync {
 			// Remove after 2.1 sync cutoff
 			. ($apiVersion >= 9 ? "_" . $apiVersion : "")
 			. "_" . self::$cacheVersion
+			. (!empty($cacheKeyExtra) ? "_" . $cacheKeyExtra : "")
 		);
 		
 		// Add to S3
@@ -1068,8 +1070,12 @@ class Zotero_Sync {
 			StatsD::increment("sync.process.download.full");
 		}
 		
+		// TEMP
+		$cacheKeyExtra = !empty($_POST['fulltextLibraryKeys'])
+			? json_encode($_POST['fulltextLibraryKeys']) : "";
+		
 		try {
-			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion);
+			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion, $cacheKeyExtra);
 			if ($cached) {
 				$doc->loadXML($cached);
 				StatsD::increment("sync.process.download.cache.hit");
@@ -1246,13 +1252,33 @@ class Zotero_Sync {
 			$libraries = Zotero_Libraries::getUserLibraries($userID);
 			$fulltextNode = false;
 			foreach ($libraries as $libraryID) {
-				$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $lastsync);
+				if (!empty($_POST['fulltextLibraryKeys'][$libraryID])) {
+					$keys = $_POST['fulltextLibraryKeys'][$libraryID];
+				}
+				else {
+					$keys = [];
+				}
+				$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $lastsync, $keys);
 				if ($data) {
 					if (!$fulltextNode) {
 						$fulltextNode = $doc->createElement('fulltexts');
 					}
+					$first = true;
+					$chars = 0;
+					$maxChars = 500000;
 					foreach ($data as $itemData) {
-						$node = Zotero_FullText::itemDataToXML($itemData, $doc);
+						// If the current item would put us over 500K characters,
+						// leave it empty, unless it's the first one
+						$empty = false;
+						$currentChars = strlen($itemData['fulltext']);
+						if (!$first && (($chars + $currentChars) > $maxChars)) {
+							$empty = true;
+						}
+						else {
+							$chars += $currentChars;
+						}
+						$first = false;
+						$node = Zotero_FullText::itemDataToXML($itemData, $doc, $empty);
 						$fulltextNode->appendChild($node);
 					}
 				}
@@ -1337,7 +1363,7 @@ class Zotero_Sync {
 		// Cache response if response isn't empty
 		try {
 			if ($doc->documentElement->firstChild->hasChildNodes()) {
-				self::cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $doc->saveXML());
+				self::cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $doc->saveXML(), $cacheKeyExtra);
 			}
 		}
 		catch (Exception $e) {

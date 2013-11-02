@@ -63,11 +63,11 @@ class Zotero_FullText {
 		$doc = new \Elastica\Document($id, $doc, self::$elasticSearchType);
 		$doc->setVersion($version);
 		$doc->setVersionType('external');
+		$doc->setRefresh(true);
 		$response = $type->addDocument($doc);
 		if ($response->hasError()) {
 			throw new Exception($response->getError());
 		}
-		$index->refresh();
 	}
 	
 	
@@ -131,20 +131,35 @@ class Zotero_FullText {
 	}
 	
 	
-	public static function getNewerInLibraryByTime($libraryID, $timestamp) {
+	public static function getNewerInLibraryByTime($libraryID, $timestamp, $keys=[]) {
 		$index = self::getIndex();
 		$type = self::getType();
 		
 		$libraryFilter = new \Elastica\Filter\Term();
 		$libraryFilter->setTerm("libraryID", $libraryID);
+		
 		$timeFilter = new \Elastica\Filter\Range(
 			// Add "T" between date and time for Elasticsearch
 			'timestamp', array('gte' => str_replace(" ", "T", date("Y-m-d H:i:s", $timestamp)))
 		);
 		
+		if ($keys) {
+			$keysFilter = new \Elastica\Filter\Ids();
+			$keysFilter->setIds(array_map(function ($key) use ($libraryID) {
+				return $libraryID . "/" . $key;
+			}, $keys));
+			
+			$secondFilter = new \Elastica\Filter\BoolOr();
+			$secondFilter->addFilter($timeFilter);
+			$secondFilter->addFilter($keysFilter);
+		}
+		else {
+			$secondFilter = $timeFilter;
+		}
+		
 		$andFilter = new \Elastica\Filter\BoolAnd();
 		$andFilter->addFilter($libraryFilter);
-		$andFilter->addFilter($timeFilter);
+		$andFilter->addFilter($secondFilter);
 		
 		$query = new \Elastica\Query();
 		$query->setFilter($andFilter);
@@ -158,6 +173,7 @@ class Zotero_FullText {
 		foreach ($results as $result) {
 			$data[] = $result->getData();
 		}
+		//error_log(json_encode($data));
 		return $data;
 	}
 	
@@ -199,6 +215,11 @@ class Zotero_FullText {
 	
 	
 	public static function indexFromXML(DOMElement $xml) {
+		if ($xml->textContent === "") {
+			error_log("Skipping empty full-text content for item "
+				. $xml->getAttribute('libraryID') . "/" . $xml->getAttribute('key'));
+			return;
+		}
 		$item = Zotero_Items::getByLibraryAndKey(
 			$xml->getAttribute('libraryID'), $xml->getAttribute('key')
 		);
@@ -214,7 +235,12 @@ class Zotero_FullText {
 	}
 	
 	
-	public static function itemDataToXML($data, DOMDocument $doc) {
+	/**
+	 * @param {Array} $data  Item data from Elasticsearch
+	 * @param {DOMDocument} $doc
+	 * @param {Boolean} [$empty=false]  If true, don't include full-text content
+	 */
+	public static function itemDataToXML($data, DOMDocument $doc, $empty=false) {
 		list($libraryID, $key) = explode("/", $data['id']);
 		$xmlNode = $doc->createElement('fulltext');
 		$xmlNode->setAttribute('libraryID', $libraryID);
@@ -223,7 +249,9 @@ class Zotero_FullText {
 			$xmlNode->setAttribute($prop, $data[$prop]);
 		}
 		$xmlNode->setAttribute('version', $data['version']);
-		$xmlNode->appendChild($doc->createTextNode($data['fulltext']));
+		if (!$empty) {
+			$xmlNode->appendChild($doc->createTextNode($data['fulltext']));
+		}
 		return $xmlNode;
 	}
 	
