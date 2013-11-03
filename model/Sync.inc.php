@@ -1071,8 +1071,8 @@ class Zotero_Sync {
 		}
 		
 		// TEMP
-		$cacheKeyExtra = !empty($_POST['fulltextLibraryKeys'])
-			? json_encode($_POST['fulltextLibraryKeys']) : "";
+		$cacheKeyExtra = !empty($_POST['ftkeys'])
+			? json_encode($_POST['ftkeys']) : "";
 		
 		try {
 			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion, $cacheKeyExtra);
@@ -1252,8 +1252,8 @@ class Zotero_Sync {
 			$libraries = Zotero_Libraries::getUserLibraries($userID);
 			$fulltextNode = false;
 			foreach ($libraries as $libraryID) {
-				if (!empty($_POST['fulltextLibraryKeys'][$libraryID])) {
-					$keys = $_POST['fulltextLibraryKeys'][$libraryID];
+				if (!empty($_POST['ftkeys'][$libraryID])) {
+					$keys = $_POST['ftkeys'][$libraryID];
 				}
 				else {
 					$keys = [];

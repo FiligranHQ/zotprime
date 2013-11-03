@@ -232,7 +232,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		
 		// Request for explicit keys
 		$params = [];
-		$params["fulltextLibraryKeys"][self::$config['libraryID']] = [$key1, $key2, $key3, $key4];
+		$params["ftkeys"][self::$config['libraryID']] = [$key1, $key2, $key3, $key4];
 		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
 		
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
@@ -257,7 +257,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		
 		// Request for combo of time and keys
 		$params = [];
-		$params["fulltextLibraryKeys"][self::$config['libraryID']] = [$key2];
+		$params["ftkeys"][self::$config['libraryID']] = [$key2];
 		$xml = Sync::updated(self::$sessionID, $timestamp2, false, false, $params);
 		
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
@@ -283,7 +283,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		
 		// Request for single long content
 		$params = [];
-		$params["fulltextLibraryKeys"][self::$config['libraryID']] = [$key3];
+		$params["ftkeys"][self::$config['libraryID']] = [$key3];
 		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
 		
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
