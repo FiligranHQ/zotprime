@@ -59,7 +59,7 @@ class Zotero_DB {
 	protected $db = 'master';
 	
 	protected function __construct() {
-		// Set up master link
+		// Set up main link
 		$auth = Zotero_DBConnectAuth($this->db);
 		$this->links[0] = new Zend_Db_Adapter_Mysqli(array(
 			'host'     => $auth['host'],
@@ -67,7 +67,7 @@ class Zotero_DB {
 			'username' => $auth['user'],
 			'password' => $auth['pass'],
 			'dbname'   => $auth['db'],
-			'charset'  => 'utf8',
+			'charset'  => !empty($auth['charset']) ? $auth['charset'] : 'utf8',
 			'driver_options' => array(
 				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
 			)
@@ -76,8 +76,16 @@ class Zotero_DB {
 	
 	
 	protected function getShardLink($shardID, $forWriting=false) {
-		if (isset($this->links[$shardID])) {
-			return $this->links[$shardID];
+		// TEMP
+		if (get_called_class() == 'Zotero_FullText_DB') {
+			$linkID = "FT" . $shardID;
+		}
+		else {
+			$linkID = $shardID;
+		}
+		
+		if (isset($this->links[$linkID])) {
+			return $this->links[$linkID];
 		}
 		
 		$shardInfo = Zotero_Shards::getShardInfo($shardID);
@@ -102,25 +110,31 @@ class Zotero_DB {
 			'username' => $auth['user'],
 			'password' => $auth['pass'],
 			'dbname'   => $shardInfo['db'],
-			'charset'  => 'utf8',
+			'charset'  => isset($auth['charset']) ? $auth['charset'] : 'utf8',
 			'driver_options' => array(
 				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
 			)
 		);
 		
+		// TEMP: For now, use separate host
+		if (get_called_class() == 'Zotero_FullText_DB') {
+			$auth = Zotero_DBConnectAuth('fulltext');
+			$config['host'] = $auth['host'];
+			$config['port'] = $auth['port'];
+		}
 		// For admin, use user/pass from master
-		if (get_called_class() == 'Zotero_Admin_DB') {
+		else if (get_called_class() == 'Zotero_Admin_DB') {
 			$auth = Zotero_DBConnectAuth($this->db);
 			$config['username'] = $auth['user'];
 			$config['password'] = $auth['pass'];
 		}
 		
-		$this->links[$shardID] = new Zend_Db_Adapter_Mysqli($config);
+		$this->links[$linkID] = new Zend_Db_Adapter_Mysqli($config);
 		
-		$conn = $this->links[$shardID]->getConnection();
+		$conn = $this->links[$linkID]->getConnection();
 		$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
 		
-		return $this->links[$shardID];
+		return $this->links[$linkID];
 	}
 	
 	
@@ -988,6 +1002,15 @@ class Zotero_DB {
 		$instance = self::getInstance();
 		$link = $instance->getShardLink($shardID);
 		$link->closeConnection();
+	}
+}
+
+
+class Zotero_FullText_DB extends Zotero_DB {
+	protected $db = 'fulltext';
+	
+	protected function __construct() {
+		parent::__construct();
 	}
 }
 

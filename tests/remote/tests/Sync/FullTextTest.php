@@ -56,8 +56,8 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		
 		$updateKey = (string) $xml['updateKey'];
 		$key = Zotero_Utilities::randomString(8, 'key', true);
-		$dateAdded = date( 'Y-m-d H:i:s', time() - 1);
-		$dateModified = date( 'Y-m-d H:i:s', time());
+		$dateAdded = date('Y-m-d H:i:s', time() - 1);
+		$dateModified = date('Y-m-d H:i:s');
 		
 		$content = "This is some full-text content.";
 		$totalChars = 2500;

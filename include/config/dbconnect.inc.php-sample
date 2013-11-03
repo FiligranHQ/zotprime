@@ -1,5 +1,7 @@
 <?
 function Zotero_dbConnectAuth($db) {
+	$charset = '';
+	
 	if ($db == 'master') {
 		$host = '';
 		$port = 3306;
@@ -13,6 +15,14 @@ function Zotero_dbConnectAuth($db) {
 		$db = false;
 		$user = '';
 		$pass = '';
+	}
+	else if ($db == 'fulltext') {
+		$host = '';
+		$port = '';
+		$db = false;
+		$user = false;
+		$pass = false;
+		$charset = 'utf8mb4';
 	}
 	else if ($db == 'id1') {
 		$host = '';
@@ -42,16 +52,16 @@ function Zotero_dbConnectAuth($db) {
 		$user = '';
 		$pass = '';
 	}
-	else if ($db == 'cache') {
-		$host = '';
-		$port = 3306;
-		$db = '';
-		$user = '';
-		$pass = '';
-	}
 	else {
 		throw new Exception("Invalid db '$db'");
 	}
-	return array('host'=>$host, 'port'=>$port, 'db'=>$db, 'user'=>$user, 'pass'=>$pass);
+	return array(
+		'host' => $host,
+		'port' => $port,
+		'db' => $db,
+		'user' => $user,
+		'pass' => $pass,
+		'charset' => $charset
+	);
 }
 ?>

@@ -25,13 +25,9 @@
 */
 
 class Zotero_FullText {
-	private static $elasticSearchType = "item_fulltext";
 	private static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
-	public static function indexItem(Zotero_Item $item, $content, $language='en', $stats=array()) {
-		$index = self::getIndex();
-		$type = self::getType();
-		
+	public static function indexItem(Zotero_Item $item, $content, $stats=array()) {
 		if (!$item->isAttachment() ||
 				Zotero_Attachments::linkModeNumberToName($item->attachmentLinkMode) == 'LINKED_URL') {
 			throw new Exception(
@@ -39,60 +35,55 @@ class Zotero_FullText {
 			);
 		}
 		
-		$id = $item->libraryID . "/" . $item->key;
-		$version = Zotero_Libraries::getUpdatedVersion($item->libraryID);
-		$timestamp = Zotero_DB::transactionInProgress()
-			? Zotero_DB::getTransactionTimestamp() : date("Y-m-d H:i:s");
-		$doc = array(
-			'id' => $id,
-			'libraryID' => $item->libraryID,
-			'fulltext' => (string) $content,
-			'language' => $language,
-			// We don't seem to be able to search on _version, so we duplicate it here
-			'version' => $version,
-			// Add "T" between date and time for Elasticsearch
-			'timestamp' => str_replace(" ", "T", $timestamp)
-		);
+		$sql = "REPLACE INTO fulltextContent (";
+		$fields = [
+			"libraryID",
+			"`key`",
+			"content",
+			"version",
+			"timestamp"
+		];
+		$libraryID = $item->libraryID;
+		$params = [
+			$libraryID,
+			$item->key,
+			$content,
+			Zotero_Libraries::getUpdatedVersion($libraryID),
+			Zotero_DB::transactionInProgress()
+				? Zotero_DB::getTransactionTimestamp()
+				: date("Y-m-d H:i:s")
+		];
 		if ($stats) {
 			foreach (self::$metadata as $prop) {
 				if (isset($stats[$prop])) {
-					$doc[$prop] = (int) $stats[$prop];
+					$fields[] = $prop;
+					$params[] = (int) $stats[$prop];
 				}
 			}
 		}
-		$doc = new \Elastica\Document($id, $doc, self::$elasticSearchType);
-		$doc->setVersion($version);
-		$doc->setVersionType('external');
-		$doc->setRefresh(true);
-		$response = $type->addDocument($doc);
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
-		}
+		$sql .= implode(", ", $fields) . ") VALUES ("
+			. implode(', ', array_fill(0, sizeOf($params), '?')) . ")";
+		Zotero_FullText_DB::query(
+			$sql, $params, Zotero_Shards::getByLibraryID($libraryID)
+		);
 	}
 	
 	
 	public static function getItemData(Zotero_Item $item) {
-		$index = self::getIndex();
-		$type = self::getType();
-		
-		$id = $item->libraryID . "/" . $item->key;
-		try {
-			$document = $type->getDocument($id);
-			
-		}
-		catch (\Elastica\Exception\NotFoundException $e) {
+		$sql = "SELECT * FROM fulltextContent WHERE libraryID=? AND `key`=?";
+		$data = Zotero_FullText_DB::rowQuery(
+			$sql,
+			[$item->libraryID, $item->key],
+			Zotero_Shards::getByLibraryID($item->libraryID)
+		);
+		if (!$data) {
 			return false;
 		}
 		
-		$data = $document->getData();
-		
 		$itemData = array(
-			"content" => $data['fulltext'],
+			"content" => $data['content'],
 			"version" => $data['version'],
 		);
-		if (isset($data['language'])) {
-			$itemData['language'] = $data['language'];
-		}
 		foreach (self::$metadata as $prop) {
 			$itemData[$prop] = isset($data[$prop]) ? $data[$prop] : 0;
 		}
@@ -101,116 +92,51 @@ class Zotero_FullText {
 	
 	
 	public static function getNewerInLibrary($libraryID, $version) {
-		$index = self::getIndex();
-		$type = self::getType();
-		
-		$libraryFilter = new \Elastica\Filter\Term();
-		$libraryFilter->setTerm("libraryID", $libraryID);
-		$versionFilter = new \Elastica\Filter\NumericRange(
-			'version', array('gt' => $version)
+		$sql = "SELECT `key`, version FROM fulltextContent WHERE libraryID=? AND version>?";
+		$rows = Zotero_FullText_DB::query(
+			$sql,
+			[$libraryID, $version],
+			Zotero_Shards::getByLibraryID($libraryID)
 		);
-		
-		$andFilter = new \Elastica\Filter\BoolAnd();
-		$andFilter->addFilter($libraryFilter);
-		$andFilter->addFilter($versionFilter);
-		
-		$query = new \Elastica\Query();
-		$query->setFilter($andFilter);
-		$query->setFields(array('version'));
-		$resultSet = $type->search($query);
-		if ($resultSet->getResponse()->hasError()) {
-			throw new Exception($resultSet->getResponse()->getError());
+		$versions = new stdClass;
+		foreach ($rows as $row) {
+			$versions->{$row['key']} = $row['version'];
 		}
-		$results = $resultSet->getResults();
-		$keys = array();
-		foreach ($results as $result) {
-			list($libraryID, $key) = explode("/", $result->getId());
-			$keys[$key] = $result->version;
-		}
-		return $keys;
+		return $versions;
 	}
 	
 	
 	public static function getNewerInLibraryByTime($libraryID, $timestamp, $keys=[]) {
-		$index = self::getIndex();
-		$type = self::getType();
-		
-		$libraryFilter = new \Elastica\Filter\Term();
-		$libraryFilter->setTerm("libraryID", $libraryID);
-		
-		$timeFilter = new \Elastica\Filter\Range(
-			// Add "T" between date and time for Elasticsearch
-			'timestamp', array('gte' => str_replace(" ", "T", date("Y-m-d H:i:s", $timestamp)))
-		);
-		
+		$sql = "(SELECT * FROM fulltextContent WHERE libraryID=? AND timestamp>=FROM_UNIXTIME(?))";
+		$params = [$libraryID, $timestamp];
 		if ($keys) {
-			$keysFilter = new \Elastica\Filter\Ids();
-			$keysFilter->setIds(array_map(function ($key) use ($libraryID) {
-				return $libraryID . "/" . $key;
-			}, $keys));
-			
-			$secondFilter = new \Elastica\Filter\BoolOr();
-			$secondFilter->addFilter($timeFilter);
-			$secondFilter->addFilter($keysFilter);
+			$sql .= " UNION "
+			. "(SELECT * FROM fulltextContent WHERE libraryID=? AND `key` IN ("
+			. implode(', ', array_fill(0, sizeOf($keys), '?')) . ")"
+			. ")";
+			$params = array_merge($params, [$libraryID], $keys);
 		}
-		else {
-			$secondFilter = $timeFilter;
-		}
-		
-		$andFilter = new \Elastica\Filter\BoolAnd();
-		$andFilter->addFilter($libraryFilter);
-		$andFilter->addFilter($secondFilter);
-		
-		$query = new \Elastica\Query();
-		$query->setFilter($andFilter);
-		//error_log(json_encode($query->toArray()));
-		$resultSet = $type->search($query);
-		if ($resultSet->getResponse()->hasError()) {
-			throw new Exception($resultSet->getResponse()->getError());
-		}
-		$results = $resultSet->getResults();
-		$data = array();
-		foreach ($results as $result) {
-			$data[] = $result->getData();
-		}
-		//error_log(json_encode($data));
-		return $data;
+		return Zotero_FullText_DB::query(
+			$sql, $params, Zotero_Shards::getByLibraryID($libraryID)
+		);
 	}
 	
 	
 	public static function deleteItemContent(Zotero_Item $item) {
-		$index = self::getIndex();
-		$type = self::getType();
-		
-		try {
-			$response = $type->deleteById($item->libraryID . "/" . $item->key);
-		}
-		catch (Elastica\Exception\NotFoundException $e) {
-			return false;
-		}
-		catch (Exception $e) {
-			throw $e;
-		}
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
-		}
-		return true;
+		$sql = "DELETE FROM fulltextContent WHERE libraryID=? AND `key`=?";
+		return Zotero_FullText_DB::query(
+			$sql,
+			[$item->libraryID, $item->key],
+			Zotero_Shards::getByLibraryID($item->libraryID)
+		);
 	}
 	
 	
 	public static function deleteByLibrary($libraryID) {
-		$index = self::getIndex();
-		$type = self::getType();
-		
-		$libraryQuery = new \Elastica\Query\Term();
-		$libraryQuery->setTerm("libraryID", $libraryID);
-		$query = new \Elastica\Query($libraryQuery);
-		$response = $type->deleteByQuery($query);
-		
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
-		}
-		return true;
+		$sql = "DELETE FROM fulltextContent WHERE libraryID=?";
+		return Zotero_FullText_DB::query(
+			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
+		);
 	}
 	
 	
@@ -231,7 +157,7 @@ class Zotero_FullText {
 			$val = $xml->getAttribute($prop);
 			$stats[$prop] = $val;
 		}
-		self::indexItem($item, $xml->textContent, false, $stats);
+		self::indexItem($item, $xml->textContent, $stats);
 	}
 	
 	
@@ -241,27 +167,16 @@ class Zotero_FullText {
 	 * @param {Boolean} [$empty=false]  If true, don't include full-text content
 	 */
 	public static function itemDataToXML($data, DOMDocument $doc, $empty=false) {
-		list($libraryID, $key) = explode("/", $data['id']);
 		$xmlNode = $doc->createElement('fulltext');
-		$xmlNode->setAttribute('libraryID', $libraryID);
-		$xmlNode->setAttribute('key', $key);
+		$xmlNode->setAttribute('libraryID', $data['libraryID']);
+		$xmlNode->setAttribute('key', $data['key']);
 		foreach (self::$metadata as $prop) {
 			$xmlNode->setAttribute($prop, $data[$prop]);
 		}
 		$xmlNode->setAttribute('version', $data['version']);
 		if (!$empty) {
-			$xmlNode->appendChild($doc->createTextNode($data['fulltext']));
+			$xmlNode->appendChild($doc->createTextNode($data['content']));
 		}
 		return $xmlNode;
-	}
-	
-	
-	private static function getIndex() {
-		return Z_Core::$Elastica->getIndex(self::$elasticSearchType . "_index");
-	}
-	
-	
-	private static function getType() {
-		return new \Elastica\Type(self::getIndex(), self::$elasticSearchType);
 	}
 }

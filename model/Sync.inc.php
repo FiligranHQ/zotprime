@@ -1270,7 +1270,7 @@ class Zotero_Sync {
 						// If the current item would put us over 500K characters,
 						// leave it empty, unless it's the first one
 						$empty = false;
-						$currentChars = strlen($itemData['fulltext']);
+						$currentChars = strlen($itemData['content']);
 						if (!$first && (($chars + $currentChars) > $maxChars)) {
 							$empty = true;
 						}
