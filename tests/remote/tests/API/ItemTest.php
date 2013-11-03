@@ -924,6 +924,5 @@ class ItemTests extends APITests {
 			"items?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$this->assertContains('"title":"Tést"', $response->getBody());
-		echo($response->getBody());
 	}
 }
