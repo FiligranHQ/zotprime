@@ -291,5 +291,13 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		
 		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
 		$this->assertEquals($content3, $resultContent3);
+		
+		// Request for all items by upgrade flag
+		$params = [
+			"ftkeys" => "all"
+		];
+		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
+		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
+		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
 	}
 }

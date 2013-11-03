@@ -1252,13 +1252,19 @@ class Zotero_Sync {
 			$libraries = Zotero_Libraries::getUserLibraries($userID);
 			$fulltextNode = false;
 			foreach ($libraries as $libraryID) {
+				if (!empty($_POST['ftkeys']) && $_POST['ftkeys'] === 'all') {
+					$ftlastsync = 1;
+				}
+				else {
+					$ftlastsync = $lastsync;
+				}
 				if (!empty($_POST['ftkeys'][$libraryID])) {
 					$keys = $_POST['ftkeys'][$libraryID];
 				}
 				else {
 					$keys = [];
 				}
-				$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $lastsync, $keys);
+				$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $ftlastsync, $keys);
 				if ($data) {
 					if (!$fulltextNode) {
 						$fulltextNode = $doc->createElement('fulltexts');
