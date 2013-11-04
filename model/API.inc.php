@@ -46,6 +46,7 @@ class Zotero_API {
 		// search
 		'fq' => '',
 		'q' => '',
+		'qmode' => 'titleCreatorYear',
 		'itemType' => '',
 		'itemKey' => '',
 		'collectionKey' => '',
@@ -300,8 +301,14 @@ class Zotero_API {
 					break;
 				
 				case 'sort':
-					if (!in_array($getParams['sort'], array('asc', 'desc'))) {
-						throw new Exception("Invalid 'sort' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					if (!in_array($getParams[$key], array('asc', 'desc'))) {
+						throw new Exception("Invalid '$key' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+					}
+					break;
+				
+				case 'qmode':
+					if (!in_array($getParams[$key], array('titleCreatorYear', 'everything'))) {
+						throw new Exception("Invalid '$key' value '" . $getParams[$key] . "'", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 			}

@@ -122,6 +122,19 @@ class Zotero_FullText {
 	}
 	
 	
+	/**
+	 * @param {Integer} libraryID
+	 * @param {String} searchText
+	 * @return {Array<String>|Boolean} An array of item keys, or FALSE if no results
+	 */
+	public static function searchInLibrary($libraryID, $searchText) {
+		$sql = "SELECT `key` FROM fulltextContent WHERE MATCH (content) AGAINST (?)";
+		return Zotero_FullText_DB::columnQuery(
+			$sql, '"' . $searchText . '"', Zotero_Shards::getByLibraryID($libraryID)
+		);
+	}
+	
+	
 	public static function deleteItemContent(Zotero_Item $item) {
 		$sql = "DELETE FROM fulltextContent WHERE libraryID=? AND `key`=?";
 		return Zotero_FullText_DB::query(
