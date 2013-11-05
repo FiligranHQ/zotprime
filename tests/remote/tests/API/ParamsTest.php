@@ -49,7 +49,7 @@ class ParamsTests extends APITests {
 		for ($i=0; $i<5; $i++) {
 			self::$itemKeys[] = API::createItem("book", false, null, 'key');
 		}
-		self::$itemKeys[] = API::createAttachmentItem("imported_file", false, null, 'key');
+		self::$itemKeys[] = API::createAttachmentItem("imported_file", [], false, null, 'key');
 		
 		//
 		// Searches

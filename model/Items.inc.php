@@ -130,14 +130,33 @@ class Zotero_Items extends Zotero_DataObjects {
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
-		if ($params['format'] == 'keys') {
-			$sql .= "I.key";
-		}
-		else if ($params['format'] == 'versions') {
-			$sql .= "I.key, I.version";
+		
+		if ($params['format'] == 'keys' || $params['format'] == 'versions') {
+			// In /top mode, display the parent item of matching items
+			if ($onlyTopLevel) {
+				$sql .= "COALESCE(IAI.key, INoI.key, I.key) AS `key`";
+			}
+			else {
+				$sql .= "I.key";
+			}
+			
+			if ($params['format'] == 'versions') {
+				if ($onlyTopLevel) {
+					$sql .= ", COALESCE(IAI.version, INoI.version, I.version) AS version";
+				}
+				else {
+					$sql .= ", I.version";
+				}
+			}
 		}
 		else {
-			$sql .= "I.itemID";
+			// In /top mode, display the parent item of matching items
+			if ($onlyTopLevel) {
+				$sql .= "COALESCE(IA.sourceItemID, INo.sourceItemID, I.itemID) AS itemID";
+			}
+			else {
+				$sql .= "I.itemID AS itemID";
+			}
 		}
 		$sql .= " FROM items I ";
 		$sqlParams = array($libraryID);
@@ -152,14 +171,22 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		if (!empty($params['q'])) {
-			$sql .= "LEFT JOIN itemCreators IC ON (IC.itemID=I.itemID)
-					LEFT JOIN creators C ON (C.creatorID=IC.creatorID) ";
+			$sql .= "LEFT JOIN itemCreators IC ON (IC.itemID=I.itemID) "
+				. "LEFT JOIN creators C ON (C.creatorID=IC.creatorID) ";
 		}
 		if ($onlyTopLevel || !empty($params['q']) || $titleSort) {
 			$sql .= "LEFT JOIN itemNotes INo ON (INo.itemID=I.itemID) ";
+			// For keys and versions in /top mode, we need the items row for the parent
+			if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions')) {
+				$sql .= "LEFT JOIN items INoI ON (INo.sourceItemID=INoI.itemID) ";
+			}
 		}
 		if ($onlyTopLevel) {
 			$sql .= "LEFT JOIN itemAttachments IA ON (IA.itemID=I.itemID) ";
+			// For keys and versions in /top mode, we need the items row for the parent
+			if ($params['format'] == 'keys' || $params['format'] == 'versions') {
+				$sql .= "LEFT JOIN items IAI ON (IA.sourceItemID=IAI.itemID) ";
+			}
 		}
 		if (!$includeTrashed) {
 			$sql .= "LEFT JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
@@ -248,9 +275,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$sql .= "WHERE I.libraryID=? ";
 		
-		if ($onlyTopLevel) {
-			$sql .= "AND INo.sourceItemID IS NULL AND IA.sourceItemID IS NULL ";
-		}
 		if (!$includeTrashed) {
 			$sql .= "AND DI.itemID IS NULL ";
 		}

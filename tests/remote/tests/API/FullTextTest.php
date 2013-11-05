@@ -41,7 +41,7 @@ class FullTextTests extends APITests {
 	
 	public function testSetItemContent() {
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("imported_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		
 		$response = API::userGet(
@@ -92,7 +92,7 @@ class FullTextTests extends APITests {
 		
 		// Store content for one item
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("imported_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		$key1 = $data['key'];
 		
@@ -110,7 +110,7 @@ class FullTextTests extends APITests {
 		
 		// And another
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("imported_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		$key2 = $data['key'];
 		
@@ -155,7 +155,7 @@ class FullTextTests extends APITests {
 	
 	public function testDeleteItemContent() {
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("imported_file", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("imported_file", [], $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		
 		$content = "Ыюм мютат дэбетиз конвынёры эю, ку мэль жкрипта трактатоз.\nПро ут чтэт эрепюят граэкйж, дуо нэ выро рыкючабо пырикюлёз.";

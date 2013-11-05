@@ -40,6 +40,11 @@ class QueryTests extends APITests {
 	}
 	
 	
+	public function setUp() {
+		API::userClear(self::$config['userID']);
+	}
+	
+	
 	public function testObjectKeyParameter() {
 		$this->_testObjectKeyParameter('collection');
 		$this->_testObjectKeyParameter('item');

@@ -65,7 +65,7 @@ class FileTests extends APITests {
 	
 	
 	public function testNewEmptyImportedFileAttachmentItem() {
-		$xml = API::createAttachmentItem("imported_file", false, $this);
+		$xml = API::createAttachmentItem("imported_file", [], false, $this);
 		return API::parseDataFromAtomEntry($xml);
 	}
 	
@@ -163,7 +163,7 @@ class FileTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$parentKey = $data['key'];
 		
-		$xml = API::createAttachmentItem("imported_file", $parentKey, $this);
+		$xml = API::createAttachmentItem("imported_file", [], $parentKey, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$originalVersion = $data['version'];
 		
@@ -273,7 +273,7 @@ class FileTests extends APITests {
 	
 	
 	public function testAddFileFullParams() {
-		$xml = API::createAttachmentItem("imported_file", false, $this);
+		$xml = API::createAttachmentItem("imported_file", [], false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		
 		// Get serverDateModified
@@ -615,7 +615,7 @@ class FileTests extends APITests {
 		);
 		$this->assert404($response);
 		
-		$xml = API::createAttachmentItem("imported_file", false, $this);
+		$xml = API::createAttachmentItem("imported_file", [], false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$originalVersion = $data['version'];
 		$json = json_decode($data['content']);
@@ -832,7 +832,7 @@ class FileTests extends APITests {
 		$fileFilename = "file.html";
 		$fileModtime = time();
 		
-		$xml = API::createAttachmentItem("imported_url", $key, $this);
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		$version = $data['version'];
@@ -1002,7 +1002,7 @@ class FileTests extends APITests {
 	
 	
 	public function testAddFileLinkedAttachment() {
-		$xml = API::createAttachmentItem("linked_file", false, $this);
+		$xml = API::createAttachmentItem("linked_file", [], false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		
 		$file = "work/file";

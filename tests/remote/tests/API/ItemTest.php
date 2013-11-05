@@ -481,14 +481,14 @@ class ItemTests extends APITests {
 	
 	public function testNewEmptyLinkAttachmentItem() {
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("linked_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("linked_url", [], $key, $this, 'atom');
 		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
 	public function testNewEmptyLinkAttachmentItemWithItemKey() {
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("linked_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("linked_url", [], $key, $this, 'atom');
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
 		$json = json_decode($response->getBody());
@@ -512,14 +512,14 @@ class ItemTests extends APITests {
 	
 	public function testNewEmptyImportedURLAttachmentItem() {
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("imported_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this, 'atom');
 		return API::parseDataFromAtomEntry($xml);
 	}
 	
 	
 	public function testEditEmptyLinkAttachmentItem() {
 		$key = API::createItem("book", false, $this, 'key');
-		$xml = API::createAttachmentItem("linked_url", $key, $this, 'atom');
+		$xml = API::createAttachmentItem("linked_url", [], $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		
 		$key = $data['key'];
@@ -605,7 +605,7 @@ class ItemTests extends APITests {
 	
 	
 	public function testEditAttachmentUpdatedTimestamp() {
-		$xml = API::createAttachmentItem("linked_file", false, $this);
+		$xml = API::createAttachmentItem("linked_file", [], false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$atomUpdated = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
 		$json = json_decode($data['content'], true);
@@ -708,7 +708,7 @@ class ItemTests extends APITests {
 			self::$config['ownedPrivateGroupID'], "book", $this, 'key'
 		);
 		$xml = API::groupCreateAttachmentItem(
-			self::$config['ownedPrivateGroupID'], "imported_url", $key, $this
+			self::$config['ownedPrivateGroupID'], "imported_url", [], $key, $this
 		);
 		return API::parseDataFromAtomEntry($xml);
 	}
@@ -784,7 +784,7 @@ class ItemTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
-		API::createAttachmentItem("linked_url", $key, $this, 'key');
+		API::createAttachmentItem("linked_url", [], $key, $this, 'key');
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -804,6 +804,192 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testTop() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		
+		$parentTitle1 = "Parent Title";
+		$childTitle1 = "This is a Test Title";
+		$parentTitle2 = "Another Parent Title";
+		$noteText = "This is a sample note.";
+		$parentTitleSearch = "title";
+		$childTitleSearch = "test";
+		
+		$parentKeys = [];
+		$childKeys = [];
+		
+		$parentKeys[] = API::createItem("book", [
+			'title' => $parentTitle1,
+			'collections' => [
+				$collectionKey
+			]
+		], $this, 'key');
+		$childKeys[] = API::createAttachmentItem("linked_url", [
+			"title" => $childTitle1
+		], $parentKeys[0], $this, 'key');
+		
+		$parentKeys[] = API::createItem("book", [
+			'title' => $parentTitle2
+		], $this, 'key');
+		$childKeys[] = API::createNoteItem($noteText, $parentKeys[1], $this, 'key');
+		
+		// /top, Atom
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(2, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertCount(2, $xpath);
+		$this->assertContains($parentKeys[0], $xpath);
+		$this->assertContains($parentKeys[1], $xpath);
+		
+		// /top, Atom, in collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertCount(1, $xpath);
+		$this->assertContains($parentKeys[0], $xpath);
+		
+		// /top, keys
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(2, $keys);
+		$this->assertContains($parentKeys[0], $keys);
+		$this->assertContains($parentKeys[1], $keys);
+		
+		// /top, keys, in collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey'] . "&format=keys"
+		);
+		$this->assert200($response);
+		$this->assertEquals($parentKeys[0], trim($response->getBody()));
+		
+		// /top with itemKey for parent, Atom
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&itemKey=" . $parentKeys[0]
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertEquals($parentKeys[0], (string) array_shift($xpath));
+		
+		// /top with itemKey for parent, Atom, in collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey']
+				. "&content=json&itemKey=" . $parentKeys[0]
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertEquals($parentKeys[0], (string) array_shift($xpath));
+		
+		// /top with itemKey for parent, keys
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&format=keys&itemKey=" . $parentKeys[0]
+		);
+		$this->assert200($response);
+		$this->assertEquals($parentKeys[0], trim($response->getBody()));
+		
+		// /top with itemKey for parent, keys, in collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey']
+				. "&format=keys&itemKey=" . $parentKeys[0]
+		);
+		$this->assert200($response);
+		$this->assertEquals($parentKeys[0], trim($response->getBody()));
+		
+		// /top with itemKey for child, Atom
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&itemKey=" . $childKeys[0]
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertEquals($parentKeys[0], (string) array_shift($xpath));
+		
+		// /top with itemKey for child, keys
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&format=keys&itemKey=" . $childKeys[0]
+		);
+		$this->assert200($response);
+		$this->assertEquals($parentKeys[0], trim($response->getBody()));
+		
+		// /top, Atom, with q for all items
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(2, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertCount(2, $xpath);
+		$this->assertContains($parentKeys[0], $xpath);
+		$this->assertContains($parentKeys[1], $xpath);
+		
+		// /top, Atom, in collection, with q for all items
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey']
+				. "&content=json&q=$parentTitleSearch"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertCount(1, $xpath);
+		$this->assertContains($parentKeys[0], $xpath);
+		
+		// /top, Atom, with q for child item
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$childTitleSearch"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertCount(1, $xpath);
+		$this->assertContains($parentKeys[0], $xpath);
+		
+		// /top, Atom, in collection, with q for child item
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$collectionKey/items/top?key=" . self::$config['apiKey']
+				. "&content=json&q=$childTitleSearch"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(0, $response);
+		// Not currently possible
+		/*$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$this->assertCount(1, $xpath);
+		$this->assertContains($parentKeys[0], $xpath);*/
+	}
+	
+	
 	public function testParentItem() {
 		$xml = API::createItem("book", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
@@ -811,7 +997,7 @@ class ItemTests extends APITests {
 		$parentKey = $data['key'];
 		$parentVersion = $data['version'];
 		
-		$xml = API::createAttachmentItem("linked_url", $parentKey, $this);
+		$xml = API::createAttachmentItem("linked_url", [], $parentKey, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
 		$childKey = $data['key'];
@@ -855,7 +1041,7 @@ class ItemTests extends APITests {
 		$parentKey = $data['key'];
 		$parentVersion = $data['version'];
 		
-		$xml = API::createAttachmentItem("linked_url", $parentKey, $this);
+		$xml = API::createAttachmentItem("linked_url", [], $parentKey, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
 		$childKey = $data['key'];

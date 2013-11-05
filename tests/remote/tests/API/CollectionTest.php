@@ -313,8 +313,8 @@ class CollectionTests extends APITests {
 		$json = json_decode($data['content']);
 		$this->assertEquals(array($collectionKey), $json->collections);
 		
-		$childItemKey1 = API::createAttachmentItem("linked_url", $itemKey1, $this, 'key');
-		$childItemKey2 = API::createAttachmentItem("linked_url", $itemKey2, $this, 'key');
+		$childItemKey1 = API::createAttachmentItem("linked_url", [], $itemKey1, $this, 'key');
+		$childItemKey2 = API::createAttachmentItem("linked_url", [], $itemKey2, $this, 'key');
 		
 		$response = API::userGet(
 			self::$config['userID'],

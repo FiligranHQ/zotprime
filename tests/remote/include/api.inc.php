@@ -145,11 +145,14 @@ class API {
 	}
 	
 	
-	public function createAttachmentItem($linkMode, $parentKey=false, $context=false, $responseFormat='atom') {
+	public function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
+		foreach ($data as $key => $val) {
+			$json->{$key} = $val;
+		}
 		if ($parentKey) {
 			$json->parentItem = $parentKey;
 		}
@@ -198,11 +201,14 @@ class API {
 	}
 	
 	
-	public function groupCreateAttachmentItem($groupID, $linkMode, $parentKey=false, $context=false, $responseFormat='atom') {
+	public function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
 		self::loadConfig();
 		
 		$response = API::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
+		foreach ($data as $key => $val) {
+			$json->{$key} = $val;
+		}
 		if ($parentKey) {
 			$json->parentItem = $parentKey;
 		}
