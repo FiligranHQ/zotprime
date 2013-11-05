@@ -505,6 +505,23 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sqlParams[] = $params['limit'];
 		}
 		
+		// Log SQL statement with embedded parameters
+		/*if (true || !empty($_GET['sqldebug'])) {
+			error_log($onlyTopLevel);
+			
+			$debugSQL = "";
+			$parts = explode("?", $sql);
+			$debugSQLParams = $sqlParams;
+			foreach ($parts as $part) {
+				$val = array_shift($debugSQLParams);
+				$debugSQL .= $part;
+				if (!is_null($val)) {
+					$debugSQL .= is_int($val) ? $val : '"' . $val . '"';
+				}
+			}
+			error_log($debugSQL . ";");
+		}*/
+		
 		if ($params['format'] == 'versions') {
 			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
 		}
