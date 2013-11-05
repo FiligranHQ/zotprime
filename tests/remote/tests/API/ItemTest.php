@@ -805,6 +805,8 @@ class ItemTests extends APITests {
 	
 	
 	public function testTop() {
+		API::userClear(self::$config['userID']);
+		
 		$collectionKey = API::createCollection('Test', false, $this, 'key');
 		
 		$parentTitle1 = "Parent Title";
