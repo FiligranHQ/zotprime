@@ -54,6 +54,7 @@ class FullTextTests extends APITests {
 		$libraryVersion = API::getLibraryVersion();
 		
 		$content = "Here is some full-text content";
+		$pages = 50;
 		
 		// No Content-Type
 		$response = API::userPut(
@@ -61,14 +62,19 @@ class FullTextTests extends APITests {
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
 			$content
 		);
-		$this->assert400($response, "Content-Type must be text/plain");
+		$this->assert400($response, "Content-Type must be application/json");
 		
 		// Store content
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
-			$content,
-			array("Content-Type: text/plain")
+			json_encode([
+				"content" => $content,
+				"indexedPages" => $pages,
+				"totalPages" => $pages,
+				"invalidParam" => "shouldBeIgnored"
+			]),
+			array("Content-Type: application/json")
 		);
 		
 		$this->assert204($response);
@@ -81,8 +87,13 @@ class FullTextTests extends APITests {
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
 		);
 		$this->assert200($response);
-		$this->assertContentType("text/plain; charset=UTF-8", $response);
-		$this->assertEquals($content, $response->getBody());
+		$this->assertContentType("application/json", $response);
+		$json = json_decode($response->getBody(), true);
+		$this->assertEquals($content, $json['content']);
+		$this->assertEquals($pages, $json['indexedPages']);
+		$this->assertEquals($pages, $json['totalPages']);
+		$this->assertArrayNotHasKey("indexedChars", $json);
+		$this->assertArrayNotHasKey("invalidParam", $json);
 		$this->assertEquals($contentVersion, $response->getHeader("Last-Modified-Version"));
 	}
 	
@@ -101,8 +112,10 @@ class FullTextTests extends APITests {
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/$key1/fulltext?key=" . self::$config['apiKey'],
-			$content,
-			array("Content-Type: text/plain")
+			json_encode([
+				"content" => $content
+			]),
+			array("Content-Type: application/json")
 		);
 		$this->assert204($response);
 		$contentVersion1 = $response->getHeader("Last-Modified-Version");
@@ -117,8 +130,10 @@ class FullTextTests extends APITests {
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/$key2/fulltext?key=" . self::$config['apiKey'],
-			$content,
-			array("Content-Type: text/plain")
+			json_encode([
+				"content" => $content
+			]),
+			array("Content-Type: application/json")
 		);
 		$this->assert204($response);
 		$contentVersion2 = $response->getHeader("Last-Modified-Version");
@@ -164,8 +179,11 @@ class FullTextTests extends APITests {
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
-			$content,
-			array("Content-Type: text/plain")
+			json_encode([
+				"content" => $content,
+				"indexedPages" => 50
+			]),
+			array("Content-Type: application/json")
 		);
 		$this->assert204($response);
 		$contentVersion = $response->getHeader("Last-Modified-Version");
@@ -176,14 +194,18 @@ class FullTextTests extends APITests {
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
 		);
 		$this->assert200($response);
-		$this->assertEquals($content, $response->getBody());
+		$json = json_decode($response->getBody(), true);
+		$this->assertEquals($content, $json['content']);
+		$this->assertEquals(50, $json['indexedPages']);
 		
 		// Set to empty string
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
-			"",
-			array("Content-Type: text/plain")
+			json_encode([
+				"content" => ""
+			]),
+			array("Content-Type: application/json")
 		);
 		$this->assert204($response);
 		$this->assertGreaterThan($contentVersion, $response->getHeader("Last-Modified-Version"));
@@ -194,6 +216,8 @@ class FullTextTests extends APITests {
 			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
 		);
 		$this->assert200($response);
-		$this->assertEquals("", $response->getBody());
+		$json = json_decode($response->getBody(), true);
+		$this->assertEquals("", $json['content']);
+		$this->assertArrayNotHasKey("indexedPages", $json);
 	}
 }

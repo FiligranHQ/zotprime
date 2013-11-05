@@ -25,7 +25,7 @@
 */
 
 class Zotero_FullText {
-	private static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
+	public static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
 	public static function indexItem(Zotero_Item $item, $content, $stats=array()) {
 		if (!$item->isAttachment() ||
