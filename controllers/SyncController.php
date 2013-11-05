@@ -293,8 +293,8 @@ class SyncController extends Controller {
 			}
 			
 			// TEMP
-			$cacheKeyExtra = !empty($_POST['ftkeys'])
-				? json_encode($_POST['ftkeys']) : "";
+			$cacheKeyExtra = (!empty($_POST['ft']) ? json_encode($_POST['ft']) : "")
+				. (!empty($_POST['ftkeys']) ? json_encode($_POST['ftkeys']) : "");
 			
 			// If we have a cached response, return that
 			try {

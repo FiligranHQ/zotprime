@@ -52,7 +52,6 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 	
 	public function testFullTextSync() {
 		$xml = Sync::updated(self::$sessionID);
-		$initialTimestamp = (int) $xml['timestamp'];
 		
 		$updateKey = (string) $xml['updateKey'];
 		$key = Zotero_Utilities::randomString(8, 'key', true);
@@ -84,7 +83,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
-		$xml = Sync::updated(self::$sessionID);
+		$xml = Sync::updated(self::$sessionID, 1, false, false, ["ft" => 1]);
 		$lastSyncTimestamp = (int) $xml['timestamp'];
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(1, $xml->updated[0]->fulltexts[0]->fulltext->count());
@@ -92,15 +91,15 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(strlen($content), (int) $xml->updated[0]->fulltexts[0]->fulltext[0]['indexedChars']);
 		$this->assertEquals($totalChars, (int) $xml->updated[0]->fulltexts[0]->fulltext[0]['totalChars']);
 		
-		$xml = Sync::updated(self::$sessionID, $lastSyncTimestamp + 1);
+		$xml = Sync::updated(self::$sessionID, $lastSyncTimestamp + 1, false, false, ["ft" => 1]);
 		$this->assertEquals(0, $xml->updated[0]->fulltexts->count());
 		
-		$xml = Sync::updated(self::$sessionID, $initialTimestamp);
+		$xml = Sync::updated(self::$sessionID, 1, false, false, ["ft" => 1]);
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 	}
 	
 	public function testLargeFullTextSync() {
-		$xml = Sync::updated(self::$sessionID);
+		$xml = Sync::updated(self::$sessionID, 1, false, false, ["ft" => 1]);
 		$timestamp1 = (int) $xml['timestamp'];
 		$updateKey = (string) $xml['updateKey'];
 		
@@ -157,12 +156,12 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$xml = Sync::waitForUpload(self::$sessionID, $response, $this);
 		$timestamp2 = (int) $xml['timestamp'];
 		
-		$xml = Sync::updated(self::$sessionID, $timestamp2);
+		$xml = Sync::updated(self::$sessionID, $timestamp2, false, false, ["ft" => 1]);
 		$updateKey = (string) $xml['updateKey'];
 		
 		// Wait until the timestamp advances
 		do {
-			$xml = Sync::updated(self::$sessionID, $timestamp2);
+			$xml = Sync::updated(self::$sessionID, $timestamp2, false, false, ["ft" => 1]);
 			usleep(500);
 		}
 		while ((int) $xml['timestamp'] <= ($timestamp2 + 2));
@@ -204,7 +203,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$timestamp3 = (int) $xml['timestamp'];
 		
 		// Get all results
-		$xml = Sync::updated(self::$sessionID);
+		$xml = Sync::updated(self::$sessionID, 1, false, false, ["ft" => 1]);
 		
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
@@ -227,11 +226,11 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		}
 		
 		// Request past last content
-		$xml = Sync::updated(self::$sessionID, $timestamp3);
+		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, ["ft" => 1]);
 		$this->assertEquals(0, $xml->updated[0]->fulltexts->count());
 		
 		// Request for explicit keys
-		$params = [];
+		$params = ["ft" => 1];
 		$params["ftkeys"][self::$config['libraryID']] = [$key1, $key2, $key3, $key4];
 		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
 		
@@ -256,7 +255,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		}
 		
 		// Request for combo of time and keys
-		$params = [];
+		$params = ["ft" => 1];
 		$params["ftkeys"][self::$config['libraryID']] = [$key2];
 		$xml = Sync::updated(self::$sessionID, $timestamp2, false, false, $params);
 		
@@ -278,11 +277,11 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		}
 		
 		// Request past last content, again
-		$xml = Sync::updated(self::$sessionID, $timestamp3);
+		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, ["ft" => 1]);
 		$this->assertEquals(0, $xml->updated[0]->fulltexts->count());
 		
 		// Request for single long content
-		$params = [];
+		$params = ["ft" => 1];
 		$params["ftkeys"][self::$config['libraryID']] = [$key3];
 		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
 		
@@ -294,10 +293,21 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		
 		// Request for all items by upgrade flag
 		$params = [
+			"ft" => 1,
 			"ftkeys" => "all"
 		];
 		$xml = Sync::updated(self::$sessionID, $timestamp3, false, false, $params);
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
+		
+		// Request for empty items with FT disabled
+		$params = ["ft" => 0];
+		$xml = Sync::updated(self::$sessionID, 1, false, false, $params);
+		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
+		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
+		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']")));
+		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']")));
+		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']")));
+		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']")));
 	}
 }

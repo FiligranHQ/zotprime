@@ -1071,8 +1071,8 @@ class Zotero_Sync {
 		}
 		
 		// TEMP
-		$cacheKeyExtra = !empty($_POST['ftkeys'])
-			? json_encode($_POST['ftkeys']) : "";
+		$cacheKeyExtra = (!empty($_POST['ft']) ? json_encode($_POST['ft']) : "")
+			. (!empty($_POST['ftkeys']) ? json_encode($_POST['ftkeys']) : "");
 		
 		try {
 			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion, $cacheKeyExtra);
@@ -1248,49 +1248,57 @@ class Zotero_Sync {
 				}
 			}
 			
-			// Add full-text content
-			$libraries = Zotero_Libraries::getUserLibraries($userID);
-			$fulltextNode = false;
-			foreach ($libraries as $libraryID) {
-				if (!empty($_POST['ftkeys']) && $_POST['ftkeys'] === 'all') {
-					$ftlastsync = 1;
-				}
-				else {
-					$ftlastsync = $lastsync;
-				}
-				if (!empty($_POST['ftkeys'][$libraryID])) {
-					$keys = $_POST['ftkeys'][$libraryID];
-				}
-				else {
-					$keys = [];
-				}
-				$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $ftlastsync, $keys);
-				if ($data) {
-					if (!$fulltextNode) {
-						$fulltextNode = $doc->createElement('fulltexts');
+			// Add full-text content if the client supports it
+			if (isset($_POST['ft'])) {
+				$libraries = Zotero_Libraries::getUserLibraries($userID);
+				$fulltextNode = false;
+				foreach ($libraries as $libraryID) {
+					if (!empty($_POST['ftkeys']) && $_POST['ftkeys'] === 'all') {
+						$ftlastsync = 1;
 					}
-					$first = true;
-					$chars = 0;
-					$maxChars = 500000;
-					foreach ($data as $itemData) {
-						// If the current item would put us over 500K characters,
-						// leave it empty, unless it's the first one
-						$empty = false;
-						$currentChars = strlen($itemData['content']);
-						if (!$first && (($chars + $currentChars) > $maxChars)) {
-							$empty = true;
+					else {
+						$ftlastsync = $lastsync;
+					}
+					if (!empty($_POST['ftkeys'][$libraryID])) {
+						$keys = $_POST['ftkeys'][$libraryID];
+					}
+					else {
+						$keys = [];
+					}
+					$data = Zotero_FullText::getNewerInLibraryByTime($libraryID, $ftlastsync, $keys);
+					if ($data) {
+						if (!$fulltextNode) {
+							$fulltextNode = $doc->createElement('fulltexts');
 						}
-						else {
-							$chars += $currentChars;
+						$first = true;
+						$chars = 0;
+						$maxChars = 500000;
+						foreach ($data as $itemData) {
+							if ($_POST['ft']) {
+								$empty = false;
+								// If the current item would put us over 500K characters,
+								// leave it empty, unless it's the first one
+								$currentChars = strlen($itemData['content']);
+								if (!$first && (($chars + $currentChars) > $maxChars)) {
+									$empty = true;
+								}
+								else {
+									$chars += $currentChars;
+								}
+							}
+							// If full-text syncing is disabled, leave content empty
+							else {
+								$empty = true;
+							}
+							$first = false;
+							$node = Zotero_FullText::itemDataToXML($itemData, $doc, $empty);
+							$fulltextNode->appendChild($node);
 						}
-						$first = false;
-						$node = Zotero_FullText::itemDataToXML($itemData, $doc, $empty);
-						$fulltextNode->appendChild($node);
 					}
 				}
-			}
-			if ($fulltextNode) {
-				$updatedNode->appendChild($fulltextNode);
+				if ($fulltextNode) {
+					$updatedNode->appendChild($fulltextNode);
+				}
 			}
 			
 			// Get earliest timestamp
