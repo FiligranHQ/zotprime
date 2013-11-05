@@ -621,7 +621,6 @@ class Zotero_DataObjects {
 		
 		Zotero_DB::beginTransaction();
 		
-		
 		// Delete child items
 		if ($type == 'item') {
 			if ($obj->isRegularItem()) {
@@ -643,6 +642,11 @@ class Zotero_DataObjects {
 		// Tag deletions need to stored by tag for the API
 		else if ($type == 'tag') {
 			$tagName = $obj->name;
+		}
+		
+		if ($type == 'item' && $obj->isAttachment()) {
+			$sql = "DELETE FROM fulltextContent WHERE libraryID=? AND `key`=?";
+			Zotero_FullText_DB::query($sql, [$libraryID, $key], $shardID);
 		}
 		
 		if ($type == 'relation') {
