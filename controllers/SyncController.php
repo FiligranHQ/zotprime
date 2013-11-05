@@ -352,8 +352,12 @@ class SyncController extends Controller {
 				$queue = false;
 			}
 			
+			$params = [];
+			if (isset($_POST['ft'])) $params['ft'] = $_POST['ft'];
+			if (isset($_POST['ftkeys'])) $params['ftkeys'] = $_POST['ftkeys'];
+			
 			if ($queue) {
-				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $num);
+				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $num, $params);
 				
 				try {
 					Zotero_Processors::notifyProcessors('download');
@@ -367,7 +371,7 @@ class SyncController extends Controller {
 			}
 			else {
 				try {
-					Zotero_Sync::processDownload($this->userID, $lastsync, $doc);
+					Zotero_Sync::processDownload($this->userID, $lastsync, $doc, $params);
 					$this->responseXML = simplexml_import_dom($doc);
 					
 					StatsD::increment("sync.process.download.immediate.success");

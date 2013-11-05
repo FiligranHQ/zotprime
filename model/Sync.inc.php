@@ -112,7 +112,7 @@ class Zotero_Sync {
 	}
 	
 	
-	public static function queueDownload($userID, $sessionID, $lastsync, $version, $updatedObjects) {
+	public static function queueDownload($userID, $sessionID, $lastsync, $version, $updatedObjects, $params=array()) {
 		$syncQueueID = Zotero_ID::getBigInt();
 		
 		// If there's a completed process from this session, delete it, since it
@@ -121,8 +121,8 @@ class Zotero_Sync {
 		Zotero_DB::query($sql, $sessionID);
 		
 		$sql = "INSERT INTO syncDownloadQueue
-				(syncDownloadQueueID, processorHost, userID, sessionID, lastsync, version, objects)
-				VALUES (?, INET_ATON(?), ?, ?, FROM_UNIXTIME(?), ?, ?)";
+				(syncDownloadQueueID, processorHost, userID, sessionID, lastsync, version, params, objects)
+				VALUES (?, INET_ATON(?), ?, ?, FROM_UNIXTIME(?), ?, ?, ?)";
 		Zotero_DB::query(
 			$sql,
 			array(
@@ -132,6 +132,7 @@ class Zotero_Sync {
 				$sessionID,
 				$lastsync,
 				$version,
+				json_encode($params),
 				$updatedObjects
 			)
 		);
@@ -198,8 +199,8 @@ class Zotero_Sync {
 	}
 	
 	
-	public static function processDownload($userID, $lastsync, DOMDocument $doc) {
-		self::processDownloadInternal($userID, $lastsync, $doc);
+	public static function processDownload($userID, $lastsync, DOMDocument $doc, $params=[]) {
+		self::processDownloadInternal($userID, $lastsync, $doc, null, null, $params);
 	}
 	
 	
@@ -214,7 +215,7 @@ class Zotero_Sync {
 		// Get a queued process
 		$smallestFirst = Z_CONFIG::$SYNC_DOWNLOAD_SMALLEST_FIRST;
 		$sql = "SELECT syncDownloadQueueID, SDQ.userID,
-				UNIX_TIMESTAMP(lastsync) AS lastsync, version, added, objects, ipAddress
+				UNIX_TIMESTAMP(lastsync) AS lastsync, version, params, added, objects, ipAddress
 				FROM syncDownloadQueue SDQ JOIN sessions USING (sessionID)
 				WHERE started IS NULL ORDER BY tries > 4, ";
 		if ($smallestFirst) {
@@ -252,7 +253,9 @@ class Zotero_Sync {
 			$domResponse = $doc->importNode($domResponse, true);
 			$doc->appendChild($domResponse);
 			
-			self::processDownloadInternal($row['userID'], $row['lastsync'], $doc, $row['syncDownloadQueueID'], $syncProcessID);
+			$params = !empty($row['params']) ? json_decode($row['params'], true) : [];
+			
+			self::processDownloadInternal($row['userID'], $row['lastsync'], $doc, $row['syncDownloadQueueID'], $syncProcessID, $params);
 		}
 		catch (Exception $e) {
 			$error = true;
@@ -1063,7 +1066,7 @@ class Zotero_Sync {
 	// Private methods
 	//
 	//
-	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null) {
+	private static function processDownloadInternal($userID, $lastsync, DOMDocument $doc, $syncDownloadQueueID=null, $syncDownloadProcessID=null, $params=[]) {
 		$apiVersion = (int) $doc->documentElement->getAttribute('version');
 		
 		if ($lastsync == 1) {
@@ -1071,8 +1074,8 @@ class Zotero_Sync {
 		}
 		
 		// TEMP
-		$cacheKeyExtra = (!empty($_POST['ft']) ? json_encode($_POST['ft']) : "")
-			. (!empty($_POST['ftkeys']) ? json_encode($_POST['ftkeys']) : "");
+		$cacheKeyExtra = (!empty($params['ft']) ? json_encode($params['ft']) : "")
+			. (!empty($params['ftkeys']) ? json_encode($params['ftkeys']) : "");
 		
 		try {
 			$cached = Zotero_Sync::getCachedDownload($userID, $lastsync, $apiVersion, $cacheKeyExtra);
@@ -1249,18 +1252,18 @@ class Zotero_Sync {
 			}
 			
 			// Add full-text content if the client supports it
-			if (isset($_POST['ft'])) {
+			if (isset($params['ft'])) {
 				$libraries = Zotero_Libraries::getUserLibraries($userID);
 				$fulltextNode = false;
 				foreach ($libraries as $libraryID) {
-					if (!empty($_POST['ftkeys']) && $_POST['ftkeys'] === 'all') {
+					if (!empty($params['ftkeys']) && $params['ftkeys'] === 'all') {
 						$ftlastsync = 1;
 					}
 					else {
 						$ftlastsync = $lastsync;
 					}
-					if (!empty($_POST['ftkeys'][$libraryID])) {
-						$keys = $_POST['ftkeys'][$libraryID];
+					if (!empty($params['ftkeys'][$libraryID])) {
+						$keys = $params['ftkeys'][$libraryID];
 					}
 					else {
 						$keys = [];
@@ -1274,7 +1277,7 @@ class Zotero_Sync {
 						$chars = 0;
 						$maxChars = 500000;
 						foreach ($data as $itemData) {
-							if ($_POST['ft']) {
+							if ($params['ft']) {
 								$empty = false;
 								// If the current item would put us over 500K characters,
 								// leave it empty, unless it's the first one
