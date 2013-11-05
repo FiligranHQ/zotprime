@@ -128,6 +128,9 @@ class Zotero_FullText {
 	 * @return {Array<String>|Boolean} An array of item keys, or FALSE if no results
 	 */
 	public static function searchInLibrary($libraryID, $searchText) {
+		// TEMP: For now, strip double-quotes and make everything a phrase search
+		$searchText = str_replace('"', '', $searchText);
+		
 		$sql = "SELECT `key` FROM fulltextContent WHERE MATCH (content) AGAINST (?)";
 		return Zotero_FullText_DB::columnQuery(
 			$sql, '"' . $searchText . '"', Zotero_Shards::getByLibraryID($libraryID)
