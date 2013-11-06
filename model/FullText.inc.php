@@ -28,10 +28,9 @@ class Zotero_FullText {
 	public static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
 	public static function indexItem(Zotero_Item $item, $content, $stats=array()) {
-		if (!$item->isAttachment() ||
-				Zotero_Attachments::linkModeNumberToName($item->attachmentLinkMode) == 'LINKED_URL') {
+		if (!$item->isAttachment()) {
 			throw new Exception(
-				"Full-text content can only be added for file attachments", Z_ERROR_INVALID_INPUT
+				"Full-text content can only be added for attachments", Z_ERROR_INVALID_INPUT
 			);
 		}
 		
