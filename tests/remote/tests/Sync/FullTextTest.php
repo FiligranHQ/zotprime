@@ -310,4 +310,64 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']")));
 		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']")));
 	}
+	
+	
+	public function testFullTextNoAccess() {
+		API::groupClear(self::$config['ownedPrivateGroupID2']);
+		
+		// Add item to group as user 2
+		$user2SessionID = Sync::login([
+			'username' => self::$config['username2'],
+			'password' => self::$config['password2']
+		]);
+		$xml = Sync::updated($user2SessionID);
+		$updateKey = (string) $xml['updateKey'];
+		$key = Zotero_Utilities::randomString(8, 'key', true);
+		$dateAdded = date('Y-m-d H:i:s', time() - 1);
+		$dateModified = date('Y-m-d H:i:s');
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. '<item libraryID="' . self::$config['ownedPrivateGroupLibraryID2'] . '" '
+				. 'itemType="attachment" '
+				. 'dateAdded="' . $dateAdded . '" '
+				. 'dateModified="' . $dateModified . '" '
+				. 'key="' . $key . '"/>'
+			. '</items>'
+			. '</data>';
+		$response = Sync::upload($user2SessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload($user2SessionID, $response, $this);
+		
+		// Make sure item exists
+		$xml = Sync::updated($user2SessionID, 1);
+		$this->assertEquals(1, $xml->updated[0]->items->count());
+		$this->assertEquals(1, $xml->updated[0]->items[0]->item->count());
+		
+		// Try to add full-text content as user 1
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$content = "This is some full-text content.";
+		$totalChars = 2500;
+		
+		$xmlstr = '<data version="9">'
+			. '<fulltexts>'
+			. '<fulltext libraryID="' . self::$config['ownedPrivateGroupLibraryID2'] . '" '
+				. 'key="' . $key . '" '
+				. 'indexedChars="' . strlen($content) . '" '
+				. 'totalChars="' . $totalChars . '" '
+				. 'indexedPages="0" '
+				. 'totalPages="0">'
+				. htmlspecialchars($content)
+			. '</fulltext>'
+			. '</fulltexts>'
+			. '</data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Retrieve it as user 2
+		$xml = Sync::updated($user2SessionID, 1, false, false, ["ft" => 1]);
+		$this->assertEquals(0, $xml->updated[0]->fulltexts->count());
+		
+		API::groupClear(self::$config['ownedPrivateGroupID2']);
+	}
 }

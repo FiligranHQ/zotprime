@@ -156,7 +156,7 @@ class Zotero_FullText {
 	}
 	
 	
-	public static function indexFromXML(DOMElement $xml) {
+	public static function indexFromXML(DOMElement $xml, $userID) {
 		if ($xml->textContent === "") {
 			error_log("Skipping empty full-text content for item "
 				. $xml->getAttribute('libraryID') . "/" . $xml->getAttribute('key'));
@@ -167,6 +167,11 @@ class Zotero_FullText {
 		);
 		if (!$item) {
 			throw new Exception("Item not found");
+		}
+		if (!Zotero_Libraries::userCanEdit($item->libraryID, $userID)) {
+			error_log("Skipping full-text content from user $userID for uneditable item "
+				. $xml->getAttribute('libraryID') . "/" . $xml->getAttribute('key'));
+			return;
 		}
 		$stats = array();
 		foreach (self::$metadata as $prop) {

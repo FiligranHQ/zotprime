@@ -1692,7 +1692,7 @@ class Zotero_Sync {
 				$xmlElements = dom_import_simplexml($xml->fulltexts);
 				$xmlElements = $xmlElements->getElementsByTagName('fulltext');
 				foreach ($xmlElements as $xmlElement) {
-					Zotero_FullText::indexFromXML($xmlElement);
+					Zotero_FullText::indexFromXML($xmlElement, $userID);
 				}
 				unset($xml->fulltexts);
 			}
