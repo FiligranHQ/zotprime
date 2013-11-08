@@ -61,7 +61,7 @@
     <interleave>
       <optional>
         <element name="items">
-          <oneOrMore>
+          <zeroOrMore>
             <element name="item">
               <choice>
                 <ref name="key"/>
@@ -226,7 +226,7 @@
                 </element>
               </optional>
             </element>
-          </oneOrMore>
+          </zeroOrMore>
         </element>
       </optional>
       <optional>

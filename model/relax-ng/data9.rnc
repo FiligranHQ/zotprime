@@ -91,7 +91,7 @@ start =
 			element related {
 				keys
 			}?
-		}+
+		}*
 	}?
 	& element creators {
 		element creator {
