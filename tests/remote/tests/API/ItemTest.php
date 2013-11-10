@@ -812,6 +812,7 @@ class ItemTests extends APITests {
 		$parentTitle1 = "Parent Title";
 		$childTitle1 = "This is a Test Title";
 		$parentTitle2 = "Another Parent Title";
+		$parentTitle3 = "Yet Another Parent Title";
 		$noteText = "This is a sample note.";
 		$parentTitleSearch = "title";
 		$childTitleSearch = "test";
@@ -834,6 +835,15 @@ class ItemTests extends APITests {
 		], $this, 'key');
 		$childKeys[] = API::createNoteItem($noteText, $parentKeys[1], $this, 'key');
 		
+		// Create item with deleted child that matches child title search
+		$parentKeys[] = API::createItem("book", [
+			'title' => $parentTitle3
+		], $this, 'key');
+		API::createAttachmentItem("linked_url", [
+			'title' => $childTitle1,
+			'deleted' => true
+		], $parentKeys[sizeOf($parentKeys) - 1], $this, 'key');
+		
 		// Add deleted item with non-deleted child
 		$deletedKey = API::createItem("journalArticle", [
 			'title' => "This is a deleted item",
@@ -847,12 +857,13 @@ class ItemTests extends APITests {
 			"items/top?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$this->assert200($response);
-		$this->assertNumResults(2, $response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
 		$xml = API::getXMLFromResponse($response);
 		$xpath = $xml->xpath('//atom:entry/zapi:key');
-		$this->assertCount(2, $xpath);
-		$this->assertContains($parentKeys[0], $xpath);
-		$this->assertContains($parentKeys[1], $xpath);
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		foreach ($parentKeys as $parentKey) {
+			$this->assertContains($parentKey, $xpath);
+		}
 		
 		// /top, Atom, in collection
 		$response = API::userGet(
@@ -873,9 +884,10 @@ class ItemTests extends APITests {
 		);
 		$this->assert200($response);
 		$keys = explode("\n", trim($response->getBody()));
-		$this->assertCount(2, $keys);
-		$this->assertContains($parentKeys[0], $keys);
-		$this->assertContains($parentKeys[1], $keys);
+		$this->assertCount(sizeOf($parentKeys), $keys);
+		foreach ($parentKeys as $parentKey) {
+			$this->assertContains($parentKey, $keys);
+		}
 		
 		// /top, keys, in collection
 		$response = API::userGet(
@@ -950,12 +962,13 @@ class ItemTests extends APITests {
 			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
 		);
 		$this->assert200($response);
-		$this->assertNumResults(2, $response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
 		$xml = API::getXMLFromResponse($response);
 		$xpath = $xml->xpath('//atom:entry/zapi:key');
-		$this->assertCount(2, $xpath);
-		$this->assertContains($parentKeys[0], $xpath);
-		$this->assertContains($parentKeys[1], $xpath);
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		foreach ($parentKeys as $parentKey) {
+			$this->assertContains($parentKey, $xpath);
+		}
 		
 		// /top, Atom, in collection, with q for all items
 		$response = API::userGet(
