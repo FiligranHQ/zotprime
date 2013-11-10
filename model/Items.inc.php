@@ -207,6 +207,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		if (!$includeTrashed) {
 			$sql .= "LEFT JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
+			
+			// In /top mode, we don't want to show results for deleted parents or children
+			if ($onlyTopLevel) {
+				$sql .= "LEFT JOIN deletedItems DIParent ON (DIParent.itemID=$itemIDSelector) ";
+			}
 		}
 		if (!empty($params['order'])) {
 			switch ($params['order']) {
@@ -294,6 +299,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		if (!$includeTrashed) {
 			$sql .= "AND DI.itemID IS NULL ";
+			
+			// Hide deleted parents in /top mode
+			if ($onlyTopLevel) {
+				$sql .= "AND DIParent.itemID IS NULL ";
+			}
 		}
 		
 		// Search on title and creators

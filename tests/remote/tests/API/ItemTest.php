@@ -826,13 +826,20 @@ class ItemTests extends APITests {
 			]
 		], $this, 'key');
 		$childKeys[] = API::createAttachmentItem("linked_url", [
-			"title" => $childTitle1
+			'title' => $childTitle1
 		], $parentKeys[0], $this, 'key');
 		
 		$parentKeys[] = API::createItem("book", [
 			'title' => $parentTitle2
 		], $this, 'key');
 		$childKeys[] = API::createNoteItem($noteText, $parentKeys[1], $this, 'key');
+		
+		// Add deleted item with non-deleted child
+		$deletedKey = API::createItem("journalArticle", [
+			'title' => "This is a deleted item",
+			'deleted' => true
+		], $this, 'key');
+		API::createNoteItem("This is a child note of a deleted item.", $deletedKey, $this, 'key');
 		
 		// /top, Atom
 		$response = API::userGet(
