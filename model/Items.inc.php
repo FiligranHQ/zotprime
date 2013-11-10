@@ -131,14 +131,19 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
 		
+		// In /top mode, display the parent item of matching items
+		if ($onlyTopLevel) {
+			$itemIDSelector = "COALESCE(IA.sourceItemID, INo.sourceItemID, I.itemID)";
+			$itemKeySelector = "COALESCE(IAI.key, INoI.key, I.key)";
+		}
+		else {
+			$itemIDSelector = "I.itemID";
+			$itemKeySelector = "I.key";
+		}
+		
 		if ($params['format'] == 'keys' || $params['format'] == 'versions') {
 			// In /top mode, display the parent item of matching items
-			if ($onlyTopLevel) {
-				$sql .= "COALESCE(IAI.key, INoI.key, I.key) AS `key`";
-			}
-			else {
-				$sql .= "I.key";
-			}
+			$sql .= "$itemKeySelector AS `key`";
 			
 			if ($params['format'] == 'versions') {
 				if ($onlyTopLevel) {
@@ -150,43 +155,55 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		else {
-			// In /top mode, display the parent item of matching items
-			if ($onlyTopLevel) {
-				$sql .= "COALESCE(IA.sourceItemID, INo.sourceItemID, I.itemID) AS itemID";
-			}
-			else {
-				$sql .= "I.itemID AS itemID";
-			}
+			$sql .= "$itemIDSelector AS itemID";
 		}
 		$sql .= " FROM items I ";
 		$sqlParams = array($libraryID);
+		
+		// For /top, we need the parent itemID
+		if ($onlyTopLevel) {
+			$sql .= "LEFT JOIN itemAttachments IA ON (IA.itemID=I.itemID) ";
+		}
+		
+		// For /top, we need the parent itemID; for 'q' we need the note; for sorting by title,
+		// we need the note title
+		if ($onlyTopLevel || !empty($params['q']) || $titleSort) {
+			$sql .= "LEFT JOIN itemNotes INo ON (INo.itemID=I.itemID) ";
+		}
+		
+		// For keys and versions in /top mode, we need the items row for the parent
+		if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions')) {
+			$sql .= "LEFT JOIN items IAI ON (IA.sourceItemID=IAI.itemID) "
+				. "LEFT JOIN items INoI ON (INo.sourceItemID=INoI.itemID) ";
+		}
 		
 		if (!empty($params['q']) || $titleSort) {
 			$titleFieldIDs = array_merge(
 				array(Zotero_ItemFields::getID('title')),
 				Zotero_ItemFields::getTypeFieldsFromBase('title')
 			);
-			$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND IDT.fieldID IN ("
-				. implode(',', $titleFieldIDs) . ")) ";
+			if (!empty($params)) {
+				$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND IDT.fieldID IN "
+					. "(" . implode(',', $titleFieldIDs) . ")) ";
+			}
+		}
+		
+		// If /top mode, we need the title of the parent item to sort by
+		if ($onlyTopLevel && $titleSort) {
+			$titleSortDataTable = "IDTSort";
+			$titleSortNoteTable = "INoSort";
+			$sql .= "LEFT JOIN itemData IDTSort ON (IDTSort.itemID=$itemIDSelector AND "
+				. "IDTSort.fieldID IN (" . implode(',', $titleFieldIDs) . ")) "
+				. "LEFT JOIN itemNotes INoSort ON (INoSort.itemID=$itemIDSelector) ";
+		}
+		else {
+			$titleSortDataTable = "IDT";
+			$titleSortNoteTable = "INo";
 		}
 		
 		if (!empty($params['q'])) {
 			$sql .= "LEFT JOIN itemCreators IC ON (IC.itemID=I.itemID) "
 				. "LEFT JOIN creators C ON (C.creatorID=IC.creatorID) ";
-		}
-		if ($onlyTopLevel || !empty($params['q']) || $titleSort) {
-			$sql .= "LEFT JOIN itemNotes INo ON (INo.itemID=I.itemID) ";
-			// For keys and versions in /top mode, we need the items row for the parent
-			if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions')) {
-				$sql .= "LEFT JOIN items INoI ON (INo.sourceItemID=INoI.itemID) ";
-			}
-		}
-		if ($onlyTopLevel) {
-			$sql .= "LEFT JOIN itemAttachments IA ON (IA.itemID=I.itemID) ";
-			// For keys and versions in /top mode, we need the items row for the parent
-			if ($params['format'] == 'keys' || $params['format'] == 'versions') {
-				$sql .= "LEFT JOIN items IAI ON (IA.sourceItemID=IAI.itemID) ";
-			}
 		}
 		if (!$includeTrashed) {
 			$sql .= "LEFT JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
@@ -195,7 +212,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			switch ($params['order']) {
 				case 'title':
 				case 'creator':
-					$sql .= "LEFT JOIN itemSortFields ISF ON (ISF.itemID=I.itemID) ";
+					$sql .= "LEFT JOIN itemSortFields ISF ON (ISF.itemID=$itemIDSelector) ";
 					break;
 				
 				case 'date':
@@ -444,7 +461,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'title':
-					$orderSQL = "IFNULL(COALESCE(sortTitle, IDT.value, INo.title), '')";
+					$orderSQL = "IFNULL(COALESCE(sortTitle, $titleSortDataTable.value, $titleSortNoteTable.title), '')";
 					break;
 				
 				case 'creator':
