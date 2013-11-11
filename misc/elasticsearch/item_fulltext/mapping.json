@@ -1,0 +1,21 @@
+{
+	"item_fulltext": {
+		"properties": {
+			"libraryID": { "type":  "integer" },
+			"content": { "type": "string" },
+			"version": { "type": "integer" },
+			"timestamp": { "type": "date", "format": "dateHourMinuteSecond" },
+			"indexedChars": { "type": "integer", "index" : "no" },
+			"totalChars": { "type": "integer", "index" : "no" },
+			"indexedPages": { "type": "integer", "index" : "no" },
+			"totalPages": { "type": "integer", "index" : "no" }
+		},
+		"_all": {
+			"enabled": false
+		},
+		"_source" : {
+			"excludes" : ["libraryID"]
+		},
+		"dynamic" : false
+	}
+}

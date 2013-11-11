@@ -39,7 +39,6 @@ class Z_CONFIG {
 	);
 	
 	public static $SEARCH_HOST = '';
-	public static $SEARCH_INDEX = '';
 	
 	public static $SQS_QUEUE_URL_PREFIX = '';
 	public static $SQS_QUEUE_ITEM_UPDATES = 'item-updates';

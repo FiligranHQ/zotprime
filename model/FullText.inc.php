@@ -25,6 +25,7 @@
 */
 
 class Zotero_FullText {
+	private static $elasticsearchType = "item_fulltext";
 	public static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
 	public static function indexItem(Zotero_Item $item, $content, $stats=array()) {
@@ -34,24 +35,19 @@ class Zotero_FullText {
 			);
 		}
 		
-		$sql = "REPLACE INTO fulltextContent (";
-		$fields = [
-			"libraryID",
-			"`key`",
-			"content",
-			"version",
-			"timestamp"
-		];
+		Zotero_FullText_DB::beginTransaction();
+		
 		$libraryID = $item->libraryID;
-		$params = [
-			$libraryID,
-			$item->key,
-			$content,
-			Zotero_Libraries::getUpdatedVersion($libraryID),
-			Zotero_DB::transactionInProgress()
+		$key = $item->key;
+		$version = Zotero_Libraries::getUpdatedVersion($item->libraryID);
+		$timestamp = Zotero_DB::transactionInProgress()
 				? Zotero_DB::getTransactionTimestamp()
-				: date("Y-m-d H:i:s")
-		];
+				: date("Y-m-d H:i:s");
+		
+		// Add to MySQL
+		$sql = "REPLACE INTO fulltextContent (";
+		$fields = ["libraryID", "`key`", "content", "version", "timestamp"];
+		$params = [$libraryID, $key, $content, $version, $timestamp];
 		if ($stats) {
 			foreach (self::$metadata as $prop) {
 				if (isset($stats[$prop])) {
@@ -62,9 +58,37 @@ class Zotero_FullText {
 		}
 		$sql .= implode(", ", $fields) . ") VALUES ("
 			. implode(', ', array_fill(0, sizeOf($params), '?')) . ")";
-		Zotero_FullText_DB::query(
-			$sql, $params, Zotero_Shards::getByLibraryID($libraryID)
-		);
+		Zotero_FullText_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		
+		// Add to Elasticsearch
+		$type = self::getType();
+		
+		$id = $libraryID . "/" . $key;
+		$doc = [
+			'id' => $id,
+			'libraryID' => $libraryID,
+			'content' => (string) $content,
+			// We don't seem to be able to search on _version, so we duplicate it here
+			'version' => $version,
+			// Add "T" between date and time for Elasticsearch
+			'timestamp' => str_replace(" ", "T", $timestamp)
+		];
+		if ($stats) {
+			foreach (self::$metadata as $prop) {
+				if (isset($stats[$prop])) {
+					$doc[$prop] = (int) $stats[$prop];
+				}
+			}
+		}
+		$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
+		$doc->setVersion($version);
+		$doc->setVersionType('external');
+		$response = $type->addDocument($doc);
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
+		}
+		
+		Zotero_FullText_DB::commit();
 	}
 	
 	
@@ -130,28 +154,85 @@ class Zotero_FullText {
 		// TEMP: For now, strip double-quotes and make everything a phrase search
 		$searchText = str_replace('"', '', $searchText);
 		
-		$sql = "SELECT `key` FROM fulltextContent WHERE MATCH (content) AGAINST (?)";
-		return Zotero_FullText_DB::columnQuery(
-			$sql, '"' . $searchText . '"', Zotero_Shards::getByLibraryID($libraryID)
-		);
+		$index = self::getIndex();
+		$type = self::getType();
+		
+		$libraryFilter = new \Elastica\Filter\Term();
+		$libraryFilter->setTerm("libraryID", $libraryID);
+		
+		$matchQuery = new \Elastica\Query\Match();
+		$matchQuery->setFieldQuery('content', $searchText);
+		$matchQuery->setFieldType('content', 'phrase');
+		
+		$matchQuery = new \Elastica\Query\Filtered($matchQuery, $libraryFilter);
+		$resultSet = $type->search($matchQuery);
+		if ($resultSet->getResponse()->hasError()) {
+			throw new Exception($resultSet->getResponse()->getError());
+		}
+		$results = $resultSet->getResults();
+		$keys = array();
+		foreach ($results as $result) {
+			$keys[] = explode("/", $result->getId())[1];
+		}
+		return $keys;
 	}
 	
 	
 	public static function deleteItemContent(Zotero_Item $item) {
+		$libraryID = $item->libraryID;
+		$key = $item->key;
+		
+		Zotero_FullText_DB::beginTransaction();
+		
+		// Delete from MySQL
 		$sql = "DELETE FROM fulltextContent WHERE libraryID=? AND `key`=?";
 		return Zotero_FullText_DB::query(
 			$sql,
-			[$item->libraryID, $item->key],
-			Zotero_Shards::getByLibraryID($item->libraryID)
+			[$libraryID, $key],
+			Zotero_Shards::getByLibraryID($libraryID)
 		);
+		
+		// Delete from Elasticsearch
+		$index = self::getIndex();
+		$type = self::getType();
+		
+		try {
+			$response = $type->deleteById($libraryID . "/" . $key);
+		}
+		catch (Elastica\Exception\NotFoundException $e) {
+			// Ignore if not found
+		}
+		catch (Exception $e) {
+			throw $e;
+		}
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
+		}
+		
+		Zotero_FullText_DB::commit();
 	}
 	
 	
 	public static function deleteByLibrary($libraryID) {
+		Zotero_FullText_DB::beginTransaction();
+		
 		$sql = "DELETE FROM fulltextContent WHERE libraryID=?";
-		return Zotero_FullText_DB::query(
+		Zotero_FullText_DB::query(
 			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
 		);
+		
+		// Delete from Elasticsearch
+		$type = self::getType();
+		
+		$libraryQuery = new \Elastica\Query\Term();
+		$libraryQuery->setTerm("libraryID", $libraryID);
+		$query = new \Elastica\Query($libraryQuery);
+		$response = $type->deleteByQuery($query);
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
+		}
+		
+		Zotero_FullText_DB::commit();
 	}
 	
 	
@@ -198,5 +279,14 @@ class Zotero_FullText {
 			$xmlNode->appendChild($doc->createTextNode($data['content']));
 		}
 		return $xmlNode;
+	}
+	
+	private static function getIndex() {
+		return Z_Core::$Elastica->getIndex(self::$elasticsearchType . "_index");
+	}
+	
+	
+	private static function getType() {
+		return new \Elastica\Type(self::getIndex(), self::$elasticsearchType);
 	}
 }

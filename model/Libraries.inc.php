@@ -372,15 +372,12 @@ class Zotero_Libraries {
 			Zotero_DB::query($sql, $libraryID, $shardID);
 		}
 		
+		Zotero_FullText::deleteByLibrary($libraryID);
+		
 		self::updateVersion($libraryID);
 		self::updateTimestamps($libraryID);
 		
 		Zotero_Notifier::trigger("clear", "library", $libraryID);
-		
-		// Only available on testing site for now
-		if (Z_ENV_TESTING_SITE) {
-			Zotero_FullText::deleteByLibrary($libraryID);
-		}
 		
 		Zotero_DB::commit();
 	}

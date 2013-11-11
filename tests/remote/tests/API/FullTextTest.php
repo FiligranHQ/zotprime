@@ -168,6 +168,66 @@ class FullTextTests extends APITests {
 	}
 	
 	
+	public function testSearchItemContent() {
+		$key = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey']
+		);
+		$this->assert404($response);
+		
+		$content = "Here is some unique full-text content";
+		$pages = 50;
+		
+		// Store content
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
+			json_encode([
+				"content" => $content,
+				"indexedPages" => $pages,
+				"totalPages" => $pages
+			]),
+			array("Content-Type: application/json")
+		);
+		
+		$this->assert204($response);
+		
+		// Wait for refresh
+		sleep(1);
+		
+		// Search for a word
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?q=unique&qmode=everything&format=keys"
+			. "&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$this->assertEquals($data['key'], trim($response->getBody()));
+		
+		// Search for a phrase
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?q=unique%20full-text&qmode=everything&format=keys"
+			. "&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$this->assertEquals($data['key'], trim($response->getBody()));
+		
+		// Search for nonexistent word
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?q=nothing&qmode=everything&format=keys"
+			. "&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$this->assertEquals("", trim($response->getBody()));
+	}
+	
+	
 	public function testDeleteItemContent() {
 		$key = API::createItem("book", false, $this, 'key');
 		$xml = API::createAttachmentItem("imported_file", [], $key, $this, 'atom');
