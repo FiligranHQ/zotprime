@@ -1872,7 +1872,7 @@ class Zotero_Sync {
 				throw new Exception("Incomplete collection hierarchy cannot be saved", Z_ERROR_COLLECTION_NOT_FOUND);
 			}
 			
-			self::saveCollections($unsaved);
+			self::saveCollections($unsaved, $userID);
 		}
 	}
 	
