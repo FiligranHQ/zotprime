@@ -645,8 +645,7 @@ class Zotero_DataObjects {
 		}
 		
 		if ($type == 'item' && $obj->isAttachment()) {
-			$sql = "DELETE FROM fulltextContent WHERE libraryID=? AND `key`=?";
-			Zotero_FullText_DB::query($sql, [$libraryID, $key], $shardID);
+			Zotero_FullText::deleteItemContent($item);
 		}
 		
 		if ($type == 'relation') {
