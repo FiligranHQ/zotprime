@@ -206,7 +206,13 @@ Zotero_DB::addCallback("commit", array(Z_Core::$MC, "commit"));
 Zotero_DB::addCallback("reset", array(Z_Core::$MC, "reset"));
 
 Z_Core::$Elastica = new \Elastica\Client(array(
-	'host' => Z_CONFIG::$SEARCH_HOST
+	'connections' => array_map(function ($hostAndPort) {
+		preg_match('/^([^:]+)(:[0-9]+)?$/', $hostAndPort, $matches);
+		return [
+			'host' => $matches[1],
+			'port' => isset($matches[2]) ? $matches[2] : 9200
+		];
+	}, Z_CONFIG::$SEARCH_HOSTS)
 ));
 
 require('interfaces/IAuthenticationPlugin.inc.php');
