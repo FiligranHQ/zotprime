@@ -61,31 +61,37 @@ class Zotero_FullText {
 		Zotero_FullText_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		// Add to Elasticsearch
-		$type = self::getType();
-		
-		$id = $libraryID . "/" . $key;
-		$doc = [
-			'id' => $id,
-			'libraryID' => $libraryID,
-			'content' => (string) $content,
-			// We don't seem to be able to search on _version, so we duplicate it here
-			'version' => $version,
-			// Add "T" between date and time for Elasticsearch
-			'timestamp' => str_replace(" ", "T", $timestamp)
-		];
-		if ($stats) {
-			foreach (self::$metadata as $prop) {
-				if (isset($stats[$prop])) {
-					$doc[$prop] = (int) $stats[$prop];
+		try {
+			$type = self::getType();
+			
+			$id = $libraryID . "/" . $key;
+			$doc = [
+				'id' => $id,
+				'libraryID' => $libraryID,
+				'content' => (string) $content,
+				// We don't seem to be able to search on _version, so we duplicate it here
+				'version' => $version,
+				// Add "T" between date and time for Elasticsearch
+				'timestamp' => str_replace(" ", "T", $timestamp)
+			];
+			if ($stats) {
+				foreach (self::$metadata as $prop) {
+					if (isset($stats[$prop])) {
+						$doc[$prop] = (int) $stats[$prop];
+					}
 				}
 			}
+			$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
+			$doc->setVersion($version);
+			$doc->setVersionType('external');
+			$response = $type->addDocument($doc);
+			if ($response->hasError()) {
+				throw new Exception($response->getError());
+			}
 		}
-		$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
-		$doc->setVersion($version);
-		$doc->setVersionType('external');
-		$response = $type->addDocument($doc);
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
+		// TEMP
+		catch (Exception $e) {
+			error_log("WARNING: " . $e);
 		}
 		
 		Zotero_FullText_DB::commit();
@@ -193,20 +199,26 @@ class Zotero_FullText {
 		);
 		
 		// Delete from Elasticsearch
-		$index = self::getIndex();
-		$type = self::getType();
-		
 		try {
-			$response = $type->deleteById($libraryID . "/" . $key);
+			$index = self::getIndex();
+			$type = self::getType();
+			
+			try {
+				$response = $type->deleteById($libraryID . "/" . $key);
+			}
+			catch (Elastica\Exception\NotFoundException $e) {
+				// Ignore if not found
+			}
+			catch (Exception $e) {
+				throw $e;
+			}
+			if ($response->hasError()) {
+				throw new Exception($response->getError());
+			}
 		}
-		catch (Elastica\Exception\NotFoundException $e) {
-			// Ignore if not found
-		}
+		// TEMP
 		catch (Exception $e) {
-			throw $e;
-		}
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
+			error_log("WARNING: " . $e);
 		}
 		
 		Zotero_FullText_DB::commit();
@@ -222,14 +234,20 @@ class Zotero_FullText {
 		);
 		
 		// Delete from Elasticsearch
-		$type = self::getType();
-		
-		$libraryQuery = new \Elastica\Query\Term();
-		$libraryQuery->setTerm("libraryID", $libraryID);
-		$query = new \Elastica\Query($libraryQuery);
-		$response = $type->deleteByQuery($query);
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
+		try {
+			$type = self::getType();
+			
+			$libraryQuery = new \Elastica\Query\Term();
+			$libraryQuery->setTerm("libraryID", $libraryID);
+			$query = new \Elastica\Query($libraryQuery);
+			$response = $type->deleteByQuery($query);
+			if ($response->hasError()) {
+				throw new Exception($response->getError());
+			}
+		}
+		// TEMP
+		catch (Exception $e) {
+			error_log("WARNING: " . $e);
 		}
 		
 		Zotero_FullText_DB::commit();
