@@ -313,7 +313,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "IDT.value LIKE ? ";
 			$sqlParams[] = '%' . $params['q'] . '%';
 			
-			$sql .= "OR title LIKE ? ";
+			$sql .= "OR INo.title LIKE ? ";
 			$sqlParams[] = '%' . $params['q'] . '%';
 			
 			$sql .= "OR TRIM(CONCAT(firstName, ' ', lastName)) LIKE ?";

@@ -1009,6 +1009,24 @@ class ItemTests extends APITests {
 		$xpath = $xml->xpath('//atom:entry/zapi:key');
 		$this->assertCount(1, $xpath);
 		$this->assertContains($parentKeys[0], $xpath);*/
+		
+		// /top, Atom, with q for all items, ordered by title
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
+				. "&order=title"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/atom:title');
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		$orderedTitles = [$parentTitle1, $parentTitle2, $parentTitle3];
+		sort($orderedTitles);
+		$orderedResults = array_map(function ($val) {
+			return (string) $val;
+		}, $xpath);
+		$this->assertEquals($orderedTitles, $orderedResults);
 	}
 	
 	
