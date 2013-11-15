@@ -1,0 +1,10 @@
+{
+	"actions": [
+		{
+			"add": {
+				"alias": "item_fulltext_index",
+				"index": "item_fulltext_index_v1"
+			}
+		}
+	]
+}

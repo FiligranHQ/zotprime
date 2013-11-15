@@ -1,0 +1,25 @@
+#!/bin/bash
+
+if [ -z "$1" ] || [ -z "$2" ]; then
+	echo "Usage: $0 host index_version"
+	exit
+fi
+HOST="$1"
+INDEX_VERSION="$2"
+
+# Get path to script's parent directory
+DIR=$(cd ${0%/*} && echo $PWD/${0##*/})
+DIR=`dirname $DIR`
+DIR=`dirname $DIR`
+ITEM_FULLTEXT_DIR=$DIR/item_fulltext
+
+curl -XPUT "http://$HOST:9200/item_fulltext_index_v$INDEX_VERSION" -d @$ITEM_FULLTEXT_DIR/init.json
+echo
+
+$DIR/bin/update-settings $HOST $INDEX_VERSION
+
+curl -XPUT "http://$HOST:9200/item_fulltext_index_v$INDEX_VERSION/item_fulltext/_mapping" -d @$ITEM_FULLTEXT_DIR/mapping.json
+echo
+
+curl -XPOST "http://$HOST:9200/_aliases" -d @aliases.json
+echo
