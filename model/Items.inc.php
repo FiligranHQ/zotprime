@@ -1791,7 +1791,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'contentType':
 				case 'charset':
-				case 'filename';
+				case 'filename':
 					$k = "attachment" . ucwords($key);
 					$item->$k = $val;
 					break;
