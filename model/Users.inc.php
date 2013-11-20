@@ -390,6 +390,54 @@ class Zotero_Users {
 	}
 	
 	
+	public static function deleteUser($userID) {
+		if (empty($userID)) {
+			throw new Exception("userID not provided");
+		}
+		
+		$username = Zotero_Users::getUsername($userID, true);
+		
+		$sql = "SELECT LUM_Role.Name FROM LUM_User JOIN LUM_Role USING (RoleID) WHERE UserID=?";
+		try {
+			$role = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+		}
+		catch (Exception $e) {
+			Z_Core::logError("WARNING: $e -- retrying on primary");
+			$role = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+		}
+		if ($role != 'Deleted') {
+			throw new Exception("User '$username' does not have role 'Deleted'");
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		if (Zotero_Groups::getUserOwnedGroups($userID)) {
+			throw new Exception("Cannot delete user '$username' with owned groups");
+		}
+		
+		// Remove user from any groups they're a member of
+		//
+		// This isn't strictly necessary thanks to foreign key cascades,
+		// but it removes some extra keyPermissions rows
+		$groupIDs = Zotero_Groups::getUserGroups($userID);
+		foreach ($groupIDs as $groupID) {
+			$group = Zotero_Groups::get($groupID, true);
+			$group->removeUser($userID);
+		}
+		
+		// Remove all data
+		Zotero_Users::clearAllData($userID);
+		
+		// Remove user/library rows
+		$libraryID = self::getLibraryIDFromUserID($userID);
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		Zotero_DB::query("DELETE FROM shardLibraries WHERE libraryID=?", $libraryID, $shardID);
+		Zotero_DB::query("DELETE FROM libraries WHERE libraryID=?", $libraryID);
+		
+		Zotero_DB::commit();
+	}
+	
+	
 	private static function getUsernameFromWWW($userID) {
 		$sql = "SELECT username FROM users WHERE userID=?";
 		try {
