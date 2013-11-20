@@ -301,7 +301,7 @@ class SyncController extends Controller {
 				$startedTimestamp = microtime(true);
 				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync, $this->apiVersion, $cacheKeyExtra);
 				if ($cached) {
-					$this->responseXML = simplexml_load_string($cached);
+					$this->responseXML = simplexml_load_string($cached, "SimpleXMLElement", LIBXML_COMPACT | LIBXML_PARSEHUGE);
 					
 					$duration = round((float) microtime(true) - $startedTimestamp, 2);
 					Zotero_Sync::logDownload(

@@ -427,7 +427,7 @@ class Zotero_Sync {
 		$error = false;
 		$lockError = false;
 		try {
-			$xml = new SimpleXMLElement($row['xmldata']);
+			$xml = new SimpleXMLElement($row['xmldata'], LIBXML_COMPACT | LIBXML_PARSEHUGE);
 			$timestamp = self::processUploadInternal($row['userID'], $xml, $row['syncUploadQueueID'], $syncProcessID);
 		}
 		catch (Exception $e) {
@@ -593,7 +593,7 @@ class Zotero_Sync {
 		
 		try {
 			$doc = new DOMDocument();
-			$doc->loadXML($row['xmldata']);
+			$doc->loadXML($row['xmldata'], LIBXML_COMPACT | LIBXML_PARSEHUGE);
 			
 			// Get long tags
 			$value = Zotero_Tags::getLongDataValueFromXML($doc);
