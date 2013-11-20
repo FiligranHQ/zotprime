@@ -174,23 +174,6 @@ class Z_MemcachedClientLocal {
 			return false;
 		}
 		
-		if ($this->queuing) {
-			// If this is already set, skip, because that's what add() does
-			if (isset($this->queueKeyPos[$key])) {
-				return false;
-			}
-			
-			$this->queue[] = array(
-				'op' => 'add',
-				'key' => $key,
-				'exp' => $exptime
-			);
-			
-			$this->queueValues[$key] = $val;
-			
-			return true;
-		}
-		
 		$t = microtime(true);
 		$retVal = $this->client->add($this->prefix . $key, $val, null, $exptime);
 		$this->requestTime += microtime(true) - $t;
@@ -198,12 +181,12 @@ class Z_MemcachedClientLocal {
 	}
 	
 	
-	public function delete($key, $time = 0){
+	public function delete($key) {
 		if ($this->disabled){
 			return false;
 		}
 		$t = microtime(true);
-		$retVal = $this->client->delete($this->prefix . $key, $time);
+		$retVal = $this->client->delete($this->prefix . $key);
 		$this->requestTime += microtime(true) - $t;
 		return $retVal;
 	}
