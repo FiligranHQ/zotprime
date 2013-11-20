@@ -487,10 +487,11 @@ class Zotero_Sync {
 				|| strpos($msg, "Deadlock found when trying to get lock; try restarting transaction") !== false
 				|| strpos($msg, "Too many connections") !== false
 				|| strpos($msg, "Can't connect to MySQL server") !==false
+				|| strpos($msg, "Connection refused") !==false
+				|| strpos($msg, "Connection timed out") !==false
 				|| $code == Z_ERROR_LIBRARY_TIMESTAMP_ALREADY_USED
 				|| $code == Z_ERROR_SHARD_READ_ONLY
-				|| $code == Z_ERROR_SHARD_UNAVAILABLE
-		) {
+				|| $code == Z_ERROR_SHARD_UNAVAILABLE) {
 			Z_Core::logError($e);
 			$sql = "UPDATE syncUploadQueue SET started=NULL, tries=tries+1 WHERE syncUploadQueueID=?";
 			Zotero_DB::query($sql, $row['syncUploadQueueID']);
