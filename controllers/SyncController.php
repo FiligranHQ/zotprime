@@ -302,6 +302,13 @@ class SyncController extends Controller {
 				$cached = Zotero_Sync::getCachedDownload($this->userID, $lastsync, $this->apiVersion, $cacheKeyExtra);
 				if ($cached) {
 					$this->responseXML = simplexml_load_string($cached, "SimpleXMLElement", LIBXML_COMPACT | LIBXML_PARSEHUGE);
+					// TEMP
+					if (!$this->responseXML) {
+						error_log("Invalid cached XML data -- stripping control characters");
+						// Strip control characters in XML data
+						$cached = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $cached);
+						$this->responseXML = simplexml_load_string($cached, "SimpleXMLElement", LIBXML_COMPACT | LIBXML_PARSEHUGE);
+					}
 					
 					$duration = round((float) microtime(true) - $startedTimestamp, 2);
 					Zotero_Sync::logDownload(
