@@ -16,6 +16,10 @@
 		"_source" : {
 			"excludes" : ["libraryID"]
 		},
+		"_routing": {
+			"required": true,
+			"path": "libraryID"
+		},
 		"dynamic" : false
 	}
 }
