@@ -62,7 +62,7 @@ class Zotero_FullText {
 		
 		// Add to Elasticsearch
 		try {
-			$type = self::getType();
+			$type = self::getWriteType();
 			
 			$id = $libraryID . "/" . $key;
 			$doc = [
@@ -160,8 +160,7 @@ class Zotero_FullText {
 		// TEMP: For now, strip double-quotes and make everything a phrase search
 		$searchText = str_replace('"', '', $searchText);
 		
-		$index = self::getIndex();
-		$type = self::getType();
+		$type = self::getReadType();
 		
 		$libraryFilter = new \Elastica\Filter\Term();
 		$libraryFilter->setTerm("libraryID", $libraryID);
@@ -200,8 +199,7 @@ class Zotero_FullText {
 		
 		// Delete from Elasticsearch
 		try {
-			$index = self::getIndex();
-			$type = self::getType();
+			$type = self::getWriteType();
 			
 			try {
 				$response = $type->deleteById($libraryID . "/" . $key);
@@ -235,7 +233,7 @@ class Zotero_FullText {
 		
 		// Delete from Elasticsearch
 		try {
-			$type = self::getType();
+			$type = self::getWriteType();
 			
 			$libraryQuery = new \Elastica\Query\Term();
 			$libraryQuery->setTerm("libraryID", $libraryID);
@@ -299,12 +297,23 @@ class Zotero_FullText {
 		return $xmlNode;
 	}
 	
-	private static function getIndex() {
-		return Z_Core::$Elastica->getIndex(self::$elasticsearchType . "_index");
+	
+	private static function getReadIndex() {
+		return Z_Core::$Elastica->getIndex(self::$elasticsearchType . "_index_read");
 	}
 	
 	
-	private static function getType() {
-		return new \Elastica\Type(self::getIndex(), self::$elasticsearchType);
+	private static function getWriteIndex() {
+		return Z_Core::$Elastica->getIndex(self::$elasticsearchType . "_index_write");
+	}
+	
+	
+	private static function getReadType() {
+		return new \Elastica\Type(self::getReadIndex(), self::$elasticsearchType);
+	}
+	
+	
+	private static function getWriteType() {
+		return new \Elastica\Type(self::getWriteIndex(), self::$elasticsearchType);
 	}
 }

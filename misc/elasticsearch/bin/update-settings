@@ -1,11 +1,11 @@
 #!/bin/sh
 
 if [ -z "$1" ] || [ -z "$2" ]; then
-	echo "Usage: $0 host index_version"
+	echo "Usage: $0 host index_suffix"
 	exit
 fi
 HOST="$1"
-INDEX_VERSION="$2"
+INDEX_SUFFIX="$2"
 
 # Get path to script's parent directory
 DIR=$(cd ${0%/*} && echo $PWD/${0##*/})
@@ -13,5 +13,5 @@ DIR=`dirname $DIR`
 DIR=`dirname $DIR`
 ITEM_FULLTEXT_DIR=$DIR/item_fulltext
 
-curl -XPUT "http://$HOST:9200/item_fulltext_index_v$INDEX_VERSION/_settings" -d @$ITEM_FULLTEXT_DIR/settings.json
+curl -XPUT "http://$HOST:9200/item_fulltext_index_$INDEX_SUFFIX/_settings" -d @$ITEM_FULLTEXT_DIR/settings.json
 echo

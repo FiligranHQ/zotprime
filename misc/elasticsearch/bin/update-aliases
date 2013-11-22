@@ -1,0 +1,15 @@
+#!/bin/sh
+
+if [ -z "$1" ]; then
+	echo "Usage: $0 host"
+	exit
+fi
+HOST="$1"
+
+# Get path to script's parent directory
+DIR=$(cd ${0%/*} && echo $PWD/${0##*/})
+DIR=`dirname $DIR`
+DIR=`dirname $DIR`
+
+curl -XPOST "http://$HOST:9200/_aliases" -d @$DIR/aliases.json
+echo

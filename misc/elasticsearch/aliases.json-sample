@@ -2,8 +2,12 @@
 	"actions": [
 		{
 			"add": {
-				"alias": "item_fulltext_index",
-				"index": "item_fulltext_index_v1"
+				"alias": "item_fulltext_index_read",
+				"index": "item_fulltext_index_a"
+			},
+			"add": {
+				"alias": "item_fulltext_index_write",
+				"index": "item_fulltext_index_a"
 			}
 		}
 	]
