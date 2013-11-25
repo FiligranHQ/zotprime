@@ -177,15 +177,14 @@ class Zotero_Items extends Zotero_DataObjects {
 				. "LEFT JOIN items INoI ON (INo.sourceItemID=INoI.itemID) ";
 		}
 		
+		// Pull in titles
 		if (!empty($params['q']) || $titleSort) {
 			$titleFieldIDs = array_merge(
 				array(Zotero_ItemFields::getID('title')),
 				Zotero_ItemFields::getTypeFieldsFromBase('title')
 			);
-			if (!empty($params)) {
-				$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND IDT.fieldID IN "
-					. "(" . implode(',', $titleFieldIDs) . ")) ";
-			}
+			$sql .= "LEFT JOIN itemData IDT ON (IDT.itemID=I.itemID AND IDT.fieldID IN "
+				. "(" . implode(',', $titleFieldIDs) . ")) ";
 		}
 		
 		// If /top mode, we need the title of the parent item to sort by
@@ -202,8 +201,17 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		if (!empty($params['q'])) {
+			// Pull in creators
 			$sql .= "LEFT JOIN itemCreators IC ON (IC.itemID=I.itemID) "
 				. "LEFT JOIN creators C ON (C.creatorID=IC.creatorID) ";
+			
+			// Pull in dates
+			$dateFieldIDs = array_merge(
+				array(Zotero_ItemFields::getID('date')),
+				Zotero_ItemFields::getTypeFieldsFromBase('date')
+			);
+			$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN "
+					. "(" . implode(',', $dateFieldIDs) . ")) ";
 		}
 		if (!$includeTrashed) {
 			$sql .= "LEFT JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
@@ -306,7 +314,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
-		// Search on title and creators
+		// Search on title, creators, and dates
 		if (!empty($params['q'])) {
 			$sql .= "AND (";
 			
@@ -316,8 +324,11 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "OR INo.title LIKE ? ";
 			$sqlParams[] = '%' . $params['q'] . '%';
 			
-			$sql .= "OR TRIM(CONCAT(firstName, ' ', lastName)) LIKE ?";
+			$sql .= "OR TRIM(CONCAT(firstName, ' ', lastName)) LIKE ? ";
 			$sqlParams[] = '%' . $params['q'] . '%';
+			
+			$sql .= "OR SUBSTR(IDD.value, 1, 4) = ?";
+			$sqlParams[] = $params['q'];
 			
 			// Full-text search
 			if ($params['qmode'] == 'everything') {
