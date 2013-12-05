@@ -223,9 +223,51 @@ class TagTests extends APITests {
 	}
 	
 	
-	public function testMultiTagDelete() {
+	public function testTagNewer() {
 		API::userClear(self::$config['userID']);
 		
+		// Create items with tags
+		API::createItem("book", array(
+			"tags" => array(
+				array("tag" => "a"),
+				array("tag" => "b")
+			)
+		), $this);
+		
+		$version = API::getLibraryVersion();
+		
+		// 'newer' shouldn't return any results
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey'] . "&content=json&newer=$version"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(0, $response);
+		
+		// Create another item with tags
+		API::createItem("book", array(
+			"tags" => array(
+				array("tag" => "a"),
+				array("tag" => "c")
+			)
+		), $this);
+		
+		// 'newer' should return new tag
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags?key=" . self::$config['apiKey'] . "&content=json&newer=$version"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$this->assertGreaterThan($version, $response->getHeader('Last-Modified-Version'));
+		$content = API::getContentFromResponse($response);
+		$json = json_decode($content, true);
+		$this->assertEquals("c", $json['tag']);
+		$this->assertEquals(0, $json['type']);
+	}
+	
+	
+	public function testMultiTagDelete() {
 		$tags1 = array("a", "aa", "b");
 		$tags2 = array("b", "c", "cc");
 		$tags3 = array("Foo");
