@@ -83,6 +83,11 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$sqlParams = array_merge($sqlParams, $collectionKeys);
 		}
 		
+		if (!empty($params['q'])) {
+			$sql .= "AND collectionName LIKE ? ";
+			$sqlParams[] = '%' . $params['q'] . '%';
+		}
+		
 		if (!empty($params['newer'])) {
 			$sql .= "AND version > ? ";
 			$sqlParams[] = $params['newer'];

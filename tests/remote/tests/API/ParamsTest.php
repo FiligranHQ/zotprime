@@ -200,6 +200,36 @@ class ParamsTests extends APITests {
 	}
 	
 	
+	public function testCollectionQuickSearch() {
+		$title1 = "Test Title";
+		$title2 = "Another Title";
+		
+		$keys = [];
+		$keys[] = API::createCollection($title1, [], $this, 'key');
+		$keys[] = API::createCollection($title2, [], $this, 'key');
+		
+		// Search by title
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'] . "&content=json&q=another"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$key = (string) array_shift($xpath);
+		$this->assertEquals($keys[1], $key);
+		
+		// No results
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections?key=" . self::$config['apiKey'] . "&content=json&q=nothing"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(0, $response);
+	}
+	
+	
 	public function testItemQuickSearch() {
 		$title1 = "Test Title";
 		$title2 = "Another Title";
