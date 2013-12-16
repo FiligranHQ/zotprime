@@ -229,13 +229,15 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'date':
-					$dateFieldIDs = array_merge(
-						array(Zotero_ItemFields::getID('date')),
-						Zotero_ItemFields::getTypeFieldsFromBase('date')
-					);
-					
-					$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
-						. implode(',', $dateFieldIDs) . ")) ";
+					// If we didn't already pull in dates for a quick search, pull in here
+					if (empty($params['q'])) {
+						$dateFieldIDs = array_merge(
+							array(Zotero_ItemFields::getID('date')),
+							Zotero_ItemFields::getTypeFieldsFromBase('date')
+						);
+						$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
+							. implode(',', $dateFieldIDs) . ")) ";
+					}
 					break;
 				
 				case 'itemType':

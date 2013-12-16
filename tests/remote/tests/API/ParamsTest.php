@@ -278,4 +278,60 @@ class ParamsTests extends APITests {
 		$this->assert200($response);
 		$this->assertNumResults(0, $response);
 	}
+	
+	
+	public function testItemQuickSearchOrderByDate() {
+		$title1 = "Test Title";
+		$title2 = "Another Title";
+		
+		$keys = [];
+		$keys[] = API::createItem("book", [
+			'title' => $title1,
+			'date' => "February 12, 2013"
+		], $this, 'key');
+		$keys[] = API::createItem("journalArticle", [
+			'title' => $title2,
+			'date' => "November 25, 2012"
+		], $this, 'key');
+		
+		// Search for one by title
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&content=json&q=" . urlencode($title1)
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$key = (string) array_shift($xpath);
+		$this->assertEquals($keys[0], $key);
+		
+		// Search by both by title, date asc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&content=json&q=title&order=date&sort=asc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(2, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$key = (string) array_shift($xpath);
+		$this->assertEquals($keys[1], $key);
+		$key = (string) array_shift($xpath);
+		$this->assertEquals($keys[0], $key);
+		
+		// Search by both by title, date desc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'] . "&content=json&q=title&order=date&sort=desc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(2, $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:key');
+		$key = (string) array_shift($xpath);
+		$this->assertEquals($keys[0], $key);
+		$key = (string) array_shift($xpath);
+		$this->assertEquals($keys[1], $key);
+	}
 }
