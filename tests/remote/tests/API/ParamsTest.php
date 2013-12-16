@@ -43,6 +43,11 @@ class ParamsTests extends APITests {
 	}
 	
 	
+	public function setUp() {
+		API::userClear(self::$config['userID']);
+	}
+	
+	
 	public function testFormatKeys() {
 		//
 		// Collections
