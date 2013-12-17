@@ -245,7 +245,12 @@ class Zotero_Date {
 	 * e.g. '2006-11-03 November 3rd, 2006'
 	 */
 	public static function isMultipart($str) {
-		return !!preg_match(self::$multipartRE, $str);
+		$isMultipart = !!preg_match(self::$multipartRE, $str);
+		// Make sure the year actually appears after YYYY-MM-DD and this isn't just an SQL date
+		if ($isMultipart) {
+			 $isMultipart = strpos(substr($str, 11), substr($str, 0, 4)) !== false;
+		}
+		return $isMultipart;
 	}
 	
 	
