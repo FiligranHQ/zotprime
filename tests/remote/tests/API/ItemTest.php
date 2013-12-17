@@ -848,12 +848,16 @@ class ItemTests extends APITests {
 		$noteText = "This is a sample note.";
 		$parentTitleSearch = "title";
 		$childTitleSearch = "test";
+		$dates = ["2013", "January 3, 2010", ""];
+		$orderedDates = [$dates[2], $dates[1], $dates[0]];
+		$itemTypes = ["journalArticle", "newspaperArticle", "book"];
 		
 		$parentKeys = [];
 		$childKeys = [];
 		
-		$parentKeys[] = API::createItem("book", [
+		$parentKeys[] = API::createItem($itemTypes[0], [
 			'title' => $parentTitle1,
+			'date' => $dates[0],
 			'collections' => [
 				$collectionKey
 			]
@@ -862,13 +866,14 @@ class ItemTests extends APITests {
 			'title' => $childTitle1
 		], $parentKeys[0], $this, 'key');
 		
-		$parentKeys[] = API::createItem("book", [
-			'title' => $parentTitle2
+		$parentKeys[] = API::createItem($itemTypes[1], [
+			'title' => $parentTitle2,
+			'date' => $dates[1]
 		], $this, 'key');
 		$childKeys[] = API::createNoteItem($noteText, $parentKeys[1], $this, 'key');
 		
 		// Create item with deleted child that matches child title search
-		$parentKeys[] = API::createItem("book", [
+		$parentKeys[] = API::createItem($itemTypes[2], [
 			'title' => $parentTitle3
 		], $this, 'key');
 		API::createAttachmentItem("linked_url", [
@@ -877,7 +882,7 @@ class ItemTests extends APITests {
 		], $parentKeys[sizeOf($parentKeys) - 1], $this, 'key');
 		
 		// Add deleted item with non-deleted child
-		$deletedKey = API::createItem("journalArticle", [
+		$deletedKey = API::createItem("book", [
 			'title' => "This is a deleted item",
 			'deleted' => true
 		], $this, 'key');
@@ -1059,6 +1064,75 @@ class ItemTests extends APITests {
 			return (string) $val;
 		}, $xpath);
 		$this->assertEquals($orderedTitles, $orderedResults);
+		
+		// /top, Atom, with q for all items, ordered by date asc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
+				. "&order=date&sort=asc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/atom:content');
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		$orderedResults = array_map(function ($val) {
+			return json_decode($val)->date;
+		}, $xpath);
+		$this->assertEquals($orderedDates, $orderedResults);
+		
+		// /top, Atom, with q for all items, ordered by date desc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
+				. "&order=date&sort=desc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/atom:content');
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		$orderedDatesReverse = array_reverse($orderedDates);
+		$orderedResults = array_map(function ($val) {
+			return json_decode($val)->date;
+		}, $xpath);
+		$this->assertEquals($orderedDatesReverse, $orderedResults);
+		
+		// /top, Atom, with q for all items, ordered by item type asc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
+				. "&order=itemType"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:itemType');
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		$orderedItemTypes = $itemTypes;
+		sort($orderedItemTypes);
+		$orderedResults = array_map(function ($val) {
+			return (string) $val;
+		}, $xpath);
+		$this->assertEquals($orderedItemTypes, $orderedResults);
+		
+		// /top, Atom, with q for all items, ordered by item type desc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?key=" . self::$config['apiKey'] . "&content=json&q=$parentTitleSearch"
+				. "&order=itemType&sort=desc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($parentKeys), $response);
+		$xml = API::getXMLFromResponse($response);
+		$xpath = $xml->xpath('//atom:entry/zapi:itemType');
+		$this->assertCount(sizeOf($parentKeys), $xpath);
+		$orderedItemTypes = $itemTypes;
+		rsort($orderedItemTypes);
+		$orderedResults = array_map(function ($val) {
+			return (string) $val;
+		}, $xpath);
+		$this->assertEquals($orderedItemTypes, $orderedResults);
 	}
 	
 	

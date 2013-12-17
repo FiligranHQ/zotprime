@@ -128,17 +128,20 @@ class Zotero_Items extends Zotero_DataObjects {
 		$itemKeys = !empty($params['itemKey']) ? explode(',', $params['itemKey']) : array();
 		
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
+		$itemTypeSort = !empty($params['order']) && $params['order'] == 'itemType';
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
 		
-		// In /top mode, display the parent item of matching items
+		// In /top mode, use the parent item's values for most joins
 		if ($onlyTopLevel) {
 			$itemIDSelector = "COALESCE(IA.sourceItemID, INo.sourceItemID, I.itemID)";
 			$itemKeySelector = "COALESCE(IAI.key, INoI.key, I.key)";
+			$itemTypeIDSelector = "COALESCE(IAI.itemTypeID, INoI.itemTypeID, I.itemTypeID)";
 		}
 		else {
 			$itemIDSelector = "I.itemID";
 			$itemKeySelector = "I.key";
+			$itemTypeIDSelector = "I.itemTypeID";
 		}
 		
 		if ($params['format'] == 'keys' || $params['format'] == 'versions') {
@@ -171,8 +174,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "LEFT JOIN itemNotes INo ON (INo.itemID=I.itemID) ";
 		}
 		
-		// For keys and versions in /top mode, we need the items row for the parent
-		if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions')) {
+		// For some /top requests, pull in the parent item's items row
+		if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions' || $itemTypeSort)) {
 			$sql .= "LEFT JOIN items IAI ON (IA.sourceItemID=IAI.itemID) "
 				. "LEFT JOIN items INoI ON (INo.sourceItemID=INoI.itemID) ";
 		}
@@ -187,7 +190,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				. "(" . implode(',', $titleFieldIDs) . ")) ";
 		}
 		
-		// If /top mode, we need the title of the parent item to sort by
+		// When sorting by title in /top mode, we need the title of the parent item
 		if ($onlyTopLevel && $titleSort) {
 			$titleSortDataTable = "IDTSort";
 			$titleSortNoteTable = "INoSort";
@@ -229,14 +232,28 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'date':
-					// If we didn't already pull in dates for a quick search, pull in here
-					if (empty($params['q'])) {
+					// When sorting by date in /top mode, we need the date of the parent item
+					if ($onlyTopLevel) {
+						$sortTable = "IDDSort";
+						// Pull in dates
 						$dateFieldIDs = array_merge(
 							array(Zotero_ItemFields::getID('date')),
 							Zotero_ItemFields::getTypeFieldsFromBase('date')
 						);
-						$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
-							. implode(',', $dateFieldIDs) . ")) ";
+						$sql .= "LEFT JOIN itemData IDDSort ON (IDDSort.itemID=$itemIDSelector AND "
+							. "IDDSort.fieldID IN (" . implode(',', $dateFieldIDs) . ")) ";
+					}
+					// If we didn't already pull in dates for a quick search, pull in here
+					else {
+						$sortTable = "IDD";
+						if (empty($params['q'])) {
+							$dateFieldIDs = array_merge(
+								array(Zotero_ItemFields::getID('date')),
+								Zotero_ItemFields::getTypeFieldsFromBase('date')
+							);
+							$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN ("
+								. implode(',', $dateFieldIDs) . ")) ";
+						}
 					}
 					break;
 				
@@ -263,7 +280,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					// Join temp table to query
-					$sql .= "JOIN tmpItemTypeNames TITN ON (TITN.itemTypeID=I.itemTypeID) ";
+					$sql .= "JOIN tmpItemTypeNames TITN ON (TITN.itemTypeID=$itemTypeIDSelector) ";
 					break;
 				
 				case 'addedBy':
@@ -493,7 +510,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				// TODO: generic base field mapping-aware sorting
 				case 'date':
-					$orderSQL = "IDD.value";
+					$orderSQL = "$sortTable.value";
 					break;
 				
 				case 'addedBy':
