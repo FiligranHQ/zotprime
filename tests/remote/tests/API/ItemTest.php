@@ -444,6 +444,38 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testEditTitleWithCollectionInMultipleMode() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		
+		$xml = API::createItem("book", [
+			"title" => "A",
+			"collections" => [
+				$collectionKey
+			]
+		], $this, 'atom');
+		
+		$data = API::parseDataFromAtomEntry($xml);
+		$data = json_decode($data['content'], true);
+		$version = $data['itemVersion'];
+		$data['title'] = "B";
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode([
+				"items" => [$data]
+			])
+		);
+		$this->assert200ForObject($response);
+		
+		$xml = API::getItemXML($data['itemKey']);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertEquals("B", $json['title']);
+		$this->assertGreaterThan($version, $json['itemVersion']);
+	}
+	
+	
 	public function testNewTopLevelImportedFileAttachment() {
 		$response = API::get("items/new?itemType=attachment&linkMode=imported_file");
 		$json = json_decode($response->getBody());

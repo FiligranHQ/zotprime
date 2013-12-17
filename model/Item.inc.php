@@ -58,6 +58,7 @@ class Zotero_Item {
 	private $numNotes;
 	private $numAttachments;
 	
+	private $collections = [];
 	private $relatedItems = array();
 	
 	// Populated by init()
@@ -87,6 +88,7 @@ class Zotero_Item {
 			'primaryData',
 			'itemData',
 			'creators',
+			'collections',
 			'relatedItems'
 		);
 		foreach ($props as $prop) {
@@ -99,7 +101,6 @@ class Zotero_Item {
 			'primaryData',
 			'itemData',
 			'creators',
-			'relatedItems',
 			'attachmentData'
 		);
 		foreach ($props as $prop) {
@@ -110,6 +111,8 @@ class Zotero_Item {
 			'deleted',
 			'note',
 			'source',
+			'collections',
+			'relatedItems',
 			'version' // for updating version/serverDateModified without changing data
 		);
 		foreach ($props as $prop) {
@@ -1369,6 +1372,18 @@ class Zotero_Item {
 					}
 				}
 				
+				// Collections
+				if (!empty($this->changed['collections'])) {
+					foreach ($this->collections as $collectionKey) {
+						$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $collectionKey);
+						if (!$collection) {
+							throw new Exception("Collection with key '$collectionKey' not found", Z_ERROR_COLLECTION_NOT_FOUND);
+						}
+						$collection->addItem($itemID);
+						$collection->save();
+					}
+				}
+				
  				
 				// Related items
 				if (!empty($this->changed['relatedItems'])) {
@@ -1826,6 +1841,30 @@ class Zotero_Item {
 							*/
 							//Zotero.Notifier.trigger('modify', 'item', sourceItemID, newItemNotifierData);
 						}
+					}
+				}
+				
+				// Collections
+				if (!empty($this->changed['collections'])) {
+					$oldCollections = $this->previousData['collections'];
+					$newCollections = $this->collections;
+					
+					$toAdd = array_diff($newCollections, $oldCollections);
+					$toRemove = array_diff($oldCollections, $newCollections);
+					
+					foreach ($toAdd as $collectionKey) {
+						$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $collectionKey);
+						if (!$collection) {
+							throw new Exception("Collection with key '$collectionKey' not found", Z_ERROR_COLLECTION_NOT_FOUND);
+						}
+						$collection->addItem($this->id);
+						$collection->save();
+					}
+					
+					foreach ($toRemove as $collectionKey) {
+						$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $collectionKey);
+						$collection->removeItem($this->id);
+						$collection->save();
 					}
 				}
 				
@@ -3010,50 +3049,25 @@ class Zotero_Item {
 	
 	
 	/**
-	 * Updates the collections an item is in. No separate save of the item
-	 * is required.
+	 * Updates the collections an item is in
 	 *
-	 * @param array $newCollections Array of collection keys to add
-	 * @param int $userID User making the change
+	 * @param array $newCollections Array of new collection keys to set
 	 */
-	public function setCollections($newCollections, $userID) {
-		if (!$this->id) {
-			throw new Exception('itemID not set');
+	public function setCollections($collectionKeys=[]) {
+		if (!$this->loaded['collections']) {
+			$this->loadCollections();
 		}
 		
-		$numCollections = $this->numCollections();
-		
-		if (!$newCollections && !$numCollections) {
-			return false;
+		if ((!$this->collections && !$collectionKeys) ||
+				(!Zotero_Utilities::arrayDiffFast($this->collections, $collectionKeys) &&
+				!Zotero_Utilities::arrayDiffFast($collectionKeys, $this->collections))) {
+			Z_Core::debug("Collections have not changed for item $this->id");
+			return;
 		}
 		
-		Zotero_DB::beginTransaction();
-		
-		$oldCollections = $this->getCollections(true);
-		
-		$toAdd = array_diff($newCollections, $oldCollections);
-		$toRemove = array_diff($oldCollections, $newCollections);
-		
-		foreach ($toAdd as $key) {
-			$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $key);
-			if (!$collection) {
-				throw new Exception("Collection with key '$key' not found", Z_ERROR_COLLECTION_NOT_FOUND);
-			}
-			$collection->addItem($this->id);
-			$collection->save();
-		}
-		
-		foreach ($toRemove as $key) {
-			$collection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $key);
-			$collection->removeItem($this->id);
-			$collection->save();
-		}
-		
-		$this->updateVersion($userID);
-		
-		Zotero_DB::commit();
-		
-		return $toAdd || $toRemove;
+		$this->storePreviousData('collections');
+		$this->collections = array_unique($collectionKeys);
+		$this->changed['collections'] = true;
 	}
 	
 	
@@ -3686,6 +3700,30 @@ class Zotero_Item {
 				'ref' => $creatorObj
 			);
 		}
+	}
+	
+	
+	private function loadCollections() {
+		if (!$this->id) {
+			return;
+		}
+		
+		Z_Core::debug("Loading collections for item $this->id");
+		
+		if ($this->loaded['collections']) {
+			throw new Exception("Collections already loaded for item $this->id");
+		}
+		
+		$sql = "SELECT C.key FROM collectionItems "
+			. "JOIN collections C USING (collectionID) "
+			. "WHERE itemID=?";
+		$this->collections = Zotero_DB::columnQuery(
+			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID)
+		);
+		if (!$this->collections) {
+			$this->collections = [];
+		}
+		$this->loaded['collections'] = true;
 	}
 	
 	

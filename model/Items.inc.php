@@ -1758,21 +1758,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'collections':
-					// If item isn't yet saved, add collections below
-					if (!$item->id) {
-						$twoStage = true;
-						break;
-					}
-					
-					try {
-						 $changed = $item->setCollections($val, $userID) || $changed;
-					}
-					catch (Exception $e) {
-						if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
-							throw new Exception($e->getMessage(), Z_ERROR_INVALID_INPUT);
-						}
-						throw $e;
-					}
+					$item->setCollections($val);
 					break;
 				
 				case 'relations':
@@ -1884,18 +1870,6 @@ class Zotero_Items extends Zotero_DataObjects {
 					
 					case 'tags':
 						$changed = $item->setTags($val, $userID) || $changed;
-						break;
-					
-					case 'collections':
-						try {
-							$changed = $item->setCollections($val, $userID) || $changed;
-						}
-						catch (Exception $e) {
-							if ($e->getCode() == Z_ERROR_COLLECTION_NOT_FOUND) {
-								throw new Exception($e->getMessage(), Z_ERROR_INVALID_INPUT);
-							}
-							throw $e;
-						}
 						break;
 					
 					case 'relations':

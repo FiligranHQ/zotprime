@@ -238,5 +238,24 @@ class Zotero_Utilities {
 		}
 		return strtolower($matches[0]);
 	}
+	
+	
+	/**
+	 * Much faster implementation of array_diff, but limited to
+	 * comparing two arrays of integers or strings
+	 *
+	 * From http://php.net/array_diff#107928
+	 *
+	 * @return {Array}  Values from array1 that aren't in array2
+	 */
+	public static function arrayDiffFast($arrayFrom, $arrayAgainst) {
+		$arrayAgainst = array_flip($arrayAgainst);
+		foreach ($arrayFrom as $key => $value) {
+			if (isset($arrayAgainst[$value])) {
+				unset($arrayFrom[$key]);
+			}
+		}
+		return $arrayFrom;
+	}
 }
 ?>
