@@ -1549,6 +1549,8 @@ class Zotero_Items extends Zotero_DataObjects {
 					error_log("Cached Atom item entry does not match");
 					error_log("  Cached: " . $xmlstr);
 					error_log("Uncached: " . $uncached);
+					
+					Z_Core::$MC->set($cacheKey, $uncached, 3600); // 1 hour for now
 				}
 			}
 		}
