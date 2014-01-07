@@ -1768,12 +1768,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'tags':
-					// If item isn't yet saved, add tags below
-					if (!$item->id) {
-						$twoStage = true;
-						break;
-					}
-					$changed = $item->setTags($val, $userID) || $changed;
+					$item->setTags($val);
 					break;
 				
 				case 'collections':
@@ -1885,10 +1880,6 @@ class Zotero_Items extends Zotero_DataObjects {
 							$childItem->setNote($note->note);
 							$childItem->save();
 						}
-						break;
-					
-					case 'tags':
-						$changed = $item->setTags($val, $userID) || $changed;
 						break;
 					
 					case 'relations':

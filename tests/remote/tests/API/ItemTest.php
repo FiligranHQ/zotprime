@@ -476,6 +476,49 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testEditTitleWithTagInMultipleMode() {
+		$tag1 = [
+			"tag" => "foo",
+			"type" => 1
+		];
+		$tag2 = [
+			"tag" => "bar"
+		];
+		
+		$xml = API::createItem("book", [
+			"title" => "A",
+			"tags" => [$tag1]
+		], $this, 'atom');
+		
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertCount(1, $json['tags']);
+		$this->assertEquals($tag1, $json['tags'][0]);
+		
+		$version = $json['itemVersion'];
+		$json['title'] = "B";
+		$json['tags'][] = $tag2;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode([
+				"items" => [$json]
+			])
+		);
+		$this->assert200ForObject($response);
+		
+		$xml = API::getItemXML($json['itemKey']);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertEquals("B", $json['title']);
+		$this->assertGreaterThan($version, $json['itemVersion']);
+		$this->assertCount(2, $json['tags']);
+		$this->assertContains($tag1, $json['tags']);
+		$this->assertContains($tag2, $json['tags']);
+	}
+	
+	
 	public function testNewTopLevelImportedFileAttachment() {
 		$response = API::get("items/new?itemType=attachment&linkMode=imported_file");
 		$json = json_decode($response->getBody());

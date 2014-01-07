@@ -59,6 +59,7 @@ class Zotero_Item {
 	private $numAttachments;
 	
 	private $collections = [];
+	private $tags = [];
 	private $relatedItems = array();
 	
 	// Populated by init()
@@ -89,7 +90,8 @@ class Zotero_Item {
 			'itemData',
 			'creators',
 			'collections',
-			'relatedItems'
+			'relatedItems',
+			'tags'
 		);
 		foreach ($props as $prop) {
 			$this->loaded[$prop] = false;
@@ -1066,7 +1068,12 @@ class Zotero_Item {
 				// Primary fields
 				//
 				$itemID = $this->id ? $this->id : Zotero_ID::get('items');
-				$key = $this->key ? $this->key : Zotero_ID::getKey();
+				if ($this->key) {
+					$key = $this->key;
+				}
+				else {
+					$key = $this->key = Zotero_ID::getKey();
+				}
 				
 				$sqlColumns = array(
 					'itemID',
@@ -1384,6 +1391,23 @@ class Zotero_Item {
 					}
 				}
 				
+				// Tags
+				if (!empty($this->changed['tags'])) {
+					foreach ($this->tags as $tag) {
+						$tagID = Zotero_Tags::getID($this->libraryID, $tag->tag, $tag->type);
+						if ($tagID) {
+							$tagObj = Zotero_Tags::get($this->libraryID, $tagID);
+						}
+						else {
+							$tagObj = new Zotero_Tag;
+							$tagObj->libraryID = $this->libraryID;
+							$tagObj->name = $tag->tag;
+							$tagObj->type = (int) $tag->type ? $tag->type : 0;
+						}
+						$tagObj->addItem($this->key);
+						$tagObj->save();
+					}
+				}
  				
 				// Related items
 				if (!empty($this->changed['relatedItems'])) {
@@ -1868,6 +1892,70 @@ class Zotero_Item {
 					}
 				}
 				
+				if (!empty($this->changed['tags'])) {
+					$oldTags = $this->previousData['tags'];
+					$newTags = $this->tags;
+					
+					$toAdd = [];
+					$toRemove = [];
+					
+					// Get new tags not in existing
+					for ($i=0, $len=sizeOf($newTags); $i<$len; $i++) {
+						if (!isset($newTags[$i]->type)) {
+							$newTags[$i]->type = 0;
+						}
+						
+						$name = trim($newTags[$i]->tag);
+						$type = $newTags[$i]->type;
+						
+						foreach ($oldTags as $tag) {
+							// Do a case-insensitive comparison, to match the client
+							if (strtolower($tag->name) == strtolower($name) && $tag->type == $type) {
+								continue 2;
+							}
+						}
+						
+						$toAdd[] = $newTags[$i];
+					}
+					
+					// Get existing tags not in new
+					for ($i=0, $len=sizeOf($oldTags); $i<$len; $i++) {
+						$name = $oldTags[$i]->name;
+						$type = $oldTags[$i]->type;
+						
+						foreach ($newTags as $tag) {
+							if (strtolower($tag->tag) == strtolower($name) && $tag->type == $type) {
+								continue 2;
+							}
+						}
+						
+						$toRemove[] = $oldTags[$i];
+					}
+					
+					foreach ($toAdd as $tag) {
+						$name = $tag->tag;
+						$type = $tag->type;
+						
+						$tagID = Zotero_Tags::getID($this->libraryID, $name, $type, true);
+						if (!$tagID) {
+							$tag = new Zotero_Tag;
+							$tag->libraryID = $this->libraryID;
+							$tag->name = $name;
+							$tag->type = $type;
+							$tagID = $tag->save();
+						}
+						
+						$tag = Zotero_Tags::get($this->libraryID, $tagID);
+						$tag->addItem($this->key);
+						$tag->save();
+					}
+					
+					foreach ($toRemove as $tag) {
+						$tag->removeItem($this->key);
+						$tag->save();
+					}
+				}
+				
 				// Related items
 				if (!empty($this->changed['relatedItems'])) {
 					$removed = array();
@@ -1958,9 +2046,6 @@ class Zotero_Item {
 		
 		if (!$this->id) {
 			$this->id = $itemID;
-		}
-		if (!$this->key) {
-			$this->key = $key;
 		}
 		
 		$this->cacheEnabled = false;
@@ -2913,87 +2998,28 @@ class Zotero_Item {
 	
 	
 	/**
-	 * $tags is an array of objects with properties 'tag' and 'type'
+	 * Updates the tags associated with an item
+	 *
+	 * @param array $newTags Array of objects with properties 'tag' and 'type'
 	 */
-	public function setTags($newTags, $userID) {
-		if (!$this->id) {
-			throw new Exception('itemID not set');
+	public function setTags($newTags) {
+		if (!$this->loaded['tags']) {
+			$this->loadTags();
 		}
 		
-		$numTags = $this->numTags();
-		
-		if (!$newTags && !$numTags) {
+		if (!$newTags && !$this->tags) {
 			return false;
 		}
 		
-		Zotero_DB::beginTransaction();
-		
-		$existingTags = $this->getTags();
-		
-		$toAdd = array();
-		$toRemove = array();
-		
-		// Get new tags not in existing
-		for ($i=0, $len=sizeOf($newTags); $i<$len; $i++) {
-			if (!isset($newTags[$i]->type)) {
-				$newTags[$i]->type = 0;
-			}
-			
-			$name = trim($newTags[$i]->tag); // 'tag', not 'name', since that's what JSON uses
-			$type = $newTags[$i]->type;
-			
-			foreach ($existingTags as $tag) {
-				// Do a case-insensitive comparison, to match the client
-				if (strtolower($tag->name) == strtolower($name) && $tag->type == $type) {
-					continue 2;
-				}
-			}
-			
-			$toAdd[] = $newTags[$i];
+		$this->storePreviousData('tags');
+		$this->tags = [];
+		foreach ($newTags as $newTag) {
+			$obj = new stdClass;
+			$obj->tag = $newTag->tag;
+			$obj->type = (int) isset($newTag->type) ? $newTag->type : 0;
+			$this->tags[] = $obj;
 		}
-		
-		// Get existing tags not in new
-		for ($i=0, $len=sizeOf($existingTags); $i<$len; $i++) {
-			$name = $existingTags[$i]->name;
-			$type = $existingTags[$i]->type;
-			
-			foreach ($newTags as $tag) {
-				if (strtolower($tag->tag) == strtolower($name) && $tag->type == $type) {
-					continue 2;
-				}
-			}
-			
-			$toRemove[] = $existingTags[$i];
-		}
-		
-		foreach ($toAdd as $tag) {
-			$name = $tag->tag;
-			$type = $tag->type;
-			
-			$tagID = Zotero_Tags::getID($this->libraryID, $name, $type, true);
-			if (!$tagID) {
-				$tag = new Zotero_Tag;
-				$tag->libraryID = $this->libraryID;
-				$tag->name = $name;
-				$tag->type = $type;
-				$tagID = $tag->save();
-			}
-			
-			$tag = Zotero_Tags::get($this->libraryID, $tagID);
-			$tag->addItem($this->key);
-			$tag->save();
-		}
-		
-		foreach ($toRemove as $tag) {
-			$tag->removeItem($this->key);
-			$tag->save();
-		}
-		
-		$this->updateVersion($userID);
-		
-		Zotero_DB::commit();
-		
-		return $toAdd || $toRemove;
+		$this->changed['tags'] = true;
 	}
 	
 	
@@ -3724,6 +3750,31 @@ class Zotero_Item {
 			$this->collections = [];
 		}
 		$this->loaded['collections'] = true;
+	}
+	
+	
+	private function loadTags() {
+		if (!$this->id) {
+			return;
+		}
+		
+		Z_Core::debug("Loading tags for item $this->id");
+		
+		if ($this->loaded['tags']) {
+			throw new Exception("Tags already loaded for item $this->id");
+		}
+		
+		$sql = "SELECT tagID FROM itemTags JOIN tags USING (tagID) WHERE itemID=?";
+		$tagIDs = Zotero_DB::columnQuery(
+			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID)
+		);
+		$this->tags = [];
+		if ($tagIDs) {
+			foreach ($tagIDs as $tagID) {
+				$this->tags[] = Zotero_Tags::get($this->libraryID, $tagID, true);
+			}
+		}
+		$this->loaded['tags'] = true;
 	}
 	
 	
