@@ -310,7 +310,7 @@ class Zotero_Tag {
 					}
 				}
 				else {
-					if ($this->previousData['linkedItems']) {
+					if (!empty($this->previousData['linkedItems'])) {
 						$removeKeys = array_diff(
 							$this->previousData['linkedItems'], $currentKeys
 						);
