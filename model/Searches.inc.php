@@ -62,8 +62,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 		$searchIDs = !empty($params['searchIDs'])
 			? $params['searchIDs'] : array();
 		// Or keys, for the searchKey parameter
-		$searchKeys = !empty($params['searchKey'])
-			? explode(',', $params['searchKey']): array();
+		$searchKeys = $params['searchKey'];
 		
 		if (!empty($params['newer'])) {
 			$sql .= "AND version > ? ";

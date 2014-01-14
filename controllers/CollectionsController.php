@@ -190,8 +190,7 @@ class CollectionsController extends ApiController {
 					// Delete collections
 					else if ($this->method == 'DELETE') {
 						Zotero_DB::beginTransaction();
-						$collectionKeys = explode(',', $this->queryParams['collectionKey']);
-						foreach ($collectionKeys as $collectionKey) {
+						foreach ($this->queryParams['collectionKey'] as $collectionKey) {
 							Zotero_Collections::delete($this->objectLibraryID, $collectionKey);
 						}
 						Zotero_DB::commit();

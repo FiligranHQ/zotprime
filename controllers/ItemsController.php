@@ -568,8 +568,7 @@ class ItemsController extends ApiController {
 					// Delete items
 					else if ($this->method == 'DELETE') {
 						Zotero_DB::beginTransaction();
-						$itemKeys = explode(',', $this->queryParams['itemKey']);
-						foreach ($itemKeys as $itemKey) {
+						foreach ($this->queryParams['itemKey'] as $itemKey) {
 							Zotero_Items::delete($this->objectLibraryID, $itemKey);
 						}
 						Zotero_DB::commit();
@@ -600,7 +599,7 @@ class ItemsController extends ApiController {
 					$this->queryParams['itemIDs'] = $itemIDs;
 				}
 				if ($itemKeys) {
-					$this->queryParams['itemKey'] = implode(',', $itemKeys);
+					$this->queryParams['itemKey'] = $itemKeys;
 				}
 				$results = Zotero_Items::search(
 					$this->objectLibraryID,

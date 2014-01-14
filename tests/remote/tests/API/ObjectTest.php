@@ -28,16 +28,20 @@ require_once 'APITests.inc.php';
 require_once 'include/api.inc.php';
 
 class ObjectTests extends APITests {
-	public static function setUpBeforeClass() {
-		parent::setUpBeforeClass();
+	public function setUp() {
 		API::userClear(self::$config['userID']);
 	}
 	
-	public static function tearDownAfterClass() {
-		parent::tearDownAfterClass();
+	public function tearDown() {
 		API::userClear(self::$config['userID']);
 	}
 	
+	
+	public function testMultiObjectGet() {
+		$this->_testMultiObjectGet('collection');
+		$this->_testMultiObjectGet('item');
+		$this->_testMultiObjectGet('search');
+	}
 	
 	public function testSingleObjectDelete() {
 		$this->_testSingleObjectDelete('collection');
@@ -173,6 +177,50 @@ class ObjectTests extends APITests {
 	}
 	
 	
+	private function _testMultiObjectGet($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		$keyProp = $objectType . "Key";
+		
+		$keys = [];
+		switch ($objectType) {
+		case 'collection':
+			$keys[] = API::createCollection("Name", false, $this, 'key');
+			$keys[] = API::createCollection("Name", false, $this, 'key');
+			API::createCollection("Name", false, $this, 'key');
+			break;
+		
+		case 'item':
+			$keys[] = API::createItem("book", array("title" => "Title"), $this, 'key');
+			$keys[] = API::createItem("book", array("title" => "Title"), $this, 'key');
+			API::createItem("book", array("title" => "Title"), $this, 'key');
+			break;
+		
+		case 'search':
+			$keys[] = API::createSearch("Name", 'default', $this, 'key');
+			$keys[] = API::createSearch("Name", 'default', $this, 'key');
+			API::createSearch("Name", 'default', $this, 'key');
+			break;
+		}
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&$keyProp=" . implode(',', $keys)
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($keys), $response);
+		
+		// Trailing comma in itemKey parameter
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&$keyProp=" . implode(',', $keys) . ","
+		);
+		$this->assert200($response);
+		$this->assertNumResults(sizeOf($keys), $response);
+	}
+	
+	
 	private function _testSingleObjectDelete($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		
@@ -254,7 +302,7 @@ class ObjectTests extends APITests {
 			)
 		);
 		$this->assert204($response);
-		
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		$response = API::userGet(
 			self::$config['userID'],
 			"$objectTypePlural?key=" . self::$config['apiKey']
@@ -269,6 +317,24 @@ class ObjectTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertNumResults(sizeOf($keepKeys), $response);
+		
+		// Add trailing comma to itemKey param, to test key parsing
+		$response = API::userDelete(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+				. "&$keyProp=" . implode(',', $keepKeys) . ",",
+			array(
+				"If-Unmodified-Since-Version: " . $libraryVersion
+			)
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$this->assertNumResults(0, $response);
 	}
 	
 	

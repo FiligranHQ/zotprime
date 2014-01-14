@@ -125,7 +125,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		// Pass a list of itemIDs, for when the initial search is done via SQL
 		$itemIDs = !empty($params['itemIDs']) ? $params['itemIDs'] : array();
-		$itemKeys = !empty($params['itemKey']) ? explode(',', $params['itemKey']) : array();
+		$itemKeys = $params['itemKey'];
 		
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
 		$itemTypeSort = !empty($params['order']) && $params['order'] == 'itemType';

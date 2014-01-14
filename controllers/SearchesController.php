@@ -133,8 +133,7 @@ class SearchesController extends ApiController {
 			// Delete searches
 			else if ($this->method == 'DELETE') {
 				Zotero_DB::beginTransaction();
-				$searchKeys = explode(',', $this->queryParams['searchKey']);
-				foreach ($searchKeys as $searchKey) {
+				foreach ($this->queryParams['searchKey'] as $searchKey) {
 					Zotero_Searches::delete($this->objectLibraryID, $searchKey);
 				}
 				Zotero_DB::commit();

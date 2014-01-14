@@ -66,8 +66,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		// Pass a list of collectionIDs, for when the initial search is done via SQL
 		$collectionIDs = !empty($params['collectionIDs'])
 			? $params['collectionIDs'] : array();
-		$collectionKeys = !empty($params['collectionKey'])
-			? explode(',', $params['collectionKey']): array();
+		$collectionKeys = $params['collectionKey'];
 		
 		if ($collectionIDs) {
 			$sql .= "AND collectionID IN ("
