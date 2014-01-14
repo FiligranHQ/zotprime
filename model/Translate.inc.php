@@ -29,6 +29,7 @@ class Zotero_Translate {
 		'bibtex',
 		'bookmarks',
 		'coins',
+		'csljson',
 		'rdf_bibliontology',
 		'rdf_dc',
 		'rdf_zotero',
