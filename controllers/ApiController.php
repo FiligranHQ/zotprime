@@ -28,7 +28,6 @@ class ApiController extends Controller {
 	protected $writeTokenCacheTime = 43200; // 12 hours
 	
 	private $profile = false;
-	private $profileShard = 0;
 	private $timeLogThreshold = 5;
 	
 	protected $method;
@@ -122,7 +121,7 @@ class ApiController extends Controller {
 		}
 		
 		if ($this->profile) {
-			Zotero_DB::profileStart($this->profileShard);
+			Zotero_DB::profileStart();
 		}
 		
 		// If HTTP Basic Auth credentials provided, authenticate
@@ -653,7 +652,7 @@ class ApiController extends Controller {
 	
 	protected function end() {
 		if ($this->profile) {
-			Zotero_DB::profileEnd($this->profileShard, false);
+			Zotero_DB::profileEnd($this->objectLibraryID, true);
 		}
 		
 		switch ($this->responseCode) {

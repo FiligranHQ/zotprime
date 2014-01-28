@@ -40,6 +40,7 @@ class Zotero_DB {
 	protected static $instances;
 	
 	protected $links = array();
+	private $profilerEnabled = false;
 	
 	private $transactionLevel = 0;
 	private $transactionTimestamp;
@@ -49,7 +50,6 @@ class Zotero_DB {
 	private $transactionRollback = false;
 	
 	private $preparedStatements = array();
-	
 	private $callbacks = array(
 		'begin' => array(),
 		'commit' => array(),
@@ -133,6 +133,11 @@ class Zotero_DB {
 		
 		$conn = $this->links[$linkID]->getConnection();
 		$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+		
+		// If profile was previously enabled, enable it for this link
+		if ($this->profilerEnabled) {
+			$this->links[$linkID]->getProfiler()->setEnabled(true);
+		}
 		
 		return $this->links[$linkID];
 	}
@@ -903,75 +908,99 @@ class Zotero_DB {
 	}
 	
 	
-	public static function profileStart($shardID=0) {
+	public static function profileStart() {
 		$instance = self::getInstance();
-		$link = $instance->getShardLink($shardID);
-		$profiler = $link->getProfiler();
-		
-		$profiler->setEnabled(true);
+		$instance->profilerEnabled = true;
+		foreach ($instance->links as $link) {
+			$profiler = $link->getProfiler();
+			$profiler->setEnabled(true);
+		}
 	}
 	
-	public static function profileEnd($shardID=0, $appendRandomID=true) {
+	public static function profileEnd($id="", $appendRandomID=true) {
 		$instance = self::getInstance();
-		$link = $instance->getShardLink($shardID);
-		$profiler = $link->getProfiler();
+		$instance->profilerEnabled = false;
 		
-		$totalTime    = $profiler->getTotalElapsedSecs();
-		$queryCount   = $profiler->getTotalNumQueries();
-		$longestTime  = 0;
-		$longestQuery = null;
-		
-		ob_start();
-		
-		$queries = array();
-		
-		$profiles = $profiler->getQueryProfiles();
-		if ($profiles) {
-			foreach ($profiles as $query) {
-				$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
-				$hash = md5($sql);
-				if (isset($queries[$hash])) {
-					$queries[$hash]['count']++;
-					$queries[$hash]['time'] += $query->getElapsedSecs();
-				}
-				else {
-					$queries[$hash]['sql'] = $sql;
-					$queries[$hash]['count'] = 1;
-					$queries[$hash]['time'] = $query->getElapsedSecs();
-				}
-				if ($query->getElapsedSecs() > $longestTime) {
-					$longestTime  = $query->getElapsedSecs();
-					$longestQuery = $query->getQuery();
+		$str = "";
+		$first = true;
+		foreach ($instance->links as $shardID => $link) {
+			$profiler = $link->getProfiler();
+			
+			$totalTime    = $profiler->getTotalElapsedSecs();
+			$queryCount   = $profiler->getTotalNumQueries();
+			$longestTime  = 0;
+			$longestQuery = null;
+			
+			if (!$queryCount) {
+				$profiler->setEnabled(false);
+				continue;
+			}
+			
+			ob_start();
+			
+			if ($first) {
+				echo "======================================================================\n\n";
+				$first = false;
+			}
+			else {
+				echo "----------------------------------------------------------------------\n\n";
+			}
+			echo "Shard: $shardID\n\n";
+			
+			$queries = [];
+			
+			$profiles = $profiler->getQueryProfiles();
+			if ($profiles) {
+				foreach ($profiles as $query) {
+					$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
+					$hash = md5($sql);
+					if (isset($queries[$hash])) {
+						$queries[$hash]['count']++;
+						$queries[$hash]['time'] += $query->getElapsedSecs();
+					}
+					else {
+						$queries[$hash]['sql'] = $sql;
+						$queries[$hash]['count'] = 1;
+						$queries[$hash]['time'] = $query->getElapsedSecs();
+					}
+					if ($query->getElapsedSecs() > $longestTime) {
+						$longestTime  = $query->getElapsedSecs();
+						$longestQuery = $query->getQuery();
+					}
 				}
 			}
-		}
-		
-		foreach($queries as &$query) {
-			//$query['avg'] = $query['time'] / $query['count'];
-		}
-		
-		function cmp($a, $b) {
-			if ($a['time'] == $b['time']) {
-				return 0;
+			
+			foreach($queries as &$query) {
+				//$query['avg'] = $query['time'] / $query['count'];
 			}
-			return ($a['time'] < $b['time']) ? -1 : 1;
+			
+			usort($queries, function ($a, $b) {
+				if ($a['time'] == $b['time']) {
+					return 0;
+				}
+				return ($a['time'] < $b['time']) ? -1 : 1;
+			});
+			
+			var_dump($queries);
+			
+			echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
+			echo 'Average query length: ' . ($queryCount ? ($totalTime / $queryCount) : "N/A") . ' seconds' . "\n";
+			echo 'Queries per second: ' . ($totalTime ? ($queryCount / $totalTime) : "N/A") . "\n";
+			echo 'Longest query length: ' . $longestTime . "\n";
+			echo "Longest query: " . $longestQuery . "\n\n";
+			
+			$str .= ob_get_clean();
+			
+			$profiler->setEnabled(false);
 		}
-		usort($queries, "cmp");
 		
-		var_dump($queries);
-		
-		echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
-		echo 'Average query length: ' . ($queryCount ? ($totalTime / $queryCount) : "N/A") . ' seconds' . "\n";
-		echo 'Queries per second: ' . ($totalTime ? ($queryCount / $totalTime) : "N/A") . "\n";
-		echo 'Longest query length: ' . $longestTime . "\n";
-		echo "Longest query: \n" . $longestQuery . "\n";
-		
-		$temp = ob_get_clean();
-		
-		$id = substr(md5(uniqid(rand(), true)), 0, 10);
-		file_put_contents("/tmp/profile_" . $shardID . ($appendRandomID ? "_" . $id : ""), $temp);
-		
-		$profiler->setEnabled(false);
+		if ($str) {
+			if ($appendRandomID) {
+				if ($id) $id .= "_";
+				$id .= substr(md5(uniqid(rand(), true)), 0, 10);
+			}
+			file_put_contents("/tmp/profile" . ($id ? "_" . $id : ""), $str);
+		}
 	}
 	
 	
