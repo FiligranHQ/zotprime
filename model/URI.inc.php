@@ -156,7 +156,7 @@ class Zotero_URI {
 		}
 		else {
 			// TODO: objectID-based URI?
-			if (!preg_match($types . "\/([A-Z0-9]{8})", $objectURI, $matches)) {
+			if (!preg_match('/' . $types . "\/([A-Z0-9]{8})/", $objectURI, $matches)) {
 				throw new Exception("Invalid object URI '$objectURI'");
 			}
 			$objectKey = $matches[1];

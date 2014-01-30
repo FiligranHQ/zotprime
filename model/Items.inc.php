@@ -1776,13 +1776,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'relations':
-					// If item isn't yet saved, add relations below
-					if (!$item->id) {
-						$twoStage = true;
-						break;
-					}
-					
-					$changed = $item->setRelations($val, $userID) || $changed;
+					$item->setRelations($val);
 					break;
 				
 				case 'attachments':
@@ -1880,10 +1874,6 @@ class Zotero_Items extends Zotero_DataObjects {
 							$childItem->setNote($note->note);
 							$childItem->save();
 						}
-						break;
-					
-					case 'relations':
-						$changed = $item->setRelations($val, $userID) || $changed;
 						break;
 				}
 			}

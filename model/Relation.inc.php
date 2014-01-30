@@ -100,7 +100,20 @@ class Zotero_Relation {
 			$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND
 						subject=? AND predicate=? AND object=?";
 			$params = array($this->libraryID, $this->subject, $this->predicate, $this->object);
-			return !!Zotero_DB::valueQuery($sql, $params, $shardID);
+			$exists = !!Zotero_DB::valueQuery($sql, $params, $shardID);
+			
+			// TEMP
+			// For linked items, check reverse order too, since client can save in reverse
+			// order when an item is dragged from a group to a personal library
+			if (!$exists && $this->predicate == Zotero_Relations::$linkedObjectPredicate
+					&& Zotero_Libraries::getType($this->libraryID) == 'user') {
+				$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND
+							subject=? AND predicate=? AND object=?";
+				$params = array($this->libraryID, $this->object, $this->predicate, $this->subject);
+				return !!Zotero_DB::valueQuery($sql, $params, $shardID);
+			}
+			
+			return $exists;
 		}
 		
 		throw new Exception("ID or subject/predicate/object not set");

@@ -60,7 +60,7 @@ class Zotero_Item {
 	
 	private $collections = [];
 	private $tags = [];
-	private $relatedItems = array();
+	private $relations = [];
 	
 	// Populated by init()
 	private $loaded = array();
@@ -90,7 +90,7 @@ class Zotero_Item {
 			'itemData',
 			'creators',
 			'collections',
-			'relatedItems',
+			'relations',
 			'tags'
 		);
 		foreach ($props as $prop) {
@@ -114,7 +114,7 @@ class Zotero_Item {
 			'note',
 			'source',
 			'collections',
-			'relatedItems',
+			'relations',
 			'version' // for updating version/serverDateModified without changing data
 		);
 		foreach ($props as $prop) {
@@ -1410,22 +1410,21 @@ class Zotero_Item {
 				}
  				
 				// Related items
-				if (!empty($this->changed['relatedItems'])) {
+				if (!empty($this->changed['relations'])) {
 					$uri = Zotero_URI::getItemURI($this, true);
 					
 					$sql = "INSERT IGNORE INTO relations "
 						 . "(relationID, libraryID, subject, predicate, object) "
 						 . "VALUES (?, ?, ?, ?, ?)";
 					$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
-					foreach ($this->relatedItems as $relatedItemKey) {
+					foreach ($this->relations as $rel) {
 						$insertStatement->execute(
 							array(
 								Zotero_ID::get('relations'),
 								$this->libraryID,
 								$uri,
-								Zotero_Relations::$relatedItemPredicate,
-								Zotero_URI::getLibraryURI($this->libraryID, true)
-									. "/items/" . $relatedItemKey
+								$rel[0],
+								$rel[1]
 							)
 						);
 					}
@@ -1957,59 +1956,61 @@ class Zotero_Item {
 				}
 				
 				// Related items
-				if (!empty($this->changed['relatedItems'])) {
-					$removed = array();
-					$new = array();
-					$currentKeys = $this->relatedItems;
-					
-					if (!$currentKeys) {
-						$currentKeys = array();
-					}
+				if (!empty($this->changed['relations'])) {
+					$removed = [];
+					$new = [];
+					$current = $this->relations;
 					
 					// TEMP
+					// Convert old-style related items into relations
 					$sql = "SELECT `key` FROM itemRelated IR "
 						 . "JOIN items I ON (IR.linkedItemID=I.itemID) "
 						 . "WHERE IR.itemID=?";
 					$toMigrate = Zotero_DB::columnQuery($sql, $this->id, $shardID);
 					if ($toMigrate) {
-						$new = $toMigrate;
+						$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+						$new = array_map(function ($key) use ($prefix) {
+							return [
+								Zotero_Relations::$relatedItemPredicate,
+								$prefix . $key
+							];
+						}, $toMigrate);
 						$sql = "DELETE FROM itemRelated WHERE itemID=?";
 						Zotero_DB::query($sql, $this->id, $shardID);
 					}
 					
-					foreach ($this->previousData['relatedItems'] as $relatedItemKey) {
-						if (!in_array($relatedItemKey, $currentKeys)) {
-							$removed[] = $relatedItemKey;
+					foreach ($this->previousData['relations'] as $rel) {
+						if (array_search($rel, $current) === false) {
+							$removed[] = $rel;
 						}
 					}
 					
-					foreach ($currentKeys as $relatedItemKey) {
-						if (in_array($relatedItemKey, $this->previousData['relatedItems'])) {
+					foreach ($current as $rel) {
+						if (array_search($rel, $this->previousData['relations']) !== false) {
 							continue;
 						}
-						$new[] = $relatedItemKey;
+						$new[] = $rel;
 					}
 					
 					$uri = Zotero_URI::getItemURI($this, true);
 					
 					if ($removed) {
-						$sql = "DELETE FROM relations WHERE libraryID=?
-								AND subject=?
-								AND predicate=?
-								AND object IN ("
-								. implode(', ', array_fill(0, sizeOf($removed), '?'))
-								. ")";
-						$params = array(
-							$this->libraryID,
-							$uri,
-							Zotero_Relations::$relatedItemPredicate
-						);
-						foreach ($removed as $relatedItemKey) {
-							$params[] =
-								Zotero_URI::getLibraryURI($this->libraryID, true)
-								. "/items/" . $relatedItemKey;
+						$sql = "DELETE FROM relations WHERE
+								libraryID=? AND subject=? AND predicate=? AND object=?";
+						$deleteStatement = Zotero_DB::getStatement($sql, false, $shardID);
+						
+						foreach ($removed as $rel) {
+							$params = array($this->libraryID, $uri, $rel[0], $rel[1]);
+							$deleteStatement->execute($params);
+							
+							// TEMP
+							// For owl:sameAs, delete reverse as well, since the client
+							// can save that way
+							if ($rel[0] == Zotero_Relations::$linkedObjectPredicate) {
+								$params = array($this->libraryID, $rel[1], $rel[0], $uri);
+								$deleteStatement->execute($params);
+							}
 						}
-						Zotero_DB::query($sql, $params, $shardID);
 					}
 					
 					if ($new) {
@@ -2018,15 +2019,14 @@ class Zotero_Item {
 						     . "VALUES (?, ?, ?, ?, ?)";
 						$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
 						
-						foreach ($new as $relatedItemKey) {
+						foreach ($new as $rel) {
 							$insertStatement->execute(
 								array(
 									Zotero_ID::get('relations'),
 									$this->libraryID,
 									$uri,
-									Zotero_Relations::$relatedItemPredicate,
-									Zotero_URI::getLibraryURI($this->libraryID, true)
-										. "/items/" . $relatedItemKey
+									$rel[0],
+									$rel[1]
 								)
 							);
 						}
@@ -3100,36 +3100,31 @@ class Zotero_Item {
 	//
 	// Methods dealing with relations
 	//
-	// save() is not required for relations functions
-	//
 	/**
 	 * Returns all relations of the item
 	 *
 	 * @return object Object with predicates as keys and URIs as values
 	 */
 	public function getRelations() {
-		if (!$this->id) {
-			return array();
+		if (!$this->loaded['relations']) {
+			$this->loadRelations();
 		}
-		$relations = Zotero_Relations::getByURIs(
-			$this->libraryID,
-			Zotero_URI::getItemURI($this, true)
-		);
 		
 		$toReturn = new stdClass;
-		foreach ($relations as $relation) {
-			$predicate = $relation->predicate;
+		foreach ($this->relations as $relation) {
+			// Relations are stored internally as predicate-object pairs
+			$predicate = $relation[0];
 			if (isset($toReturn->$predicate)) {
 				// If object with predicate exists, convert to an array
 				if (is_string($toReturn->$predicate)) {
 					$toReturn->$predicate = array($toReturn->$predicate);
 				}
 				// Add new object to array
-				$toReturn->{$predicate}[] = $relation->object;
+				$toReturn->{$predicate}[] = $relation[1];
 			}
 			// Add first object as a string
 			else {
-				$toReturn->$predicate = $relation->object;
+				$toReturn->$predicate = $relation[1];
 			}
 		}
 		return $toReturn;
@@ -3137,17 +3132,14 @@ class Zotero_Item {
 	
 	
 	/**
-	 * Updates the item's relations. No separate save of the item is required.
+	 * Updates the item's relations
 	 *
 	 * @param object $newRelations Object with predicates as keys and URIs/arrays-of-URIs as values
-	 * @param int $userID User making the change
 	 */
-	public function setRelations($newRelations, $userID) {
-		if (!$this->id) {
-			throw new Exception('itemID not set');
+	public function setRelations($newRelations) {
+		if (!$this->loaded['relations']) {
+			$this->loadRelations();
 		}
-		
-		Zotero_DB::beginTransaction();
 		
 		// An empty array is allowed by updateFromJSON()
 		if (is_array($newRelations) && empty($newRelations)) {
@@ -3157,70 +3149,51 @@ class Zotero_Item {
 		// There can be more than one object for a given predicate, so build
 		// flat arrays with individual predicate-object pairs converted to
 		// JSON strings so we can use array_diff to determine what changed
-		$oldRelations = [];
-		foreach ($this->getRelations() as $predicate => $object) {
-			if (is_array($object)) {
-				foreach ($object as $o) {
-					$oldRelations[] = json_encode([$predicate, $o]);
-				}
-			}
-			else {
-				$oldRelations[] = json_encode([$predicate, $object]);
-			}
-		}
-		$newRelations2 = [];
+		$oldRelations = $this->relations;
+		
+		$sortFunc = function ($a, $b) {
+			if ($a[0] < $b[0]) return -1;
+			if ($a[0] > $b[0]) return 1;
+			return strcmp($a[1], $b[1]);
+		};
+		
+		$newRelationsFlat = [];
 		foreach ($newRelations as $predicate => $object) {
 			if (is_array($object)) {
 				foreach ($object as $o) {
-					$newRelations2[] = json_encode([$predicate, $o]);
+					$newRelationsFlat[] = [$predicate, $o];
 				}
 			}
 			else {
-				$newRelations2[] = json_encode([$predicate, $object]);
+				$newRelationsFlat[] = [$predicate, $object];
 			}
 		}
-		$newRelations = $newRelations2;
-		unset($newRelations2);
 		
-		$toAdd = array_diff($newRelations, $oldRelations);
-		$toRemove = array_diff($oldRelations, $newRelations);
+		$changed = false;
+		if (sizeOf($oldRelations) != sizeOf($newRelationsFlat)) {
+			$changed = true;
+		}
+		else {
+			usort($oldRelations, $sortFunc);
+			usort($newRelationsFlat, $sortFunc);
+			
+			for ($i=0; $i<sizeOf($oldRelations); $i++) {
+				if (!isset($newRelationsFlat) || $oldRelations[$i] != $newRelationsFlat[$i]) {
+					$changed = true;
+					break;
+				}
+			}
+		}
 		
-		$toAdd = array_map(function ($val) { return json_decode($val); }, $toAdd);
-		$toRemove = array_map(function ($val) { return json_decode($val); }, $toRemove);
-		
-		if (!$toAdd && !$toRemove) {
-			Zotero_DB::commit();
+		if (!$changed) {
+			Z_Core::debug("Relations have not changed for item $this->id");
 			return false;
 		}
 		
-		$subject = Zotero_URI::getItemURI($this, true);
-		
-		foreach ($toAdd as $pair) {
-			Zotero_Relations::add(
-				$this->libraryID,
-				$subject,
-				$pair[0],
-				$pair[1]
-			);
-		}
-		
-		foreach ($toRemove as $pair) {
-			$relations = Zotero_Relations::getByURIs(
-				$this->libraryID,
-				$subject,
-				$pair[0],
-				$pair[1]
-			);
-			foreach ($relations as $relation) {
-				Zotero_Relations::delete($this->libraryID, $relation->key);
-			}
-		}
-		
-		$this->updateVersion($userID);
-		
-		Zotero_DB::commit();
-		
-		return true;
+		$this->storePreviousData('relations');
+		// Store relations internally as array of predicate-object pairs
+		$this->relations = $newRelationsFlat;
+		$this->changed['relations'] = true;
 	}
 	
 	
@@ -3778,94 +3751,60 @@ class Zotero_Item {
 	}
 	
 	
-	private function loadRelatedItems() {
-		if (!$this->id) {
-			return;
-		}
-		
-		Z_Core::debug("Loading related items for item $this->id");
-		
-		if ($this->loaded['relatedItems']) {
-			trigger_error("Related items for item $this->id already loaded", E_USER_ERROR);
-		}
-		
-		if (!$this->loaded['primaryData']) {
-			$this->loadPrimaryData(true);
-		}
-		
-		if ($this->cacheEnabled) {
-			$cacheVersion = 2;
-			$cacheKey = $this->getCacheKey("itemRelated", $cacheVersion);
-			$keys = Z_Core::$MC->get($cacheKey);
-		}
-		else {
-			$keys = false;
-		}
-		if ($keys === false) {
-			$sql = "SELECT `key` FROM itemRelated IR "
-			     . "JOIN items I ON (IR.linkedItemID=I.itemID) "
-			     . "WHERE IR.itemID=?";
-			$stmt = Zotero_DB::getStatement(
-				$sql, true, Zotero_Shards::getByLibraryID($this->libraryID)
-			);
-			$keys1 = Zotero_DB::columnQueryFromStatement($stmt, $this->id);
-			if (!$keys1) {
-				$keys1 = array();
-			}
-			
-			$baseURI = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
-			$itemURI = $baseURI . $this->key;
-			$len = strlen($baseURI);
-			$sql = "SELECT SUBSTR(object, $len + 1) FROM relations "
-			     . "WHERE libraryID=? AND subject=? AND predicate=? AND object LIKE ?";
-			$keys2 = Zotero_DB::columnQuery(
-				$sql,
-				array(
-					$this->libraryID,
-					$itemURI,
-					Zotero_Relations::$relatedItemPredicate,
-					$baseURI . "%"
-				),
-				Zotero_Shards::getByLibraryID($this->libraryID)
-			);
-			if (!$keys2) {
-				$keys2 = array();
-			}
-			$keys = array_unique(array_merge($keys1, $keys2));
-			
-			if ($this->cacheEnabled) {
-				Z_Core::$MC->set($cacheKey, $keys ? $keys : array());
-			}
-		}
-		
-		$this->relatedItems = $keys ? $keys : array();
-		$this->loaded['relatedItems'] = true;
-	}
-	
-	
+	/**
+	 * @return {array<string>}  An array of related item keys
+	 */
 	private function getRelatedItems() {
-		if (!$this->loaded['relatedItems']) {
-			$this->loadRelatedItems();
+		$predicate = Zotero_Relations::$relatedItemPredicate;
+		
+		$relations = $this->getRelations();
+		if (empty($relations->$predicate)) {
+			return [];
 		}
-		return $this->relatedItems;
+		
+		$relatedItemURIs = is_string($relations->$predicate)
+			? [$relations->$predicate]
+			: $relations->$predicate;
+		
+		// Pull out object values from related-item relations, turn into items, and pull out keys
+		$keys = [];
+		foreach ($relatedItemURIs as $relatedItemURI) {
+			$item = Zotero_URI::getURIItem($relatedItemURI);
+			if ($item) {
+				$keys[] = $item->key;
+			}
+		}
+		return $keys;
 	}
 	
 	
+	/**
+	 * @param {array<string>} $itemKeys
+	 * @return {Boolean}  TRUE if related items were changed, FALSE if not
+	 */
 	private function setRelatedItems($itemKeys) {
-		if (!$this->loaded['relatedItems']) {
-			$this->loadRelatedItems();
-		}
-		
 		if (!is_array($itemKeys))  {
-			trigger_error('$itemKeys must be an array', E_USER_ERROR);
+			throw new Exception('$itemKeys must be an array');
 		}
 		
-		$currentKeys = $this->relatedItems;
-		if (!$currentKeys) {
-			$currentKeys = array();
+		$predicate = Zotero_Relations::$relatedItemPredicate;
+		
+		$relations = $this->getRelations();
+		if (!isset($relations->$predicate)) {
+			$relations->$predicate = [];
 		}
-		$oldKeys = array(); // items being kept
-		$newKeys = array(); // new items
+		else if (is_string($relations->$predicate)) {
+			$relations->$predicate = [$relations->$predicate];
+		}
+		
+		$currentKeys = array_map(function ($objectURI) {
+			$key = substr($objectURI, -8);
+			return Zotero_ID::isValidKey($key) ? $key : false;
+		}, $relations->$predicate);
+		$currentKeys = array_filter($currentKeys);
+		
+		$oldKeys = []; // items being kept
+		$newKeys = []; // new items
 		
 		if (!$itemKeys) {
 			if (!$currentKeys) {
@@ -3892,20 +3831,70 @@ class Zotero_Item {
 			}
 		}
 		
-		// Mark as changed if new or removed keys
+		// If new or changed keys, update relations with new related items
 		if ($newKeys || sizeOf($oldKeys) != sizeOf($currentKeys)) {
-			if (!$this->changed['relatedItems']) {
-				$this->storePreviousData('relatedItems');
-				$this->changed['relatedItems'] = true;
-			}
+			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+			$relations->$predicate = array_map(function ($key) use ($prefix) {
+				return $prefix . $key;
+			}, array_merge($oldKeys, $newKeys));
+			$this->setRelations($relations);
+			return true;
 		}
 		else {
 			Z_Core::debug('Related items not changed', 4);
 			return false;
 		}
+	}
+	
+	
+	private function loadRelations() {
+		if (!$this->id) {
+			return;
+		}
 		
-		$this->relatedItems = array_merge($oldKeys, $newKeys);
-		return true;
+		Z_Core::debug("Loading relations for item $this->id");
+		
+		if ($this->loaded['relations']) {
+			throw new Exception("Relations for item $this->id already loaded");
+		}
+		
+		if (!$this->loaded['primaryData']) {
+			$this->loadPrimaryData(true);
+		}
+		
+		$itemURI = Zotero_URI::getItemURI($this, true);
+		
+		$relations = Zotero_Relations::getByURIs($this->libraryID, $itemURI);
+		$relations = array_map(function ($rel) {
+			return [$rel->predicate, $rel->object];
+		}, $relations);
+		
+		// Also include any owl:sameAs relations with this item as the object
+		// (as sent by client via classic sync)
+		$reverseRelations = Zotero_Relations::getByURIs(
+			$this->libraryID, false, Zotero_Relations::$linkedObjectPredicate, $itemURI
+		);
+		foreach ($reverseRelations as $rel) {
+			$relations[] = [$rel->predicate, $rel->subject];
+		}
+		
+		// TEMP
+		//
+		// Add related items
+		$sql = "SELECT `key` FROM itemRelated IR "
+			. "JOIN items I ON (IR.linkedItemID=I.itemID) "
+			. "WHERE IR.itemID=?";
+		$relatedItemKeys = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		if ($relatedItemKeys) {
+			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+			$predicate = Zotero_Relations::$relatedItemPredicate;
+			foreach ($relatedItemKeys as $key) {
+				$relations[] = [$predicate, $prefix . $key];
+			}
+		}
+		
+		$this->relations = $relations;
+		$this->loaded['relations'] = true;
 	}
 	
 	
