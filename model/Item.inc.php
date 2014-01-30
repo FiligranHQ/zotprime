@@ -3026,17 +3026,11 @@ class Zotero_Item {
 	//
 	// Methods dealing with collections
 	//
-	// save() is not required for collection functions
-	//
 	public function numCollections() {
-		if (!$this->id) {
-			return 0;
+		if (!$this->loaded['collections']) {
+			$this->loadCollections();
 		}
-		
-		$sql = "SELECT COUNT(*) FROM collectionItems WHERE itemID=?";
-		return (int) Zotero_DB::valueQuery(
-			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID)
-		);
+		return sizeOf($this->collections);
 	}
 	
 	
@@ -3047,30 +3041,17 @@ class Zotero_Item {
 	 * @return array Array of Zotero_Collection objects, or keys if $asKeys=true
 	 */
 	public function getCollections($asKeys=false) {
-		if (!$this->id) {
-			return array();
+		if (!$this->loaded['collections']) {
+			$this->loadCollections();
 		}
-		
-		$sql = "SELECT `key` FROM collections
-		        JOIN collectionItems USING (collectionID)
-		        WHERE itemID=?";
-		$collectionKeys = Zotero_DB::columnQuery(
-			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
-		if (!$collectionKeys) {
-			return array();
-		}
-		
 		if ($asKeys) {
-			return $collectionKeys;
+			return $this->collections;
 		}
-		
-		$collectionObjs = array();
-		foreach ($collectionKeys as $key) {
-			$collectionObjs[] = Zotero_Collections::getByLibraryAndKey(
+		return array_map(function ($key) {
+			return Zotero_Collections::getByLibraryAndKey(
 				$this->libraryID, $key, true
 			);
-		}
-		return $collectionObjs;
+		}, $this->collections);
 	}
 	
 	
