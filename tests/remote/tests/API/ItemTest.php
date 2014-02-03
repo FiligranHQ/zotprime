@@ -433,14 +433,56 @@ class ItemTests extends APITests {
 	
 	
 	public function testEditTopLevelNote() {
-		$xml = API::createNoteItem("Test", null, $this, 'atom');
+		$noteText = "Test";
+		
+		$xml = API::createNoteItem($noteText, null, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$noteText .= " Test";
+		$json['note'] = $noteText;
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}?key=" . self::$config['apiKey'],
-			$data['content']
+			json_encode($json)
 		);
 		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertEquals($noteText, $json['note']);
+	}
+	
+	
+	public function testEditChildNote() {
+		$noteText = "Test";
+		$key = API::createItem("book", [ "title" => "Test" ], $this, 'key');
+		$xml = API::createNoteItem($noteText, $key, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$noteText .= " Test";
+		$json['note'] = $noteText;
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertEquals($noteText, $json['note']);
 	}
 	
 	

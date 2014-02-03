@@ -1914,7 +1914,10 @@ class Zotero_Items extends Zotero_DataObjects {
 			$requiredProps = array('itemType', 'tags');
 		}
 		else {
-			$requiredProps = array('itemType', 'tags', 'collections', 'relations');
+			$requiredProps = array('itemType', 'tags', 'relations');
+			if (!$isChild) {
+				$requiredProps[] = 'collections';
+			}
 		}
 		
 		foreach ($requiredProps as $prop) {
