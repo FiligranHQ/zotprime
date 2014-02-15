@@ -128,15 +128,16 @@ class Zotero_Items extends Zotero_DataObjects {
 		$itemKeys = $params['itemKey'];
 		
 		$titleSort = !empty($params['order']) && $params['order'] == 'title';
-		$itemTypeSort = !empty($params['order']) && $params['order'] == 'itemType';
+		$parentItemSort = !empty($params['order'])
+			&& in_array($params['order'], ['itemType', 'dateAdded', 'dateModified', 'serverDateModified', 'addedBy']);
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT ";
 		
 		// In /top mode, use the parent item's values for most joins
 		if ($onlyTopLevel) {
 			$itemIDSelector = "COALESCE(IA.sourceItemID, INo.sourceItemID, I.itemID)";
-			$itemKeySelector = "COALESCE(IAI.key, INoI.key, I.key)";
-			$itemTypeIDSelector = "COALESCE(IAI.itemTypeID, INoI.itemTypeID, I.itemTypeID)";
+			$itemKeySelector = "COALESCE(IP.key, I.key)";
+			$itemTypeIDSelector = "COALESCE(IP.itemTypeID, I.itemTypeID)";
 		}
 		else {
 			$itemIDSelector = "I.itemID";
@@ -150,7 +151,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			if ($params['format'] == 'versions') {
 				if ($onlyTopLevel) {
-					$sql .= ", COALESCE(IAI.version, INoI.version, I.version) AS version";
+					$sql .= ", COALESCE(IP.version, I.version) AS version";
 				}
 				else {
 					$sql .= ", I.version";
@@ -175,9 +176,8 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// For some /top requests, pull in the parent item's items row
-		if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions' || $itemTypeSort)) {
-			$sql .= "LEFT JOIN items IAI ON (IA.sourceItemID=IAI.itemID) "
-				. "LEFT JOIN items INoI ON (INo.sourceItemID=INoI.itemID) ";
+		if ($onlyTopLevel && ($params['format'] == 'keys' || $params['format'] == 'versions' || $parentItemSort)) {
+			$sql .= "LEFT JOIN items IP ON ($itemIDSelector=IP.itemID) ";
 		}
 		
 		// Pull in titles
@@ -221,7 +221,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			// In /top mode, we don't want to show results for deleted parents or children
 			if ($onlyTopLevel) {
-				$sql .= "LEFT JOIN deletedItems DIParent ON (DIParent.itemID=$itemIDSelector) ";
+				$sql .= "LEFT JOIN deletedItems DIP ON (DIP.itemID=$itemIDSelector) ";
 			}
 		}
 		if (!empty($params['order'])) {
@@ -329,7 +329,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			
 			// Hide deleted parents in /top mode
 			if ($onlyTopLevel) {
-				$sql .= "AND DIParent.itemID IS NULL ";
+				$sql .= "AND DIP.itemID IS NULL ";
 			}
 		}
 		
@@ -493,7 +493,12 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'dateAdded':
 				case 'dateModified':
 				case 'serverDateModified':
-					$orderSQL = "I." . $params['order'];
+					if ($onlyTopLevel) {
+						$orderSQL = "IP." . $params['order'];
+					}
+					else {
+						$orderSQL = "I." . $params['order'];
+					}
 					break;
 				
 				case 'itemType';
@@ -518,7 +523,7 @@ class Zotero_Items extends Zotero_DataObjects {
 						$orderSQL = "TCBU.username";
 					}
 					else {
-						$orderSQL = "I.dateAdded";
+						$orderSQL = "IP.dateAdded";
 						$params['sort'] = 'desc';
 					}
 					break;
@@ -556,6 +561,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		$sql .= "I.version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
 			. ", I.itemID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
+		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
 			$sqlParams[] = $params['start'] ? $params['start'] : 0;
