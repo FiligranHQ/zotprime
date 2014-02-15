@@ -398,7 +398,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// TEMP: for sync transition
-		if (!empty($params['newertime'])) {
+		if (!empty($params['newertime']) && $params['newertime'] != 1) {
 			$sql .= "AND I.serverDateModified >= FROM_UNIXTIME(?) ";
 			$sqlParams[] = $params['newertime'];
 		}
