@@ -116,7 +116,7 @@ class FullTextController extends ApiController {
 			}
 		}
 		else {
-			$data = Zotero_FullText::getItemData($item);
+			$data = Zotero_FullText::getItemData($item->libraryID, $item->key);
 			if (!$data) {
 				$this->e404();
 			}

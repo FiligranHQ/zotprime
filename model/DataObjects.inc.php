@@ -645,7 +645,7 @@ class Zotero_DataObjects {
 		}
 		
 		if ($type == 'item' && $obj->isAttachment()) {
-			Zotero_FullText::deleteItemContent($item);
+			Zotero_FullText::deleteItemContent($obj);
 		}
 		
 		if ($type == 'relation') {

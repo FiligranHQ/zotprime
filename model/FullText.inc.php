@@ -61,65 +61,73 @@ class Zotero_FullText {
 		Zotero_FullText_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		// Add to Elasticsearch
-		try {
-			$type = self::getWriteType();
-			
-			$id = $libraryID . "/" . $key;
-			$doc = [
-				'id' => $id,
-				'libraryID' => $libraryID,
-				'content' => (string) $content,
-				// We don't seem to be able to search on _version, so we duplicate it here
-				'version' => $version,
-				// Add "T" between date and time for Elasticsearch
-				'timestamp' => str_replace(" ", "T", $timestamp)
-			];
-			if ($stats) {
-				foreach (self::$metadata as $prop) {
-					if (isset($stats[$prop])) {
-						$doc[$prop] = (int) $stats[$prop];
-					}
+		$type = self::getWriteType();
+		
+		$id = $libraryID . "/" . $key;
+		$doc = [
+			'id' => $id,
+			'libraryID' => $libraryID,
+			'content' => (string) $content,
+			// We don't seem to be able to search on _version, so we duplicate it here
+			'version' => $version,
+			// Add "T" between date and time for Elasticsearch
+			'timestamp' => str_replace(" ", "T", $timestamp)
+		];
+		if ($stats) {
+			foreach (self::$metadata as $prop) {
+				if (isset($stats[$prop])) {
+					$doc[$prop] = (int) $stats[$prop];
 				}
 			}
-			$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
-			$doc->setVersion($version);
-			$doc->setVersionType('external');
-			$response = $type->addDocument($doc);
-			if ($response->hasError()) {
-				throw new Exception($response->getError());
-			}
 		}
-		// TEMP
-		catch (Exception $e) {
-			error_log("WARNING: " . $e);
+		$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
+		$doc->setVersion($version);
+		$doc->setVersionType('external');
+		$response = $type->addDocument($doc);
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
 		}
 		
 		Zotero_FullText_DB::commit();
 	}
 	
 	
-	public static function getItemData(Zotero_Item $item) {
-		$sql = "SELECT * FROM fulltextContent WHERE libraryID=? AND `key`=?";
-		$data = Zotero_FullText_DB::rowQuery(
-			$sql,
-			[$item->libraryID, $item->key],
-			Zotero_Shards::getByLibraryID($item->libraryID)
-		);
-		if (!$data) {
+	/**
+	 * Get item full-text data from Elasticsearch by libraryID and key
+	 *
+	 * Since the request to Elasticsearch is by id, it will return results even if the document
+	 * hasn't yet been indexed
+	 */
+	public static function getItemData($libraryID, $key) {
+		$index = self::getReadIndex();
+		$type = self::getReadType();
+		$id = $libraryID . "/" . $key;
+		
+		try {
+			$document = $type->getDocument($id);
+		}
+		catch (\Elastica\Exception\NotFoundException $e) {
 			return false;
 		}
 		
+		$esData = $document->getData();
 		$itemData = array(
-			"content" => $data['content'],
-			"version" => $data['version'],
+			"content" => $esData['content'],
+			"version" => $esData['version'],
 		);
+		if (isset($esData['language'])) {
+			$itemData['language'] = $esData['language'];
+		}
 		foreach (self::$metadata as $prop) {
-			$itemData[$prop] = isset($data[$prop]) ? $data[$prop] : 0;
+			$itemData[$prop] = isset($esData[$prop]) ? $esData[$prop] : 0;
 		}
 		return $itemData;
 	}
 	
 	
+	/**
+	 * @return {Object} An object with item keys for keys and full-text content versions for values
+	 */
 	public static function getNewerInLibrary($libraryID, $version) {
 		$sql = "SELECT `key`, version FROM fulltextContent WHERE libraryID=? AND version>?";
 		$rows = Zotero_FullText_DB::query(
@@ -135,19 +143,86 @@ class Zotero_FullText {
 	}
 	
 	
+	/**
+	 * Used by classic sync
+	 *
+	 * @return {Array} Array of arrays of item data
+	 */
 	public static function getNewerInLibraryByTime($libraryID, $timestamp, $keys=[]) {
-		$sql = "(SELECT * FROM fulltextContent WHERE libraryID=? AND timestamp>=FROM_UNIXTIME(?))";
+		$selectString = "libraryID, `key`";
+		$sql = "(SELECT $selectString FROM fulltextContent WHERE libraryID=? AND timestamp>=FROM_UNIXTIME(?))";
 		$params = [$libraryID, $timestamp];
 		if ($keys) {
 			$sql .= " UNION "
-			. "(SELECT * FROM fulltextContent WHERE libraryID=? AND `key` IN ("
+			. "(SELECT $selectString FROM fulltextContent WHERE libraryID=? AND `key` IN ("
 			. implode(', ', array_fill(0, sizeOf($keys), '?')) . ")"
 			. ")";
 			$params = array_merge($params, [$libraryID], $keys);
 		}
-		return Zotero_FullText_DB::query(
+		$rows = Zotero_FullText_DB::query(
 			$sql, $params, Zotero_Shards::getByLibraryID($libraryID)
 		);
+		if (!$rows) {
+			return [];
+		}
+		
+		$index = self::getReadIndex();
+		$type = self::getReadType();
+		
+		// Make a raw query, since Elastica doesn't yet support mget
+		$json = [
+			"docs" => []
+		];
+		foreach ($rows as $row) {
+			$json['docs'][] = [
+				"_id" => $row['libraryID'] . "/" . $row['key']
+			];
+		}
+		$path = $index->getName() . '/' . $type->getName() . '/_mget';
+		$response = Z_Core::$Elastica->request($path, \Elastica\Request::GET, json_encode($json));
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
+		}
+		$responseData = $response->getData();
+		if (!isset($responseData['docs'])) {
+			throw new Exception("Invalid response from mget");
+		}
+		if (sizeOf($responseData['docs']) != sizeOf($rows)) {
+			throw new Exception("MySQL and Elasticsearch do not match "
+				. "(" . sizeOf($results) . ", " . sizeOf($rows) . ")");
+		}
+		
+		$data = [];
+		foreach ($responseData['docs'] as $doc) {
+			list($libraryID, $key) = explode("/", $doc['_id']);
+			// If document doesn't exist in Elasticsearch, get from MySQL
+			if (empty($doc["exists"])) {
+				// TEMP
+				$sql = "SELECT * FROM fulltextContent WHERE libraryID=? AND `key`=?";
+				$source = Zotero_FullText_DB::rowQuery(
+					$sql, [$libraryID, $key], Zotero_Shards::getByLibraryID($libraryID)
+				);
+				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch -- using MySQL");
+			}
+			else {
+				$source = $doc['_source'];
+				if (!$source) {
+					throw new Exception("_source not found in Elasticsearch for item {$doc['_id']}");
+				}
+			}
+			$data[$key] = [
+				"libraryID" => $libraryID,
+				"key" => $key,
+				"content" => $source['content'],
+				"version" => $source['version']
+			];
+			foreach (self::$metadata as $prop) {
+				if (isset($source[$prop])) {
+					$data[$key][$prop] = (int) $source[$prop];
+				}
+			}
+		}
+		return $data;
 	}
 	
 	
@@ -198,25 +273,19 @@ class Zotero_FullText {
 		);
 		
 		// Delete from Elasticsearch
+		$type = self::getWriteType();
+		
 		try {
-			$type = self::getWriteType();
-			
-			try {
-				$response = $type->deleteById($libraryID . "/" . $key);
-			}
-			catch (Elastica\Exception\NotFoundException $e) {
-				// Ignore if not found
-			}
-			catch (Exception $e) {
-				throw $e;
-			}
-			if ($response->hasError()) {
-				throw new Exception($response->getError());
-			}
+			$response = $type->deleteById($libraryID . "/" . $key);
 		}
-		// TEMP
+		catch (Elastica\Exception\NotFoundException $e) {
+			// Ignore if not found
+		}
 		catch (Exception $e) {
-			error_log("WARNING: " . $e);
+			throw $e;
+		}
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
 		}
 		
 		Zotero_FullText_DB::commit();
@@ -232,20 +301,14 @@ class Zotero_FullText {
 		);
 		
 		// Delete from Elasticsearch
-		try {
-			$type = self::getWriteType();
-			
-			$libraryQuery = new \Elastica\Query\Term();
-			$libraryQuery->setTerm("libraryID", $libraryID);
-			$query = new \Elastica\Query($libraryQuery);
-			$response = $type->deleteByQuery($query);
-			if ($response->hasError()) {
-				throw new Exception($response->getError());
-			}
-		}
-		// TEMP
-		catch (Exception $e) {
-			error_log("WARNING: " . $e);
+		$type = self::getWriteType();
+		
+		$libraryQuery = new \Elastica\Query\Term();
+		$libraryQuery->setTerm("libraryID", $libraryID);
+		$query = new \Elastica\Query($libraryQuery);
+		$response = $type->deleteByQuery($query);
+		if ($response->hasError()) {
+			throw new Exception($response->getError());
 		}
 		
 		Zotero_FullText_DB::commit();

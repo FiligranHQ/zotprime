@@ -90,6 +90,8 @@ class FullTextTests extends APITests {
 		$this->assertContentType("application/json", $response);
 		$json = json_decode($response->getBody(), true);
 		$this->assertEquals($content, $json['content']);
+		$this->assertArrayHasKey('indexedPages', $json);
+		$this->assertArrayHasKey('totalPages', $json);
 		$this->assertEquals($pages, $json['indexedPages']);
 		$this->assertEquals($pages, $json['totalPages']);
 		$this->assertArrayNotHasKey("indexedChars", $json);
