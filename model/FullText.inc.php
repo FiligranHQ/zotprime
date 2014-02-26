@@ -86,10 +86,12 @@ class Zotero_FullText {
 				}
 			}
 		}
+		$start = microtime(true);
 		$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
 		$doc->setVersion($version);
 		$doc->setVersionType('external');
 		$response = $type->addDocument($doc);
+		StatsD::timing("elasticsearch.client.item_fulltext.add", (microtime(true) - $start) * 1000);
 		if ($response->hasError()) {
 			throw new Exception($response->getError());
 		}
@@ -266,7 +268,9 @@ class Zotero_FullText {
 		$matchQuery->setFieldType('content', 'phrase');
 		
 		$matchQuery = new \Elastica\Query\Filtered($matchQuery, $libraryFilter);
+		$start = microtime(true);
 		$resultSet = $type->search($matchQuery);
+		StatsD::timing("elasticsearch.client.item_fulltext.search", (microtime(true) - $start) * 1000);
 		if ($resultSet->getResponse()->hasError()) {
 			throw new Exception($resultSet->getResponse()->getError());
 		}
@@ -297,7 +301,9 @@ class Zotero_FullText {
 		$type = self::getWriteType();
 		
 		try {
+			$start = microtime(true);
 			$response = $type->deleteById($libraryID . "/" . $key);
+			StatsD::timing("elasticsearch.client.item_fulltext.delete_item", (microtime(true) - $start) * 1000);
 		}
 		catch (Elastica\Exception\NotFoundException $e) {
 			// Ignore if not found
@@ -327,7 +333,9 @@ class Zotero_FullText {
 		$libraryQuery = new \Elastica\Query\Term();
 		$libraryQuery->setTerm("libraryID", $libraryID);
 		$query = new \Elastica\Query($libraryQuery);
+		$start = microtime(true);
 		$response = $type->deleteByQuery($query);
+		StatsD::timing("elasticsearch.client.item_fulltext.delete_library", (microtime(true) - $start) * 1000);
 		if ($response->hasError()) {
 			throw new Exception($response->getError());
 		}
