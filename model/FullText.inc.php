@@ -61,6 +61,12 @@ class Zotero_FullText {
 		Zotero_FullText_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		// Add to Elasticsearch
+		self::indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $content, $stats);
+		
+		Zotero_FullText_DB::commit();
+	}
+	
+	private static function indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $content, $stats=array()) {
 		$type = self::getWriteType();
 		
 		$id = $libraryID . "/" . $key;
@@ -87,8 +93,6 @@ class Zotero_FullText {
 		if ($response->hasError()) {
 			throw new Exception($response->getError());
 		}
-		
-		Zotero_FullText_DB::commit();
 	}
 	
 	
@@ -175,7 +179,8 @@ class Zotero_FullText {
 		];
 		foreach ($rows as $row) {
 			$json['docs'][] = [
-				"_id" => $row['libraryID'] . "/" . $row['key']
+				"_id" => $row['libraryID'] . "/" . $row['key'],
+				"_routing" => $row['libraryID']
 			];
 		}
 		$path = $index->getName() . '/' . $type->getName() . '/_mget';
@@ -198,11 +203,27 @@ class Zotero_FullText {
 			// If document doesn't exist in Elasticsearch, get from MySQL
 			if (empty($doc["exists"])) {
 				// TEMP
+				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch -- using MySQL");
 				$sql = "SELECT * FROM fulltextContent WHERE libraryID=? AND `key`=?";
 				$source = Zotero_FullText_DB::rowQuery(
 					$sql, [$libraryID, $key], Zotero_Shards::getByLibraryID($libraryID)
 				);
-				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch -- using MySQL");
+				if (!$source) {
+					throw new Exception("Item not found in MySQL for item {$doc['_id']}");
+				}
+				try {
+					self::indexItemInElasticsearch(
+						$libraryID,
+						$key,
+						$source['version'],
+						$source['timestamp'],
+						$source['content'],
+						$source
+					);
+				}
+				catch (Exception $e) {
+					error_log("WARNING: $e");
+				}
 			}
 			else {
 				$source = $doc['_source'];
@@ -325,7 +346,9 @@ class Zotero_FullText {
 			$xml->getAttribute('libraryID'), $xml->getAttribute('key')
 		);
 		if (!$item) {
-			throw new Exception("Item not found");
+			error_log("Item " . $xml->getAttribute('libraryID') . "/" . $xml->getAttribute('key')
+				. " not found during full-text indexing");
+			return;
 		}
 		if (!Zotero_Libraries::userCanEdit($item->libraryID, $userID)) {
 			error_log("Skipping full-text content from user $userID for uneditable item "
@@ -351,7 +374,7 @@ class Zotero_FullText {
 		$xmlNode->setAttribute('libraryID', $data['libraryID']);
 		$xmlNode->setAttribute('key', $data['key']);
 		foreach (self::$metadata as $prop) {
-			$xmlNode->setAttribute($prop, $data[$prop]);
+			$xmlNode->setAttribute($prop, isset($data[$prop]) ? $data[$prop] : 0);
 		}
 		$xmlNode->setAttribute('version', $data['version']);
 		if (!$empty) {
