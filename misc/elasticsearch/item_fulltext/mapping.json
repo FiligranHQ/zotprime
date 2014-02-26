@@ -13,9 +13,6 @@
 		"_all": {
 			"enabled": false
 		},
-		"_source" : {
-			"excludes" : ["libraryID"]
-		},
 		"_routing": {
 			"required": true,
 			"path": "libraryID"
