@@ -1119,7 +1119,16 @@ class Zotero_Item {
 				$sql = substr($sql, 0, -2) . ')';
 				
 				// Save basic data to items table
-				$insertID = Zotero_DB::query($sql, $sqlValues, $shardID);
+				try {
+					$insertID = Zotero_DB::query($sql, $sqlValues, $shardID);
+				}
+				catch (Exception $e) {
+					if (strpos($e->getMessage(), "Incorrect datetime value") !== false) {
+						preg_match("/Incorrect datetime value: '([^']+)'/", $e->getMessage(), $matches);
+						throw new Exception("=Invalid date value '{$matches[1]}' for item $key", Z_ERROR_INVALID_INPUT);
+					}
+					throw $e;
+				}
 				if (!$this->id) {
 					if (!$insertID) {
 						throw new Exception("Item id not available after INSERT");
@@ -1326,7 +1335,8 @@ class Zotero_Item {
 							throw new Exception("Parent item $parent not found");
 						}
 						if ($parentItem->getSource()) {
-							trigger_error("Parent item cannot be a child attachment", E_USER_ERROR);
+							$parentKey = $parentItem->key;
+							throw new Exception("=Parent item $parentKey cannot be a child attachment", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					
@@ -1714,7 +1724,8 @@ class Zotero_Item {
 							throw new Exception("Parent item $parent not found");
 						}
 						if ($parentItem->getSource()) {
-							trigger_error("Parent item cannot be a child attachment", E_USER_ERROR);
+							$parentKey = $parentItem->key;
+							throw new Exception("=Parent item $parentKey cannot be a child attachment", Z_ERROR_INVALID_INPUT);
 						}
 					}
 					
