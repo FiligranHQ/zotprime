@@ -362,7 +362,10 @@ class SyncController extends Controller {
 			
 			$params = [];
 			if (isset($_POST['ft'])) $params['ft'] = $_POST['ft'];
-			if (isset($_POST['ftkeys'])) $params['ftkeys'] = $_POST['ftkeys'];
+			if (isset($_POST['ftkeys'])) {
+				$queue = true;
+				$params['ftkeys'] = $_POST['ftkeys'];
+			}
 			
 			if ($queue) {
 				Zotero_Sync::queueDownload($this->userID, $this->sessionID, $lastsync, $this->apiVersion, $num, $params);
