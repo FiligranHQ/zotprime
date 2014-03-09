@@ -121,7 +121,9 @@ class Zotero_FullText {
 		$id = $libraryID . "/" . $key;
 		
 		try {
-			$document = $type->getDocument($id);
+			$document = $type->getDocument($id, [
+				'routing' => $libraryID
+			]);
 		}
 		catch (\Elastica\Exception\NotFoundException $e) {
 			return false;
@@ -282,7 +284,9 @@ class Zotero_FullText {
 		
 		$matchQuery = new \Elastica\Query\Filtered($matchQuery, $libraryFilter);
 		$start = microtime(true);
-		$resultSet = $type->search($matchQuery);
+		$resultSet = $type->search($matchQuery, [
+			'routing' => $libraryID
+		]);
 		StatsD::timing("elasticsearch.client.item_fulltext.search", (microtime(true) - $start) * 1000);
 		if ($resultSet->getResponse()->hasError()) {
 			throw new Exception($resultSet->getResponse()->getError());
@@ -322,7 +326,9 @@ class Zotero_FullText {
 		
 		try {
 			$start = microtime(true);
-			$response = $type->deleteById($libraryID . "/" . $key);
+			$response = $type->deleteById($libraryID . "/" . $key, [
+				'routing' => $libraryID
+			]);
 			StatsD::timing("elasticsearch.client.item_fulltext.delete_item", (microtime(true) - $start) * 1000);
 		}
 		catch (Elastica\Exception\NotFoundException $e) {
