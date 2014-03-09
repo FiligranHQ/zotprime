@@ -49,6 +49,9 @@ abstract class Zotero_Processor {
 		$startTime = microtime(true);
 		try {
 			$processed = $this->processFromQueue();
+			if (Zotero_DB::transactionInProgress()) {
+				error_log("WARNING: Transaction still in progress after processing!");
+			}
 		}
 		catch (Exception $e) {
 			$this->log($e);
