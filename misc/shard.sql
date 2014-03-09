@@ -133,6 +133,13 @@ CREATE TABLE `itemData` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+CREATE TABLE `itemFulltext` (
+  `itemID` int(10) unsigned NOT NULL,
+  `version` int(10) unsigned NOT NULL DEFAULT '0',
+  `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`itemID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 CREATE TABLE `itemNotes` (
   `itemID` int(10) unsigned NOT NULL,
@@ -349,6 +356,9 @@ ALTER TABLE `itemAttachments`
 ALTER TABLE `itemCreators`
   ADD CONSTRAINT `itemCreators_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
   ADD CONSTRAINT `itemCreators_ibfk_2` FOREIGN KEY (`creatorID`) REFERENCES `creators` (`creatorID`) ON DELETE CASCADE;
+
+ALTER TABLE `itemFulltext`
+  ADD CONSTRAINT `itemFulltext_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `itemAttachments` (`itemID`);
 
 ALTER TABLE `itemData`
   ADD CONSTRAINT `itemData_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;

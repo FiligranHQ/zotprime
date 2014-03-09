@@ -35,7 +35,7 @@ class Zotero_FullText {
 			);
 		}
 		
-		Zotero_FullText_DB::beginTransaction();
+		Zotero_DB::beginTransaction();
 		
 		$libraryID = $item->libraryID;
 		$key = $item->key;
@@ -44,26 +44,18 @@ class Zotero_FullText {
 				? Zotero_DB::getTransactionTimestamp()
 				: date("Y-m-d H:i:s");
 		
-		// Add to MySQL
-		$sql = "REPLACE INTO fulltextContent (";
-		$fields = ["libraryID", "`key`", "content", "version", "timestamp"];
-		$params = [$libraryID, $key, $content, $version, $timestamp];
-		if ($stats) {
-			foreach (self::$metadata as $prop) {
-				if (isset($stats[$prop])) {
-					$fields[] = $prop;
-					$params[] = (int) $stats[$prop];
-				}
-			}
-		}
+		// Add to MySQL for syncing, since Elasticsearch doesn't refresh immediately
+		$sql = "REPLACE INTO itemFulltext (";
+		$fields = ["itemID", "version", "timestamp"];
+		$params = [$item->id, $version, $timestamp];
 		$sql .= implode(", ", $fields) . ") VALUES ("
 			. implode(', ', array_fill(0, sizeOf($params), '?')) . ")";
-		Zotero_FullText_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		// Add to Elasticsearch
 		self::indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $content, $stats);
 		
-		Zotero_FullText_DB::commit();
+		Zotero_DB::commit();
 	}
 	
 	private static function indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $content, $stats=array()) {
@@ -90,9 +82,28 @@ class Zotero_FullText {
 		$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
 		$doc->setVersion($version);
 		$doc->setVersionType('external');
-		$response = $type->addDocument($doc);
+		try {
+			$response = $type->addDocument($doc);
+		}
+		catch (Exception $e) {
+			$msg = $e->getMessage();
+			if (preg_match('/version conflict, current \[([0-9]+)\], provided \[([0-9]+)\]/', $msg, $matches)) {
+				if ($matches[1] == $matches[2]) {
+					error_log("WARNING: " . $msg);
+					return;
+				}
+			}
+			throw $e;
+		}
 		StatsD::timing("elasticsearch.client.item_fulltext.add", (microtime(true) - $start) * 1000);
 		if ($response->hasError()) {
+			$msg = $response->getError();
+			if (preg_match('/version conflict, current \[([0-9]+)\], provided \[([0-9]+)\]/', $msg, $matches)) {
+				if ($matches[1] == $matches[2]) {
+					error_log("WARNING: " . $msg);
+					return;
+				}
+			}
 			throw new Exception($response->getError());
 		}
 	}
@@ -135,8 +146,9 @@ class Zotero_FullText {
 	 * @return {Object} An object with item keys for keys and full-text content versions for values
 	 */
 	public static function getNewerInLibrary($libraryID, $version) {
-		$sql = "SELECT `key`, version FROM fulltextContent WHERE libraryID=? AND version>?";
-		$rows = Zotero_FullText_DB::query(
+		$sql = "SELECT `key`, IFT.version FROM itemFulltext IFT JOIN items USING (itemID) "
+			. "WHERE libraryID=? AND IFT.version>?";
+		$rows = Zotero_DB::query(
 			$sql,
 			[$libraryID, $version],
 			Zotero_Shards::getByLibraryID($libraryID)
@@ -155,17 +167,18 @@ class Zotero_FullText {
 	 * @return {Array} Array of arrays of item data
 	 */
 	public static function getNewerInLibraryByTime($libraryID, $timestamp, $keys=[]) {
-		$selectString = "libraryID, `key`";
-		$sql = "(SELECT $selectString FROM fulltextContent WHERE libraryID=? AND timestamp>=FROM_UNIXTIME(?))";
+		$sql = "(SELECT libraryID, `key` FROM itemFulltext JOIN items USING (itemID) "
+			. "WHERE libraryID=? AND timestamp>=FROM_UNIXTIME(?))";
 		$params = [$libraryID, $timestamp];
 		if ($keys) {
 			$sql .= " UNION "
-			. "(SELECT $selectString FROM fulltextContent WHERE libraryID=? AND `key` IN ("
+			. "(SELECT libraryID, `key` FROM itemFulltext JOIN items USING (itemID) "
+				. "WHERE libraryID=? AND `key` IN ("
 			. implode(', ', array_fill(0, sizeOf($keys), '?')) . ")"
 			. ")";
 			$params = array_merge($params, [$libraryID], $keys);
 		}
-		$rows = Zotero_FullText_DB::query(
+		$rows = Zotero_DB::query(
 			$sql, $params, Zotero_Shards::getByLibraryID($libraryID)
 		);
 		if (!$rows) {
@@ -287,16 +300,23 @@ class Zotero_FullText {
 		$libraryID = $item->libraryID;
 		$key = $item->key;
 		
-		Zotero_FullText_DB::beginTransaction();
+		Zotero_DB::beginTransaction();
 		
 		// Delete from MySQL
-		$sql = "DELETE FROM fulltextContent WHERE libraryID=? AND `key`=?";
-		return Zotero_FullText_DB::query(
+		$sql = "DELETE FROM itemFulltext WHERE itemID=?";
+		Zotero_DB::query(
 			$sql,
-			[$libraryID, $key],
+			[$item->id],
 			Zotero_Shards::getByLibraryID($libraryID)
 		);
 		
+		self::deleteItemContentFromElasticsearch($libraryID, $key);
+		
+		Zotero_DB::commit();
+	}
+	
+	
+	public static function deleteItemContentFromElasticsearch($libraryID, $key) {
 		// Delete from Elasticsearch
 		$type = self::getWriteType();
 		
@@ -311,19 +331,17 @@ class Zotero_FullText {
 		catch (Exception $e) {
 			throw $e;
 		}
-		if ($response->hasError()) {
+		if (isset($response) && $response->hasError()) {
 			throw new Exception($response->getError());
 		}
-		
-		Zotero_FullText_DB::commit();
 	}
 	
 	
 	public static function deleteByLibrary($libraryID) {
-		Zotero_FullText_DB::beginTransaction();
+		Zotero_DB::beginTransaction();
 		
-		$sql = "DELETE FROM fulltextContent WHERE libraryID=?";
-		Zotero_FullText_DB::query(
+		$sql = "DELETE IFT FROM itemFulltext IFT JOIN items USING (itemID) WHERE libraryID=?";
+		Zotero_DB::query(
 			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
 		);
 		
@@ -340,7 +358,7 @@ class Zotero_FullText {
 			throw new Exception($response->getError());
 		}
 		
-		Zotero_FullText_DB::commit();
+		Zotero_DB::commit();
 	}
 	
 	
