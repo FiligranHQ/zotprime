@@ -100,6 +100,41 @@ class FullTextTests extends APITests {
 	}
 	
 	
+	public function testModifyAttachmentWithFulltext() {
+		$key = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("imported_url", [], $key, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$content = "Here is some full-text content";
+		$pages = 50;
+		
+		// Store content
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}/fulltext?key=" . self::$config['apiKey'],
+			json_encode([
+				"content" => $content,
+				"indexedPages" => $pages,
+				"totalPages" => $pages
+			]),
+			array("Content-Type: application/json")
+		);
+		$this->assert204($response);
+		
+		$json = json_decode($data['content'], true);
+		$json['title'] = "This is a new attachment title";
+		$json['contentType'] = 'text/plain';
+		
+		// Modify attachment item
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}?key=" . self::$config['apiKey'],
+			json_encode($json),
+			array("If-Unmodified-Since-Version: " . $data['version'])
+		);
+		$this->assert204($response);
+	}
+	
+	
 	public function testNewerContent() {
 		API::userClear(self::$config['userID']);
 		

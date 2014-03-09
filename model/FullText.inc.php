@@ -340,10 +340,8 @@ class Zotero_FullText {
 	public static function deleteByLibrary($libraryID) {
 		Zotero_DB::beginTransaction();
 		
-		$sql = "DELETE IFT FROM itemFulltext IFT JOIN items USING (itemID) WHERE libraryID=?";
-		Zotero_DB::query(
-			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
-		);
+		// Delete from MySQL
+		self::deleteByLibraryMySQL($libraryID);
 		
 		// Delete from Elasticsearch
 		$type = self::getWriteType();
@@ -359,6 +357,14 @@ class Zotero_FullText {
 		}
 		
 		Zotero_DB::commit();
+	}
+	
+	
+	public static function deleteByLibraryMySQL($libraryID) {
+		$sql = "DELETE IFT FROM itemFulltext IFT JOIN items USING (itemID) WHERE libraryID=?";
+		Zotero_DB::query(
+			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
+		);
 	}
 	
 	

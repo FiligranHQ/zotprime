@@ -1714,9 +1714,17 @@ class Zotero_Item {
 				
 				// Attachment
 				if ($this->changed['attachmentData']) {
-					$sql = "REPLACE INTO itemAttachments
+					$sql = "INSERT INTO itemAttachments
 						(itemID, sourceItemID, linkMode, mimeType, charsetID, path, storageModTime, storageHash)
-						VALUES (?,?,?,?,?,?,?,?)";
+						VALUES (?,?,?,?,?,?,?,?)
+						ON DUPLICATE KEY UPDATE
+							sourceItemID=VALUES(sourceItemID),
+							linkMode=VALUES(linkMode),
+							mimeType=VALUES(mimeType),
+							charsetID=VALUES(charsetID),
+							path=VALUES(path),
+							storageModTime=VALUES(storageModTime),
+							storageHash=VALUES(storageHash)";
 					$parent = $this->getSource();
 					if ($parent) {
 						$parentItem = Zotero_Items::get($this->libraryID, $parent);
