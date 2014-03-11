@@ -66,11 +66,19 @@ class Zotero_Storage {
 			return false;
 		}
 		
+		$contentType = $item->attachmentMIMEType;
+		$charset = $item->attachmentCharset;
+		if ($charset) {
+			// TEMP: Make sure charset is printable ASCII
+			$charset = preg_replace('/[^A-Za-z0-9\-]/', '', $charset);
+			$contentType .= "; charset=$charset";
+		}
+		
 		$s3Client = Z_Core::$AWS->get('s3');
 		$command = $s3Client->getCommand('GetObject', array(
 			'Bucket' => Z_CONFIG::$S3_BUCKET,
 			'Key' => self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
-			'ResponseContentType' => $item->attachmentMIMEType
+			'ResponseContentType' => $contentType
 		));
 		return $command->createPresignedUrl("+$ttl seconds");
 	}
