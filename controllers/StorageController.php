@@ -99,7 +99,7 @@ class StorageController extends ApiController {
 			}
 			
 			try {
-				Zotero_S3::setUserValues($this->objectUserID, $_POST['quota'], $_POST['expiration']);
+				Zotero_Storage::setUserValues($this->objectUserID, $_POST['quota'], $_POST['expiration']);
 			}
 			catch (Exception $e) {
 				if ($e->getCode() == Z_ERROR_GROUP_QUOTA_SET_BELOW_USAGE) {
@@ -111,17 +111,17 @@ class StorageController extends ApiController {
 		
 		// GET request
 		$xml = new SimpleXMLElement('<storage/>');
-		$quota = Zotero_S3::getEffectiveUserQuota($this->objectUserID);
+		$quota = Zotero_Storage::getEffectiveUserQuota($this->objectUserID);
 		$xml->quota = $quota;
-		$instQuota = Zotero_S3::getInstitutionalUserQuota($this->objectUserID);
+		$instQuota = Zotero_Storage::getInstitutionalUserQuota($this->objectUserID);
 		// If personal quota is in effect
 		if (!$instQuota || $quota > $instQuota) {
-			$values = Zotero_S3::getUserValues($this->objectUserID);
+			$values = Zotero_Storage::getUserValues($this->objectUserID);
 			if ($values) {
 				$xml->expiration = (int) $values['expiration'];
 			}
 		}
-		$usage = Zotero_S3::getUserUsage($this->objectUserID);
+		$usage = Zotero_Storage::getUserUsage($this->objectUserID);
 		$xml->usage->total = $usage['total'];
 		$xml->usage->library = $usage['library'];
 		
@@ -154,7 +154,7 @@ class StorageController extends ApiController {
 		
 		$this->allowMethods(array('POST'));
 		
-		Zotero_S3::transferBucket('zoterofilestorage', 'zoterofilestoragetest');
+		Zotero_Storage::transferBucket('zoterofilestorage', 'zoterofilestoragetest');
 		exit;
 	}
 }

@@ -867,8 +867,7 @@ class Zotero_Sync {
 			throw new Exception('$lastsync not provided');
 		}
 		
-		require_once 'AWS-SDK/sdk.class.php';
-		$s3 = new AmazonS3();
+		$s3Client = Z_Core::$AWS->get('s3');
 		
 		$s3Key = $apiVersion . "/" . md5(
 			Zotero_Users::getUpdateKey($userID)
@@ -881,37 +880,36 @@ class Zotero_Sync {
 		
 		// Check S3 for file
 		try {
-			$response = $s3->get_object(
-				Z_CONFIG::$S3_BUCKET_CACHE,
-				$s3Key,
-				array(
-					'curlopts' => array(
-						CURLOPT_FORBID_REUSE => true
-					)
-				)
-			);
-			if ($response->isOK()) {
-				$xmldata = $response->body;
-			}
-			else if ($response->status == 404) {
-				$xmldata = false;
-			}
-			else {
-				throw new Exception($response->status . " " . $response->body);
-			}
+			$result = $s3Client->getObject([
+				'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+				'Key' => $s3Key
+			]);
+			$xmldata = (string) $result['Body'];
+		}
+		catch (Aws\S3\Exception\NoSuchKeyException $e) {
+			$xmldata = false;
 		}
 		catch (Exception $e) {
-			Z_Core::logError("Warning: '" . $e->getMessage() . "' getting cached download from S3");
+			Z_Core::logError("Warning: '" . $e . "' getting cached download from S3");
 			$xmldata = false;
 		}
 		
 		// Update the last-used timestamp in S3
 		if ($xmldata) {
-			$response = $s3->update_object(Z_CONFIG::$S3_BUCKET_CACHE, $s3Key, array(
-				'meta' => array(
-					'last-used' => time()
-				)
-			));
+			try {
+				$s3Client->copyObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+					'Key' => $s3Key,
+					'CopySource' => Z_CONFIG::$S3_BUCKET_CACHE . "/" . $s3Key,
+					'Metadata' => [
+						'last-used' => time()
+					],
+					'MetadataDirective' => 'REPLACE'
+				]);
+			}
+			catch (Exception $e) {
+				error_log("WARNING: " . $e);
+			}
 		}
 		
 		return $xmldata;
@@ -919,8 +917,7 @@ class Zotero_Sync {
 	
 	
 	public static function cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $xmldata, $cacheKeyExtra="") {
-		require_once 'AWS-SDK/sdk.class.php';
-		$s3 = new AmazonS3();
+		$s3Client = Z_Core::$AWS->get('s3');
 		
 		$s3Key = $apiVersion . "/" . md5(
 			$updateKey . "_" . $lastsync
@@ -931,16 +928,11 @@ class Zotero_Sync {
 		);
 		
 		// Add to S3
-		$response = $s3->create_object(
-			Z_CONFIG::$S3_BUCKET_CACHE,
-			$s3Key,
-			array(
-				'body' => $xmldata
-			)
-		);
-		if (!$response->isOK()) {
-			throw new Exception($response->status . " " . $response->body);
-		}
+		$response = $s3Client->putObject([
+			'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+			'Key' => $s3Key,
+			'Body' => $xmldata
+		]);
 	}
 	
 	

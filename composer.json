@@ -1,1 +1,9 @@
-{}
+{
+	"name": "zotero/dataserver",
+	"description": "Zotero Sync and API Server",
+	"license": "AGPL-3.0",
+	"require": {
+		"aws/aws-sdk-php": "2.*",
+		"doctrine/cache": "1.*"
+	}
+}

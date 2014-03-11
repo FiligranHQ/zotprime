@@ -24,14 +24,10 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_S3 {
+class Zotero_Storage {
 	public static $defaultQuota = 300;
 	public static $uploadQueueLimit = 10;
 	public static $uploadQueueTimeout = 300;
-	
-	public static function requireLibrary() {
-		require_once('S3Lib.inc.php');
-	}
 	
 	public static function getDownloadDetails($item) {
 		// TODO: get attachment link mode value from somewhere
@@ -60,10 +56,7 @@ class Zotero_S3 {
 		}
 	}
 	
-	public static function getDownloadURL($item, $ttl=false) {
-		self::requireLibrary();
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		
+	public static function getDownloadURL(Zotero_Item $item, $ttl=60) {
 		if (!$item->isAttachment()) {
 			throw new Exception("Item $item->id is not an attachment");
 		}
@@ -73,23 +66,17 @@ class Zotero_S3 {
 			return false;
 		}
 		
-		// Create expiring URL on Amazon and return
-		$url = S3::getAuthenticatedURL(
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
-			$ttl,
-			false,
-			true
-		);
-		
-		return $url;
+		$s3Client = Z_Core::$AWS->get('s3');
+		$command = $s3Client->getCommand('GetObject', array(
+			'Bucket' => Z_CONFIG::$S3_BUCKET,
+			'Key' => self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
+			'ResponseContentEncoding' => $item->attachmentMIMEType
+		));
+		return $command->createPresignedUrl("+$ttl seconds");
 	}
 	
 	
 	public static function downloadFile(array $localFileItemInfo, $savePath, $filename=false) {
-		Zotero_S3::requireLibrary();
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		
 		if (!file_exists($savePath)) {
 			throw new Exception("Path '$savePath' does not exist");
 		}
@@ -98,14 +85,13 @@ class Zotero_S3 {
 			throw new Exception("'$savePath' is not a directory");
 		}
 		
-		$response = S3::getObject(
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
+		$s3Client = Z_Core::$AWS->get('s3');
+		return $s3Client->getObject([
+			'Bucket' => Z_CONFIG::$S3_BUCKET,
+			'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
 				. $localFileItemInfo['filename'],
-			$savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
-		);
-		
-		return $response;
+			'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
+		]);
 	}
 	
 	public static function logDownload($item, $downloadUserID, $ipAddress) {
@@ -125,24 +111,18 @@ class Zotero_S3 {
 	
 	
 	public static function uploadFile(Zotero_StorageFileInfo $info, $file, $contentType) {
-		Zotero_S3::requireLibrary();
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		
 		if (!file_exists($file)) {
 			throw new Exception("File '$file' does not exist");
 		}
 		
-		$success = S3::putObject(
-			S3::inputFile($file),
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($info->hash, $info->zip) . $info->filename,
-			S3::ACL_PRIVATE,
-			array(),
-			array("Content-Type" => $contentType)
-		);
-		if (!$success) {
-			return false;
-		}
+		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client->putObject([
+			'SourceFile' => $file,
+			'Bucket' => Z_CONFIG::$S3_BUCKET,
+			'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename,
+			'ACL' => 'private',
+			'ContentType' => $contentType
+		]);
 		
 		return self::addFile($info);
 	}
@@ -242,7 +222,7 @@ class Zotero_S3 {
 				throw new Exception("Invalid algorithm '$algorithm'", Z_ERROR_INVALID_INPUT);
 		}
 		
-		$originalInfo = Zotero_S3::getLocalFileItemInfo($item);
+		$originalInfo = Zotero_Storage::getLocalFileItemInfo($item);
 		
 		$basePath = "/tmp/zfsupload/";
 		$path = $basePath . $info->hash . "_" . uniqid() . "/";
@@ -259,7 +239,7 @@ class Zotero_S3 {
 		$e = null;
 		try {
 			// Download file from S3 to temp directory
-			if (!Zotero_S3::downloadFile($originalInfo, $path, "original")) {
+			if (!Zotero_Storage::downloadFile($originalInfo, $path, "original")) {
 				throw new Exception("Error downloading original file");
 			}
 			chdir($path);
@@ -322,7 +302,7 @@ class Zotero_S3 {
 			
 			// Upload to S3
 			$t = $info->contentType . (($info->contentType && $info->charset) ? "; charset={$info->charset}" : "");
-			$storageFileID = Zotero_S3::uploadFile($info, "new", $t);
+			$storageFileID = Zotero_Storage::uploadFile($info, "new", $t);
 		}
 		catch (Exception $e) {
 			//$cleanup();
@@ -333,8 +313,6 @@ class Zotero_S3 {
 	}
 	
 	public static function duplicateFile($storageFileID, $newName, $zip, $contentType=null) {
-		self::requireLibrary();
-		
 		if (!$newName) {
 			throw new Exception("New name not provided");
 		}
@@ -344,19 +322,17 @@ class Zotero_S3 {
 			throw new Exception("File $storageFileID not found");
 		}
 		
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		$success = S3::copyObject(
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($localInfo['hash'], $localInfo['zip']) . $localInfo['filename'],
-			Z_CONFIG::$S3_BUCKET,
-			self::getPathPrefix($localInfo['hash'], $zip) . $newName,
-			S3::ACL_PRIVATE,
-			array(),
-			$contentType ? array("Content-Type" => $contentType) : array()
-		);
-		if (!$success) {
-			return false;
+		$s3Client = Z_Core::$AWS->get('s3');
+		$cfg = [
+			'Bucket' => Z_CONFIG::$S3_BUCKET,
+			'Key' => self::getPathPrefix($localInfo['hash'], $localInfo['zip']) . $localInfo['filename'],
+			'CopySource' => Z_CONFIG::$S3_BUCKET . "/" . self::getPathPrefix($localInfo['hash'], $zip) . $newName,
+			'ACL' => 'private'
+		];
+		if ($contentType) {
+			$cfg['ContentType'] = $contentType;
 		}
+		$s3Client->copyObject($cfg);
 		
 		$info = new Zotero_StorageFileInfo;
 		foreach ($localInfo as $key => $val) {
@@ -383,20 +359,22 @@ class Zotero_S3 {
 	}
 	
 	public static function getRemoteFileInfo(Zotero_StorageFileInfo $info) {
-		self::requireLibrary();
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		
-		$url = self::getPathPrefix($info->hash, $info->zip) . $info->filename;
-		
-		$remoteInfo = S3::getObjectInfo(
-			Z_CONFIG::$S3_BUCKET,
-			$url,
-			true
-		);
-		if (!$remoteInfo) {
+		$s3Client = Z_Core::$AWS->get('s3');
+		try {
+			$result = $s3Client->headObject([
+				'Bucket' => Z_CONFIG::$S3_BUCKET,
+				'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
+			]);
+		}
+		catch (Aws\S3\Exception\NoSuchKeyException $e) {
 			return false;
 		}
-		return $remoteInfo;
+		
+		$storageFileInfo = new Zotero_StorageFileInfo;
+		$storageFileInfo->size = $result['ContentLength'];
+		$storageFileInfo->contentType = $result['ContentType'];
+		
+		return $storageFileInfo;
 	}
 	
 	
@@ -631,9 +609,9 @@ class Zotero_S3 {
 				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
 		}
 		
+		$key = self::getPathPrefix($info->hash, $info->zip) . $info->filename;
 		$lifetime = 3600;
-		
-		$path = self::getPathPrefix($info->hash, $info->zip);
+		$successStatus = 201;
 		
 		$contentMD5 = '';
 		for ($i = 0; $i < strlen($info->hash); $i += 2) {
@@ -653,27 +631,28 @@ class Zotero_S3 {
 			$contentType = $info->contentType;
 		}
 		
-		$metaHeaders = array();
-		$requestHeaders = array(
+		$s3Client = Z_Core::$AWS->get('s3');
+		$credentials = $s3Client->getCredentials();
+		$config = [
+			'acl' => 'private',
 			'Content-Type' => $contentType,
-			'Content-MD5' => $contentMD5,
-			//'Content-Disposition' => 'attachment; filename="' . $filename . '"'
-		);
-		
-		self::requireLibrary();
-		S3::setAuth(Z_CONFIG::$AWS_ACCESS_KEY, Z_CONFIG::$AWS_SECRET_KEY);
-		$params = S3::getHttpUploadPostParams(
+			'key' => $key,
+			'ttd' => time() + $lifetime,
+			'success_action_status' => $successStatus,
+			'Content-Type' => $contentType,
+			'Content-MD5' => $contentMD5
+		];
+		// Add security token from IAM role
+		if ($token = $credentials->getSecurityToken()) {
+            $config['x-amz-security-token'] = $token;
+        }
+        $postObject = new Aws\S3\Model\PostObject(
+			$s3Client,
 			Z_CONFIG::$S3_BUCKET,
-			$path,
-			S3::ACL_PRIVATE,
-			$lifetime,
-			$info->size + 262144, // an extra 256KB that may or may not be necessary
-			201,
-			$metaHeaders,
-			$requestHeaders,
-			$info->filename
+			$config
 		);
-		return $params;
+		$postObject->prepareData();
+		return $postObject->getFormInputs();
 	}
 	
 	

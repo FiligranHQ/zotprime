@@ -106,4 +106,19 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		
 		$this->assertXmlStringEqualsXmlFile("data/sync1download.xml", $xml->asXML());
 	}
+	
+	
+	public function testDownloadCache() {
+		$keys = [];
+		$keys[] = API::createItem("book", false, false, 'key');
+		$keys[] = API::createItem("journalArticle", false, false, 'key');
+		$keys[] = API::createItem("newspaperArticle", false, false, 'key');
+		$keys[] = API::createItem("magazineArticle", false, false, 'key');
+		$keys[] = API::createItem("bookSection", false, false, 'key');
+		$keys[] = API::createItem("audioRecording", false, false, 'key');
+		
+		$xml1 = Sync::updated(self::$sessionID);
+		$xml2 = Sync::updated(self::$sessionID);
+		$this->assertEquals($xml1->asXML(), $xml2->asXML());
+	}
 }

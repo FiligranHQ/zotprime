@@ -1101,7 +1101,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$parent = $item->getSource();
 		$isRegularItem = !$parent && $item->isRegularItem();
 		$downloadDetails = $permissions->canAccess($item->libraryID, 'files')
-								? Zotero_S3::getDownloadDetails($item)
+								? Zotero_Storage::getDownloadDetails($item)
 								: false;
 		if ($isRegularItem) {
 			$numChildren = $permissions->canAccess($item->libraryID, 'notes')

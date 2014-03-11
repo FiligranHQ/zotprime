@@ -64,7 +64,7 @@ class Zotero_Attachments {
 			$extURLPrefix .= "/";
 		}
 		
-		$info = Zotero_S3::getLocalFileItemInfo($item);
+		$info = Zotero_Storage::getLocalFileItemInfo($item);
 		$storageFileID = $info['storageFileID'];
 		$filename = $info['filename'];
 		$mtime = $info['mtime'];
@@ -187,7 +187,7 @@ class Zotero_Attachments {
 			throw new Exception("Unable to create directory '$tmpDir'");
 		}
 		Z_Core::debug("Downloading attachment to $dir");
-		$response = Zotero_S3::downloadFile($info, $tmpDir);
+		$response = Zotero_Storage::downloadFile($info, $tmpDir);
 		
 		$success = self::extractZip($tmpDir . $info['filename'], $dir);
 		
