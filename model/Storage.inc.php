@@ -70,7 +70,7 @@ class Zotero_Storage {
 		$command = $s3Client->getCommand('GetObject', array(
 			'Bucket' => Z_CONFIG::$S3_BUCKET,
 			'Key' => self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
-			'ResponseContentEncoding' => $item->attachmentMIMEType
+			'ResponseContentType' => $item->attachmentMIMEType
 		));
 		return $command->createPresignedUrl("+$ttl seconds");
 	}
