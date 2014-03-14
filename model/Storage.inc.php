@@ -331,7 +331,7 @@ class Zotero_Storage {
 	}
 	
 	public static function duplicateFile($storageFileID, $newName, $zip, $contentType=null) {
-		if (!$newName) {
+		if (strlen($newName) == 0) {
 			throw new Exception("New name not provided");
 		}
 		
