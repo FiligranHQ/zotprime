@@ -83,7 +83,7 @@ class Zotero_Storage {
 			));
 			return $command->createPresignedUrl("+$ttl seconds");
 		}
-		catch (Aws\S3\Exception\NoSuchKeyException $e) {
+		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
 			return false;
 		}
 	}
@@ -107,7 +107,7 @@ class Zotero_Storage {
 				'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
 			]);
 		}
-		catch (Aws\S3\Exception\NoSuchKeyException $e) {
+		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
 			return false;
 		}
 	}
@@ -352,7 +352,12 @@ class Zotero_Storage {
 		if ($contentType) {
 			$cfg['ContentType'] = $contentType;
 		}
-		$s3Client->copyObject($cfg);
+		try {
+			$s3Client->copyObject($cfg);
+		}
+		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
+			return false;
+		}
 		
 		$info = new Zotero_StorageFileInfo;
 		foreach ($localInfo as $key => $val) {
@@ -386,7 +391,7 @@ class Zotero_Storage {
 				'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
 			]);
 		}
-		catch (Aws\S3\Exception\NoSuchKeyException $e) {
+		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
 			return false;
 		}
 		
