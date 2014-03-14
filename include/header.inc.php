@@ -209,7 +209,7 @@ Zotero_DB::addCallback("reset", array(Z_Core::$MC, "reset"));
 // Set up AWS service factory
 //
 $awsConfig = [
-	'region' => Z_CONFIG::$AWS_REGION
+	'region' => !empty(Z_CONFIG::$AWS_REGION) ? Z_CONFIG::$AWS_REGION : 'us-east-1'
 ];
 // IAM role authentication
 if (empty(Z_CONFIG::$AWS_ACCESS_KEY)) {
