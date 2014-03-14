@@ -5,9 +5,9 @@ $config = array(
 	'apiURLPrefix' => "",
 	'rootUsername' => "",
 	'rootPassword' => "",
-	's3Bucket' => "",
-	's3AccessKey' => "",
-	's3SecretKey' => "",
+	'awsRegion' => "us-east-1",
+	'awsAccessKey' => "", // leave credentials empty to use IAM role
+	'awsSecretKey' => "",
 	'syncVersion' => 9,
 	
 	// User 1
@@ -17,7 +17,9 @@ $config = array(
 	'password' => "",
 	'apiKey' => "",
 	'ownedPrivateGroupID' => 0, // should have libraryEditing='members'
-	'ownedPublicGroupID' => 0
+	'ownedPrivateGroupLibraryID' => 0,
+	'ownedPublicGroupID' => 0, // should have libraryEditing='members'
+	'ownedPublicPrivateNotesGroupID' => 0,
 	
 	// User 2 (should be in user 1's private group)
 	'userID2' => 0,

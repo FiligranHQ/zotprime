@@ -25,17 +25,13 @@
 */
 
 require_once 'APITests.inc.php';
-require_once 'include/api.inc.php';
-require_once '../../model/S3Lib.inc.php';
+require_once 'include/bootstrap.inc.php';
 
 class FileTests extends APITests {
 	private static $toDelete = array();
 	
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
-		
-		S3::setAuth(self::$config['s3AccessKey'], self::$config['s3SecretKey']);
-		
 		API::userClear(self::$config['userID']);
 	}
 	
@@ -55,9 +51,16 @@ class FileTests extends APITests {
 	public static function tearDownAfterClass() {
 		parent::tearDownAfterClass();
 		
+		$s3Client = Z_Tests::$AWS->get('s3');
+		
 		foreach (self::$toDelete as $file) {
-			$deleted = S3::deleteObject(self::$config['s3Bucket'], $file);
-			if (!$deleted) {
+			try {
+				$s3Client->deleteObject([
+					'Bucket' => self::$config['s3Bucket'],
+					'Key' => $file
+				]);
+			}
+			catch (Aws\S3\Exception\NoSuchKeyException $e) {
 				echo "\n$file not found on S3 to delete\n";
 			}
 		}
