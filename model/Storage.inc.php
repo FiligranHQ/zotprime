@@ -75,12 +75,17 @@ class Zotero_Storage {
 		}
 		
 		$s3Client = Z_Core::$AWS->get('s3');
-		$command = $s3Client->getCommand('GetObject', array(
-			'Bucket' => Z_CONFIG::$S3_BUCKET,
-			'Key' => self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
-			'ResponseContentType' => $contentType
-		));
-		return $command->createPresignedUrl("+$ttl seconds");
+		try {
+			$command = $s3Client->getCommand('GetObject', array(
+				'Bucket' => Z_CONFIG::$S3_BUCKET,
+				'Key' => self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
+				'ResponseContentType' => $contentType
+			));
+			return $command->createPresignedUrl("+$ttl seconds");
+		}
+		catch (Aws\S3\Exception\NoSuchKeyException $e) {
+			return false;
+		}
 	}
 	
 	
@@ -94,12 +99,17 @@ class Zotero_Storage {
 		}
 		
 		$s3Client = Z_Core::$AWS->get('s3');
-		return $s3Client->getObject([
-			'Bucket' => Z_CONFIG::$S3_BUCKET,
-			'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
-				. $localFileItemInfo['filename'],
-			'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
-		]);
+		try {
+			return $s3Client->getObject([
+				'Bucket' => Z_CONFIG::$S3_BUCKET,
+				'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
+					. $localFileItemInfo['filename'],
+				'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
+			]);
+		}
+		catch (Aws\S3\Exception\NoSuchKeyException $e) {
+			return false;
+		}
 	}
 	
 	public static function logDownload($item, $downloadUserID, $ipAddress) {
