@@ -343,8 +343,10 @@ class Zotero_Storage {
 		$s3Client = Z_Core::$AWS->get('s3');
 		$cfg = [
 			'Bucket' => Z_CONFIG::$S3_BUCKET,
-			'Key' => self::getPathPrefix($localInfo['hash'], $localInfo['zip']) . $localInfo['filename'],
-			'CopySource' => Z_CONFIG::$S3_BUCKET . "/" . self::getPathPrefix($localInfo['hash'], $zip) . $newName,
+			'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
+				. urlencode(self::getPathPrefix($localInfo['hash'], $localInfo['zip'])
+					. $localInfo['filename']),
+			'Key' =>  self::getPathPrefix($localInfo['hash'], $zip) . $newName,
 			'ACL' => 'private'
 		];
 		if ($contentType) {

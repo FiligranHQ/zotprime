@@ -791,6 +791,25 @@ class FileTests extends APITests {
 		$this->assertContentType("application/xml", $response);
 		$this->assertEquals("<exists/>", $response->getBody());
 		
+		// File exists with different filename
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?auth=1&iskey=1&version=1",
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => $filename . '等', // Unicode 1.1 character, to test signature generation
+				"filesize" => $size,
+				"mtime" => $mtime + 1000
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded"
+			),
+			$auth
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/xml", $response);
+		$this->assertEquals("<exists/>", $response->getBody());
+		
 		// Make sure attachment item still wasn't updated
 		$sessionID = Sync::login();
 		$xml = Sync::updated($sessionID, $lastsync);
