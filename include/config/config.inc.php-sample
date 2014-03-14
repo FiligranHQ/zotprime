@@ -26,6 +26,12 @@ class Z_CONFIG {
 	public static $S3_BUCKET = '';
 	public static $S3_BUCKET_CACHE = '';
 	
+	public static $REDIS_HOSTS = [
+		'default' => 'redis1.localdomain',
+		'cache' => 'redis-cache.localdomain'
+	];
+	public static $REDIS_PREFIX = '';
+	
 	public static $MEMCACHED_ENABLED = true;
 	public static $MEMCACHED_SERVERS = array(
 		'memcached1.localdomain:11211:2', 'memcached2.localdomain:11211:1'
