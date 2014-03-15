@@ -418,13 +418,36 @@ class FileTests extends APITests {
 			)
 		);
 		$this->assert200($response);
-		$json = json_decode($response->getBody());
-		$this->assertNotNull($json);
-		$this->assertEquals(1, $json->exists);
+		$postJSON = json_decode($response->getBody());
+		$this->assertNotNull($postJSON);
+		$this->assertEquals(1, $postJSON->exists);
+		
+		// Get upload authorization for existing file with different filename
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey'],
+			$this->implodeParams(array(
+				"md5" => $json->md5,
+				"filename" => $json->filename . '等', // Unicode 1.1 character, to test signature generation
+				"filesize" => $size,
+				"mtime" => $json->mtime,
+				"contentType" => $json->contentType,
+				"charset" => $json->charset
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-Match: " . $json->md5
+			)
+		);
+		$this->assert200($response);
+		$postJSON = json_decode($response->getBody());
+		$this->assertNotNull($postJSON);
+		$this->assertEquals(1, $postJSON->exists);
 		
 		return array(
 			"key" => $key,
-			"md5" => $md5
+			"md5" => $md5,
+			"filename" => $json->filename . '等'
 		);
 	}
 	
@@ -435,7 +458,25 @@ class FileTests extends APITests {
 	public function testGetFile($addFileData) {
 		$key = $addFileData['key'];
 		$md5 = $addFileData['md5'];
+		$filename = $addFileData['filename'];
 		
+		// Get in view mode
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key/file/view?key=" . self::$config['apiKey']
+		);
+		$this->assert302($response);
+		$location = $response->getHeader("Location");
+		$this->assertRegExp('/^https:\/\/[^\/]+\/[0-9]+\//', $location);
+		$filenameEncoded = rawurlencode($filename);
+		$this->assertEquals($filenameEncoded, substr($location, -1 * strlen($filenameEncoded)));
+		
+		// Get from view mode
+		$response = HTTP::get($location);
+		$this->assert200($response);
+		$this->assertEquals($md5, md5($response->getBody()));
+		
+		// Get in download mode
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key/file?key=" . self::$config['apiKey']
@@ -446,7 +487,6 @@ class FileTests extends APITests {
 		// Get from S3
 		$response = HTTP::get($location);
 		$this->assert200($response);
-		
 		$this->assertEquals($md5, md5($response->getBody()));
 		
 		return array(
@@ -595,6 +635,162 @@ class FileTests extends APITests {
 				$response->getHeader("Content-Type")
 			);
 		}
+	}
+	
+	
+	public function testExistingFileWithOldStyleFilename() {
+		$fileContents = self::getRandomUnicodeString();
+		$hash = md5($fileContents);
+		$filename = 'test.txt';
+		$size = strlen($fileContents);
+		
+		$parentKey = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("imported_file", [], $parentKey, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
+		$originalVersion = $data['version'];
+		$mtime = time() * 1000;
+		$contentType = 'text/plain';
+		$charset = 'utf-8';
+		
+		// Get upload authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/{$data['key']}/file?key=" . self::$config['apiKey'],
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => $filename,
+				"filesize" => $size,
+				"mtime" => $mtime,
+				"contentType" => $contentType,
+				"charset" => $charset
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$json = json_decode($response->getBody());
+		$this->assertNotNull($json);
+		
+		// Upload to old-style location
+		$s3Client = Z_Tests::$AWS->get('s3');
+		$s3Client->putObject([
+			'Bucket' => self::$config['s3Bucket'],
+			'Key' => $hash . '/' . $filename,
+			'Body' => $fileContents
+		]);
+		
+		// Register upload
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey'],
+			"upload=" . $json->uploadKey,
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert204($response);
+		
+		// The file should be accessible on the item at the old-style location
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey']
+		);
+		$this->assert302($response);
+		$location = $response->getHeader("Location");
+		$this->assertEquals(1, preg_match('"^https://[^/]+/([a-f0-9]{32})/' . $filename . '\?"', $location, $matches));
+		$this->assertEquals($hash, $matches[1]);
+		
+		// Get upload authorization for the same file and filename on another item, which should
+		// result in 'exists', even though we uploaded to the old-style location
+		$parentKey = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("imported_file", [], $parentKey, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey'],
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => $filename,
+				"filesize" => $size,
+				"mtime" => $mtime,
+				"contentType" => $contentType,
+				"charset" => $charset
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert200($response);
+		$postJSON = json_decode($response->getBody());
+		$this->assertNotNull($postJSON);
+		$this->assertEquals(1, $postJSON->exists);
+		
+		// Get in download mode
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey']
+		);
+		$this->assert302($response);
+		$location = $response->getHeader("Location");
+		$this->assertEquals(1, preg_match('"^https://[^/]+/([a-f0-9]{32})/' . $filename . '\?"', $location, $matches));
+		$this->assertEquals($hash, $matches[1]);
+		
+		// Get from S3
+		$response = HTTP::get($location);
+		$this->assert200($response);
+		$this->assertEquals($fileContents, $response->getBody());
+		$this->assertEquals($contentType . '; charset=' . $charset, $response->getHeader('Content-Type'));
+		
+		// Get upload authorization for the same file and different filename on another item,
+		// which should result in 'exists' and a copy of the file to the hash-only location
+		$parentKey = API::createItem("book", false, $this, 'key');
+		$xml = API::createAttachmentItem("imported_file", [], $parentKey, $this);
+		$data = API::parseDataFromAtomEntry($xml);
+		$key = $data['key'];
+		// Also use a different content type
+		$contentType = 'application/x-custom';
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey'],
+			$this->implodeParams(array(
+				"md5" => $hash,
+				"filename" => "test2.txt",
+				"filesize" => $size,
+				"mtime" => $mtime,
+				"contentType" => $contentType
+			)),
+			array(
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			)
+		);
+		$this->assert200($response);
+		$postJSON = json_decode($response->getBody());
+		$this->assertNotNull($postJSON);
+		$this->assertEquals(1, $postJSON->exists);
+		
+		// Get in download mode
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key/file?key=" . self::$config['apiKey']
+		);
+		$this->assert302($response);
+		$location = $response->getHeader("Location");
+		$this->assertEquals(1, preg_match('"^https://[^/]+/([a-f0-9]{32})\?"', $location, $matches));
+		$this->assertEquals($hash, $matches[1]);
+		
+		// Get from S3
+		$response = HTTP::get($location);
+		$this->assert200($response);
+		$this->assertEquals($fileContents, $response->getBody());
+		$this->assertEquals($contentType, $response->getHeader('Content-Type'));
 	}
 	
 	

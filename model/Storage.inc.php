@@ -40,11 +40,11 @@ class Zotero_Storage {
 			return false;
 		}
 		
-		$url = Zotero_API::getItemURI($item) . "/file";
+		$url = Zotero_API::getItemURI($item) . "/file/view";
 		$info = self::getFileInfoByID($storageFileID);
 		if ($info['zip']) {
 			return array(
-				'url' => $url . "/view"
+				'url' => $url
 			);
 		}
 		else {
@@ -76,16 +76,31 @@ class Zotero_Storage {
 		
 		$s3Client = Z_Core::$AWS->get('s3');
 		try {
-			$command = $s3Client->getCommand('GetObject', array(
+			$key = $info['hash'];
+			$s3Client->headObject([
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
-				'Key' => self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'],
-				'ResponseContentType' => $contentType
-			));
-			return $command->createPresignedUrl("+$ttl seconds");
+				'Key' => $info['hash']
+			]);
 		}
 		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			return false;
+			// Try legacy key format, with zip flag and filename
+			try {
+				$key = self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'];
+				$s3Client->headObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET,
+					'Key' => $key
+				]);
+			}
+			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
+				return false;
+			}
 		}
+		
+		return $s3Client->getCommand('GetObject', array(
+			'Bucket' => Z_CONFIG::$S3_BUCKET,
+			'Key' => $key,
+			'ResponseContentType' => $contentType
+		))->createPresignedUrl("+$ttl seconds");
 	}
 	
 	
@@ -102,13 +117,23 @@ class Zotero_Storage {
 		try {
 			return $s3Client->getObject([
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
-				'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
-					. $localFileItemInfo['filename'],
+				'Key' => $localFileItemInfo['hash'],
 				'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
 			]);
 		}
 		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			return false;
+			// Try legacy key format, with zip flag and filename
+			try {
+				return $s3Client->getObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET,
+					'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
+						. $localFileItemInfo['filename'],
+					'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
+				]);
+			}
+			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
+				return false;
+			}
 		}
 	}
 	
@@ -137,9 +162,8 @@ class Zotero_Storage {
 		$s3Client->putObject([
 			'SourceFile' => $file,
 			'Bucket' => Z_CONFIG::$S3_BUCKET,
-			'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename,
-			'ACL' => 'private',
-			'ContentType' => $contentType
+			'Key' => $info->hash,
+			'ACL' => 'private'
 		]);
 		
 		return self::addFile($info);
@@ -341,22 +365,27 @@ class Zotero_Storage {
 		}
 		
 		$s3Client = Z_Core::$AWS->get('s3');
-		$cfg = [
-			'Bucket' => Z_CONFIG::$S3_BUCKET,
-			'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
-				. urlencode(self::getPathPrefix($localInfo['hash'], $localInfo['zip'])
-					. $localInfo['filename']),
-			'Key' =>  self::getPathPrefix($localInfo['hash'], $zip) . $newName,
-			'ACL' => 'private'
-		];
-		if ($contentType) {
-			$cfg['ContentType'] = $contentType;
-		}
 		try {
-			$s3Client->copyObject($cfg);
+			$s3Client->headObject([
+				'Bucket' => Z_CONFIG::$S3_BUCKET,
+				'Key' => $localInfo['hash']
+			]);
 		}
+		// If file doesn't already exist named with just hash, copy it over
 		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			return false;
+			try {
+				$s3Client->copyObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET,
+					'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
+						. urlencode(self::getPathPrefix($localInfo['hash'], $localInfo['zip'])
+							. $localInfo['filename']),
+					'Key' => $localInfo['hash'],
+					'ACL' => 'private'
+				]);
+			}
+			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
+				return false;
+			}
 		}
 		
 		$info = new Zotero_StorageFileInfo;
@@ -388,16 +417,24 @@ class Zotero_Storage {
 		try {
 			$result = $s3Client->headObject([
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
-				'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
+				'Key' => $info->hash
 			]);
 		}
 		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			return false;
+			// Try legacy key format, with zip flag and filename
+			try {
+				$result = $s3Client->headObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET,
+					'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
+				]);
+			}
+			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
+				return false;
+			}
 		}
 		
 		$storageFileInfo = new Zotero_StorageFileInfo;
 		$storageFileInfo->size = $result['ContentLength'];
-		$storageFileInfo->contentType = $result['ContentType'];
 		
 		return $storageFileInfo;
 	}
@@ -634,7 +671,6 @@ class Zotero_Storage {
 				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
 		}
 		
-		$key = self::getPathPrefix($info->hash, $info->zip) . $info->filename;
 		$lifetime = 3600;
 		$successStatus = 201;
 		
@@ -644,27 +680,13 @@ class Zotero_Storage {
 		}
 		$contentMD5 = base64_encode($contentMD5);
 		
-		if ($useItemContentType) {
-			if ($info->zip) {
-				$contentType = "application/octet-stream";
-			}
-			else {
-				$contentType = $item->attachmentMIMEType;
-			}
-		}
-		else {
-			$contentType = $info->contentType;
-		}
-		
 		$s3Client = Z_Core::$AWS->get('s3');
 		$credentials = $s3Client->getCredentials();
 		$config = [
 			'acl' => 'private',
-			'Content-Type' => $contentType,
-			'key' => $key,
+			'key' => $info->hash,
 			'ttd' => time() + $lifetime,
 			'success_action_status' => $successStatus,
-			'Content-Type' => $contentType,
 			'Content-MD5' => $contentMD5
 		];
 		// Add security token from IAM role

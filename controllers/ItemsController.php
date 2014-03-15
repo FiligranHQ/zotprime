@@ -713,27 +713,25 @@ class ItemsController extends ApiController {
 			header_remove("X-Powered-By");
 		}
 		
-		// File download/viewing
+		// File viewing/download
 		//
 		// TEMP: allow POST for snapshot viewing until using session auth
-		else if ($this->method == 'GET' || ($this->method == 'POST' && $this->fileView)) {
+		else if ($this->method == 'GET') {
+			// File viewing
 			if ($this->fileView) {
 				$info = Zotero_Storage::getLocalFileItemInfo($item);
 				if (!$info) {
 					$this->e404();
 				}
-				// For zip files, redirect to files domain
-				if ($info['zip']) {
-					$url = Zotero_Attachments::getTemporaryURL($item, !empty($_GET['int']));
-					if (!$url) {
-						$this->e500();
-					}
-					$this->redirect($url);
-					exit;
+				$url = Zotero_Attachments::getTemporaryURL($item, !empty($_GET['int']));
+				if (!$url) {
+					$this->e500();
 				}
+				$this->redirect($url);
+				exit;
 			}
 			
-			// For single files, redirect to S3
+			// File download
 			$url = Zotero_Storage::getDownloadURL($item, 60);
 			if (!$url) {
 				$this->e404();

@@ -55,7 +55,7 @@ class Zotero_Attachments {
 	
 	
 	/**
-	 * Download ZIP file from S3, extract it, and return a temporary URL
+	 * Download file from S3, extract it if necessary, and return a temporary URL
 	 * pointing to the main file
 	 */
 	public static function getTemporaryURL(Zotero_Item $item, $localOnly=false) {
@@ -68,12 +68,10 @@ class Zotero_Attachments {
 		$storageFileID = $info['storageFileID'];
 		$filename = $info['filename'];
 		$mtime = $info['mtime'];
-		if (!$info['zip']) {
-			throw new Exception("Not a zip attachment");
-		}
+		$zip = $info['zip'];
 		$realFilename = preg_replace("/^storage:/", "", $item->attachmentPath);
 		$realFilename = self::decodeRelativeDescriptorString($realFilename);
-		$realFilename = urlencode($realFilename);
+		$realFilename = rawurlencode($realFilename);
 		
 		$docroot = Z_CONFIG::$ATTACHMENT_SERVER_DOCROOT;
 		
@@ -91,36 +89,37 @@ class Zotero_Attachments {
 		$skipHost = false;
 		for ($i = 0, $len = sizeOf(Z_CONFIG::$ATTACHMENT_SERVER_HOSTS); $i < $len; $i++) {
 			$hostAddr = gethostbyname(Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]);
-			if ($hostAddr == $localAddr) {
-				// Make a HEAD request on the local static port to make sure
-				// this host is actually functional
-				$url = "http://" . Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]
-					. ":" . Z_CONFIG::$ATTACHMENT_SERVER_STATIC_PORT . "/";
-				Z_Core::debug("Making HEAD request to $url");
-				$ch = curl_init($url);
-				curl_setopt($ch, CURLOPT_NOBODY, 1);
-				curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
-				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
-				curl_setopt($ch, CURLOPT_TIMEOUT, 2);
-				curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
-				curl_setopt($ch, CURLOPT_RETURNTRANSFER , 1);
-				$response = curl_exec($ch);
-				$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-				
-				if ($code != 200) {
-					$skipHost = Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i];
-					if ($code == 0) {
-						Z_Core::logError("Error connecting to local attachments server");
-					}
-					else {
-						Z_Core::logError("Local attachments server returned $code");
-					}
-					break;
+			if ($hostAddr != $localAddr) {
+				continue;
+			}
+			// Make a HEAD request on the local static port to make sure
+			// this host is actually functional
+			$url = "http://" . Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i]
+				. ":" . Z_CONFIG::$ATTACHMENT_SERVER_STATIC_PORT . "/";
+			Z_Core::debug("Making HEAD request to $url");
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_NOBODY, 1);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Expect:"));
+			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+			curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+			curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER , 1);
+			$response = curl_exec($ch);
+			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			
+			if ($code != 200) {
+				$skipHost = Z_CONFIG::$ATTACHMENT_SERVER_HOSTS[$i];
+				if ($code == 0) {
+					Z_Core::logError("Error connecting to local attachments server");
 				}
-				
-				$index = $i + 1;
+				else {
+					Z_Core::logError("Local attachments server returned $code");
+				}
 				break;
 			}
+			
+			$index = $i + 1;
+			break;
 		}
 		
 		// If not, make an internal root request to trigger the extraction on
@@ -169,7 +168,7 @@ class Zotero_Attachments {
 			return false;
 		}
 		
-		// If this is an attachment host, do the extraction inline
+		// If this is an attachment host, do the download/extraction inline
 		// and generate a random number with an embedded host id.
 		//
 		// The reverse proxy routes incoming file requests to the proper hosts
@@ -180,21 +179,36 @@ class Zotero_Attachments {
 		// Seventh number is the host id
 		$randomStr = substr($randomStr, 0, 6) . $index . substr($randomStr, 6);
 		
-		// Download and extract file
+		// Download file
 		$dir = $docroot . $randomStr . "/";
-		$tmpDir = $dir . "ztmp/";
-		if (!mkdir($tmpDir, 0777, true)) {
-			throw new Exception("Unable to create directory '$tmpDir'");
-		}
+		$downloadDir = $zip ? $dir . "ztmp/" : $dir;
+		
 		Z_Core::debug("Downloading attachment to $dir");
-		$response = Zotero_Storage::downloadFile($info, $tmpDir);
 		
-		$success = self::extractZip($tmpDir . $info['filename'], $dir);
+		if (!mkdir($downloadDir, 0777, true)) {
+			throw new Exception("Unable to create directory '$downloadDir'");
+		}
+		$response = Zotero_Storage::downloadFile($info, $downloadDir);
+		if ($response) {
+			if ($zip) {
+				$success = self::extractZip($downloadDir . $info['filename'], $dir);
+				unlink($downloadDir . $info['filename']);
+				rmdir($downloadDir);
+			}
+			else {
+				$success = true;
+				if (preg_match('/^[^\s]+/', trim($item->attachmentContentType), $matches)) {
+					$contentType = $matches[0];
+					$charset = trim($item->attachmentCharset);
+					if (substr($charset, 0, 5) == 'text/' && preg_match('/^[^\s]+/', $charset, $matches)) {
+						$contentType .= '; ' . $matches[0];
+					}
+					file_put_contents($dir . ".htaccess", "ForceType " . $contentType);
+				}
+			}
+		}
 		
-		unlink($tmpDir . $info['filename']);
-		rmdir($tmpDir);
-		
-		if (!$success) {
+		if (!$response || !$success) {
 			return false;
 		}
 		
