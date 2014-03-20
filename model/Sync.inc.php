@@ -1470,7 +1470,7 @@ class Zotero_Sync {
 				// Manual foreign key checks
 				//
 				// libraryID
-				foreach ($addedLibraryIDs as $addedLibraryID) {
+				foreach (array_unique($addedLibraryIDs) as $addedLibraryID) {
 					$shardID = Zotero_Shards::getByLibraryID($addedLibraryID);
 					$sql = "SELECT COUNT(*) FROM shardLibraries WHERE libraryID=?";
 					if (!Zotero_DB::valueQuery($sql, $addedLibraryID, $shardID)) {
