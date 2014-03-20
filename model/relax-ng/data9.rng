@@ -231,7 +231,7 @@
       </optional>
       <optional>
         <element name="creators">
-          <oneOrMore>
+          <zeroOrMore>
             <element name="creator">
               <optional>
                 <ref name="libraryID"/>
@@ -268,7 +268,7 @@
                 </element>
               </optional>
             </element>
-          </oneOrMore>
+          </zeroOrMore>
         </element>
       </optional>
       <optional>
