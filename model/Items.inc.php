@@ -1335,7 +1335,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			if (!empty($details['filename'])) {
 				$link['title'] = $details['filename'];
 			}
-			if (!empty($details['size'])) {
+			if (isset($details['size'])) {
 				$link['length'] = $details['size'];
 			}
 		}
