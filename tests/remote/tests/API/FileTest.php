@@ -676,6 +676,7 @@ class FileTests extends APITests {
 		$this->assertNotNull($json);
 		
 		// Upload to old-style location
+		self::$toDelete[] = "$hash/$filename";
 		$s3Client = Z_Tests::$AWS->get('s3');
 		$s3Client->putObject([
 			'Bucket' => self::$config['s3Bucket'],
