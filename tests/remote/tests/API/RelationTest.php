@@ -60,6 +60,99 @@ class RelationTests extends APITests {
 	}
 	
 	
+	public function testRelatedItemRelations() {
+		$relations = [
+			"owl:sameAs" => "http://zotero.org/groups/1/items/AAAAAAAA",
+		];
+		
+		$item1JSON = API::createItem("book", [
+			"relations" => $relations
+		], $this, 'json');
+		$item2JSON = API::createItem("book", null, $this, 'json');
+		
+		$uriPrefix = "http://zotero.org/users/" . self::$config['userID'] . "/items/";
+		$item1URI = $uriPrefix . $item1JSON['itemKey'];
+		$item2URI = $uriPrefix . $item2JSON['itemKey'];
+		
+		// Add item 2 as related item of item 1
+		$relations["dc:relation"] = $item2URI;
+		$item1JSON["relations"] = $relations;
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$item1JSON['itemKey']}?key=" . self::$config['apiKey'],
+			json_encode($item1JSON)
+		);
+		$this->assert204($response);
+		
+		// Make sure it exists on item 1
+		$xml = API::getItemXML($item1JSON['itemKey']);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertCount(sizeOf($relations), $json['relations']);
+		foreach ($relations as $predicate => $object) {
+			$this->assertEquals($object, $json['relations'][$predicate]);
+		}
+		
+		// And item 2, since related items are bidirectional
+		$xml = API::getItemXML($item2JSON['itemKey']);
+		$data = API::parseDataFromAtomEntry($xml);
+		$item2JSON = json_decode($data['content'], true);
+		$this->assertCount(1, $item2JSON['relations']);
+		$this->assertEquals($item1URI, $item2JSON["relations"]["dc:relation"]);
+		
+		// Sending item 2's unmodified JSON back up shouldn't cause the item to be updated.
+		// Even though we're sending a relation that's technically not part of the item,
+		// when it loads the item it will load the reverse relations too and therefore not
+		// add a relation that it thinks already exists.
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$item2JSON['itemKey']}?key=" . self::$config['apiKey'],
+			json_encode($item2JSON)
+		);
+		$this->assert204($response);
+		$this->assertEquals($item2JSON['itemVersion'], $response->getHeader("Last-Modified-Version"));
+	}
+	
+	
+	// Same as above, but in a single request
+	public function testRelatedItemRelationsSingleRequest() {
+		$uriPrefix = "http://zotero.org/users/" . self::$config['userID'] . "/items/";
+		// TEMP: Use autoloader
+		require_once '../../model/Utilities.inc.php';
+		require_once '../../model/ID.inc.php';
+		$item1Key = Zotero_ID::getKey();
+		$item2Key = Zotero_ID::getKey();
+		$item1URI = $uriPrefix . $item1Key;
+		$item2URI = $uriPrefix . $item2Key;
+		
+		$item1JSON = API::getItemTemplate('book');
+		$item1JSON->itemKey = $item1Key;
+		$item1JSON->itemVersion = 0;
+		$item1JSON->relations->{'dc:relation'} = $item2URI;
+		$item2JSON = API::getItemTemplate('book');
+		$item2JSON->itemKey = $item2Key;
+		$item2JSON->itemVersion = 0;
+		
+		$response = API::postItems([$item1JSON, $item2JSON]);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		// Make sure it exists on item 1
+		$xml = API::getItemXML($item1JSON->itemKey);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertCount(1, $json['relations']);
+		$this->assertEquals($item2URI, $json['relations']['dc:relation']);
+		
+		// And item 2, since related items are bidirectional
+		$xml = API::getItemXML($item2JSON->itemKey);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertCount(1, $json['relations']);
+		$this->assertEquals($item1URI, $json['relations']['dc:relation']);
+	}
+	
+	
 	public function testInvalidItemRelation() {
 		$response = API::createItem("book", array(
 			"relations" => array(

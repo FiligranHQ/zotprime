@@ -2051,6 +2051,19 @@ class Zotero_Item {
 									$rel[1]
 								)
 							);
+							
+							// If adding a related item, the version on that item has to be
+							// updated as well (if it exists). Otherwise, requests for that
+							// item will return cached data without the new relation.
+							if ($rel[0] == Zotero_Relations::$relatedItemPredicate) {
+								$relatedItem = Zotero_URI::getURIItem($rel[1]);
+								if (!$relatedItem) {
+									Z_Core::debug("Related item " . $rel[1] . " does not exist "
+										. "for item " . $this->libraryKey);
+									continue;
+								}
+								$relatedItem->updateVersion($userID);
+							}
 						}
 					}
 				}
@@ -3872,6 +3885,14 @@ class Zotero_Item {
 			return [$rel->predicate, $rel->object];
 		}, $relations);
 		
+		// Related items are bidirectional, so include any with this item as the object
+		$reverseRelations = Zotero_Relations::getByURIs(
+			$this->libraryID, false, Zotero_Relations::$relatedItemPredicate, $itemURI
+		);
+		foreach ($reverseRelations as $rel) {
+			$relations[] = [$rel->predicate, $rel->subject];
+		}
+		
 		// Also include any owl:sameAs relations with this item as the object
 		// (as sent by client via classic sync)
 		$reverseRelations = Zotero_Relations::getByURIs(
@@ -3881,7 +3902,7 @@ class Zotero_Item {
 			$relations[] = [$rel->predicate, $rel->subject];
 		}
 		
-		// TEMP
+		// TEMP: Get old-style related items
 		//
 		// Add related items
 		$sql = "SELECT `key` FROM itemRelated IR "
@@ -3892,6 +3913,18 @@ class Zotero_Item {
 			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
 			$predicate = Zotero_Relations::$relatedItemPredicate;
 			foreach ($relatedItemKeys as $key) {
+				$relations[] = [$predicate, $prefix . $key];
+			}
+		}
+		// Reverse as well
+		$sql = "SELECT `key` FROM itemRelated IR JOIN items I USING (itemID) WHERE IR.linkedItemID=?";
+		$reverseRelatedItemKeys = Zotero_DB::columnQuery(
+			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID)
+		);
+		if ($reverseRelatedItemKeys) {
+			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+			$predicate = Zotero_Relations::$relatedItemPredicate;
+			foreach ($reverseRelatedItemKeys as $key) {
 				$relations[] = [$predicate, $prefix . $key];
 			}
 		}
