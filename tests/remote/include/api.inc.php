@@ -758,12 +758,12 @@ class API {
 		
 		$json = self::getJSONFromResponse($response);
 		
-		if ($responseFormat != 'json' && sizeOf($json['success']) != 1) {
+		if ($responseFormat != 'responsejson' && sizeOf($json['success']) != 1) {
 			var_dump($json);
 			throw new Exception("$uctype creation failed");
 		}
 		
-		if ($responseFormat == 'json') {
+		if ($responseFormat == 'responsejson') {
 			return $json;
 		}
 		
@@ -787,6 +787,9 @@ class API {
 		}
 		if ($responseFormat == 'content') {
 			return $data['content'];
+		}
+		if ($responseFormat == 'json') {
+			return json_decode($data['content'], true);
 		}
 		
 		throw new Exception("Invalid response format '$responseFormat'");

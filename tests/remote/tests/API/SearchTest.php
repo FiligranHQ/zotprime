@@ -127,14 +127,14 @@ class SearchTests extends APITests {
 				)
 			),
 			$this,
-			'json'
+			'responsejson'
 		);
 		$this->assert400ForObject($json, "Search name cannot be empty");
 	}
 	
 	
 	public function testNewSearchNoConditions() {
-		$json = API::createSearch("Test", array(), $this, 'json');
+		$json = API::createSearch("Test", array(), $this, 'responsejson');
 		$this->assert400ForObject($json, "'conditions' cannot be empty");
 	}
 	
@@ -149,7 +149,7 @@ class SearchTests extends APITests {
 				)
 			),
 			$this,
-			'json'
+			'responsejson'
 		);
 		$this->assert400ForObject($json, "'condition' property not provided for search condition");
 		
@@ -163,7 +163,7 @@ class SearchTests extends APITests {
 				)
 			),
 			$this,
-			'json'
+			'responsejson'
 		);
 		$this->assert400ForObject($json, "Search condition cannot be empty");
 		
@@ -176,7 +176,7 @@ class SearchTests extends APITests {
 				)
 			),
 			$this,
-			'json'
+			'responsejson'
 		);
 		$this->assert400ForObject($json, "'operator' property not provided for search condition");
 		
@@ -190,7 +190,7 @@ class SearchTests extends APITests {
 				)
 			),
 			$this,
-			'json'
+			'responsejson'
 		);
 		$this->assert400ForObject($json, "Search operator cannot be empty");
 	}
