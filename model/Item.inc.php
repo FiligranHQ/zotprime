@@ -155,6 +155,9 @@ class Zotero_Item {
 		}
 		
 		switch ($field) {
+			case 'libraryKey':
+				return $this->libraryID . "/" . $this->key;
+			
 			case 'creatorSummary':
 				return $this->getCreatorSummary();
 				
