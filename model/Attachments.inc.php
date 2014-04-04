@@ -71,15 +71,15 @@ class Zotero_Attachments {
 		$zip = $info['zip'];
 		$realFilename = preg_replace("/^storage:/", "", $item->attachmentPath);
 		$realFilename = self::decodeRelativeDescriptorString($realFilename);
-		$realFilename = rawurlencode($realFilename);
+		$realEncodedFilename = rawurlencode($realFilename);
 		
 		$docroot = Z_CONFIG::$ATTACHMENT_SERVER_DOCROOT;
 		
 		// Check memcached to see if file is already extracted
 		$key = "attachmentServerString_" . $storageFileID . "_" . $mtime;
 		if ($randomStr = Z_Core::$MC->get($key)) {
-			Z_Core::debug("Got attachment path '$randomStr/$realFilename' from memcached");
-			return $extURLPrefix . "$randomStr/$realFilename";
+			Z_Core::debug("Got attachment path '$randomStr/$realEncodedFilename' from memcached");
+			return $extURLPrefix . "$randomStr/$realEncodedFilename";
 		}
 		
 		$localAddr = gethostbyname(gethostname());
@@ -188,12 +188,26 @@ class Zotero_Attachments {
 		if (!mkdir($downloadDir, 0777, true)) {
 			throw new Exception("Unable to create directory '$downloadDir'");
 		}
-		$response = Zotero_Storage::downloadFile($info, $downloadDir);
+		if ($zip) {
+			$response = Zotero_Storage::downloadFile($info, $downloadDir);
+		}
+		else {
+			$response = Zotero_Storage::downloadFile($info, $downloadDir, $realFilename);
+		}
 		if ($response) {
 			if ($zip) {
 				$success = self::extractZip($downloadDir . $info['filename'], $dir);
 				unlink($downloadDir . $info['filename']);
 				rmdir($downloadDir);
+				
+				// Make sure charset is just a string with no spaces or newlines
+				if (preg_match('/^[^\s]+/', trim($item->attachmentCharset), $matches)) {
+					$charset = $matches[0];
+				}
+				else {
+					$charset = 'Off';
+				}
+				file_put_contents($dir . ".htaccess", "AddDefaultCharset " . $charset);
 			}
 			else {
 				$success = true;
@@ -214,7 +228,7 @@ class Zotero_Attachments {
 		
 		Z_Core::$MC->set($key, $randomStr, self::$cacheTime);
 		
-		return $extURLPrefix . "$randomStr/" . $realFilename;
+		return $extURLPrefix . "$randomStr/" . $realEncodedFilename;
 	}
 	
 	
