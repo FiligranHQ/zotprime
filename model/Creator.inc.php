@@ -201,19 +201,24 @@ class Zotero_Creator {
 			catch (Exception $e) {
 				if (strpos($e->getMessage(), " too long") !== false) {
 					if (strlen($this->firstName) > 255) {
-						throw new Exception("=First name '" . mb_substr($this->firstName, 0, 50) . "…' too long");
+						$name = $this->firstName;
 					}
-					if (strlen($this->lastName) > 255) {
-						if ($this->fieldMode == 1) {
-							throw new Exception("=Last name '" . mb_substr($this->lastName, 0, 50) . "…' too long");
-						}
-						else {
-							throw new Exception("=Name '" . mb_substr($this->lastName, 0, 50) . "…' too long");
-						}
+					else if (strlen($this->lastName) > 255) {
+						$name = $this->lastName;
 					}
+					else {
+						throw $e;
+					}
+					$name = mb_substr($name, 0, 50);
+					throw new Exception("=The name ‘{$name}…’ is too long to sync.\n\n"
+						. "Search for the item with this name and shorten it. "
+						. "Note that the item may be in the trash or in a group library.\n\n"
+						. "If you receive this message repeatedly for items saved from a "
+						. "particular site, you can report this issue in the Zotero Forums.",
+						Z_ERROR_CREATOR_TOO_LONG);
 				}
 				
-				throw ($e);
+				throw $e;
 			}
 			
 			// The client updates the mod time of associated items here, but

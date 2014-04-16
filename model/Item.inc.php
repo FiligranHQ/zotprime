@@ -1235,7 +1235,22 @@ class Zotero_Item {
 						
 						if ($creator['ref']->hasChanged()) {
 							Z_Core::debug("Auto-saving changed creator {$creator['ref']->id}");
-							$creator['ref']->save();
+							try {
+								$creator['ref']->save();
+							}
+							catch (Exception $e) {
+								// TODO: Provide the item in question
+								/*if (strpos($e->getCode() == Z_ERROR_CREATOR_TOO_LONG)) {
+									$msg = $e->getMessage();
+									$msg = str_replace(
+										"with this name and shorten it.",
+										"with this name, or paste '$key' into the quick search bar "
+										. "in the Zotero toolbar, and shorten the name."
+									);
+									throw new Exception($msg, Z_ERROR_CREATOR_TOO_LONG);
+								}*/
+								throw $e;
+							}
 						}
 						
 						$placeholders[] = "(?, ?, ?, ?)";
