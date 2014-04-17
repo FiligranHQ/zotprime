@@ -223,13 +223,7 @@ class Zotero_DataObjects {
 			return self::$primaryDataByKey[$type][$libraryID][$key];
 		}
 		
-		if ($type == 'relation') {
-			$sql = self::getPrimaryDataSQL() . "libraryID=? AND "
-				. "MD5(CONCAT(subject, '_', predicate, '_', object))=?";
-		}
-		else {
-			$sql = self::getPrimaryDataSQL() . "libraryID=? AND `$keyField`=?";
-		}
+		$sql = self::getPrimaryDataSQL() . "libraryID=? AND `$keyField`=?";
 		$row = Zotero_DB::rowQuery(
 			$sql, array($libraryID, $key), Zotero_Shards::getByLibraryID($libraryID)
 		);
@@ -648,16 +642,8 @@ class Zotero_DataObjects {
 			Zotero_FullText::deleteItemContent($obj);
 		}
 		
-		if ($type == 'relation') {
-			// TODO: add key column to relations to speed this up
-			$sql = "DELETE FROM $table WHERE libraryID=? AND "
-			     . "MD5(CONCAT(subject, '_', predicate, '_', object))=?";
-			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
-		}
-		else {
-			$sql = "DELETE FROM $table WHERE libraryID=? AND `$keyField`=?";
-			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
-		}
+		$sql = "DELETE FROM $table WHERE libraryID=? AND `$keyField`=?";
+		$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
 		
 		static::uncachePrimaryData($libraryID, $key);
 		

@@ -202,13 +202,13 @@ CREATE TABLE `itemTags` (
 CREATE TABLE `relations` (
   `relationID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
+  `key` char(32) CHARACTER SET ascii NOT NULL,
   `subject` varchar(255) NOT NULL,
   `predicate` varchar(255) NOT NULL,
   `object` varchar(255) NOT NULL,
   `serverDateModified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`relationID`),
-  UNIQUE KEY `uniqueRelations` (`libraryID`,`subject`,`predicate`,`object`),
+  UNIQUE KEY `uniqueRelations` (`libraryID`,`key`),
   KEY `object` (`libraryID`,`object`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

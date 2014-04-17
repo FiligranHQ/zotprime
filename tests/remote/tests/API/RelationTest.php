@@ -55,7 +55,14 @@ class RelationTests extends APITests {
 		$json = json_decode($data['content'], true);
 		$this->assertCount(sizeOf($relations), $json['relations']);
 		foreach ($relations as $predicate => $object) {
-			$this->assertEquals($object, $json['relations'][$predicate]);
+			if (is_string($object)) {
+				$this->assertEquals($object, $json['relations'][$predicate]);
+			}
+			else {
+				foreach ($object as $rel) {
+					$this->assertContains($rel, $json['relations'][$predicate]);
+				}
+			}
 		}
 	}
 	

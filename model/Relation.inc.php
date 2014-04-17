@@ -30,7 +30,6 @@ class Zotero_Relation {
 	private $subject;
 	private $predicate;
 	private $object;
-	private $serverDateModified;
 	
 	private $loaded;
 	
@@ -97,9 +96,8 @@ class Zotero_Relation {
 		}
 		
 		if ($this->subject && $this->predicate && $this->object) {
-			$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND
-						subject=? AND predicate=? AND object=?";
-			$params = array($this->libraryID, $this->subject, $this->predicate, $this->object);
+			$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND `key`=?";
+			$params = array($this->libraryID, $this->getKey());
 			$exists = !!Zotero_DB::valueQuery($sql, $params, $shardID);
 			
 			// TEMP
@@ -107,9 +105,11 @@ class Zotero_Relation {
 			// order when an item is dragged from a group to a personal library
 			if (!$exists && $this->predicate == Zotero_Relations::$linkedObjectPredicate
 					&& Zotero_Libraries::getType($this->libraryID) == 'user') {
-				$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND
-							subject=? AND predicate=? AND object=?";
-				$params = array($this->libraryID, $this->object, $this->predicate, $this->subject);
+				$sql = "SELECT COUNT(*) FROM relations WHERE libraryID=? AND `key`=?";
+				$params = [
+					$this->libraryID,
+					Zotero_Relations::makeKey($this->object, $this->predicate, $this->subject)
+				];
 				return !!Zotero_DB::valueQuery($sql, $params, $shardID);
 			}
 			
@@ -140,12 +140,13 @@ class Zotero_Relation {
 			Z_Core::debug("Saving relation $relationID");
 			
 			$sql = "INSERT INTO relations
-					(relationID, libraryID, subject, predicate, object, serverDateModified)
-					VALUES (?, ?, ?, ?, ?, ?)";
+					(relationID, libraryID, `key`, subject, predicate, object, serverDateModified)
+					VALUES (?, ?, ?, ?, ?, ?, ?)";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$params = array(
 				$relationID,
 				$this->libraryID,
+				$this->getKey(),
 				$this->subject,
 				$this->predicate,
 				$this->object,
@@ -232,7 +233,8 @@ class Zotero_Relation {
 		
 		//Z_Core::debug("Loading data for relation $this->id");
 		
-		$sql = "SELECT * FROM relations WHERE relationID=?";
+		$sql = "SELECT relationID AS id, libraryID, subject, object, predicate FROM relations "
+			. "WHERE relationID=?";
 		$data = Zotero_DB::rowQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
 		$this->loaded = true;
@@ -242,21 +244,13 @@ class Zotero_Relation {
 		}
 		
 		foreach ($data as $key=>$val) {
-			// TEMP
-			if ($key == 'serverDateModifiedMS') {
-				continue;
-			}
-			if ($key == 'relationID') {
-				$this->id = $val;
-				continue;
-			}
 			$this->$key = $val;
 		}
 	}
 	
 	
 	private function getKey() {
-		return md5($this->subject . "_" . $this->predicate . "_" . $this->object);
+		return Zotero_Relations::makeKey($this->subject, $this->predicate, $this->object);
 	}
 }
 ?>

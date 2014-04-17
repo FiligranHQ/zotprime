@@ -1442,14 +1442,15 @@ class Zotero_Item {
 					$uri = Zotero_URI::getItemURI($this, true);
 					
 					$sql = "INSERT IGNORE INTO relations "
-						 . "(relationID, libraryID, subject, predicate, object) "
-						 . "VALUES (?, ?, ?, ?, ?)";
+						 . "(relationID, libraryID, `key`, subject, predicate, object) "
+						 . "VALUES (?, ?, ?, ?, ?, ?)";
 					$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
 					foreach ($this->relations as $rel) {
 						$insertStatement->execute(
 							array(
 								Zotero_ID::get('relations'),
 								$this->libraryID,
+								Zotero_Relations::makeKey($uri, $rel[0], $rel[1]),
 								$uri,
 								$rel[0],
 								$rel[1]
@@ -2032,19 +2033,24 @@ class Zotero_Item {
 					$uri = Zotero_URI::getItemURI($this, true);
 					
 					if ($removed) {
-						$sql = "DELETE FROM relations WHERE
-								libraryID=? AND subject=? AND predicate=? AND object=?";
+						$sql = "DELETE FROM relations WHERE libraryID=? AND `key`=?";
 						$deleteStatement = Zotero_DB::getStatement($sql, false, $shardID);
 						
 						foreach ($removed as $rel) {
-							$params = array($this->libraryID, $uri, $rel[0], $rel[1]);
+							$params = [
+								$this->libraryID,
+								Zotero_Relations::makeKey($uri, $rel[0], $rel[1])
+							];
 							$deleteStatement->execute($params);
 							
 							// TEMP
 							// For owl:sameAs, delete reverse as well, since the client
 							// can save that way
 							if ($rel[0] == Zotero_Relations::$linkedObjectPredicate) {
-								$params = array($this->libraryID, $rel[1], $rel[0], $uri);
+								$params = [
+									$this->libraryID,
+									Zotero_Relations::makeKey($rel[1], $rel[0], $uri)
+								];
 								$deleteStatement->execute($params);
 							}
 						}
@@ -2052,8 +2058,8 @@ class Zotero_Item {
 					
 					if ($new) {
 						$sql = "INSERT IGNORE INTO relations "
-						     . "(relationID, libraryID, subject, predicate, object) "
-						     . "VALUES (?, ?, ?, ?, ?)";
+						     . "(relationID, libraryID, `key`, subject, predicate, object) "
+						     . "VALUES (?, ?, ?, ?, ?, ?)";
 						$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
 						
 						foreach ($new as $rel) {
@@ -2061,6 +2067,7 @@ class Zotero_Item {
 								array(
 									Zotero_ID::get('relations'),
 									$this->libraryID,
+									Zotero_Relations::makeKey($uri, $rel[0], $rel[1]),
 									$uri,
 									$rel[0],
 									$rel[1]

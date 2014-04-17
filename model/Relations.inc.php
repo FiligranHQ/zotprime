@@ -30,7 +30,7 @@ class Zotero_Relations extends Zotero_DataObjects {
 	protected static $primaryFields = array(
 		'id' => 'relationID',
 		'libraryID' => '',
-		'key' => "MD5(CONCAT(subject, '_', predicate, '_', object))",
+		'key' => '',
 		'subject' => '',
 		'predicate' => '',
 		'object' => ''
@@ -119,6 +119,12 @@ class Zotero_Relations extends Zotero_DataObjects {
 		}
 		return $objects;
 	}
+	
+	
+	public static function makeKey($subject, $predicate, $object) {
+		return md5($subject . "_" . $predicate . "_" . $object);
+	}
+	
 	
 	public static function add($libraryID, $subject, $predicate, $object) {
 		$predicate = implode(':', self::_getPrefixAndValue($predicate));
