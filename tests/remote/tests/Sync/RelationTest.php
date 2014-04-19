@@ -129,7 +129,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, $xml->updated[0]->deleted[0]->items[0]->item->count());
 		$this->assertEquals(sizeOf($item['relations']), $xml->updated[0]->deleted[0]->relations[0]->relation->count());
 		foreach ($item['relations'] as $rel) {
-			$relKey = md5($subject . "_" . $rel[0] . "_" . $rel[1]);
+			$relKey = md5($subject . " " . $rel[0] . " " . $rel[1]);
 			$this->assertEquals(1, sizeOf($xml->updated[0]->deleted[0]->relations[0]->xpath("relation[@key='$relKey']")));
 		}
 	}
@@ -210,7 +210,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, $xml->updated[0]->deleted[0]->items[0]->item->count());
 		$this->assertEquals(sizeOf($item['relations']), $xml->updated[0]->deleted[0]->relations[0]->relation->count());
 		foreach ($item['relations'] as $rel) {
-			$relKey = md5($subject . "_" . $rel[0] . "_" . $rel[1]);
+			$relKey = md5($subject . " " . $rel[0] . " " . $rel[1]);
 			$this->assertEquals(1, sizeOf($xml->updated[0]->deleted[0]->relations[0]->xpath("relation[@key='$relKey']")));
 		}
 	}

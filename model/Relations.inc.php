@@ -122,7 +122,7 @@ class Zotero_Relations extends Zotero_DataObjects {
 	
 	
 	public static function makeKey($subject, $predicate, $object) {
-		return md5($subject . "_" . $predicate . "_" . $object);
+		return md5($subject . " " . $predicate . " " . $object);
 	}
 	
 	
