@@ -142,9 +142,16 @@ class Zotero_Relations extends Zotero_DataObjects {
 		Zotero_DB.beginTransaction();
 		
 		$prefix = $prefix . '%';
-		$sql = "SELECT relationID FROM relations WHERE libraryID=? AND "
-			. "(subject LIKE ? OR object LIKE ?)";
-		$params = array($libraryID, $prefix, $prefix);
+		$sql = "SELECT relationID FROM relations WHERE libraryID=? AND subject LIKE ?";
+		$params = [$libraryID, $prefix];
+		if ($ignorePredicates) {
+			foreach ($ignorePredicates as $ignorePredicate) {
+				$sql .= " AND predicate != ?";
+				$params[] = $ignorePredicate;
+			}
+		}
+		$sql .= " UNION SELECT relationID FROM relations WHERE libraryID=? AND object LIKE ?";
+		$params = array_merge($params, [$libraryID, $prefix]);
 		if ($ignorePredicates) {
 			foreach ($ignorePredicates as $ignorePredicate) {
 				$sql .= " AND predicate != ?";
@@ -171,15 +178,23 @@ class Zotero_Relations extends Zotero_DataObjects {
 	public static function eraseByURI($libraryID, $uri, $ignorePredicates=false) {
 		Zotero_DB::beginTransaction();
 		
-		$sql = "SELECT relationID FROM relations "
-			. "WHERE libraryID=? AND (subject=? OR object=?)";
-		$params = array($libraryID, $uri, $uri);
+		$sql = "SELECT relationID FROM relations WHERE libraryID=? AND subject=?";
+		$params = [$libraryID, $uri];
 		if ($ignorePredicates) {
 			foreach ($ignorePredicates as $ignorePredicate) {
 				$sql .= " AND predicate != ?";
 				$params[] = $ignorePredicate;
 			}
 		}
+		$sql .= " UNION SELECT relationID FROM relations WHERE libraryID=? AND object=?";
+		$params = array_merge($params, [$libraryID, $uri]);
+		if ($ignorePredicates) {
+			foreach ($ignorePredicates as $ignorePredicate) {
+				$sql .= " AND predicate != ?";
+				$params[] = $ignorePredicate;
+			}
+		}
+		
 		$ids = Zotero_DB::columnQuery(
 			$sql, $params, Zotero_Shards::getByLibraryID($libraryID)
 		);

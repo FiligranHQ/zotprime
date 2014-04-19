@@ -209,6 +209,7 @@ CREATE TABLE `relations` (
   `serverDateModified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`relationID`),
   UNIQUE KEY `uniqueRelations` (`libraryID`,`key`),
+  KEY `subject` (`libraryID`,`subject`),
   KEY `object` (`libraryID`,`object`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
