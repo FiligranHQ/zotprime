@@ -611,15 +611,13 @@ class Zotero_Sync {
 			// Get long creator names
 			$node = Zotero_Creators::getLongDataValueFromXML($doc); // returns DOMNode rather than value
 			if ($node) {
-				if ($node->nodeName == 'firstName') {
-					throw new Exception("=First name '" . mb_substr($node->nodeValue, 0, 50) . "…' too long");
-				}
-				if ($node->nodeName == 'lastName') {
-					throw new Exception("=Last name '" . mb_substr($node->nodeValue, 0, 50) . "…' too long");
-				}
-				if ($node->nodeName == 'name') {
-					throw new Exception("=Name '" . mb_substr($node->nodeValue, 0, 50) . "…' too long");
-				}
+				$name = mb_substr($node->nodeValue, 0, 50);
+				throw new Exception("=The name ‘{$name}…’ is too long to sync.\n\n"
+					. "Search for the item with this name and shorten it. "
+					. "Note that the item may be in the trash or in a group library.\n\n"
+					. "If you receive this message repeatedly for items saved from a "
+					. "particular site, you can report this issue in the Zotero Forums.",
+					Z_ERROR_CREATOR_TOO_LONG);
 			}
 			
 			// Get long item data fields
