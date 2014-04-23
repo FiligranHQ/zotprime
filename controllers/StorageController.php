@@ -27,6 +27,9 @@
 require('ApiController.php');
 
 class StorageController extends ApiController {
+	// Use 1TB as a numeric stand-in for unlimited, for now
+	const UNLIMITED = 1000000;
+	
 	//
 	// Storage-related
 	//
@@ -84,6 +87,10 @@ class StorageController extends ApiController {
 			if (!isset($_POST['quota'])) {
 				$this->e400("Quota not provided");
 			}
+			// Accept 'unlimited' via API
+			if ($_POST['quota'] == 'unlimited') {
+				$_POST['quota'] = self::UNLIMITED;
+			}
 			if (!isset($_POST['expiration'])) {
 				$this->e400("Expiration not provided");
 			}
@@ -120,6 +127,10 @@ class StorageController extends ApiController {
 			if ($values) {
 				$xml->expiration = (int) $values['expiration'];
 			}
+		}
+		// Return 'unlimited' via API
+		if ($quota == self::UNLIMITED) {
+			$xml->quota = 'unlimited';
 		}
 		$usage = Zotero_Storage::getUserUsage($this->objectUserID);
 		$xml->usage->total = $usage['total'];
