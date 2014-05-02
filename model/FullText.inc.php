@@ -218,7 +218,7 @@ class Zotero_FullText {
 		foreach ($responseData['docs'] as $doc) {
 			list($libraryID, $key) = explode("/", $doc['_id']);
 			// This shouldn't happen
-			if (empty($doc["exists"])) {
+			if (empty($doc["found"])) {
 				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch");
 				continue;
 			}
