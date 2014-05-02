@@ -217,36 +217,14 @@ class Zotero_FullText {
 		$data = [];
 		foreach ($responseData['docs'] as $doc) {
 			list($libraryID, $key) = explode("/", $doc['_id']);
-			// If document doesn't exist in Elasticsearch, get from MySQL
+			// This shouldn't happen
 			if (empty($doc["exists"])) {
-				// TEMP
-				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch -- using MySQL");
-				$sql = "SELECT * FROM fulltextContent WHERE libraryID=? AND `key`=?";
-				$source = Zotero_FullText_DB::rowQuery(
-					$sql, [$libraryID, $key], Zotero_Shards::getByLibraryID($libraryID)
-				);
-				if (!$source) {
-					throw new Exception("Item not found in MySQL for item {$doc['_id']}");
-				}
-				try {
-					self::indexItemInElasticsearch(
-						$libraryID,
-						$key,
-						$source['version'],
-						$source['timestamp'],
-						$source['content'],
-						$source
-					);
-				}
-				catch (Exception $e) {
-					error_log("WARNING: $e");
-				}
+				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch");
+				continue;
 			}
-			else {
-				$source = $doc['_source'];
-				if (!$source) {
-					throw new Exception("_source not found in Elasticsearch for item {$doc['_id']}");
-				}
+			$source = $doc['_source'];
+			if (!$source) {
+				throw new Exception("_source not found in Elasticsearch for item {$doc['_id']}");
 			}
 			$data[$key] = [
 				"libraryID" => $libraryID,
