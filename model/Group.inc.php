@@ -589,7 +589,7 @@ class Zotero_Group {
 		}
 		$sql .= implode(", ", $q) . ", "
 			. "dateModified=CURRENT_TIMESTAMP, "
-			. "version=version=IF(version = 255, 1, version + 1)";
+			. "version=IF(version = 255, 1, version + 1)";
 		$insertID = Zotero_DB::query($sql, $params);
 		
 		if (!$this->id) {
