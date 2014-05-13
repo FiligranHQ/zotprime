@@ -1264,21 +1264,9 @@ class Zotero_Sync {
 						if (!$fulltextNode) {
 							$fulltextNode = $doc->createElement('fulltexts');
 						}
-						$first = true;
-						$chars = 0;
-						$maxChars = 500000;
 						foreach ($data as $itemData) {
 							if ($params['ft']) {
-								$empty = false;
-								// If the current item would put us over 500K characters,
-								// leave it empty, unless it's the first one
-								$currentChars = strlen($itemData['content']);
-								if (!$first && (($chars + $currentChars) > $maxChars)) {
-									$empty = true;
-								}
-								else {
-									$chars += $currentChars;
-								}
+								$empty = $itemData['empty'];
 							}
 							// If full-text syncing is disabled, leave content empty
 							else {

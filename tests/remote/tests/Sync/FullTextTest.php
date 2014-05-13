@@ -114,7 +114,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$content1 = "This is test content";
 		$content2 = "This is more test content";
 		
-		$maxChars = 500000;
+		$maxChars = 1000000;
 		$str = "abcdf ghijklm ";
 		$content3 = str_repeat("abcdf ghijklm ", ceil($maxChars / strlen($str)) + 1);
 		

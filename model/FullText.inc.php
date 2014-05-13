@@ -187,54 +187,74 @@ class Zotero_FullText {
 			return [];
 		}
 		
+		$maxChars = 1000000;
+		
 		$index = self::getReadIndex();
 		$type = self::getReadType();
-		
-		// Make a raw query, since Elastica doesn't yet support mget
-		$json = [
-			"docs" => []
-		];
-		foreach ($rows as $row) {
-			$json['docs'][] = [
-				"_id" => $row['libraryID'] . "/" . $row['key'],
-				"_routing" => $row['libraryID']
-			];
-		}
-		$path = $index->getName() . '/' . $type->getName() . '/_mget';
-		$response = Z_Core::$Elastica->request($path, \Elastica\Request::GET, json_encode($json));
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
-		}
-		$responseData = $response->getData();
-		if (!isset($responseData['docs'])) {
-			throw new Exception("Invalid response from mget");
-		}
-		if (sizeOf($responseData['docs']) != sizeOf($rows)) {
-			throw new Exception("MySQL and Elasticsearch do not match "
-				. "(" . sizeOf($results) . ", " . sizeOf($rows) . ")");
-		}
-		
+		$first = true;
+		$chars = 0;
 		$data = [];
-		foreach ($responseData['docs'] as $doc) {
-			list($libraryID, $key) = explode("/", $doc['_id']);
-			// This shouldn't happen
-			if (empty($doc["found"])) {
-				error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch");
-				continue;
-			}
-			$source = $doc['_source'];
-			if (!$source) {
-				throw new Exception("_source not found in Elasticsearch for item {$doc['_id']}");
-			}
-			$data[$key] = [
-				"libraryID" => $libraryID,
-				"key" => $key,
-				"content" => $source['content'],
-				"version" => $source['version']
+		
+		while ($batchRows = array_splice($rows, 0, 100)) {
+			// Make a raw query, since Elastica doesn't yet support mget
+			$json = [
+				"docs" => []
 			];
-			foreach (self::$metadata as $prop) {
-				if (isset($source[$prop])) {
-					$data[$key][$prop] = (int) $source[$prop];
+			foreach ($batchRows as $row) {
+				$json['docs'][] = [
+					"_id" => $row['libraryID'] . "/" . $row['key'],
+					"_routing" => $row['libraryID']
+				];
+			}
+			$path = $index->getName() . '/' . $type->getName() . '/_mget';
+			$response = Z_Core::$Elastica->request($path, \Elastica\Request::GET, json_encode($json));
+			if ($response->hasError()) {
+				throw new Exception($response->getError());
+			}
+			$responseData = $response->getData();
+			if (!isset($responseData['docs'])) {
+				throw new Exception("Invalid response from mget");
+			}
+			if (sizeOf($responseData['docs']) != sizeOf($batchRows)) {
+				throw new Exception("MySQL and Elasticsearch do not match "
+					. "(" . sizeOf($responseData['docs']) . ", " . sizeOf($batchRows) . ")");
+			}
+			
+			foreach ($responseData['docs'] as $doc) {
+				list($libraryID, $key) = explode("/", $doc['_id']);
+				// This shouldn't happen
+				if (empty($doc["found"])) {
+					error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch");
+					continue;
+				}
+				$source = $doc['_source'];
+				if (!$source) {
+					throw new Exception("_source not found in Elasticsearch for item {$doc['_id']}");
+				}
+				
+				$data[$key] = [
+					"libraryID" => $libraryID,
+					"key" => $key,
+					"version" => $source['version']
+				];
+				
+				// If the current item would put us over max characters,
+				// leave it empty, unless it's the first one
+				$currentChars = strlen($source['content']);
+				if (!$first && (($chars + $currentChars) > $maxChars)) {
+					$data[$key]['empty'] = true;
+				}
+				else {
+					$data[$key]['content'] = $source['content'];
+					$data[$key]['empty'] = false;
+					$chars += $currentChars;
+				}
+				$first = false;
+				
+				foreach (self::$metadata as $prop) {
+					if (isset($source[$prop])) {
+						$data[$key][$prop] = (int) $source[$prop];
+					}
 				}
 			}
 		}
