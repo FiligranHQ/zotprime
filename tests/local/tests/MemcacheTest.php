@@ -94,8 +94,7 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		Z_Core::$MC->set("testZero", 0);
 		
 		$this->assertFalse(Z_Core::$MC->get("testMissing"));
-		$this->assertEquals(Z_Core::$MC->get("testZero"), 0);
-		$this->assertNotEquals(Z_Core::$MC->get("testZero"), false);
+		$this->assertTrue(0 === Z_Core::$MC->get("testZero"));
 		
 		// Clean up
 		Z_Core::$MC->delete("testZero");
