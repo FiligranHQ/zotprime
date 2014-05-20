@@ -4,71 +4,164 @@
 // Purge storage files no longer in use
 //
 // storage_existing_files needs to be run first!
-
-$sanityCheck = true;
-$sanityCheckInterval = 20000;
-
+//
 set_include_path("../include");
 require("header.inc.php");
-require("AWS-SDK/sdk.class.php");
-$S3 = new AmazonS3;
 
-if (empty($argv[1])) {
-	die("lastAdded timestamp not provided\n");
+define('SET_NAME_EXISTING', 'storage:keys:existing');
+define('SET_NAME_S3', 'storage:keys:s3');
+define('SET_NAME_DIFF', 'storage:keys:diff');
+define('MAX_TIME', time() - (60 * 60 * 24 * 30 * 20)); // 6 months
+define('DRY_RUN', false);
+
+$redis = Z_Redis::get();
+
+if (!$redis->srandmember(SET_NAME_EXISTING)) {
+	die(SET_NAME_EXISTING . " is empty!\n");
 }
 
-$lastAdded = $argv[1];
+// Clear Redis table
+$redis->del(SET_NAME_S3);
+$redis->del(SET_NAME_DIFF);
 
-// Get files that aren't on any shards and that were last added before the specified date.
-$sql = "SELECT * FROM storageFiles LEFT JOIN storageFilesExisting SFE USING (storageFileID) WHERE SFE.storageFileID IS NULL AND lastAdded < ? LIMIT 100000";
-$rows = Zotero_DB::query($sql, $lastAdded);
+// Get iterator for all files in S3
+$s3 = Z_Core::$AWS->get('s3');
+$iterator = $s3->getIterator('ListObjects', [
+	'Bucket' => Z_CONFIG::$S3_BUCKET
+]);
 
-$total = 0;
+$deleted = 0;
+$ignoredS3 = 0;
+$ignoredDB = 0;
+$i = 0;
+$arr = [SET_NAME_S3];
 
-$shardIDs = Zotero_DB::columnQuery("SELECT shardID FROM shards S JOIN shardHosts SH USING (shardHostID) WHERE SH.state='up' AND S.state='up' ORDER BY shardID");
+foreach ($iterator as $object) {
+	$key = $object['Key'];
+	$lastModified = $object['LastModified'];
+	
+	$date = DateTime::createFromFormat('Y-m-d\TH:i:s.uP', $lastModified);
+	if (!$date) {
+		die("Invalid date '$lastModified'\n");
+	}
+	
+	// If file was modified recently on S3, ignore it
+	if ($date->getTimestamp() > MAX_TIME) {
+		$ignoredS3++;
+		continue;
+	}
+	
+	// Otherwise, add to Redis
+	$arr[] = $key;
+	$i++;
+	if ($i % 50 == 0) {
+		call_user_func_array([$redis, "sadd"], $arr);
+		$result = deleteFromS3();
+		$deleted += $result['deleted'];
+		$ignoredDB += $result['ignoredDB'];
+		$arr = [SET_NAME_S3];
+	}
+}
+if (sizeOf($arr) > 1) {
+	call_user_func_array([$redis, "sadd"], $arr);
+	$result = deleteFromS3();
+	$deleted += $result['deleted'];
+	$ignoredDB += $result['ignoredDB'];
+}
 
-while ($files = array_splice($rows, 0, 1000)) {
-	$ids = array();
-	$objects = array();
-	$check = $sanityCheck;
-	foreach ($files as $file) {
-		// Check all shards for each nth file
-		if ($check && $total % $sanityCheckInterval == 0) {
-			echo "Checking shards for file {$file['storageFileID']}\n";
-			foreach ($shardIDs as $shardID) {
-				$sql = "SELECT COUNT(*) FROM storageFileItems WHERE storageFileID=?";
-				if (Zotero_DB::columnQuery($sql, $file['storageFileID'], $shardID)) {
-					throw new Exception("FOUND!");
-				}
-			}
-			$check = false;
+function deleteFromS3() {
+	$s3 = Z_Core::$AWS->get('s3');
+	$redis = Z_Redis::get();
+	
+	$deleted = 0;
+	$ignoredDB = 0;
+	
+	// Get keys in S3 that don't exist in shards and store in new set
+	$redis->sdiffstore(SET_NAME_DIFF, SET_NAME_S3, SET_NAME_EXISTING);
+	
+	$deleteStatement = Zotero_DB::getStatement("DELETE FROM storageFiles WHERE storageFileID=?");
+	
+	// TODO: Use SSCAN when available in php-redis
+	$i = 0;
+	$toDelete = [];
+	while ($key = $redis->spop(SET_NAME_DIFF)) {
+		// See if file was marked as used recently in the database. The modification time in S3
+		// isn't updated when an existing file is reused, so this is common.
+		$info = new Zotero_StorageFileInfo;
+		try {
+			$info->parseFromS3Key($key);
+		}
+		// Ignore other files ('bookmarklet_upload.html')
+		catch (Exception $e) {
+			continue;
 		}
 		
-		$objects[] = array(
-			"key" => Zotero_S3::getPathPrefix($file['hash'], $file['zip']) . $file['filename']
-		);
-		$ids[] = $file['storageFileID'];
+		$info = Zotero_Storage::getLocalFileInfo($info);
+		if ($info) {
+			$lastAdded = DateTime::createFromFormat('Y-m-d H:i:s', $info['lastAdded']);
+			if ($lastAdded->getTimestamp() > MAX_TIME) {
+				//echo "$key was modified in storageFiles ({$info['lastAdded']}) -- skipping\n";
+				$ignoredDB++;
+				continue;
+			}
+			echo "$key not added recently -- deleting from DB and S3\n";
+			if (!DRY_RUN) {
+				Zotero_DB::queryFromStatement($deleteStatement, $info['storageFileID']);
+			}
+		}
+		else {
+			echo "$key doesn't exist in DB -- deleting from S3\n";
+		}
+		
+		$deleted++;
+		
+		$toDelete[] = $key;
+		
+		$i++;
+		if ($i % 500 == 0) {
+			$options = [
+				'Bucket' => Z_CONFIG::$S3_BUCKET,
+				'Objects' => array_map(function ($val) {
+					return ['Key' => $val];
+				}, $toDelete)
+			];
+			echo "Deleting " . sizeOf($options['Objects']) . " files\n";
+			if (DRY_RUN) {
+				echo json_encode($options) . "\n";
+			}
+			else {
+				$S3->deleteObjects($obj);
+			}
+			$toDelete = [];
+		}
 	}
 	
-	$response = $S3->deleteObjects(Z_CONFIG::$S3_BUCKET, array(
-		"quiet" => true,
-		"objects" => $objects
-	));
-	
-	if (!$response->isOK()) {
-		var_dump($response->status);
-		die ($response->body->asXML());
+	if (sizeOf($toDelete)) {
+		$options = [
+			'Bucket' => Z_CONFIG::$S3_BUCKET,
+			'Objects' => array_map(function ($val) {
+				return ['Key' => $val];
+			}, $toDelete)
+		];
+		echo "Deleting " . sizeOf($options['Objects']) . " files\n";
+		if (DRY_RUN) {
+			echo json_encode($options) . "\n";
+		}
+		else {
+			$s3->deleteObjects($options);
+		}
 	}
 	
-	$sql = "DELETE FROM storageFiles WHERE storageFileID IN "
-			. "(" . implode(', ', array_fill(0, sizeOf($ids), '?')) . ")";
-	Zotero_DB::query($sql, $ids);
+	$redis->del(SET_NAME_S3);
+	$redis->del(SET_NAME_DIFF);
 	
-	echo "Deleted " . sizeOf($ids) . " files\n";
-	$total += sizeOf($ids);
-	
-	sleep(1);
+	return [
+		'deleted' => $deleted,
+		'ignoredDB' => $ignoredDB
+	];
 }
 
 echo "===============================\n";
-echo "Deleted $total files in total\n";
+echo "Deleted " . number_format($deleted) . "\n";
+echo "Ignored due to S3 timestamp: " . number_format($ignoredS3) . "\n";
+echo "Ignored due to storageFiles: " . number_format($ignoredDB) . "\n";
