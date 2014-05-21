@@ -3601,7 +3601,7 @@ class Zotero_Item {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($arr, !empty($requestParams['pprint']));
+		return Zotero_Utilities::formatJSON($arr);
 	}
 	
 	

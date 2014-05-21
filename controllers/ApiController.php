@@ -732,27 +732,9 @@ class ApiController extends Controller {
 			$doc->loadXML($xmlstr);
 			$doc->formatOutput = true;
 			
-			if ($this->queryParams['pprint']) {
-				$ppdoc = new DOMDocument('1.0');
-				// Zero-width spaces to push <feed> beyond Firefox's
-				// feed auto-detection boundary
-				$comment = $ppdoc->createComment("​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​");
-				$ppdoc->appendChild($comment);
-				$ppdoc->formatOutput = true;
-				$rootElem = $doc->firstChild;
-				$importedNode = $ppdoc->importNode($rootElem, true);
-				$ppdoc->appendChild($importedNode);
-				$doc = $ppdoc;
-			}
-			
 			$xmlstr = $doc->saveXML();
 			
-			if ($this->queryParams['pprint']) {
-				header("Content-Type: text/xml");
-			}
-			else {
-				header("Content-Type: application/atom+xml");
-			}
+			header("Content-Type: application/atom+xml");
 			
 			echo $xmlstr;
 		}

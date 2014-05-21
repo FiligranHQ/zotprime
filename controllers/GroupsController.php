@@ -240,12 +240,7 @@ class GroupsController extends ApiController {
 					foreach ($groups as $group) {
 						$json[$group->id] = $group->etag;
 					}
-					if ($this->queryParams['pprint']) {
-						header("Content-Type: text/plain");
-					}
-					else {
-						header("Content-Type: application/json");
-					}
+					header("Content-Type: application/json");
 					echo json_encode($json);
 					break;
 			}

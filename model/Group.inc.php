@@ -762,7 +762,7 @@ class Zotero_Group {
 	/**
 	 * Converts group to a JSON object
 	 */
-	public function toJSON($asArray=false, $prettyPrint=false, $includeEmpty=false) {
+	public function toJSON($asArray=false, $includeEmpty=false) {
 		if (($this->id || $this->libraryID) && !$this->loaded) {
 			$this->load();
 		}
@@ -801,16 +801,7 @@ class Zotero_Group {
 			return $arr;
 		}
 		
-		$mask = JSON_HEX_TAG|JSON_HEX_AMP;
-		if ($prettyPrint) {
-			$json = Zotero_Utilities::json_encode_pretty($arr, $mask);
-		}
-		else {
-			$json = json_encode($arr, $mask);
-		}
-		// Until JSON_UNESCAPED_SLASHES is available
-		$json = str_replace('\\/', '/', $json);
-		return $json;
+		return Zotero_Utilities::formatJSON($json);
 	}
 	
 	
@@ -954,7 +945,7 @@ class Zotero_Group {
 					Zotero_Atom::$nsZoteroAPI
 				);
 			}
-			$xml->content = $this->toJSON(false, $queryParams['pprint'], true);
+			$xml->content = $this->toJSON(false, true);
 		}
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';

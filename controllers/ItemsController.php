@@ -217,25 +217,18 @@ class ItemsController extends ApiController {
 				
 				case 'csljson':
 					$json = Zotero_Cite::getJSONFromItems(array($item), true);
-					if ($this->queryParams['pprint']) {
-						header("Content-Type: text/plain");
-						$json = Zotero_Utilities::json_encode_pretty($json);
-					}
-					else {
-						header("Content-Type: application/vnd.citationstyles.csl+json");
-						$json = json_encode($json);
-					}
-					echo $json;
+					header("Content-Type: application/vnd.citationstyles.csl+json");
+					echo Zotero_Utilities::formatJSON($json);
+					exit;
+				
+				case 'json':
+					header("Content-Type: application/json");
+					echo $item->toResponseJSON(false, $this->queryParams, $this->permissions);
 					exit;
 				
 				default:
 					$export = Zotero_Translate::doExport(array($item), $this->queryParams['format']);
-					if ($this->queryParams['pprint']) {
-						header("Content-Type: text/plain");
-					}
-					else {
-						header("Content-Type: " . $export['mimeType']);
-					}
+					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];
 					exit;
 			}
@@ -634,14 +627,9 @@ class ItemsController extends ApiController {
 					break;
 				
 				case 'csljson':
-					if ($this->queryParams['pprint']) {
-						header("Content-Type: text/plain");
-					}
-					else {
-						header("Content-Type: application/vnd.citationstyles.csl+json");
-					}
+					header("Content-Type: application/vnd.citationstyles.csl+json");
 					$json = Zotero_Cite::getJSONFromItems($results, true);
-					echo Zotero_Utilities::formatJSON($json, $this->queryParams['pprint']);
+					echo Zotero_Utilities::formatJSON($json);
 					break;
 				
 				case 'keys':
@@ -651,23 +639,13 @@ class ItemsController extends ApiController {
 				
 				case 'versions':
 				case 'writereport':
-					if ($this->queryParams['pprint']) {
-						header("Content-Type: text/plain");
-					}
-					else {
-						header("Content-Type: application/json");
-					}
-					echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
+					header("Content-Type: application/json");
+					echo Zotero_Utilities::formatJSON($results);
 					break;
 				
 				default:
 					$export = Zotero_Translate::doExport($results, $this->queryParams['format']);
-					if ($this->queryParams['pprint']) {
-						header("Content-Type: text/plain");
-					}
-					else {
-						header("Content-Type: " . $export['mimeType']);
-					}
+					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];
 			}
 		}

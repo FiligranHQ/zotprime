@@ -204,7 +204,7 @@ class Zotero_Relation {
 	}
 	
 	
-	public function toJSON($asArray=false, $prettyPrint=false) {
+	public function toJSON($asArray=false) {
 		if (!$this->loaded) {
 			$this->load();
 		}
@@ -218,7 +218,7 @@ class Zotero_Relation {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($arr, $prettyPrint);
+		return Zotero_Utilities::formatJSON($arr);
 	}
 	
 	

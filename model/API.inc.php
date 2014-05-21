@@ -61,8 +61,6 @@ class Zotero_API {
 		'start' => 0,
 		'limit' => 50,
 		
-		'pprint' => false,
-		
 		// For internal use only
 		'apiVersion' => 1,
 		'emptyFirst' => false

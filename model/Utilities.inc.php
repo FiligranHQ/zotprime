@@ -111,91 +111,10 @@ class Zotero_Utilities {
 	}
     
 	
-	public static function formatJSON($jsonObj, $pretty=false) {
-		$mask = JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE;
-		if ($pretty) {
-			$json = self::json_encode_pretty($jsonObj, $mask);
-		}
-		else {
-			$json = json_encode($jsonObj, $mask);
-		}
-		// Until JSON_UNESCAPED_SLASHES is available
-		$json = str_replace('\\/', '/', $json);
-		return $json;
-	}
-	
-    
-    // By umbrae on http://us2.php.net/json_encode
-	public static function json_encode_pretty($json_obj, $mask=false) {
-		$tab = "  ";
-		$new_json = "";
-		$indent_level = 0;
-		$in_string = false;
-		
-		$json = json_encode($json_obj, $mask);
-		$len = strlen($json);
-		
-		for($c = 0; $c < $len; $c++)
-		{
-			$char = $json[$c];
-			switch($char)
-			{
-				case '{':
-				case '[':
-					if(!$in_string)
-					{
-						$new_json .= $char . "\n" . str_repeat($tab, $indent_level+1);
-						$indent_level++;
-					}
-					else
-					{
-						$new_json .= $char;
-					}
-					break;
-				case '}':
-				case ']':
-					if(!$in_string)
-					{
-						$indent_level--;
-						$new_json .= "\n" . str_repeat($tab, $indent_level) . $char;
-					}
-					else
-					{
-						$new_json .= $char;
-					}
-					break;
-				case ',':
-					if(!$in_string)
-					{
-						$new_json .= ",\n" . str_repeat($tab, $indent_level);
-					}
-					else
-					{
-						$new_json .= $char;
-					}
-					break;
-				case ':':
-					if(!$in_string)
-					{
-						$new_json .= ": ";
-					}
-					else
-					{
-						$new_json .= $char;
-					}
-					break;
-				case '"':
-					if($c > 0 && $json[$c-1] != '\\')
-					{
-						$in_string = !$in_string;
-					}
-				default:
-					$new_json .= $char;
-					break;                   
-			}
-		}
-	
-		return $new_json;
+	public static function formatJSON($jsonObj) {
+		$mask = JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE
+			| JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT;
+		return json_encode($jsonObj, $mask);
 	}
 	
 	

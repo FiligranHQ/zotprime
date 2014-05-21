@@ -166,7 +166,7 @@ class Zotero_Setting {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($arr, !empty($requestParams['pprint']));
+		return Zotero_Utilities::formatJSON($arr);
 	}
 	
 	

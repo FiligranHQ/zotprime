@@ -233,13 +233,8 @@ class CollectionsController extends ApiController {
 			
 			case 'versions':
 			case 'writereport':
-				if ($this->queryParams['pprint']) {
-					header("Content-Type: text/plain");
-				}
-				else {
-					header("Content-Type: application/json");
-				}
-				echo Zotero_Utilities::formatJSON($results, $this->queryParams['pprint']);
+				header("Content-Type: application/json");
+				echo Zotero_Utilities::formatJSON($results);
 				break;
 			
 			default:

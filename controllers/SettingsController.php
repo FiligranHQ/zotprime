@@ -112,14 +112,8 @@ class SettingsController extends ApiController {
 			else {
 				$this->libraryVersion = $setting->version;
 				$json = $setting->toJSON(true, $this->queryParams);
-				
-				if ($this->queryParams['pprint']) {
-					header("Content-Type: text/plain");
-				}
-				else {
-					header("Content-Type: application/json");
-				}
-				echo Zotero_Utilities::formatJSON($json, $this->queryParams['pprint']);
+				header("Content-Type: application/json");
+				echo Zotero_Utilities::formatJSON($json);
 			}
 		}
 		// Multiple settings
@@ -155,16 +149,11 @@ class SettingsController extends ApiController {
 				
 				$json = new stdClass;
 				foreach ($settings as $setting) {
-					$json->{$setting->name} = $setting->toJSON(true);
+					$json->{$setting->name} = $setting->toJSON(true, $this->queryParams);
 				}
 				
-				if ($this->queryParams['pprint']) {
-					header("Content-Type: text/plain");
-				}
-				else {
-					header("Content-Type: application/json");
-				}
-				echo Zotero_Utilities::formatJSON($json, $this->queryParams['pprint']);
+				header("Content-Type: application/json");
+				echo Zotero_Utilities::formatJSON($json);
 			}
 		}
 		

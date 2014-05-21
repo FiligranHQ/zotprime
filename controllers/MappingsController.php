@@ -76,17 +76,9 @@ class MappingsController extends ApiController {
 			$cacheKey .= "_" . $itemTypeID;
 		}
 		$ttl = 60;
-		if ($this->queryParams['pprint']) {
-			$cacheKey .= "_pprint";
-		}
 		$json = Z_Core::$MC->get($cacheKey);
 		if ($json) {
-			if ($this->queryParams['pprint']) {
-				header("Content-Type: text/plain");
-			}
-			else {
-				header("Content-Type: application/json");
-			}
+			header("Content-Type: application/json");
 			echo $json;
 			exit;
 		}
@@ -136,16 +128,9 @@ class MappingsController extends ApiController {
 			);
 		}
 		
-		if ($this->queryParams['pprint']) {
-			header("Content-Type: text/plain");
-			$json = Zotero_Utilities::json_encode_pretty($json);
-			Z_Core::$MC->set($cacheKey, $json, $ttl);
-		}
-		else {
-			header("Content-Type: application/json");
-			$json = json_encode($json);
-			Z_Core::$MC->set($cacheKey, $json, $ttl);
-		}
+		header("Content-Type: application/json");
+		$json = Zotero_Utilities::formatJSON($json);
+		Z_Core::$MC->set($cacheKey, $json, $ttl);
 		
 		echo $json;
 		exit;
@@ -189,9 +174,6 @@ class MappingsController extends ApiController {
 			$cacheKey .= "_" . $linkMode;
 		}
 		$ttl = 60;
-		if ($this->queryParams['pprint']) {
-			$cacheKey .= "_pprint";
-		}
 		$json = Z_Core::$MC->get($cacheKey);
 		if ($json) {
 			header("Content-Type: application/json");
@@ -264,14 +246,8 @@ class MappingsController extends ApiController {
 		
 		header("Content-Type: application/json");
 		
-		if ($this->queryParams['pprint']) {
-			$json = Zotero_Utilities::json_encode_pretty($json);
-			Z_Core::$MC->set($cacheKey, $json, $ttl);
-		}
-		else {
-			$json = json_encode($json);
-			Z_Core::$MC->set($cacheKey, $json, $ttl);
-		}
+		$json = Zotero_Utilities::formatJSON($json);
+		Z_Core::$MC->set($cacheKey, $json, $ttl);
 		
 		echo $json;
 		exit;

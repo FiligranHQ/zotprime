@@ -1121,7 +1121,6 @@ class Zotero_Items extends Zotero_DataObjects {
 		// need to be added here
 		$allowedParams = array(
 			'content',
-			'pprint',
 			'style',
 			'css',
 			'linkwrap'
@@ -1489,7 +1488,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 			else if ($type == 'csljson') {
 				$arr = $item->toCSLItem();
-				$json = Zotero_Utilities::formatJSON($arr, $queryParams['pprint']);
+				$json = Zotero_Utilities::formatJSON($arr);
 				$textNode = $domDoc->createTextNode($json);
 				$target->appendChild($textNode);
 			}
