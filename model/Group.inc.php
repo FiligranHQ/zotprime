@@ -801,7 +801,7 @@ class Zotero_Group {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($json);
+		return Zotero_Utilities::formatJSON($arr);
 	}
 	
 	
