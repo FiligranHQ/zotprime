@@ -87,19 +87,19 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$sqlParams[] = '%' . $params['q'] . '%';
 		}
 		
-		if (!empty($params['newer'])) {
+		if (!empty($params['since'])) {
 			$sql .= "AND version > ? ";
-			$sqlParams[] = $params['newer'];
+			$sqlParams[] = $params['since'];
 		}
 		
 		// TEMP: for sync transition
-		if (!empty($params['newertime'])) {
+		if (!empty($params['sincetime'])) {
 			$sql .= "AND serverDateModified >= FROM_UNIXTIME(?) ";
-			$sqlParams[] = $params['newertime'];
+			$sqlParams[] = $params['sincetime'];
 		}
 		
-		if (!empty($params['order'])) {
-			switch ($params['order']) {
+		if (!empty($params['sort'])) {
+			switch ($params['sort']) {
 			case 'title':
 				$orderSQL = 'collectionName';
 				break;
@@ -111,17 +111,17 @@ class Zotero_Collections extends Zotero_DataObjects {
 				break;
 			
 			default:
-				$orderSQL = $params['order'];
+				$orderSQL = $params['sort'];
 			}
 			
 			$sql .= "ORDER BY $orderSQL";
-			if (!empty($params['sort'])) {
-				$sql .= " {$params['sort']}";
+			if (!empty($params['direction'])) {
+				$sql .= " {$params['direction']}";
 			}
 			$sql .= ", ";
 		}
-		$sql .= "version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
-			. ", collectionID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
+		$sql .= "version " . (!empty($params['direction']) ? $params['direction'] : "ASC")
+			. ", collectionID " . (!empty($params['direction']) ? $params['direction'] : "ASC") . " ";
 		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
@@ -264,7 +264,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$author = $xml->addChild('author');
 		// TODO: group item creator
 		$author->name = Zotero_Libraries::getName($collection->libraryID);
-		$author->uri = Zotero_URI::getLibraryURI($collection->libraryID);
+		$author->uri = Zotero_URI::getLibraryURI($collection->libraryID, true);
 		
 		$xml->id = Zotero_URI::getCollectionURI($collection);
 		
@@ -288,7 +288,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
 		$link['type'] = 'text/html';
-		$link['href'] = Zotero_URI::getCollectionURI($collection);
+		$link['href'] = Zotero_URI::getCollectionURI($collection, true);
 		
 		$xml->addChild('zapi:key', $collection->key, Zotero_Atom::$nsZoteroAPI);
 		$xml->addChild('zapi:version', $collection->version, Zotero_Atom::$nsZoteroAPI);
@@ -308,7 +308,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
 			// Deprecated
-			if ($requestParams['apiVersion'] < 2) {
+			if ($requestParams['v'] < 2) {
 				$xml->content->addAttribute(
 					'zapi:etag',
 					$collection->etag,
@@ -316,7 +316,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 				);
 				$xml->content['etag'] = $collection->etag;
 			}
-			$xml->content = $collection->toJSON(false, $requestParams);
+			$xml->content = Zotero_Utilities::formatJSON($collection->toJSON($requestParams));
 		}
 		
 		return $xml;
@@ -337,7 +337,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	                                      $requestParams,
 	                                      $userID,
 	                                      $requireVersion=0) {
-		Zotero_API::processJSONObjectKey($collection, $json);
+		Zotero_API::processJSONObjectKey($collection, $json, $requestParams);
 		self::validateJSONCollection($json, $requestParams);
 		Zotero_API::checkJSONObjectVersion(
 			$collection, $json, $requestParams, $requireVersion
@@ -355,10 +355,10 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		$collection->name = $json->name;
 		
-		if ($requestParams['apiVersion'] >= 2 && isset($json->parentCollection)) {
+		if ($requestParams['v'] >= 2 && isset($json->parentCollection)) {
 			$collection->parentKey = $json->parentCollection;
 		}
-		else if ($requestParams['apiVersion'] < 2 && isset($json->parent)) {
+		else if ($requestParams['v'] < 2 && isset($json->parent)) {
 			$collection->parentKey = $json->parent;
 		}
 		else {
@@ -367,7 +367,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		
 		$changed = $collection->save() || $changed;
 		
-		if ($requestParams['apiVersion'] >= 2) {
+		if ($requestParams['v'] >= 2) {
 			if (isset($json->relations)) {
 				$changed = $collection->setRelations($json->relations, $userID) || $changed;
 			}
@@ -400,6 +400,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		foreach ($json as $key=>$val) {
 			switch ($key) {
 				// Handled by Zotero_API::checkJSONObjectVersion()
+				case 'key':
+				case 'version':
 				case 'collectionKey':
 				case 'collectionVersion':
 					break;
@@ -419,7 +421,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 					break;
 					
 				case 'parent':
-					if ($requestParams['apiVersion'] >= 2) {
+					if ($requestParams['v'] >= 2) {
 						throw new Exception("'parent' property is now 'parentCollection'", Z_ERROR_INVALID_INPUT);
 					}
 					if (!is_string($val) && !empty($val)) {
@@ -428,7 +430,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 					break;
 				
 				case 'parentCollection':
-					if ($requestParams['apiVersion'] < 2) {
+					if ($requestParams['v'] < 2) {
 						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					if (!is_string($val) && !empty($val)) {
@@ -437,11 +439,13 @@ class Zotero_Collections extends Zotero_DataObjects {
 					break;
 				
 				case 'relations':
-					if ($requestParams['apiVersion'] < 2) {
+					if ($requestParams['v'] < 2) {
 						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					
-					if (!is_object($val)) {
+					if (!is_object($val)
+							// Allow an empty array, because it's annoying for some clients otherwise
+							&& !(is_array($val) && empty($val))) {
 						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
 					}
 					foreach ($val as $predicate => $object) {

@@ -346,6 +346,71 @@ class Zotero_Key {
 	}
 	
 	
+	public function toJSON() {
+		if (($this->id || $this->key) && !$this->loaded) {
+			$this->load();
+		}
+		
+		$json = [];
+		
+		$json['key'] = $this->key;
+		$json['name'] = $this->name;
+		
+		if ($this->permissions) {
+			$json['access'] = [
+				'user' => [],
+				'groups' => []
+			];
+			
+			foreach ($this->permissions as $libraryID=>$p) {
+				// group="all" is stored as libraryID 0
+				if ($libraryID === 0) {
+					$json['access']['groups']['all']['library'] = true;
+					$json['access']['groups']['all']['write'] = !empty($p['write']);
+				}
+				else {
+					$type = Zotero_Libraries::getType($libraryID);
+					switch ($type) {
+						case 'user':
+							$json['access']['user']['library'] = true;
+							foreach ($p as $permission=>$granted) {
+								if ($permission == 'library') {
+									continue;
+								}
+								$json['access']['user'][$permission] = (bool) $granted;
+							}
+							break;
+							
+						case 'groups':
+							$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+							$json['access']['groups'][$groupID]['library'] = true;
+							$json['access']['groups'][$groupID]['write'] = !empty($p['write']);
+							break;
+					}
+				}
+			}
+			if (sizeOf($json['access']['user']) === 0) {
+				unset($json['access']['user']);
+			}
+			if (sizeOf($json['access']['groups']) === 0) {
+				unset($json['access']['groups']);
+			}
+		}
+		
+		$json['dateAdded'] = Zotero_Date::sqlToISO8601($this->dateAdded);
+		if ($this->lastUsed != '0000-00-00 00:00:00') {
+			$json['lastUsed'] =  Zotero_Date::sqlToISO8601($this->lastUsed);
+		}
+		
+		$ips = $this->getRecentIPs();
+		if ($ips) {
+			$json['recentIPs'] = $ips;
+		}
+		
+		return $json;
+	}
+	
+	
 	public function loadFromRow($row) {
 		foreach ($row as $field=>$val) {
 			switch ($field) {

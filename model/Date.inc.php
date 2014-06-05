@@ -322,6 +322,11 @@ class Zotero_Date {
 	}
 	
 	
+	public static function isISO8601($str) {
+		return !!DateTime::createFromFormat(DateTime::ISO8601, $str);
+	}
+	
+	
 	public static function sqlToISO8601($sqlDate) {
 		$date = substr($sqlDate, 0, 10);
 		// Replace '00' with '01' in month and day
@@ -332,6 +337,16 @@ class Zotero_Date {
 			$time = "00:00:00";
 		}
 		return $date . "T" . $time . "Z";
+	}
+	
+	
+	public static function iso8601ToSQL($isoDate) {
+		$date = DateTime::createFromFormat(DateTime::ISO8601, $isoDate);
+		if (!$date) {
+			throw new Exception("'$isoDate' is not an ISO 8601 date");
+		}
+		$date->setTimezone(new DateTimeZone('UTC'));
+		return $date->format('Y-m-d H:i:s');
 	}
 }
 ?>

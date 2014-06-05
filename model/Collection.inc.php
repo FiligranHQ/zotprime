@@ -721,7 +721,7 @@ class Zotero_Collection {
 		}
 		$relations = Zotero_Relations::getByURIs(
 			$this->libraryID,
-			Zotero_URI::getCollectionURI($this, true)
+			Zotero_URI::getCollectionURI($this)
 		);
 		
 		$toReturn = new stdClass;
@@ -743,6 +743,11 @@ class Zotero_Collection {
 			throw new Exception('collectionID not set');
 		}
 		
+		// An empty array is allowed by updateFromJSON()
+		if (is_array($newRelations) && empty($newRelations)) {
+			$newRelations = new stdClass;
+		}
+		
 		Zotero_DB::beginTransaction();
 		
 		// Get arrays from objects
@@ -757,7 +762,7 @@ class Zotero_Collection {
 			return false;
 		}
 		
-		$subject = Zotero_URI::getCollectionURI($this, true);
+		$subject = Zotero_URI::getCollectionURI($this);
 		
 		foreach ($toAdd as $predicate => $object) {
 			Zotero_Relations::add(
@@ -832,17 +837,75 @@ class Zotero_Collection {
 	}
 	
 	
-	public function toJSON($asArray=false, $requestParams=array()) {
+	public function toResponseJSON($requestParams=[], Zotero_Permissions $permissions, $sharedData=null) {
+		$t = microtime(true);
+		
 		if (!$this->loaded) {
 			$this->load();
 		}
 		
-		$arr['collectionKey'] = $this->key;
-		$arr['collectionVersion'] = $this->version;
+		$json = [
+			'key' => $this->key,
+			'version' => $this->version,
+			'library' => Zotero_Libraries::toJSON($this->libraryID)
+		];
+		
+		// 'links'
+		$json['links'] = [
+			'self' => [
+				'href' => Zotero_API::getCollectionURI($this),
+				'type' => 'application/json'
+			],
+			'alternate' => [
+				'href' => Zotero_URI::getCollectionURI($this, true),
+				'type' => 'text/html'
+			]
+		];
+		
+		$parent = $this->parent;
+		if ($parent) {
+			$parentCol = Zotero_Collections::get($this->libraryID, $parent);
+			$json['links']['up'] = [
+				'href' => Zotero_API::getCollectionURI($parentCol),
+				'type' => "application/atom+xml"
+			];
+		}
+		
+		// 'meta'
+		$json['meta'] = new stdClass;
+		$json['meta']->numCollections = sizeOf($this->getChildCollections());
+		$json['meta']->numItems = $this->numItems();
+		
+		// 'include'
+		$include = $requestParams['include'];
+		
+		foreach ($include as $type) {
+			if ($type == 'data') {
+				$json[$type] = $this->toJSON($requestParams);
+			}
+		}
+		
+		return $json;
+	}
+	
+	
+	public function toJSON(array $requestParams=[]) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		if ($requestParams['v'] >= 3) {
+			$arr['key'] = $this->key;
+			$arr['version'] = $this->version;
+		}
+		else {
+			$arr['collectionKey'] = $this->key;
+			$arr['collectionVersion'] = $this->version;
+		}
 		
 		$arr['name'] = $this->name;
 		$parentKey = $this->getParentKey();
-		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
+		if ($requestParams['v'] >= 2) {
 			$arr['parentCollection'] = $parentKey ? $parentKey : false;
 			$arr['relations'] = $this->getRelations();
 		}
@@ -850,11 +913,7 @@ class Zotero_Collection {
 			$arr['parent'] = $parentKey ? $parentKey : false;
 		}
 		
-		if ($asArray) {
-			return $arr;
-		}
-		
-		return Zotero_Utilities::formatJSON($arr);
+		return $arr;
 	}
 	
 	

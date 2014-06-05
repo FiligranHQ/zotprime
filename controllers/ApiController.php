@@ -30,6 +30,7 @@ class ApiController extends Controller {
 	private $profile = false;
 	private $timeLogThreshold = 5;
 	
+	protected $apiVersion;
 	protected $method;
 	protected $uri;
 	protected $queryParams = array();
@@ -152,12 +153,39 @@ class ApiController extends Controller {
 		}
 		
 		if (!isset($this->userID)) {
-			if (isset($_GET['key'])) {
-				$keyObj = Zotero_Keys::authenticate($_GET['key']);
+			// Apache/mod_php doesn't seem to make Authorization available for auth schemes
+			// other than Basic/Digest, so use an Apache-specific method to get the header
+			if (function_exists('apache_request_headers')) {
+				$headers = apache_request_headers();
+				if (isset($headers['Authorization'])) {
+					$authorization = $headers['Authorization'];
+				}
+			}
+			if (isset($authorization) || isset($_GET['key'])) {
+				$key = false;
+				// Allow "Authorization: Bearer <apikey>"
+				if (isset($authorization)) {
+					if (preg_match('/bearer +([a-z0-9]+)/i', $authorization, $matches)) {
+						$key = $matches[1];
+					}
+					else {
+						$this->e400("Invalid Authorization header format");
+					}
+				}
+				// Allow ?key=<apikey>
+				if (isset($_GET['key'])) {
+					if ($key === false) {
+						$key = $_GET['key'];
+					}
+					else if ($_GET['key'] !== $key) {
+						$this->e400("Authorization header and 'key' parameter differ");
+					}
+				}
+				$keyObj = Zotero_Keys::authenticate($key);
 				if (!$keyObj) {
 					$this->e403('Invalid key');
 				}
-				$this->apiKey = $_GET['key'];
+				$this->apiKey = $key;
 				$this->userID = $keyObj->userID;
 				$this->permissions = $keyObj->getPermissions();
 				
@@ -290,7 +318,7 @@ class ApiController extends Controller {
 				: false
 		);
 		
-		$version = $this->queryParams['apiVersion'];
+		$this->apiVersion = $version = $this->queryParams['v'];
 		header("Zotero-API-Version: " . $version);
 		StatsD::increment("api.request.version.v" . $version, 0.25);
 	}
@@ -425,7 +453,7 @@ class ApiController extends Controller {
 		}
 		
 		// If-Match (deprecated)
-		if ($this->queryParams['apiVersion'] < 2) {
+		if ($this->apiVersion < 2) {
 			if (empty($_SERVER['HTTP_IF_MATCH'])) {
 				if ($required) {
 					$this->e428("If-Match must be provided for write requests");
@@ -459,14 +487,11 @@ class ApiController extends Controller {
 				$this->e400("Invalid If-Unmodified-Since-Version value");
 			}
 			
-			// Zotero_Item requires 'itemVersion'
-			$prop = $objectType == 'item' ? 'itemVersion' : 'version';
-			
-			if ($object->$prop != $version) {
-				$this->libraryVersion = $object->$prop;
+			if ($object->version != $version) {
+				$this->libraryVersion = $object->version;
 				$this->e412(ucwords($objectType)
 					. " has been modified since specified version "
-					. "(expected $version, found " . $object->$prop . ")");
+					. "(expected $version, found " . $object->version . ")");
 			}
 		}
 		return true;
@@ -701,7 +726,7 @@ class ApiController extends Controller {
 				throw new Exception("Unsupported response code " . $this->responseCode);
 		}
 		
-		if ($this->libraryVersion && $this->queryParams['apiVersion'] >= 2) {
+		if ($this->libraryVersion && $this->apiVersion >= 2) {
 			header("Last-Modified-Version: " . $this->libraryVersion);
 		}
 		

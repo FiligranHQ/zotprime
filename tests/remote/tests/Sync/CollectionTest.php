@@ -24,7 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include/api.inc.php';
+use API2 as API;
+require_once 'include/api2.inc.php';
 require_once 'include/sync.inc.php';
 
 class SyncCollectionTests extends PHPUnit_Framework_TestCase {

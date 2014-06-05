@@ -24,7 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include/api.inc.php';
+use API2 as API;
+require_once 'include/api2.inc.php';
 require_once 'include/sync.inc.php';
 
 class SyncRelationTests extends PHPUnit_Framework_TestCase {
@@ -475,5 +476,69 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$this->assertTrue(in_array($itemURI2, $itemJSON1['relations']['dc:relation']));
 		$this->assertTrue(in_array($itemURI3, $itemJSON1['relations']['dc:relation']));
 		$this->assertEquals($itemURI1, $itemJSON3['relations']['dc:relation']);
+	}
+	
+	
+	public function testCircularRelatedItems() {
+		$keys = [
+			API::createItem("book", false, null, 'key'),
+			API::createItem("book", false, null, 'key'),
+			API::createItem("book", false, null, 'key')
+		];
+		$keys[] = API::createAttachmentItem("linked_url", [], $keys[0], null, 'key');
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = $xml['updateKey'];
+		
+		$item1XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[0]}']"));
+		$item2XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[1]}']"));
+		$item3XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[2]}']"));
+		$item4XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[3]}']"));
+		
+		$item1XML['libraryID'] = self::$config['libraryID'];
+		$item2XML['libraryID'] = self::$config['libraryID'];
+		$item3XML['libraryID'] = self::$config['libraryID'];
+		$item4XML['libraryID'] = self::$config['libraryID'];
+		
+		$item1XML->related = implode(' ', [
+			(string) $item2XML['key'],
+			(string) $item3XML['key'],
+			(string) $item4XML['key']
+		]);
+		
+		$item2XML->related = implode(' ', [
+			(string) $item1XML['key'],
+			(string) $item3XML['key'],
+			(string) $item4XML['key']
+		]);
+		
+		$item3XML->related = implode(' ', [
+			(string) $item1XML['key'],
+			(string) $item2XML['key'],
+			(string) $item4XML['key']
+		]);
+		
+		$item4XML->related = implode(' ', [
+			(string) $item1XML['key'],
+			(string) $item2XML['key'],
+			(string) $item3XML['key']
+		]);
+		
+		$xmlstr = '<data version="9">'
+			. '<items>'
+			. $item1XML->asXML()
+			. $item2XML->asXML()
+			. $item3XML->asXML()
+			. $item4XML->asXML()
+			. '</items>'
+			. '</data>';
+		
+		var_dump($xmlstr);
+		
+		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		$xml = Sync::updated(self::$sessionID);
+		var_dump($xml->asXML());
 	}
 }

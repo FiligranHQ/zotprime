@@ -24,7 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include/api.inc.php';
+use API2 as API;
+require_once 'include/api2.inc.php';
 require_once 'include/sync.inc.php';
 
 class CreatorSyncTests extends PHPUnit_Framework_TestCase {
@@ -237,5 +238,29 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("First Last", $json->creators[0]->name);
 		$newETag = (string) array_shift($xml->xpath('//atom:entry/zapi:etag'));
 		$this->assertNotEquals($etag, $newETag);
+	}
+	
+	
+	public function testEmptyCreator() {
+		$key = 'AAAAAAAA';
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Create item via sync
+		$data = '<data version="9"><creators>'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="BBBBBBBB" dateAdded="2013-12-01 04:53:20" dateModified="2013-12-01 04:54:09">'
+			. '<name>' . chr(0xEF) . chr(0xBB) . chr(0xBF) . '</name>'
+			. '<fieldMode>1</fieldMode>'
+			. '</creator></creators></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get creator via sync
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		$this->assertEquals(1, sizeOf($xml->updated->creators->creator));
+		var_dump($xml->asXML());
 	}
 }

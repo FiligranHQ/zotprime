@@ -104,7 +104,7 @@ class CollectionsController extends ApiController {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
+				if ($this->apiVersion >= 2 || $this->method == 'DELETE') {
 					$this->e204();
 				}
 				else {
@@ -113,9 +113,23 @@ class CollectionsController extends ApiController {
 			}
 			
 			$this->libraryVersion = $collection->version;
-			$this->responseXML = Zotero_Collections::convertCollectionToAtom(
-				$collection, $this->queryParams
-			);
+			
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = Zotero_Collections::convertCollectionToAtom(
+					$collection, $this->queryParams
+				);
+				break;
+				
+			case 'json':
+				header("Content-Type: application/json");
+				$json = $collection->toResponseJSON($this->queryParams, $this->permissions);
+				echo Zotero_Utilities::formatJSON($json);
+				break;
+			
+			default:
+				throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
+			}
 		}
 		// Multiple collections
 		else {
@@ -167,7 +181,7 @@ class CollectionsController extends ApiController {
 							Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 						}
 						
-						if ($this->queryParams['apiVersion'] < 2) {
+						if ($this->apiVersion < 2) {
 							$uri = Zotero_API::getCollectionsURI($this->objectLibraryID);
 							$keys = array_merge(
 								get_object_vars($results['success']),
@@ -209,37 +223,29 @@ class CollectionsController extends ApiController {
 				$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);
 			}
 			
-			if ($results && isset($results['results'])) {
-				$totalResults = $results['total'];
-				$results = $results['results'];
-			}
-				
+			$options = [
+				'action' => $this->action,
+				'uri' => $this->uri,
+				'results' => $results,
+				'requestParams' => $this->queryParams,
+				'permissions' => $this->permissions
+			];
 			switch ($this->queryParams['format']) {
 			case 'atom':
-				$this->responseXML = Zotero_Atom::createAtomFeed(
-					$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-					$this->uri,
-					$results,
-					$totalResults,
-					$this->queryParams,
-					$this->permissions
-				);
+				$this->responseXML = Zotero_API::multiResponse(array_merge($options, [
+					'title' => $this->getFeedNamePrefix($this->objectLibraryID) . $title
+				]));
 				break;
 			
+			case 'json':
 			case 'keys':
-				header("Content-Type: text/plain");
-				echo implode("\n", $results) . "\n";
-				break;
-			
 			case 'versions':
 			case 'writereport':
-				header("Content-Type: application/json");
-				echo Zotero_Utilities::formatJSON($results);
+				Zotero_API::multiResponse($options);
 				break;
 			
 			default:
-				throw new Exception("Invalid 'format' value '"
-					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
+				throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
 			}
 		}
 		

@@ -64,15 +64,15 @@ class Zotero_Searches extends Zotero_DataObjects {
 		// Or keys, for the searchKey parameter
 		$searchKeys = $params['searchKey'];
 		
-		if (!empty($params['newer'])) {
+		if (!empty($params['since'])) {
 			$sql .= "AND version > ? ";
-			$sqlParams[] = $params['newer'];
+			$sqlParams[] = $params['since'];
 		}
 		
 		// TEMP: for sync transition
-		if (!empty($params['newertime'])) {
+		if (!empty($params['sincetime'])) {
 			$sql .= "AND serverDateModified >= FROM_UNIXTIME(?) ";
-			$sqlParams[] = $params['newertime'];
+			$sqlParams[] = $params['sincetime'];
 		}
 		
 		if ($searchIDs) {
@@ -89,8 +89,8 @@ class Zotero_Searches extends Zotero_DataObjects {
 			$sqlParams = array_merge($sqlParams, $searchKeys);
 		}
 		
-		if (!empty($params['order'])) {
-			switch ($params['order']) {
+		if (!empty($params['sort'])) {
+			switch ($params['sort']) {
 			case 'title':
 				$orderSQL = 'searchName';
 				break;
@@ -102,17 +102,17 @@ class Zotero_Searches extends Zotero_DataObjects {
 				break;
 			
 			default:
-				$orderSQL = $params['order'];
+				$orderSQL = $params['sort'];
 			}
 			
 			$sql .= "ORDER BY $orderSQL";
-			if (!empty($params['sort'])) {
-				$sql .= " {$params['sort']}";
+			if (!empty($params['direction'])) {
+				$sql .= " {$params['direction']}";
 			}
 			$sql .= ", ";
 		}
-		$sql .= "version " . (!empty($params['sort']) ? $params['sort'] : "ASC")
-			. ", searchID " . (!empty($params['sort']) ? $params['sort'] : "ASC") . " ";
+		$sql .= "version " . (!empty($params['direction']) ? $params['direction'] : "ASC")
+			. ", searchID " . (!empty($params['direction']) ? $params['direction'] : "ASC") . " ";
 		
 		if (!empty($params['limit'])) {
 			$sql .= "LIMIT ?, ?";
@@ -230,7 +230,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 	                                      $json,
 	                                      $requestParams,
 	                                      $requireVersion=0) {
-		Zotero_API::processJSONObjectKey($search, $json);
+		Zotero_API::processJSONObjectKey($search, $json, $requestParams);
 		self::validateJSONSearch($json, $requestParams);
 		Zotero_API::checkJSONObjectVersion(
 			$search, $json, $requestParams, $requireVersion
@@ -270,6 +270,8 @@ class Zotero_Searches extends Zotero_DataObjects {
 		foreach ($json as $key => $val) {
 			switch ($key) {
 				// Handled by Zotero_API::checkJSONObjectVersion()
+				case 'key':
+				case 'version':
 				case 'searchKey':
 				case 'searchVersion':
 					break;

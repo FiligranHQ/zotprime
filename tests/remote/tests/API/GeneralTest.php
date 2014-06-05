@@ -25,7 +25,8 @@
 */
 
 require_once 'APITests.inc.php';
-require_once 'include/api.inc.php';
+require_once 'include/api3.inc.php';
+use API3 as API;
 
 class GeneralTests extends APITests {
 	public static function setUpBeforeClass() {
@@ -38,88 +39,107 @@ class GeneralTests extends APITests {
 		API::userClear(self::$config['userID']);
 	}
 	
-	public function testAPIVersion() {
+	public function setUp() {
+		parent::setUp();
+		API::useAPIKey(self::$config['apiKey']);
+		API::useAPIVersion(false);
+	}
+	
+	public function testAPIVersionHeader() {
 		$minVersion = 1;
-		$maxVersion = 2;
+		$maxVersion = 3;
 		$defaultVersion = 1;
 		
 		for ($i = $minVersion; $i <= $maxVersion; $i++) {
-			API::useAPIVersion($i);
 			$response = API::userGet(
 				self::$config['userID'],
-				"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
+				"items?format=keys&limit=1",
+				[
+					"Zotero-API-Version: $i"
+				]
 			);
-			if ($i == 1) {
-				$this->assertEquals(1, $response->getHeader("Zotero-API-Version"));
-			}
-			else {
-				$this->assertEquals($i, $response->getHeader("Zotero-API-Version"));
-			}
+			$this->assertEquals($i, $response->getHeader("Zotero-API-Version"));
 		}
 		
 		// Default
-		API::useAPIVersion(false);
 		$response = API::userGet(
 			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
+			"items?format=keys&limit=1"
 		);
 		$this->assertEquals($defaultVersion, $response->getHeader("Zotero-API-Version"));
 	}
 	
 	
-	public function testZoteroWriteToken() {
-		$json = API::getItemTemplate("book");
+	public function testAPIVersionParameter() {
+		$minVersion = 1;
+		$maxVersion = 3;
 		
-		$token = md5(uniqid());
-		
-		$response = API::userPost(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array(
-				"Content-Type: application/json",
-				"Zotero-Write-Token: $token"
-			)
-		);
-		$this->assert200ForObject($response);
-		
-		$response = API::userPost(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
-			array(
-				"Content-Type: application/json",
-				"Zotero-Write-Token: $token"
-			)
-		);
-		$this->assert412($response);
+		for ($i = $minVersion; $i <= $maxVersion; $i++) {
+			$response = API::userGet(
+				self::$config['userID'],
+				"items?format=keys&limit=1&v=$i"
+			);
+			$this->assertEquals($i, $response->getHeader("Zotero-API-Version"));
+		}
 	}
 	
 	
-	public function testInvalidCharacters() {
-		$data = array(
-			'title' => "A" . chr(0) . "A",
-			'creators' => array(
-				array(
-					'creatorType' => "author",
-					'name' => "B" . chr(1) . "B"
-				)
-			),
-			'tags' => array(
-				array(
-					'tag' => "C" . chr(2) . "C"
-				)
-			)
+	public function testAuthorization() {
+		$apiKey = self::$config['apiKey'];
+		API::useAPIKey(false);
+		
+		// Header
+		$response = API::userGet(
+			self::$config['userID'],
+			"items",
+			[
+				"Authorization: Bearer $apiKey"
+			]
 		);
-		$xml = API::createItem("book", $data, $this, 'atom');
-		$data = API::parseDataFromAtomEntry($xml);
-		$json = json_decode($data['content']);
-		$this->assertEquals("AA", $json->title);
-		$this->assertEquals("BB", $json->creators[0]->name);
-		$this->assertEquals("CC", $json->tags[0]->tag);
+		$this->assertHTTPStatus(200, $response);
+		
+		// Query parameter
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=$apiKey"
+		);
+		$this->assertHTTPStatus(200, $response);
+		
+		// Header and query parameter
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=$apiKey",
+			[
+				"Authorization: Bearer $apiKey"
+			]
+		);
+		$this->assertHTTPStatus(200, $response);
+		
+		// No key
+		$response = API::userGet(
+			self::$config['userID'],
+			"items"
+		);
+		$this->assertHTTPStatus(403, $response);
+		
+		// Header and empty key (which is still an error)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=",
+			[
+				"Authorization: Bearer $apiKey"
+			]
+		);
+		$this->assertHTTPStatus(400, $response);
+		
+		// Header and key mismatch
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=invalidkey",
+			[
+				"Authorization: Bearer $apiKey"
+			]
+		);
+		$this->assertHTTPStatus(400, $response);
 	}
 }

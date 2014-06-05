@@ -1,6 +1,9 @@
 <?php
 require '../../vendor/autoload.php';
-require_once 'include/config.inc.php';
+require 'include/config.inc.php';
+
+require '../../model/Date.inc.php';
+require '../../model/Utilities.inc.php';
 
 class Z_Tests {
 	public static $AWS;

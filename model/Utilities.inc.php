@@ -112,8 +112,7 @@ class Zotero_Utilities {
     
 	
 	public static function formatJSON($jsonObj) {
-		$mask = JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE
-			| JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT;
+		$mask = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT;
 		return json_encode($jsonObj, $mask);
 	}
 	

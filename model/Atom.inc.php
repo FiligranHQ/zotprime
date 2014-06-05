@@ -30,29 +30,20 @@ class Zotero_Atom {
 	public static $nsXHTML = "http://www.w3.org/1999/xhtml";
 	public static $nsZoteroAPI = "http://zotero.org/ns/api";
 	public static $nsZoteroTransfer = "http://zotero.org/ns/transfer";
-	//public static $nsZoteroAPIRel = "http://zotero.org/ns/api/relation/";
 	
 	
-	public static function createAtomFeed($title, $url, $entries, $totalResults=null, $queryParams=null, $permissions=null, $fixedValues=array()) {
+	public static function createAtomFeed($action, $title, $url, $entries, $totalResults=null,
+			$queryParams=[], Zotero_Permissions $permissions=null, $fixedValues=array()) {
 		if ($queryParams) {
-			$nonDefaultParams = Zotero_API::getNonDefaultQueryParams($queryParams);
-			// Convert 'content' array to sorted comma-separated string
-			if (isset($nonDefaultParams['content'])) {
-				$nonDefaultParams['content'] = implode(',', $nonDefaultParams['content']);
-			}
-			$nonDefaultParams = Zotero_API::getPublicQueryParams($nonDefaultParams);
+			$nonDefaultParams = Zotero_API::getNonDefaultParams($action, $queryParams);
 		}
 		else {
-			$nonDefaultParams = array();
+			$nonDefaultParams = [];
 		}
 		
 		$feed = '<?xml version="1.0" encoding="UTF-8"?>'
 			. '<feed xmlns="' . Zotero_Atom::$nsAtom . '" '
-			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"';
-		if ($queryParams && $queryParams['content'][0] == 'full') {
-			$feed .= ' xmlns:zxfer="' . Zotero_Atom::$nsZoteroTransfer . '"';
-		}
-		$feed .= '/>';
+			. 'xmlns:zapi="' . Zotero_Atom::$nsZoteroAPI . '"/>';
 		$xml = new SimpleXMLElement($feed);
 		
 		$xml->title = $title;
@@ -60,116 +51,51 @@ class Zotero_Atom {
 		$path = parse_url($url, PHP_URL_PATH);
 		
 		// Generate canonical URI
-		$zoteroURI = Zotero_URI::getBaseURI() . substr($path, 1);
-		if ($nonDefaultParams) {
-			$zoteroURI .= "?" . http_build_query($nonDefaultParams);
-		}
+		$zoteroURI = Zotero_URI::getBaseURI() . substr($path, 1)
+			. Zotero_API::buildQueryString($action, $nonDefaultParams);
+		$baseURI = Zotero_API::getBaseURI() . substr($path, 1);
 		
-		$atomURI = Zotero_API::getBaseURI() . substr($path, 1);
-		
-		//
-		// Generate URIs for 'self', 'first', 'next' and 'last' links
-		//
-		// 'self'
-		$atomSelfURI = $atomURI;
-		if ($nonDefaultParams) {
-			$atomSelfURI .= "?" . http_build_query($nonDefaultParams);
-		}
-		
-		// 'first'
-		$atomFirstURI = $atomURI;
-		if ($nonDefaultParams) {
-			$p = $nonDefaultParams;
-			unset($p['start']);
-			if ($first = http_build_query($p)) {
-				$atomFirstURI .= "?" . $first;
-			}
-		}
-		
-		// 'last'
-		if (!$queryParams['start'] && $queryParams['limit'] >= $totalResults) {
-			$atomLastURI = $atomSelfURI;
-		}
-		else {
-			// 'start' past results
-			if ($queryParams['start'] >= $totalResults) {
-				$lastStart = $totalResults - $queryParams['limit'];
-			}
-			else {
-				$lastStart = $totalResults - ($totalResults % $queryParams['limit']);
-				if ($lastStart == $totalResults) {
-					$lastStart = $totalResults - $queryParams['limit'];
-				}
-			}
-			$p = $nonDefaultParams;
-			if ($lastStart > 0) {
-				$p['start'] = $lastStart;
-			}
-			else {
-				unset($p['start']);
-			}
-			$atomLastURI = $atomURI;
-			if ($last = http_build_query($p)) {
-				$atomLastURI .= "?" . $last;
-			}
-			
-			// 'next'
-			$nextStart = $queryParams['start'] + $queryParams['limit'];
-			if ($nextStart < $totalResults) {
-				$p = $nonDefaultParams;
-				$p['start'] = $nextStart;
-				$atomNextURI = $atomURI . "?" . http_build_query($p);
-			}
-		}
+		$links = Zotero_API::buildLinks($action, $baseURI, $totalResults, $queryParams, $nonDefaultParams);
 		
 		$xml->id = $zoteroURI;
 		
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = $atomSelfURI;
+		$link['href'] = $links['self'];
 		
 		$link = $xml->addChild("link");
 		$link['rel'] = "first";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = $atomFirstURI;
+		$link['href'] = $links['first'];
 		
-		if (isset($atomNextURI)) {
+		if (isset($links['next'])) {
 			$link = $xml->addChild("link");
 			$link['rel'] = "next";
 			$link['type'] = "application/atom+xml";
-			$link['href'] = $atomNextURI;
+			$link['href'] = $links['next'];
 		}
 		
 		$link = $xml->addChild("link");
 		$link['rel'] = "last";
 		$link['type'] = "application/atom+xml";
-		$link['href'] = $atomLastURI;
+		$link['href'] = $links['last'];
 		
 		// Generate alternate URI
-		$alternateURI = Zotero_URI::getBaseWWWURI() . substr($path, 1);
-		if ($nonDefaultParams) {
-			$p = $nonDefaultParams;
-			if (isset($p['content'])) {
-				unset($p['content']);
-			}
-			if ($p) {
-				$alternateURI .= "?" . http_build_query($p);
-			}
-		}
 		$link = $xml->addChild("link");
 		$link['rel'] = "alternate";
 		$link['type'] = "text/html";
-		$link['href'] = $alternateURI;
+		$link['href'] = $links['alternate'];
 		
+		if ($queryParams['v'] < 3) {
+			$xml->addChild(
+				"zapi:totalResults",
+				is_numeric($totalResults) ? $totalResults : sizeOf($entries),
+				self::$nsZoteroAPI
+			);
+		}
 		
-		$xml->addChild(
-			"zapi:totalResults",
-			is_numeric($totalResults) ? $totalResults : sizeOf($entries),
-			self::$nsZoteroAPI
-		);
-		
-		if ($queryParams['apiVersion'] < 2) {
+		if ($queryParams['v'] < 2) {
 			$xml->addChild("zapi:apiVersion", 1, self::$nsZoteroAPI);
 		}
 		

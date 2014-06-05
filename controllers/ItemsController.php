@@ -151,7 +151,7 @@ class ItemsController extends ApiController {
 				
 				// Update item
 				if ($this->method == 'PUT' || $this->method == 'PATCH') {
-					if ($this->queryParams['apiVersion'] < 2) {
+					if ($this->apiVersion < 2) {
 						$this->allowMethods(array('PUT'));
 					}
 					
@@ -176,7 +176,7 @@ class ItemsController extends ApiController {
 						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
 					}
 					
-					if ($this->queryParams['apiVersion'] < 2) {
+					if ($this->apiVersion < 2) {
 						$this->queryParams['format'] = 'atom';
 						$this->queryParams['content'] = array('json');
 					}
@@ -196,12 +196,12 @@ class ItemsController extends ApiController {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				if ($this->queryParams['apiVersion'] >= 2 || $this->method == 'DELETE') {
+				if ($this->apiVersion >= 2 || $this->method == 'DELETE') {
 					$this->e204();
 				}
 			}
 			
-			$this->libraryVersion = $item->itemVersion;
+			$this->libraryVersion = $item->version;
 			
 			// Display item
 			switch ($this->queryParams['format']) {
@@ -213,24 +213,25 @@ class ItemsController extends ApiController {
 				
 				case 'bib':
 					echo Zotero_Cite::getBibliographyFromCitationServer(array($item), $this->queryParams);
-					exit;
+					break;
 				
 				case 'csljson':
 					$json = Zotero_Cite::getJSONFromItems(array($item), true);
 					header("Content-Type: application/vnd.citationstyles.csl+json");
 					echo Zotero_Utilities::formatJSON($json);
-					exit;
+					break;
 				
 				case 'json':
 					header("Content-Type: application/json");
-					echo $item->toResponseJSON(false, $this->queryParams, $this->permissions);
-					exit;
+					$json = $item->toResponseJSON($this->queryParams, $this->permissions);
+					echo Zotero_Utilities::formatJSON($json);
+					break;
 				
 				default:
 					$export = Zotero_Translate::doExport(array($item), $this->queryParams['format']);
 					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];
-					exit;
+					break;
 			}
 		}
 		
@@ -301,7 +302,7 @@ class ItemsController extends ApiController {
 							$this->e204();
 						}
 						
-						if ($this->subset == 'top' || $this->queryParams['apiVersion'] < 2) {
+						if ($this->subset == 'top' || $this->apiVersion < 2) {
 							$title = "Top-Level Items in Collection ‘" . $collection->name . "’";
 							$itemIDs = $collection->getItems();
 						}
@@ -312,7 +313,7 @@ class ItemsController extends ApiController {
 						break;
 					
 					case 'tags':
-						if ($this->queryParams['apiVersion'] >= 2) {
+						if ($this->apiVersion >= 2) {
 							$this->e404();
 						}
 						
@@ -381,7 +382,7 @@ class ItemsController extends ApiController {
 					
 					// Create new child items
 					if ($this->method == 'POST') {
-						if ($this->queryParams['apiVersion'] >= 2) {
+						if ($this->apiVersion >= 2) {
 							$this->allowMethods(array('GET'));
 						}
 						
@@ -445,7 +446,7 @@ class ItemsController extends ApiController {
 						
 						// Server-side translation
 						if (isset($obj->url)) {
-							if ($this->queryParams['apiVersion'] < 2) {
+							if ($this->apiVersion < 2) {
 								Zotero_DB::beginTransaction();
 							}
 							
@@ -457,7 +458,7 @@ class ItemsController extends ApiController {
 								$this->queryParams
 							);
 							
-							if ($this->queryParams['apiVersion'] < 2) {
+							if ($this->apiVersion < 2) {
 								Zotero_DB::commit();
 							}
 							
@@ -476,7 +477,7 @@ class ItemsController extends ApiController {
 										$this->e500("Error translating URL");
 								}
 							}
-							else if ($this->queryParams['apiVersion'] < 2) {
+							else if ($this->apiVersion < 2) {
 								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
 								$keys = array_merge(
 									get_object_vars($results['success']),
@@ -512,7 +513,7 @@ class ItemsController extends ApiController {
 						}
 						// Uploaded items
 						else {
-							if ($this->queryParams['apiVersion'] < 2) {
+							if ($this->apiVersion < 2) {
 								Zotero_DB::beginTransaction();
 							}
 							
@@ -525,7 +526,7 @@ class ItemsController extends ApiController {
 								null
 							);
 							
-							if ($this->queryParams['apiVersion'] < 2) {
+							if ($this->apiVersion < 2) {
 								Zotero_DB::commit();
 								
 								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
@@ -582,8 +583,8 @@ class ItemsController extends ApiController {
 			}
 			
 			if ($this->queryParams['format'] == 'bib') {
-				if (($itemIDs ? sizeOf($itemIDs) : $results['total']) > Zotero_API::$maxBibliographyItems) {
-					$this->e413("Cannot generate bibliography with more than " . Zotero_API::$maxBibliographyItems . " items");
+				if (($itemIDs ? sizeOf($itemIDs) : $results['total']) > Zotero_API::MAX_BIBLIOGRAPHY_ITEMS) {
+					$this->e413("Cannot generate bibliography with more than " . Zotero_API::MAX_BIBLIOGRAPHY_ITEMS . " items");
 				}
 			}
 			
@@ -603,23 +604,18 @@ class ItemsController extends ApiController {
 				);
 			}
 			
-			if ($results && isset($results['results'])) {
-				 $totalResults = $results['total'];
-				 $results = $results['results'];
-			}
-			
+			$options = [
+				'action' => $this->action,
+				'uri' => $this->uri,
+				'results' => $results,
+				'requestParams' => $this->queryParams,
+				'permissions' => $this->permissions
+			];
 			switch ($this->queryParams['format']) {
 				case 'atom':
-					$t = microtime(true);
-					$this->responseXML = Zotero_Atom::createAtomFeed(
-						$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-						$this->uri,
-						$results,
-						$totalResults,
-						$this->queryParams,
-						$this->permissions
-					);
-					StatsD::timing("api.items.multiple.createAtomFeed." . implode("-", $this->queryParams['content']), (microtime(true) - $t) * 1000);
+					$this->responseXML = Zotero_API::multiResponse(array_merge($options, [
+						'title' => $this->getFeedNamePrefix($this->objectLibraryID) . $title
+					]));
 					break;
 				
 				case 'bib':
@@ -627,20 +623,11 @@ class ItemsController extends ApiController {
 					break;
 				
 				case 'csljson':
-					header("Content-Type: application/vnd.citationstyles.csl+json");
-					$json = Zotero_Cite::getJSONFromItems($results, true);
-					echo Zotero_Utilities::formatJSON($json);
-					break;
-				
+				case 'json':
 				case 'keys':
-					header("Content-Type: text/plain");
-					echo implode("\n", $results) . "\n";
-					break;
-				
 				case 'versions':
 				case 'writereport':
-					header("Content-Type: application/json");
-					echo Zotero_Utilities::formatJSON($results);
+					Zotero_API::multiResponse($options);
 					break;
 				
 				default:

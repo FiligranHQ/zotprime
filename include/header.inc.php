@@ -187,6 +187,7 @@ require('config/dbconnect.inc.php');
 
 require('StatsD.inc.php');
 
+// Database callbacks
 Zotero_DB::addCallback("begin", array("Zotero_Notifier", "begin"));
 Zotero_DB::addCallback("commit", array("Zotero_Notifier", "commit"));
 Zotero_DB::addCallback("callback", array("Zotero_Notifier", "reset"));
@@ -225,6 +226,7 @@ else {
 Z_Core::$AWS = \Aws\Common\Aws::factory($awsConfig);
 unset($awsConfig);
 
+// Elastica
 Z_Core::$Elastica = new \Elastica\Client(array(
 	'connections' => array_map(function ($hostAndPort) {
 		preg_match('/^([^:]+)(:[0-9]+)?$/', $hostAndPort, $matches);

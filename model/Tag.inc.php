@@ -500,7 +500,44 @@ class Zotero_Tag {
 	}
 	
 	
-	public function toJSON($asArray=false) {
+	public function toResponseJSON() {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$json = [
+			'tag' => $this->name
+		];
+		
+		// 'links'
+		$json['links'] = [
+			'self' => [
+				'href' => Zotero_API::getTagURI($this),
+				'type' => 'application/json'
+			],
+			'alternate' => [
+				'href' => Zotero_URI::getTagURI($this, true),
+				'type' => 'text/html'
+			]
+		];
+		
+		// 'library'
+		// Don't bother with library for tags
+		//$json['library'] = Zotero_Libraries::toJSON($this->libraryID);
+		
+		// 'meta'
+		$json['meta'] = [
+			'type' => $this->type,
+			'numItems' => isset($fixedValues['numItems'])
+				? $fixedValues['numItems']
+				: sizeOf($this->getLinkedItems(true))
+		];
+		
+		return $json;
+	}
+	
+	
+	public function toJSON() {
 		if (!$this->loaded) {
 			$this->load();
 		}
@@ -508,11 +545,7 @@ class Zotero_Tag {
 		$arr['tag'] = $this->name;
 		$arr['type'] = $this->type;
 		
-		if ($asArray) {
-			return $arr;
-		}
-		
-		return Zotero_Utilities::formatJSON($arr);
+		return $arr;
 	}
 	
 	
@@ -541,7 +574,7 @@ class Zotero_Tag {
 		
 		$author = $xml->addChild('author');
 		$author->name = Zotero_Libraries::getName($this->libraryID);
-		$author->uri = Zotero_URI::getLibraryURI($this->libraryID);
+		$author->uri = Zotero_URI::getLibraryURI($this->libraryID, true);
 		
 		$xml->id = Zotero_URI::getTagURI($this);
 		
@@ -556,7 +589,7 @@ class Zotero_Tag {
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
 		$link['type'] = 'text/html';
-		$link['href'] = Zotero_URI::getTagURI($this);
+		$link['href'] = Zotero_URI::getTagURI($this, true);
 		
 		// Count user's linked items
 		if (isset($fixedValues['numItems'])) {
@@ -585,7 +618,7 @@ class Zotero_Tag {
 		}
 		else if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
-			$xml->content = $this->toJSON();
+			$xml->content = Zotero_Utilities::formatJSON($this->toJSON());
 		}
 		
 		return $xml;

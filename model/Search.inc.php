@@ -271,13 +271,57 @@ class Zotero_Search {
 	}
 	
 	
-	public function toJSON($asArray=false) {
+	public function toResponseJSON($requestParams=[], Zotero_Permissions $permissions) {
+		$t = microtime(true);
+		
 		if (!$this->loaded) {
 			$this->load();
 		}
 		
-		$arr['searchKey'] = $this->key;
-		$arr['searchVersion'] = $this->version;
+		$json = [
+			'key' => $this->key,
+			'version' => $this->version,
+			'library' => Zotero_Libraries::toJSON($this->libraryID)
+		];
+		
+		// 'links'
+		$json['links'] = [
+			'self' => [
+				'href' => Zotero_API::getSearchURI($this),
+				'type' => 'application/json'
+			]/*,
+			'alternate' => [
+				'href' => Zotero_URI::getSearchURI($this, true),
+				'type' => 'text/html'
+			]*/
+		];
+
+		
+		// 'include'
+		$include = $requestParams['include'];
+		foreach ($include as $type) {
+			if ($type == 'data') {
+				$json[$type] = $this->toJSON($requestParams);
+			}
+		}
+		
+		return $json;
+	}
+	
+	
+	public function toJSON(array $requestParams=[]) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		if ($requestParams['v'] >= 3) {
+			$arr['key'] = $this->key;
+			$arr['version'] = $this->version;
+		}
+		else {
+			$arr['searchKey'] = $this->key;
+			$arr['searchVersion'] = $this->version;
+		}
 		$arr['name'] = $this->name;
 		$arr['conditions'] = array();
 		
@@ -290,11 +334,7 @@ class Zotero_Search {
 			);
 		}
 		
-		if ($asArray) {
-			return $arr;
-		}
-		
-		return Zotero_Utilities::formatJSON($arr);
+		return $arr;
 	}
 	
 	
@@ -329,7 +369,7 @@ class Zotero_Search {
 		$author = $xml->addChild('author');
 		// TODO: group item creator
 		$author->name = Zotero_Libraries::getName($this->libraryID);
-		$author->uri = Zotero_URI::getLibraryURI($this->libraryID);
+		$author->uri = Zotero_URI::getLibraryURI($this->libraryID, true);
 		
 		$xml->id = Zotero_URI::getSearchURI($this);
 		
@@ -346,7 +386,7 @@ class Zotero_Search {
 		
 		if ($content == 'json') {
 			$xml->content['type'] = 'application/json';
-			$xml->content = $this->toJSON();
+			$xml->content = Zotero_Utilities::formatJSON($this->toJSON($queryParams));
 		}
 		
 		return $xml;

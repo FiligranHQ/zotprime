@@ -39,14 +39,30 @@ class KeysController extends ApiController {
 					$this->e404("Key not found");
 				}
 				
-				$this->responseXML = $keyObj->toXML();
-				
-				// If not super-user, don't include name or recent IP addresses
-				if (!$this->permissions->isSuper()) {
-					unset($this->responseXML['dateAdded']);
-					unset($this->responseXML['lastUsed']);
-					unset($this->responseXML->name);
-					unset($this->responseXML->recentIPs);
+				if ($this->apiVersion >= 3) {
+					$json = $keyObj->toJSON();
+					
+					// If not super-user, don't include name or recent IP addresses
+					if (!$this->permissions->isSuper()) {
+						unset($json['dateAdded']);
+						unset($json['lastUsed']);
+						unset($json['name']);
+						unset($json['recentIPs']);
+					}
+					
+					header('application/json');
+					echo Zotero_Utilities::formatJSON($json);
+				}
+				else {
+					$this->responseXML = $keyObj->toXML();
+					
+					// If not super-user, don't include name or recent IP addresses
+					if (!$this->permissions->isSuper()) {
+						unset($this->responseXML['dateAdded']);
+						unset($this->responseXML['lastUsed']);
+						unset($this->responseXML->name);
+						unset($this->responseXML->recentIPs);
+					}
 				}
 			}
 			
@@ -57,19 +73,26 @@ class KeysController extends ApiController {
 				}
 				
 				$keyObjs = Zotero_Keys::getUserKeys($userID);
-				$xml = new SimpleXMLElement('<keys/>');
-				$domXML = dom_import_simplexml($xml);
-				
 				if ($keyObjs) {
-					foreach ($keyObjs as $keyObj) {
-						$keyXML = $keyObj->toXML();
-						$domKeyXML = dom_import_simplexml($keyXML);
-						$node = $domXML->ownerDocument->importNode($domKeyXML, true);
-						$domXML->appendChild($node);
+					if ($this->apiVersion >= 3) {
+						$json = [];
+						foreach ($keyObjs as $keyObj) {
+							$json[] = $keyObj->toJSON();
+						}
+						echo Zotero_Utilities::formatJSON($json);
+					}
+					else {
+						$xml = new SimpleXMLElement('<keys/>');
+						$domXML = dom_import_simplexml($xml);
+						foreach ($keyObjs as $keyObj) {
+							$keyXML = $keyObj->toXML();
+							$domKeyXML = dom_import_simplexml($keyXML);
+							$node = $domXML->ownerDocument->importNode($domKeyXML, true);
+							$domXML->appendChild($node);
+						}
+						$this->responseXML = $xml;
 					}
 				}
-				
-				$this->responseXML = $xml;
 			}
 		}
 		
@@ -84,18 +107,32 @@ class KeysController extends ApiController {
 					$this->e400("POST requests cannot end with a key (did you mean PUT?)");
 				}
 				
-				try {
-					$key = @new SimpleXMLElement($this->body);
+				if ($this->apiVersion >= 3) {
+					$json = json_decode($this->body, true);
+					if (!$json) {
+						$this->e400("$this->method data is not valid JSON");
+					}
+					
+					if (!empty($json['key'])) {
+						$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
+					}
+					
+					$fields = $this->getFieldsFromJSON($json);
 				}
-				catch (Exception $e) {
-					$this->e400("$this->method data is not valid XML");
+				else {
+					try {
+						$keyXML = @new SimpleXMLElement($this->body);
+					}
+					catch (Exception $e) {
+						$this->e400("$this->method data is not valid XML");
+					}
+					
+					if (!empty($key['key'])) {
+						$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
+					}
+					
+					$fields = $this->getFieldsFromKeyXML($keyXML);
 				}
-				
-				if ((string) $key['key']) {
-					$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
-				}
-				
-				$fields = $this->getFieldsFromKeyXML($key);
 				
 				Zotero_DB::beginTransaction();
 				
@@ -121,29 +158,44 @@ class KeysController extends ApiController {
 					$this->handleException($e);
 				}
 				
-				$this->responseXML = $keyObj->toXML();
+				if ($this->apiVersion >= 3) {
+					header('application/json');
+					echo Zotero_Utilities::formatJSON($keyObj->toJSON());
+				}
+				else {
+					$this->responseXML = $keyObj->toXML();
+				}
 				
 				Zotero_DB::commit();
 				
 				$url = Zotero_API::getKeyURI($keyObj);
 				$this->responseCode = 201;
 				header("Location: " . $url, false, 201);
-				$this->end();
 			}
 			
-			if ($this->method == 'PUT') {
+			else if ($this->method == 'PUT') {
 				if (!$key) {
 					$this->e400("PUT requests must end with a key (did you mean POST?)");
 				}
 				
-				try {
-					$keyXML = @new SimpleXMLElement($this->body);
+				if ($this->apiVersion >= 3) {
+					$json = json_decode($this->body, true);
+					if (!$json) {
+						$this->e400("$this->method data is not valid JSON");
+					}
+					
+					$fields = $this->getFieldsFromJSON($json);
 				}
-				catch (Exception $e) {
-					$this->e400("$this->method data is not valid XML");
+				else {
+					try {
+						$keyXML = @new SimpleXMLElement($this->body);
+					}
+					catch (Exception $e) {
+						$this->e400("$this->method data is not valid XML");
+					}
+					
+					$fields = $this->getFieldsFromKeyXML($keyXML);
 				}
-				
-				$fields = $this->getFieldsFromKeyXML($keyXML);
 				
 				// Key attribute is optional, but, if it's there, make sure it matches
 				if (isset($fields['key']) && $fields['key'] != $key) {
@@ -176,12 +228,17 @@ class KeysController extends ApiController {
 					$this->handleException($e);
 				}
 				
-				$this->responseXML = $keyObj->toXML();
+				if ($this->apiVersion >= 3) {
+					echo Zotero_Utilities::formatJSON($keyObj->toJSON());
+				}
+				else {
+					$this->responseXML = $keyObj->toXML();
+				}
 				
 				Zotero_DB::commit();
 			}
 			
-			if ($this->method == 'DELETE') {
+			else if ($this->method == 'DELETE') {
 				if (!$key) {
 					$this->e400("DELETE requests must end with a key");
 				}
@@ -200,15 +257,47 @@ class KeysController extends ApiController {
 			}
 		}
 		
-		header('Content-Type: application/xml');
-		$xmlstr = $this->responseXML->asXML();
-		
-		$doc = new DOMDocument('1.0');
-		
-		$doc->loadXML($xmlstr);
-		$doc->formatOutput = true;
-		echo $doc->saveXML();
-		exit;
+		if ($this->apiVersion >= 3) {
+			$this->end();
+		}                             
+		else {
+			header('Content-Type: application/xml');
+			$xmlstr = $this->responseXML->asXML();
+			
+			$doc = new DOMDocument('1.0');
+			
+			$doc->loadXML($xmlstr);
+			$doc->formatOutput = true;
+			echo $doc->saveXML();
+			exit;
+		}
+	}
+	
+	
+	protected function getFieldsFromJSON($json) {
+		$fields = [];
+		$fields['name'] = $json['name'];
+		$fields['access'] = [];
+		if (!empty($json['access']['user']) && !empty($json['access']['user']['library'])) {
+			$fields['access'][] = [
+				'library' => true,
+				'notes' => isset($json['access']['user']['notes'])
+					? (bool) $json['access']['user']['notes']
+					: false,
+				'write' => isset($json['access']['user']['write'])
+					? (bool) $json['access']['user']['write']
+					: false
+			];
+		}
+		if (!empty($json['access']['groups'])) {
+			foreach ($json['access']['groups'] as $groupID => $access) {
+				$fields['access'][] = [
+					'group' => $groupID == 'all' ? 0 : (int) $groupID,
+					'write' => isset($access['write']) ? (bool) $access['write'] : false
+				];
+			}
+		}
+		return $fields;
 	}
 	
 	

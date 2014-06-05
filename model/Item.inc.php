@@ -32,7 +32,7 @@ class Zotero_Item {
 	private $dateAdded;
 	private $dateModified;
 	private $serverDateModified;
-	private $itemVersion; // computerProgram has a 'version' field
+	private $version;
 	
 	private $itemData = array();
 	private $creators = array();
@@ -751,6 +751,12 @@ class Zotero_Item {
 			$this->loaded['primaryData'] = true;
 		}
 		
+		if ($field == 'dateAdded' || $field == 'dateModified' || $field == 'accessDate') {
+			if (Zotero_Date::isISO8601($value)) {
+				$value = Zotero_Date::iso8601ToSQL($value);
+			}
+		}
+		
 		// Primary field
 		if (isset(Zotero_Items::$primaryFields[$field])) {
 			if ($loadIn) {
@@ -759,7 +765,7 @@ class Zotero_Item {
 			
 			switch ($field) {
 				case 'id':
-				case 'itemVersion':
+				case 'version':
 					trigger_error("Primary field '$field' cannot be changed through setField()", E_USER_ERROR);
 			}
 			
@@ -1111,7 +1117,7 @@ class Zotero_Item {
 					'dateAdded' => $dateAdded,
 					'dateModified' => $dateModified,
 					'serverDateModified' => $timestamp,
-					'itemVersion' => $version
+					'version' => $version
 				);
 				
 				$sql = 'INSERT INTO items (`' . implode('`, `', $sqlColumns) . '`) VALUES (';
@@ -1439,7 +1445,7 @@ class Zotero_Item {
  				
 				// Related items
 				if (!empty($this->changed['relations'])) {
-					$uri = Zotero_URI::getItemURI($this, true);
+					$uri = Zotero_URI::getItemURI($this);
 					
 					$sql = "INSERT IGNORE INTO relations "
 						 . "(relationID, libraryID, `key`, subject, predicate, object) "
@@ -1490,7 +1496,7 @@ class Zotero_Item {
 					'dateAdded' => $this->dateAdded,
 					'dateModified' => $this->dateModified,
 					'serverDateModified' => $timestamp,
-					'itemVersion' => $version
+					'version' => $version
 				);
 				
 				$updateFields = array(
@@ -2006,7 +2012,7 @@ class Zotero_Item {
 						 . "WHERE IR.itemID=?";
 					$toMigrate = Zotero_DB::columnQuery($sql, $this->id, $shardID);
 					if ($toMigrate) {
-						$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+						$prefix = Zotero_URI::getLibraryURI($this->libraryID) . "/items/";
 						$new = array_map(function ($key) use ($prefix) {
 							return [
 								Zotero_Relations::$relatedItemPredicate,
@@ -2030,7 +2036,7 @@ class Zotero_Item {
 						$new[] = $rel;
 					}
 					
-					$uri = Zotero_URI::getItemURI($this, true);
+					$uri = Zotero_URI::getItemURI($this);
 					
 					if ($removed) {
 						$sql = "DELETE FROM relations WHERE libraryID=? AND `key`=?";
@@ -3072,8 +3078,15 @@ class Zotero_Item {
 		$this->tags = [];
 		foreach ($newTags as $newTag) {
 			$obj = new stdClass;
-			$obj->tag = $newTag->tag;
-			$obj->type = (int) isset($newTag->type) ? $newTag->type : 0;
+			// Allow the passed array to contain either strings or objects
+			if (is_string($newTag)) {
+				$obj->tag = $newTag;
+				$obj->type = 0;
+			}
+			else {
+				$obj->tag = $newTag->tag;
+				$obj->type = (int) isset($newTag->type) ? $newTag->type : 0;
+			}
 			$this->tags[] = $obj;
 		}
 		$this->changed['tags'] = true;
@@ -3449,6 +3462,235 @@ class Zotero_Item {
 	}
 	
 	
+	public function toResponseJSON($requestParams=[], Zotero_Permissions $permissions, $sharedData=null) {
+		$t = microtime(true);
+		
+		if (!$this->loaded['primaryData']) {
+			$this->loadPrimaryData(true);
+		}
+		if (!$this->loaded['itemData']) {
+			$this->loadItemData();
+		}
+		
+		// Uncached stuff or parts of the cache key
+		$version = $this->version;
+		$parent = $this->getSource();
+		$isRegularItem = !$parent && $this->isRegularItem();
+		$downloadDetails = $permissions->canAccess($this->libraryID, 'files')
+								? Zotero_Storage::getDownloadDetails($this)
+								: false;
+		if ($isRegularItem) {
+			$numChildren = $permissions->canAccess($this->libraryID, 'notes')
+								? $this->numChildren()
+								: $this->numAttachments();
+		}
+		$libraryType = Zotero_Libraries::getType($this->libraryID);
+		
+		// Any query parameters that have an effect on the output
+		// need to be added here
+		$allowedParams = [
+			'include',
+			'style',
+			'css',
+			'linkwrap'
+		];
+		$cachedParams = Z_Array::filterKeys($requestParams, $allowedParams);
+		
+		$cacheVersion = 1;
+		$cacheKey = "jsonEntry_" . $this->libraryID . "/" . $this->id . "_"
+			. md5(
+				$version
+				. json_encode($cachedParams)
+				. ($downloadDetails ? 'hasFile' : '')
+				// For groups, include the group WWW URL, which can change
+				. ($libraryType == 'group' ? Zotero_URI::getItemURI($this, true) : '')
+			)
+			. "_" . $requestParams['v']
+			// For code-based changes
+			. "_" . $cacheVersion
+			// For data-based changes
+			. (isset(Z_CONFIG::$CACHE_VERSION_RESPONSE_JSON_ITEM)
+				? "_" . Z_CONFIG::$CACHE_VERSION_RESPONSE_JSON_ITEM
+				: "")
+			// If there's bib content, include the bib cache version
+			. ((in_array('bib', $requestParams['include'])
+					&& isset(Z_CONFIG::$CACHE_VERSION_BIB))
+				? "_" . Z_CONFIG::$CACHE_VERSION_BIB
+				: "");
+		
+		$cached = Z_Core::$MC->get($cacheKey);
+		if (false && $cached) {
+			// Make sure numChildren reflects the current permissions
+			if ($isRegularItem) {
+				$json = json_decode($cached);
+				$json['numChildren'] = $numChildren;
+				$cached = json_encode($json);
+			}
+			
+			//StatsD::timing("api.items.itemToResponseJSON.cached", (microtime(true) - $t) * 1000);
+			//StatsD::increment("memcached.items.itemToResponseJSON.hit");
+			
+			// Skip the cache every 10 times for now, to ensure cache sanity
+			if (!Z_Core::probability(10)) {
+				return $cached;
+			}
+		}
+		
+		
+		$json = [
+			'key' => $this->key,
+			'version' => $version,
+			'library' => Zotero_Libraries::toJSON($this->libraryID)
+		];
+		
+		$json['links'] = [
+			'self' => [
+				'href' => Zotero_API::getItemURI($this),
+				'type' => 'application/json'
+			],
+			'alternate' => [
+				'href' => Zotero_URI::getItemURI($this, true),
+				'type' => 'text/html'
+			]
+		];
+		
+		if ($parent) {
+			$parentItem = Zotero_Items::get($this->libraryID, $parent);
+			$json['links']['up'] = [
+				'href' => Zotero_API::getItemURI($parentItem),
+				'type' => 'application/json'
+			];
+		}
+		
+		// If appropriate permissions and the file is stored in ZFS, get file request link
+		if ($downloadDetails) {
+			$details = $downloadDetails;
+			$type = $this->attachmentMIMEType;
+			if ($type) {
+				$json['links']['enclosure'] = [
+					'type' => $type
+				];
+			}
+			$json['links']['enclosure']['href'] = $details['url'];
+			if (!empty($details['filename'])) {
+				$json['links']['enclosure']['title'] = $details['filename'];
+			}
+			if (isset($details['size'])) {
+				$json['links']['enclosure']['length'] = $details['size'];
+			}
+		}
+		
+		// 'meta'
+		$json['meta'] = new stdClass;
+		
+		if (Zotero_Libraries::getType($this->libraryID) == 'group') {
+			$createdByUserID = $this->createdByUserID;
+			$lastModifiedByUserID = $this->lastModifiedByUserID;
+			
+			if ($createdByUserID) {
+				$json['meta']->createdByUser = Zotero_Users::toJSON($createdByUserID);
+			}
+			
+			if ($lastModifiedByUserID && $lastModifiedByUserID != $createdByUserID) {
+				$json['meta']->lastModifiedByUser = Zotero_Users::toJSON($lastModifiedByUserID);
+			}
+		}
+		
+		if ($isRegularItem) {
+			$val = $this->getCreatorSummary();
+			if ($val !== '') {
+				$json['meta']->creatorSummary = $val;
+			}
+			
+			$val = $this->getField('date', true, true, true);
+			if ($val !== '') {
+				$sqlDate = Zotero_Date::multipartToSQL($val);
+				if (substr($sqlDate, 0, 4) !== '0000') {
+					$json['meta']->parsedDate = $sqlDate;
+				}
+			}
+			
+			$json['meta']->numChildren = $numChildren;
+		}
+		
+		// 'include'
+		$include = $requestParams['include'];
+		
+		foreach ($include as $type) {
+			if ($type == 'html') {
+				$json[$type] = trim($this->toHTML());
+			}
+			else if ($type == 'citation') {
+				if (isset($sharedData[$type][$this->libraryID . "/" . $this->key])) {
+					$html = $sharedData[$type][$this->libraryID . "/" . $this->key];
+				}
+				else {
+					if ($sharedData !== null) {
+						//error_log("Citation not found in sharedData -- retrieving individually");
+					}
+					$html = Zotero_Cite::getCitationFromCiteServer($this, $requestParams);
+				}
+				$json[$type] = $html;
+			}
+			else if ($type == 'bib') {
+				if (isset($sharedData[$type][$this->libraryID . "/" . $this->key])) {
+					$html = $sharedData[$type][$this->libraryID . "/" . $this->key];
+				}
+				else {
+					if ($sharedData !== null) {
+						//error_log("Bibliography not found in sharedData -- retrieving individually");
+					}
+					$html = Zotero_Cite::getBibliographyFromCitationServer([$this], $requestParams);
+					
+					// Strip prolog
+					$html = preg_replace('/^<\?xml.+\n/', "", $html);
+					$html = trim($html);
+				}
+				$json[$type] = $html;
+			}
+			else if ($type == 'data') {
+				$json[$type] = $this->toJSON(true, $requestParams, true);
+			}
+			else if ($type == 'csljson') {
+				$json[$type] = $this->toCSLItem();
+			}
+			else if (in_array($type, Zotero_Translate::$exportFormats)) {
+				$export = Zotero_Translate::doExport([$this], $type);
+				$target->setAttribute('type', $export['mimeType']);
+				
+				// Insert XML into document
+				if (preg_match('/\+xml$/', $export['mimeType'])) {
+					// Strip prolog
+					$export['body'] = preg_replace('/^<\?xml.+\n/', "", $export['body']);
+				}
+				
+				$json[$type] = $export['body'];
+				unset($export);
+			}
+		}
+		
+
+		// TEMP
+		if ($cached) {
+			$uncached = Zotero_Utilities::formatJSON($json);
+			if ($cached != $uncached) {
+				error_log("Cached JSON item entry does not match");
+				error_log("  Cached: " . $cached);
+				error_log("Uncached: " . $uncached);
+				
+				//Z_Core::$MC->set($cacheKey, $uncached, 3600); // 1 hour for now
+			}
+		}
+		else {
+			/*Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
+			StatsD::timing("api.items.itemToAtom.uncached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.items.itemToAtom.miss");*/
+		}
+		
+		return $json;
+	}
+	
+	
 	public function toJSON($asArray=false, $requestParams=array(), $includeEmpty=false, $unformattedFields=false) {
 		if ($this->id || $this->key) {
 			if (!$this->loaded['primaryData']) {
@@ -3462,9 +3704,15 @@ class Zotero_Item {
 		$regularItem = $this->isRegularItem();
 		
 		$arr = array();
-		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
-			$arr['itemKey'] = $this->key;
-			$arr['itemVersion'] = $this->itemVersion;
+		if ($requestParams['v'] >= 2) {
+			if ($requestParams['v'] >= 3) {
+				$arr['key'] = $this->key;
+				$arr['version'] = $this->version;
+			}
+			else {
+				$arr['itemKey'] = $this->key;
+				$arr['itemVersion'] = $this->version;
+			}
 			
 			$key = $this->getSourceKey();
 			if ($key) {
@@ -3531,7 +3779,24 @@ class Zotero_Item {
 				continue;
 			}
 			
-			$arr[Zotero_ItemFields::getName($field)] = $value ? $value : "";
+			$fieldName = Zotero_ItemFields::getName($field);
+			// TEMP
+			if ($fieldName == 'versionNumber') {
+				if ($requestParams['v'] < 3) {
+					$fieldName = 'version';
+				}
+			}
+			else if ($fieldName == 'accessDate') {
+				if ($requestParams['v'] >= 3 && $value !== false && $value !== "") {
+					$value = Zotero_Date::sqlToISO8601($value);
+				}
+			}
+			$arr[$fieldName] = ($value !== false && $value !== "") ? $value : "";
+		}
+		
+		if ($requestParams['v'] >= 3) {
+			$arr['dateAdded'] = Zotero_Date::sqlToISO8601($this->dateAdded);
+			$arr['dateModified'] = Zotero_Date::sqlToISO8601($this->dateModified);
 		}
 		
 		// Embedded note for notes and attachments
@@ -3588,7 +3853,7 @@ class Zotero_Item {
 			}
 		}
 		
-		if (!isset($requestParams['apiVersion']) || $requestParams['apiVersion'] >= 2) {
+		if ($requestParams['v'] >= 2) {
 			if ($this->isTopLevelItem()) {
 				$collections = $this->getCollections(true);
 				$arr['collections'] = $collections;
@@ -3601,7 +3866,10 @@ class Zotero_Item {
 			return $arr;
 		}
 		
-		return Zotero_Utilities::formatJSON($arr);
+		// Before v3, additional characters were escaped in the JSON, for unclear reasons
+		$escapeAll = $requestParams['v'] <= 2;
+		
+		return Zotero_Utilities::formatJSON($arr, $escapeAll);
 	}
 	
 	
@@ -3871,7 +4139,7 @@ class Zotero_Item {
 		
 		// If new or changed keys, update relations with new related items
 		if ($newKeys || sizeOf($oldKeys) != sizeOf($currentKeys)) {
-			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+			$prefix = Zotero_URI::getLibraryURI($this->libraryID) . "/items/";
 			$relations->$predicate = array_map(function ($key) use ($prefix) {
 				return $prefix . $key;
 			}, array_merge($oldKeys, $newKeys));
@@ -3900,7 +4168,7 @@ class Zotero_Item {
 			$this->loadPrimaryData(true);
 		}
 		
-		$itemURI = Zotero_URI::getItemURI($this, true);
+		$itemURI = Zotero_URI::getItemURI($this);
 		
 		$relations = Zotero_Relations::getByURIs($this->libraryID, $itemURI);
 		$relations = array_map(function ($rel) {
@@ -3932,7 +4200,7 @@ class Zotero_Item {
 			. "WHERE IR.itemID=?";
 		$relatedItemKeys = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		if ($relatedItemKeys) {
-			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+			$prefix = Zotero_URI::getLibraryURI($this->libraryID) . "/items/";
 			$predicate = Zotero_Relations::$relatedItemPredicate;
 			foreach ($relatedItemKeys as $key) {
 				$relations[] = [$predicate, $prefix . $key];
@@ -3944,7 +4212,7 @@ class Zotero_Item {
 			$sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID)
 		);
 		if ($reverseRelatedItemKeys) {
-			$prefix = Zotero_URI::getLibraryURI($this->libraryID, true) . "/items/";
+			$prefix = Zotero_URI::getLibraryURI($this->libraryID) . "/items/";
 			$predicate = Zotero_Relations::$relatedItemPredicate;
 			foreach ($reverseRelatedItemKeys as $key) {
 				$relations[] = [$predicate, $prefix . $key];
@@ -3960,7 +4228,7 @@ class Zotero_Item {
 		if (!$this->loaded['primaryData']) {
 			$this->loadPrimaryData();
 		}
-		return md5($this->serverDateModified . $this->itemVersion);
+		return md5($this->serverDateModified . $this->version);
 	}
 	
 	
@@ -3986,7 +4254,7 @@ class Zotero_Item {
 		}
 		return $mode
 			. "_". $this->id
-			. "_" . $this->itemVersion
+			. "_" . $this->version
 			. ($cacheVersion ? "_" . $cacheVersion : "");
 	}
 }

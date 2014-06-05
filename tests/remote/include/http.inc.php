@@ -45,8 +45,11 @@ class HTTP {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
 		$req->setConfig('ssl_verify_peer', false);
+		if (self::$config['verbose'] >= 1) {
+			echo "\nGET $url\n";
+		}
 		$response = $req->send();
-		if (self::$config['verbose']) {
+		if (self::$config['verbose'] >= 2) {
 			echo "\n\n" . $response->getBody() . "\n";
 		}
 		return $response;
@@ -66,6 +69,9 @@ class HTTP {
 		else {
 			$req->setBody($data);
 		}
+		if (self::$config['verbose'] >= 1) {
+			echo "\nPOST $url\n";
+		}
 		$response = $req->send();
 		return $response;
 	}
@@ -79,6 +85,9 @@ class HTTP {
 		}
 		$req->setConfig('ssl_verify_peer', false);
 		$req->setBody($data);
+		if (self::$config['verbose'] >= 1) {
+			echo "\nPUT $url\n";
+		}
 		$response = $req->send();
 		return $response;
 	}
@@ -89,6 +98,9 @@ class HTTP {
 		$req->setHeader($headers);
 		$req->setConfig('ssl_verify_peer', false);
 		$req->setBody($data);
+		if (self::$config['verbose'] >= 1) {
+			echo "\nPATCH $url\n";
+		}
 		$response = $req->send();
 		return $response;
 	}
@@ -101,6 +113,9 @@ class HTTP {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
 		$req->setConfig('ssl_verify_peer', false);
+		if (self::$config['verbose'] >= 1) {
+			echo "\nHEAD $url\n";
+		}
 		$response = $req->send();
 		return $response;
 	}
@@ -113,6 +128,9 @@ class HTTP {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
 		$req->setConfig('ssl_verify_peer', false);
+		if (self::$config['verbose'] >= 1) {
+			echo "\nDELETE $url\n";
+		}
 		$response = $req->send();
 		return $response;
 	}

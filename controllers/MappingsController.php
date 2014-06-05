@@ -75,6 +75,7 @@ class MappingsController extends ApiController {
 		if (isset($itemTypeID)) {
 			$cacheKey .= "_" . $itemTypeID;
 		}
+		$cacheKey .= '_' . $this->apiVersion;
 		$ttl = 60;
 		$json = Z_Core::$MC->get($cacheKey);
 		if ($json) {
@@ -95,6 +96,7 @@ class MappingsController extends ApiController {
 				foreach ($fieldIDs as $fieldID) {
 					$fieldName = Zotero_ItemFields::getName($fieldID);
 					$rows[] = array(
+						'id' => $fieldID,
 						'name' => $fieldName,
 						'localized' => Zotero_ItemFields::getLocalizedString(
 							$itemTypeID, $fieldName, $locale
@@ -122,6 +124,12 @@ class MappingsController extends ApiController {
 		
 		$json = array();
 		foreach ($rows as $row) {
+			// Before v3, computerProgram's 'versionNumber' was just 'version'
+			if ($this->apiVersion < 3
+					&& ($this->subset == 'itemTypeFields'
+						|| $this->subset == 'itemFields') && $row['id'] == 81) {
+				$row['name'] = 'version';
+			}
 			$json[] = array(
 				$propName => $row['name'],
 				'localized' => $row['localized']
@@ -167,12 +175,13 @@ class MappingsController extends ApiController {
 		
 		$cacheVersion = 1;
 		$cacheKey = "newItemJSON"
-			. "_" . $this->queryParams['apiVersion']
+			. "_" . $this->apiVersion
 			. "_" . $itemTypeID
 			. "_" . $cacheVersion;
 		if ($itemType == 'attachment') {
 			$cacheKey .= "_" . $linkMode;
 		}
+		$cacheKey .= '_' . $this->apiVersion;
 		$ttl = 60;
 		$json = Z_Core::$MC->get($cacheKey);
 		if ($json) {
@@ -194,6 +203,11 @@ class MappingsController extends ApiController {
 		$first = true;
 		foreach ($fieldIDs as $fieldID) {
 			$fieldName = Zotero_ItemFields::getName($fieldID);
+			
+			// Before v3, computerProgram's 'versionNumber' was just 'version'
+			if ($this->apiVersion < 3 && $fieldID == 81) {
+				$fieldName = 'version';
+			}
 			
 			if ($itemType == 'attachment' && $fieldName == 'url' && !preg_match('/_url$/', $linkModeName)) {
 				continue;
@@ -220,12 +234,12 @@ class MappingsController extends ApiController {
 		}
 		
 		$json['tags'] = array();
-		if ($this->queryParams['apiVersion'] >= 2) {
+		if ($this->apiVersion >= 2) {
 			$json['collections'] = array();
 			$json['relations'] = new stdClass;
 		}
 		
-		if ($this->queryParams['apiVersion'] == 1) {
+		if ($this->apiVersion == 1) {
 			if ($itemType != 'note' && $itemType != 'attachment') {
 				$json['attachments'] = array();
 				$json['notes'] = array();

@@ -27,7 +27,8 @@
 class Zotero_Users {
 	public static $userXMLHash = array();
 	
-	private static $usernamesByID = array();
+	private static $usernamesByID = [];
+	private static $realNamesByID = [];
 	
 	public static function getLibraryIDFromUserID($userID) {
 		$cacheKey = 'userLibraryID_' . $userID;
@@ -137,6 +138,64 @@ class Zotero_Users {
 		Z_Core::$MC->set($cacheKey, $username);
 		
 		return $username;
+	}
+	
+	
+	public static function getRealName($userID) {
+		if (!empty(self::$realNamesByID[$userID])) {
+			return self::$realNamesByID[$userID];
+		}
+		
+		$cacheKey = "userRealNameByID_" . $userID;
+		$name = Z_Core::$MC->get($cacheKey);
+		if ($name) {
+			self::$realNamesByID[$userID] = $name;
+			return $name;
+		}
+		
+		$sql = "SELECT metaValue FROM users_meta WHERE userID=? AND metaKey='profile_realname'";
+		$params = [$userID];
+		try {
+			$name = Zotero_WWW_DB_2::valueQuery($sql, $params);
+			Zotero_WWW_DB_2::close();
+		}
+		catch (Exception $e) {
+			try {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$name = Zotero_WWW_DB_1::valueQuery($sql, $params);
+				Zotero_WWW_DB_1::close();
+			}
+			catch (Exception $e2) {
+				Z_Core::logError("WARNING: " . $e2);
+			}
+		}
+		
+		if (!$name) {
+			return false;
+		}
+		
+		self::$realNamesByID[$userID] = $name;
+		Z_Core::$MC->set($cacheKey, $name);
+		
+		return $name;
+	}
+	
+	
+	public static function toJSON($userID) {
+		$realName = Zotero_Users::getRealName($userID);
+		$json = [
+			'id' => $userID,
+			'username' => Zotero_Users::getUsername($userID),
+			'name' => $realName !== false ? $realName : ""
+		];
+		$json['links'] = [
+			'alternate' => [
+				'href' => Zotero_URI::getUserURI($userID, true),
+				'type' => 'text/html'
+			]
+		];
+		
+		return $json;
 	}
 	
 	

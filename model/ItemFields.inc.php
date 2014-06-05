@@ -110,7 +110,7 @@ class Zotero_ItemFields {
 			"network"				=> "Network",
 			"postType"				=> "Post Type",
 			"audioFileType"		=> "File Type",
-			"version"				=> "Version",
+			"versionNumber"			=> "Version",
 			"system"				=> "System",
 			"company"				=> "Company",
 			"conferenceName"		=> "Conference Name",
@@ -184,7 +184,9 @@ class Zotero_ItemFields {
 			return self::$fieldNameCache[$fieldOrFieldID];
 		}
 		
-		$cacheKey = "itemFieldName_" . $fieldOrFieldID;
+		$cacheVersion = 1;
+		
+		$cacheKey = "itemFieldName_" . $fieldOrFieldID . "_$cacheVersion";
 		$fieldName = Z_Core::$MC->get($cacheKey);
 		if ($fieldName) {
 			self::$fieldNameCache[$fieldOrFieldID] = $fieldName;

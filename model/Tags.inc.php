@@ -124,7 +124,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags ";
-		if (!empty($params['order']) && $params['order'] == 'numItems') {
+		if (!empty($params['sort']) && $params['sort'] == 'numItems') {
 			$sql .= " LEFT JOIN itemTags USING (tagID)";
 		}
 		$sql .= "WHERE libraryID=? ";
@@ -184,13 +184,13 @@ class Zotero_Tags extends Zotero_DataObjects {
 			}
 		}
 		
-		if (!empty($params['newer'])) {
+		if (!empty($params['since'])) {
 			$sql .= "AND version > ? ";
-			$sqlParams[] = $params['newer'];
+			$sqlParams[] = $params['since'];
 		}
 		
-		if (!empty($params['order'])) {
-			$order = $params['order'];
+		if (!empty($params['sort'])) {
+			$order = $params['sort'];
 			if ($order == 'title') {
 				// Force a case-insensitive sort
 				$sql .= "ORDER BY name COLLATE utf8_unicode_ci ";
@@ -201,8 +201,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 			else {
 				$sql .= "ORDER BY $order ";
 			}
-			if (!empty($params['sort'])) {
-				$sql .= " " . $params['sort'] . " ";
+			if (!empty($params['direction'])) {
+				$sql .= " " . $params['direction'] . " ";
 			}
 		}
 		

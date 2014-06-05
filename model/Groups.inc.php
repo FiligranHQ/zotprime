@@ -147,14 +147,14 @@ class Zotero_Groups {
 				}
 			}
 			
-			if (!empty($params['order'])) {
-				$order = $params['order'];
+			if (!empty($params['sort'])) {
+				$order = $params['sort'];
 				if ($order == 'title') {
 					$order = 'name';
 				}
 				$sql .= "ORDER BY $order";
-				if (!empty($params['sort'])) {
-					$sql .= " " . $params['sort'] . " ";
+				if (!empty($params['direction'])) {
+					$sql .= " " . $params['direction'] . " ";
 				}
 			}
 			
@@ -244,7 +244,7 @@ class Zotero_Groups {
 		// TODO: generate previous start value
 		
 		if (!$groups) {
-			return array('groups' => array(), 'totalResults' => 0);
+			return array('results' => array(), 'total' => 0);
 		}
 		
 		// Fake limiting -- we can't just use SQL limit because
@@ -257,7 +257,7 @@ class Zotero_Groups {
 			);
 		}
 		
-		$results = array('groups' => $groups, 'totalResults' => $totalResults);
+		$results = array('results' => $groups, 'total' => $totalResults);
 		return $results;
 	}
 	

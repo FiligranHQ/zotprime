@@ -130,20 +130,28 @@ class TagsController extends ApiController {
 			$results = Zotero_Tags::search($this->objectLibraryID, $this->queryParams);
 		}
 		
-		if ($results && isset($results['results'])) {
-			$totalResults = $results['total'];
-			$results = $results['results'];
-		}
+		$options = [
+			'action' => $this->action,
+			'uri' => $this->uri,
+			'results' => $results,
+			'requestParams' => $this->queryParams,
+			'permissions' => $this->permissions
+		];
+		switch ($this->queryParams['format']) {
+		case 'atom':
+			$this->responseXML = Zotero_API::multiResponse(array_merge($options, [
+				'title' => $this->getFeedNamePrefix($this->objectLibraryID) . $title,
+				'fixedValues' => $fixedValues
+			]));
+			break;
 		
-		$this->responseXML = Zotero_Atom::createAtomFeed(
-			$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-			$this->uri,
-			$results,
-			$totalResults,
-			$this->queryParams,
-			$this->permissions,
-			$fixedValues
-		);
+		case 'json':
+			Zotero_API::multiResponse($options);
+			break;
+		
+		default:
+			throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
+		}
 		
 		$this->end();
 	}

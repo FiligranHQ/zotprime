@@ -485,14 +485,14 @@ class Zotero_DataObjects {
 		
 		$results = new Zotero_Results;
 		
-		if ($requestParams['apiVersion'] >= 2 && Zotero_DB::transactionInProgress()) {
+		if ($requestParams['v'] >= 2 && Zotero_DB::transactionInProgress()) {
 			throw new Exception(
 				"Transaction cannot be open when starting multi-object update"
 			);
 		}
 		
 		// If single collection object, stuff in 'collections' array
-		if ($requestParams['apiVersion'] < 2 && $type == 'collection'
+		if ($requestParams['v'] < 2 && $type == 'collection'
 				&& !isset($json->collections)) {
 			$newJSON = new stdClass;
 			$newJSON->collections = array($json);
@@ -541,7 +541,7 @@ class Zotero_DataObjects {
 			catch (Exception $e) {
 				Zotero_DB::rollback();
 				
-				if ($requestParams['apiVersion'] < 2) {
+				if ($requestParams['v'] < 2) {
 					throw ($e);
 				}
 				
@@ -580,7 +580,7 @@ class Zotero_DataObjects {
 			}
 		}
 		// Single-collection format (collections only)
-		else if ($requestParams['apiVersion'] < 2 && $objectTypePlural == 'collections') {
+		else if ($requestParams['v'] < 2 && $objectTypePlural == 'collections') {
 			if (!isset($json->name)) {
 				throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
 			}
@@ -628,7 +628,7 @@ class Zotero_DataObjects {
 			}
 			
 			// Remove relations (except for merge tracker)
-			$uri = Zotero_URI::getItemURI($obj, true);
+			$uri = Zotero_URI::getItemURI($obj);
 			Zotero_Relations::eraseByURI(
 				$libraryID, $uri, array(Zotero_Relations::$deletedItemPredicate)
 			);

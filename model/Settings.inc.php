@@ -43,15 +43,15 @@ class Zotero_Settings extends Zotero_DataObjects {
 		$sql = "SELECT name FROM settings WHERE libraryID=?";
 		$params = array($libraryID);
 		
-		if (!empty($params['newer'])) {
+		if (!empty($params['since'])) {
 			$sql .= "AND version > ? ";
-			$sqlParams[] = $params['newer'];
+			$sqlParams[] = $params['since'];
 		}
 		
 		// TEMP: for sync transition
-		if (!empty($params['newertime'])) {
+		if (!empty($params['sincetime'])) {
 			$sql .= "AND lastUpdated >= FROM_UNIXTIME(?) ";
-			$sqlParams[] = $params['newertime'];
+			$sqlParams[] = $params['sincetime'];
 		}
 		
 		$names = Zotero_DB::columnQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));

@@ -28,7 +28,7 @@ require('ApiController.php');
 
 class SearchesController extends ApiController {
 	public function searches() {
-		if ($this->queryParams['apiVersion'] < 2) {
+		if ($this->apiVersion < 2) {
 			$this->e404();
 		}
 		
@@ -104,7 +104,22 @@ class SearchesController extends ApiController {
 			}
 			
 			$this->libraryVersion = $search->version;
-			$this->responseXML = $search->toAtom($this->queryParams);
+			
+			// Display search
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = $search->toAtom($this->queryParams);
+				break;
+			
+			case 'json':
+				header("Content-Type: application/json");
+				$json = $search->toResponseJSON($this->queryParams, $this->permissions);
+				echo Zotero_Utilities::formatJSON($json);
+				break;
+			
+			default:
+				throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
+			}
 		}
 		// Multiple searches
 		else {
@@ -145,37 +160,29 @@ class SearchesController extends ApiController {
 				$results = Zotero_Searches::search($this->objectLibraryID, $this->queryParams);
 			}
 			
-			if ($results && isset($results['results'])) {
-				$totalResults = $results['total'];
-				$results = $results['results'];
-			}
-				
+			$options = [
+				'action' => $this->action,
+				'uri' => $this->uri,
+				'results' => $results,
+				'requestParams' => $this->queryParams,
+				'permissions' => $this->permissions
+			];
 			switch ($this->queryParams['format']) {
 			case 'atom':
-				$this->responseXML = Zotero_Atom::createAtomFeed(
-					$this->getFeedNamePrefix($this->objectLibraryID) . $title,
-					$this->uri,
-					$results,
-					$totalResults,
-					$this->queryParams,
-					$this->permissions
-				);
+				$this->responseXML = Zotero_API::multiResponse(array_merge($options, [
+					'title' => $this->getFeedNamePrefix($this->objectLibraryID) . $title
+				]));
 				break;
 			
+			case 'json':
 			case 'keys':
-				header("Content-Type: text/plain");
-				echo implode("\n", $results) . "\n";
-				break;
-			
 			case 'versions':
 			case 'writereport':
-				header("Content-Type: application/json");
-				echo Zotero_Utilities::formatJSON($results);
+				Zotero_API::multiResponse($options);
 				break;
 			
 			default:
-				throw new Exception("Invalid 'format' value '"
-					. $this->queryParams['format'] . "'", Z_ERROR_INVALID_INPUT);
+				throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
 			}
 		}
 		

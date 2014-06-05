@@ -759,15 +759,51 @@ class Zotero_Group {
 	}
 	
 	
+	public function toResponseJSON(array $requestParams) {
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$json = [
+			'id' => $this->id,
+			'version' => $this->version
+		];
+		
+		$json['links'] = [
+			'self' => [
+				'href' => Zotero_API::getGroupURI($this),
+				'type' => 'application/json'
+			],
+			'alternate' => [
+				'href' => Zotero_URI::getGroupURI($this, true),
+				'type' => 'text/html'
+			]
+		];
+		$json['meta'] = [
+			'created' => Zotero_Date::sqlToISO8601($this->dateAdded),
+			'lastModified' => Zotero_Date::sqlToISO8601($this->dateModified),
+			'numItems' => $this->numItems()
+		];
+		
+		$json['data'] = $this->toJSON($requestParams, true);
+		
+		return $json;
+	}
+	
+	
 	/**
 	 * Converts group to a JSON object
 	 */
-	public function toJSON($asArray=false, $includeEmpty=false) {
+	public function toJSON(array $requestParams, $includeEmpty=false) {
 		if (($this->id || $this->libraryID) && !$this->loaded) {
 			$this->load();
 		}
 		
 		$arr = array();
+		if ($requestParams['v'] >= 3) {
+			$arr['id'] = $this->id;
+			$arr['version'] = $this->version;
+		}
 		$arr['name'] = $this->name;
 		$arr['owner'] = $this->ownerUserID;
 		$arr['type'] = $this->type;
@@ -797,11 +833,7 @@ class Zotero_Group {
 			$arr['members'] = $members;
 		}
 		
-		if ($asArray) {
-			return $arr;
-		}
-		
-		return Zotero_Utilities::formatJSON($arr);
+		return $arr;
 	}
 	
 	
@@ -938,14 +970,14 @@ class Zotero_Group {
 			$xml->content['type'] = 'application/json';
 			$xml->content['etag'] = $this->etag;
 			// Deprecated
-			if ($queryParams['apiVersion'] < 2) {
+			if ($queryParams['v'] < 2) {
 				$xml->content->addAttribute(
 					"zapi:etag",
 					$this->etag,
 					Zotero_Atom::$nsZoteroAPI
 				);
 			}
-			$xml->content = $this->toJSON(false, true);
+			$xml->content = Zotero_Utilities::formatJSON($this->toJSON($queryParams, true));
 		}
 		else if ($content == 'full') {
 			$xml->content['type'] = 'application/xml';
@@ -955,10 +987,6 @@ class Zotero_Group {
 			$importedNode = $fNode->ownerDocument->importNode($subNode, true);
 			$fNode->appendChild($importedNode);
 		}
-		
-		error_log('=====');
-		error_log($content);
-		error_log($xml->asXML());
 		
 		return $xml;
 	}
@@ -1083,7 +1111,7 @@ class Zotero_Group {
 		$link = $xml->addChild('link');
 		$link['rel'] = 'alternate';
 		$link['type'] = 'text/html';
-		$link['href'] = Zotero_URI::getItemURI($item);
+		$link['href'] = Zotero_URI::getItemURI($item, true);
 		
 		$xml->content['type'] = 'application/xml';
 		
@@ -1114,8 +1142,6 @@ class Zotero_Group {
 			switch ($field) {
 				case 'groupID':
 				case 'slug':
-				// TEMP
-				case 'version':
 					continue 2;
 			}
 			

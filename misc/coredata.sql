@@ -162,7 +162,7 @@ INSERT INTO `fields` (`fieldID`, `fieldName`, `fieldFormatID`, `custom`) VALUES
 (78, 'network', NULL, 0),
 (79, 'postType', NULL, 0),
 (80, 'audioFileType', NULL, 0),
-(81, 'version', NULL, 0),
+(81, 'versionNumber', NULL, 0),
 (82, 'system', NULL, 0),
 (83, 'company', NULL, 0),
 (84, 'conferenceName', NULL, 0),

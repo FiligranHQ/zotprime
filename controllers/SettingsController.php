@@ -28,7 +28,7 @@ require('ApiController.php');
 
 class SettingsController extends ApiController {
 	public function settings() {
-		if ($this->queryParams['apiVersion'] < 2) {
+		if ($this->apiVersion < 2) {
 			$this->e404();
 		}
 		

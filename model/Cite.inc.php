@@ -184,7 +184,7 @@ class Zotero_Cite {
 		"number-of-volumes" => array("numberOfVolumes"),
 		"number-of-pages" => array("numPages"),
 		"edition" => array("edition"),
-		"version" => array("version"),
+		"version" => array("versionNumber"),
 		"section" => array("section"),
 		"genre" => array("type", "artworkSize"), /* artworkSize should move to SQL mapping tables, or added as a CSL variable */
 		"medium" => array("medium", "system"),

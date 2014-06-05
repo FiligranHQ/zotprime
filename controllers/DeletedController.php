@@ -28,7 +28,7 @@ require('ApiController.php');
 
 class DeletedController extends ApiController {
 	public function deleted() {
-		if ($this->queryParams['apiVersion'] < 2) {
+		if ($this->apiVersion < 2) {
 			$this->e404();
 		}
 		
@@ -41,47 +41,48 @@ class DeletedController extends ApiController {
 		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		// TEMP: sync transition
-		if (isset($_GET['newertime'])) {
+		if (isset($this->queryParams['sincetime'])) {
 			$deleted = array(
 				"collections" => Zotero_Collections::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newertime'], true
+					$this->objectLibraryID, $this->queryParams['sincetime'], true
 				),
 				"items" => Zotero_Items::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newertime'], true
+					$this->objectLibraryID, $this->queryParams['sincetime'], true
 				),
 				"searches" => Zotero_Searches::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newertime'], true
+					$this->objectLibraryID, $this->queryParams['sincetime'], true
 				),
 				"tags" => Zotero_Tags::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newertime'], true
+					$this->objectLibraryID, $this->queryParams['sincetime'], true
 				),
 				"settings" => Zotero_Settings::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newertime'], true
+					$this->objectLibraryID, $this->queryParams['sincetime'], true
 				),
 			);
+			header("Content-Type: application/json");
 			echo Zotero_Utilities::formatJSON($deleted);
 			$this->end();
 		}
 		
-		if (!isset($_GET['newer'])) {
-			$this->e400("'newer' parameter must be provided");
+		if (!isset($this->queryParams['since'])) {
+			$this->e400("'since' parameter must be provided");
 		}
 		
 		$deleted = array(
 			"collections" => Zotero_Collections::getDeleteLogKeys(
-				$this->objectLibraryID, $this->queryParams['newer']
+				$this->objectLibraryID, $this->queryParams['since']
 			),
 			"items" => Zotero_Items::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newer']
+					$this->objectLibraryID, $this->queryParams['since']
 			),
 			"searches" => Zotero_Searches::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newer']
+					$this->objectLibraryID, $this->queryParams['since']
 			),
 			"tags" => Zotero_Tags::getDeleteLogKeys(
-				$this->objectLibraryID, $this->queryParams['newer']
+				$this->objectLibraryID, $this->queryParams['since']
 			),
 			"settings" => Zotero_Settings::getDeleteLogKeys(
-					$this->objectLibraryID, $this->queryParams['newer']
+					$this->objectLibraryID, $this->queryParams['since']
 			)
 		);
 		

@@ -345,6 +345,44 @@ class Zotero_Libraries {
 	}
 	
 	
+	public static function toJSON($libraryID) {
+		// TODO: cache
+		
+		$libraryType = Zotero_Libraries::getType($libraryID);
+		if ($libraryType == 'user') {
+			$objectUserID = Zotero_Users::getUserIDFromLibraryID($libraryID);
+			$json = [
+				'type' => $libraryType,
+				'id' => $objectUserID,
+				'name' => Zotero_Users::getUsername($objectUserID),
+				'links' => [
+					'alternate' => [
+						'href' => Zotero_URI::getUserURI($objectUserID, true),
+						'type' => 'text/html'
+					]
+				]
+			];
+		}
+		else if ($libraryType == 'group') {
+			$objectGroupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+			$group = Zotero_Groups::get($objectGroupID);
+			$json = [
+				'type' => $libraryType,
+				'id' => $objectGroupID,
+				'name' => $group->name,
+				'links' => [
+					'alternate' => [
+						'href' => Zotero_URI::getGroupURI($group, true),
+						'type' => 'text/html'
+					]
+				]
+			];
+		}
+		
+		return $json;
+	}
+	
+	
 	public static function clearAllData($libraryID) {
 		if (empty($libraryID)) {
 			throw new Exception("libraryID not provided");

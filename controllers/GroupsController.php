@@ -192,8 +192,26 @@ class GroupsController extends ApiController {
 			if (!$group) {
 				$this->e404("Group not found");
 			}
-			header("ETag: " . $group->etag);
-			$this->responseXML = $group->toAtom($this->queryParams);
+			if ($this->apiVersion >= 3) {
+				header("Last-Modified-Version: " . $group->version);
+			}
+			else {
+				header("ETag: " . $group->etag);
+			}
+			switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = $group->toAtom($this->queryParams);
+				break;
+			
+			case 'json':
+				header("Content-Type: application/json");
+				$json = $group->toResponseJSON($this->queryParams);
+				echo Zotero_Utilities::formatJSON($json);
+				break;
+			
+			default:
+				throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
+			}
 		}
 		// Multiple groups
 		else {
@@ -220,29 +238,37 @@ class GroupsController extends ApiController {
 				throw ($e);
 			}
 			
-			$groups = $results['groups'];
-			$totalResults = $results['totalResults'];
-			
+			$options = [
+				'action' => $this->action,
+				'uri' => $this->uri,
+				'results' => $results,
+				'requestParams' => $this->queryParams,
+				'permissions' => $this->permissions
+			];
 			switch ($this->queryParams['format']) {
 				case 'atom':
-					$this->responseXML = Zotero_Atom::createAtomFeed(
-						$title,
-						$this->uri,
-						$groups,
-						$totalResults,
-						$this->queryParams,
-						$this->permissions
-					);
+					$this->responseXML = Zotero_API::multiResponse(array_merge($options, [
+						'title' => $title
+					]));
+					break;
+				
+				case 'json':
+					Zotero_API::multiResponse($options);
 					break;
 				
 				case 'etags':
-					$json = array();
-					foreach ($groups as $group) {
-						$json[$group->id] = $group->etag;
+				case 'versions':
+					$prop = substr($this->queryParams['format'], 0, -1); // remove 's'
+					$newResults = [];
+					foreach ($results['results'] as $group) {
+						$newResults[$group->id] = $group->$prop;
 					}
-					header("Content-Type: application/json");
-					echo json_encode($json);
+					$options['results']['results'] = $newResults;
+					Zotero_API::multiResponse($options, 'versions');
 					break;
+				
+				default:
+					throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
 			}
 		}
 		
