@@ -120,6 +120,19 @@ class HTTP {
 		return $response;
 	}
 	
+	
+	public function options($url, $headers=[]) {
+		$req = new HTTP_Request2($url);
+		$req->setMethod(HTTP_Request2::METHOD_OPTIONS);
+		$req->setHeader($headers);
+		$req->setConfig('ssl_verify_peer', false);
+		if (self::$config['verbose'] >= 1) {
+			echo "\nOPTIONS $url\n";
+		}
+		$response = $req->send();
+		return $response;
+	}
+	
 	public function delete($url, $headers=array(), $auth=false) {
 		$req = new HTTP_Request2($url);
 		$req->setMethod(HTTP_Request2::METHOD_DELETE);

@@ -730,6 +730,10 @@ class ApiController extends Controller {
 			header("Last-Modified-Version: " . $this->libraryVersion);
 		}
 		
+		if ($this->responseCode == 200 && isset($this->queryParams['format'])) {
+			Zotero_API::outputContentType($this->queryParams['format']);
+		}
+		
 		if ($this->responseXML instanceof SimpleXMLElement) {
 			if (!$this->responseCode) {
 				$updated = (string) $this->responseXML->updated;

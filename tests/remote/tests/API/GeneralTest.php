@@ -142,4 +142,17 @@ class GeneralTests extends APITests {
 		);
 		$this->assertHTTPStatus(400, $response);
 	}
+	
+	
+	public function testCORS() {
+		$response = HTTP::options(
+			self::$config['apiURLPrefix'],
+			[
+				'Origin: http://example.com'
+			]
+		);
+		$this->assertHTTPStatus(200, $response);
+		$this->assertEquals('', $response->getBody());
+		$this->assertEquals('*', $response->getHeader('Access-Control-Allow-Origin'));
+	}
 }
