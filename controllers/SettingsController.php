@@ -112,7 +112,6 @@ class SettingsController extends ApiController {
 			else {
 				$this->libraryVersion = $setting->version;
 				$json = $setting->toJSON(true, $this->queryParams);
-				header("Content-Type: application/json");
 				echo Zotero_Utilities::formatJSON($json);
 			}
 		}
@@ -152,7 +151,6 @@ class SettingsController extends ApiController {
 					$json->{$setting->name} = $setting->toJSON(true, $this->queryParams);
 				}
 				
-				header("Content-Type: application/json");
 				echo Zotero_Utilities::formatJSON($json);
 			}
 		}

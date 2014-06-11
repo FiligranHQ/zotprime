@@ -52,11 +52,10 @@ class SearchesController extends ApiController {
 		}
 		
 		$results = array();
-		$totalResults = 0;
 		
 		// Single search
 		if ($this->singleObject) {
-			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+			$this->allowMethods(['HEAD', 'GET', 'PUT', 'DELETE']);
 			
 			$search = Zotero_Searches::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 			if (!$search) {
@@ -105,6 +104,10 @@ class SearchesController extends ApiController {
 			
 			$this->libraryVersion = $search->version;
 			
+			if ($this->method == 'HEAD') {
+				$this->end();
+			}
+			
 			// Display search
 			switch ($this->queryParams['format']) {
 			case 'atom':
@@ -112,7 +115,6 @@ class SearchesController extends ApiController {
 				break;
 			
 			case 'json':
-				header("Content-Type: application/json");
 				$json = $search->toResponseJSON($this->queryParams, $this->permissions);
 				echo Zotero_Utilities::formatJSON($json);
 				break;
@@ -123,7 +125,7 @@ class SearchesController extends ApiController {
 		}
 		// Multiple searches
 		else {
-			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			$this->allowMethods(['HEAD', 'GET', 'POST', 'DELETE']);
 			
 			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
@@ -165,7 +167,8 @@ class SearchesController extends ApiController {
 				'uri' => $this->uri,
 				'results' => $results,
 				'requestParams' => $this->queryParams,
-				'permissions' => $this->permissions
+				'permissions' => $this->permissions,
+				'head' => $this->method == 'HEAD'
 			];
 			switch ($this->queryParams['format']) {
 			case 'atom':

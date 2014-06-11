@@ -55,7 +55,6 @@ class ItemsController extends ApiController {
 		$itemIDs = array();
 		$itemKeys = array();
 		$results = array();
-		$totalResults = 0;
 		
 		//
 		// Single item
@@ -63,14 +62,14 @@ class ItemsController extends ApiController {
 		if ($this->singleObject) {
 			if ($this->fileMode) {
 				if ($this->fileView) {
-					$this->allowMethods(array('GET', 'HEAD', 'POST'));
+					$this->allowMethods(array('HEAD', 'GET', 'POST'));
 				}
 				else {
-					$this->allowMethods(array('GET', 'PUT', 'POST', 'HEAD', 'PATCH'));
+					$this->allowMethods(array('HEAD', 'GET', 'PUT', 'POST', 'PATCH'));
 				}
 			}
 			else {
-				$this->allowMethods(array('GET', 'PUT', 'PATCH', 'DELETE'));
+				$this->allowMethods(array('HEAD', 'GET', 'PUT', 'PATCH', 'DELETE'));
 			}
 			
 			if (!Zotero_ID::isValidKey($this->objectKey)) {
@@ -203,6 +202,10 @@ class ItemsController extends ApiController {
 			
 			$this->libraryVersion = $item->version;
 			
+			if ($this->method == 'HEAD') {
+				$this->end();
+			}
+			
 			// Display item
 			switch ($this->queryParams['format']) {
 				case 'atom':
@@ -217,12 +220,10 @@ class ItemsController extends ApiController {
 				
 				case 'csljson':
 					$json = Zotero_Cite::getJSONFromItems(array($item), true);
-					header("Content-Type: application/vnd.citationstyles.csl+json");
 					echo Zotero_Utilities::formatJSON($json);
 					break;
 				
 				case 'json':
-					header("Content-Type: application/json");
 					$json = $item->toResponseJSON($this->queryParams, $this->permissions);
 					echo Zotero_Utilities::formatJSON($json);
 					break;
@@ -239,7 +240,7 @@ class ItemsController extends ApiController {
 		// Multiple items
 		//
 		else {
-			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			$this->allowMethods(array('HEAD', 'GET', 'POST', 'DELETE'));
 			
 			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
@@ -609,7 +610,8 @@ class ItemsController extends ApiController {
 				'uri' => $this->uri,
 				'results' => $results,
 				'requestParams' => $this->queryParams,
-				'permissions' => $this->permissions
+				'permissions' => $this->permissions,
+				'head' => $this->method == 'HEAD'
 			];
 			switch ($this->queryParams['format']) {
 				case 'atom':
@@ -619,6 +621,9 @@ class ItemsController extends ApiController {
 					break;
 				
 				case 'bib':
+					if ($this->method == 'HEAD') {
+						break;
+					}
 					echo Zotero_Cite::getBibliographyFromCitationServer($results, $this->queryParams);
 					break;
 				
@@ -631,6 +636,9 @@ class ItemsController extends ApiController {
 					break;
 				
 				default:
+					if ($this->method == 'HEAD') {
+						break;
+					}
 					$export = Zotero_Translate::doExport($results, $this->queryParams['format']);
 					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];

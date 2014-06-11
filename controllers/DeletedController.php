@@ -59,7 +59,6 @@ class DeletedController extends ApiController {
 					$this->objectLibraryID, $this->queryParams['sincetime'], true
 				),
 			);
-			header("Content-Type: application/json");
 			echo Zotero_Utilities::formatJSON($deleted);
 			$this->end();
 		}
@@ -86,7 +85,6 @@ class DeletedController extends ApiController {
 			)
 		);
 		
-		header("Content-Type: application/json");
 		echo Zotero_Utilities::formatJSON($deleted);
 		$this->end();
 	}

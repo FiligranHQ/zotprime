@@ -89,7 +89,7 @@ class ObjectTests extends APITests {
 		$objectKeys['search'][] = API::createSearch("Name", 'default', $this, 'key');
 		
 		// Get library version
-		$response = API::userGet(
+		$response = API::userHead(
 			self::$config['userID'],
 			"items?format=keys&limit=1"
 		);
@@ -203,6 +203,14 @@ class ObjectTests extends APITests {
 			API::createSearch("Name", 'default', $this, 'key');
 			break;
 		}
+		
+		// HEAD request should include Total-Results
+		$response = API::userHead(
+			self::$config['userID'],
+			"$objectTypePlural?$keyProp=" . implode(',', $keys)
+		);
+		$this->assert200($response);
+		$this->assertTotalResults(sizeOf($keys), $response);
 		
 		$response = API::userGet(
 			self::$config['userID'],

@@ -45,7 +45,6 @@ class FullTextController extends ApiController {
 		
 		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
 		
-		header("Content-Type: application/json");
 		echo Zotero_Utilities::formatJSON($newer);
 		$this->end();
 	}
@@ -110,23 +109,21 @@ class FullTextController extends ApiController {
 				$this->e405();
 			}
 		}
-		else {
-			$data = Zotero_FullText::getItemData($item->libraryID, $item->key);
-			if (!$data) {
-				$this->e404();
-			}
-			$this->libraryVersion = $data['version'];
-			header("Content-Type: application/json");
-			$json = [
-				"content" => $data['content']
-			];
-			foreach (Zotero_FullText::$metadata as $prop) {
-				if (!empty($data[$prop])) {
-					$json[$prop] = $data[$prop];
-				}
-			}
-			echo Zotero_Utilities::formatJSON($json);
+		
+		$data = Zotero_FullText::getItemData($item->libraryID, $item->key);
+		if (!$data) {
+			$this->e404();
 		}
+		$this->libraryVersion = $data['version'];
+		$json = [
+			"content" => $data['content']
+		];
+		foreach (Zotero_FullText::$metadata as $prop) {
+			if (!empty($data[$prop])) {
+				$json[$prop] = $data[$prop];
+			}
+		}
+		echo Zotero_Utilities::formatJSON($json);
 		
 		$this->end();
 	}

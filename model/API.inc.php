@@ -50,13 +50,17 @@ class Zotero_API {
 				1 => [
 					'action' => [
 						'default' => 'atom',
-						'fulltext' => 'versions'
+						'fulltext' => 'versions',
+						'itemContent' => 'json'
 					]
 				],
 				2 => [
 					'action' => [
 						'default' => 'atom',
-						'fulltext' => 'versions'
+						'fulltext' => 'versions',
+						'itemContent' => 'json',
+						'deleted' => 'json',
+						'settings' => 'json'
 					]
 				]
 			]
@@ -808,6 +812,66 @@ class Zotero_API {
 		return self::getBaseURI() . $key->userID . "/keys/" . urlencode($key->key);
 	}
 	
+	public static function outputContentType($format) {
+		$contentType = self::getContentTypeForFormat($format);
+		if ($contentType !== false) {
+			header('Content-Type: ' . $contentType);
+		}
+	}
+	
+	public static function getContentTypeForFormat($format) {
+		switch ($format) {
+		case 'atom':
+			return 'application/atom+xml';
+		
+		case 'bib':
+			return 'text/html; charset=UTF-8';
+		
+		case 'csljson':
+			return 'application/vnd.citationstyles.csl+json';
+		
+		case 'json':
+			return 'application/json';
+		
+		case 'keys':
+			return 'text/plain';
+		
+		case 'versions':
+		case 'writereport':
+			return 'application/json';
+		
+		// Export formats -- normally we get these from translation-server, but we hard-code them
+		// here for HEAD requests, which don't run the translation. This should match
+		// SERVER_CONTENT_TYPES in src/server_translation.js in translation-server.
+		case 'bibtex':
+			return 'application/x-bibtex';
+		
+		case 'bookmarks':
+		case 'coins':
+			return 'text/html';
+		
+		case 'mods':
+			return 'application/mods+xml';
+		
+		case 'rdf_bibliontology':
+		case 'rdf_dc':
+		case 'rdf_zotero':
+			return 'application/rdf+xml';
+		
+		case 'refer':
+		case 'ris':
+			return 'application/x-research-info-systems';
+		
+		case 'tei':
+			return 'text/xml';
+		
+		case 'wikipedia':
+			return 'text/x-wiki';
+		}
+		
+		return false;
+	}
+	
 	
 	public static function buildLinkHeader($action, $url, $totalResults, array $queryParams) {
 		$path = parse_url($url, PHP_URL_PATH);
@@ -857,6 +921,10 @@ class Zotero_API {
 			break;
 		}
 		
+		if (!empty($options['head'])) {
+			return;
+		}
+		
 		switch ($format) {
 			case 'atom':
 				$t = microtime(true);
@@ -875,28 +943,23 @@ class Zotero_API {
 				return $response;
 			
 			case 'csljson':
-				header("Content-Type: application/vnd.citationstyles.csl+json");
 				$json = Zotero_Cite::getJSONFromItems($options['results'], true);
 				echo Zotero_Utilities::formatJSON($json);
 				break;
 			
 			case 'json':
-				header("Content-Type: application/json");
 				echo Zotero_API::createJSONResponse($options['results'], $options['requestParams'], $options['permissions']);
 				break;
 			
 			case 'keys':
-				header("Content-Type: text/plain");
 				echo implode("\n", $options['results']) . "\n";
 				break;
 			
 			case 'versions':
-				header("Content-Type: application/json");
 				echo Zotero_Utilities::formatJSON($options['results']);
 				break;
 				
 			case 'writereport':
-				header("Content-Type: application/json");
 				echo Zotero_Utilities::formatJSON($options['results']);
 				break;
 			

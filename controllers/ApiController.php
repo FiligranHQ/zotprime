@@ -94,6 +94,7 @@ class ApiController extends Controller {
 			die("Expect header is not supported");
 		}
 		
+		// CORS
 		if (isset($_SERVER['HTTP_ORIGIN'])) {
 			header("Access-Control-Allow-Origin: *");
 			header("Access-Control-Allow-Methods: HEAD, GET, POST, PUT, PATCH, DELETE");
@@ -682,6 +683,11 @@ class ApiController extends Controller {
 		
 		switch ($this->responseCode) {
 			case 200:
+				// Output a Content-Type header for the given format
+				// Note that this overrides any Content-Type set elsewhere
+				if (isset($this->queryParams['format'])) {
+					Zotero_API::outputContentType($this->queryParams['format']);
+				}
 				break;
 			
 			case 301:
@@ -730,10 +736,6 @@ class ApiController extends Controller {
 			header("Last-Modified-Version: " . $this->libraryVersion);
 		}
 		
-		if ($this->responseCode == 200 && isset($this->queryParams['format'])) {
-			Zotero_API::outputContentType($this->queryParams['format']);
-		}
-		
 		if ($this->responseXML instanceof SimpleXMLElement) {
 			if (!$this->responseCode) {
 				$updated = (string) $this->responseXML->updated;
@@ -761,11 +763,7 @@ class ApiController extends Controller {
 			$doc->loadXML($xmlstr);
 			$doc->formatOutput = true;
 			
-			$xmlstr = $doc->saveXML();
-			
-			header("Content-Type: application/atom+xml");
-			
-			echo $xmlstr;
+			echo $doc->saveXML();
 		}
 		
 		$this->logRequestTime();

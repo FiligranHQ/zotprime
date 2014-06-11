@@ -193,18 +193,22 @@ class GroupsController extends ApiController {
 				$this->e404("Group not found");
 			}
 			if ($this->apiVersion >= 3) {
-				header("Last-Modified-Version: " . $group->version);
+				$this->libraryVersion = $group->version;
 			}
 			else {
 				header("ETag: " . $group->etag);
 			}
+			
+			if ($this->method == 'HEAD') {
+				$this->end();
+			}
+			
 			switch ($this->queryParams['format']) {
 			case 'atom':
 				$this->responseXML = $group->toAtom($this->queryParams);
 				break;
 			
 			case 'json':
-				header("Content-Type: application/json");
 				$json = $group->toResponseJSON($this->queryParams);
 				echo Zotero_Utilities::formatJSON($json);
 				break;
@@ -213,6 +217,7 @@ class GroupsController extends ApiController {
 				throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
 			}
 		}
+		
 		// Multiple groups
 		else {
 			if ($this->objectUserID) {
@@ -243,7 +248,8 @@ class GroupsController extends ApiController {
 				'uri' => $this->uri,
 				'results' => $results,
 				'requestParams' => $this->queryParams,
-				'permissions' => $this->permissions
+				'permissions' => $this->permissions,
+				'head' => $this->method == 'HEAD'
 			];
 			switch ($this->queryParams['format']) {
 				case 'atom':

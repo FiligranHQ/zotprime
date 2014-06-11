@@ -50,11 +50,10 @@ class CollectionsController extends ApiController {
 		$collectionIDs = array();
 		$collectionKeys = array();
 		$results = array();
-		$totalResults = 0;
 		
 		// Single collection
 		if ($this->singleObject) {
-			$this->allowMethods(array('GET', 'PUT', 'DELETE'));
+			$this->allowMethods(['HEAD', 'GET', 'PUT', 'DELETE']);
 			
 			if (!Zotero_ID::isValidKey($this->objectKey)) {
 				$this->e404();
@@ -114,6 +113,10 @@ class CollectionsController extends ApiController {
 			
 			$this->libraryVersion = $collection->version;
 			
+			if ($this->method == 'HEAD') {
+				$this->end();
+			}
+			
 			switch ($this->queryParams['format']) {
 			case 'atom':
 				$this->responseXML = Zotero_Collections::convertCollectionToAtom(
@@ -122,7 +125,6 @@ class CollectionsController extends ApiController {
 				break;
 				
 			case 'json':
-				header("Content-Type: application/json");
 				$json = $collection->toResponseJSON($this->queryParams, $this->permissions);
 				echo Zotero_Utilities::formatJSON($json);
 				break;
@@ -133,7 +135,7 @@ class CollectionsController extends ApiController {
 		}
 		// Multiple collections
 		else {
-			$this->allowMethods(array('GET', 'POST', 'DELETE'));
+			$this->allowMethods(['HEAD', 'GET', 'POST', 'DELETE']);
 			
 			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
@@ -228,7 +230,8 @@ class CollectionsController extends ApiController {
 				'uri' => $this->uri,
 				'results' => $results,
 				'requestParams' => $this->queryParams,
-				'permissions' => $this->permissions
+				'permissions' => $this->permissions,
+				'head' => $this->method == 'HEAD'
 			];
 			switch ($this->queryParams['format']) {
 			case 'atom':

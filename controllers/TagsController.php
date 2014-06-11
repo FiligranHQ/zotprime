@@ -28,7 +28,7 @@ require('ApiController.php');
 
 class TagsController extends ApiController {
 	public function tags() {
-		$this->allowMethods(array('GET', 'DELETE'));
+		$this->allowMethods(['HEAD', 'GET', 'DELETE']);
 		
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
 			$this->e403();
@@ -48,7 +48,6 @@ class TagsController extends ApiController {
 		
 		$tagIDs = array();
 		$results = array();
-		$totalResults = 0;
 		$name = $this->objectName;
 		$fixedValues = array();
 		
@@ -135,7 +134,8 @@ class TagsController extends ApiController {
 			'uri' => $this->uri,
 			'results' => $results,
 			'requestParams' => $this->queryParams,
-			'permissions' => $this->permissions
+			'permissions' => $this->permissions,
+			'head' => $this->method == 'HEAD'
 		];
 		switch ($this->queryParams['format']) {
 		case 'atom':

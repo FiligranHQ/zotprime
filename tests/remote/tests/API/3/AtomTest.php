@@ -78,6 +78,13 @@ class AtomTests extends APITests {
 	
 	
 	public function testTotalResults() {
+		$response = API::userHead(
+			self::$config['userID'],
+			"items?format=atom"
+		);
+		$this->assert200($response);
+		$this->assertTotalResults(sizeOf(self::$items), $response);
+		
 		$response = API::userGet(
 			self::$config['userID'],
 			"items?format=atom"
