@@ -918,6 +918,13 @@ class Zotero_API {
 	
 	
 	public static function multiResponse($options, $overrideFormat=false) {
+		if (empty($options['results'])) {
+			$options['results'] = [
+				'results' => [],
+				'total' => 0
+			];
+		}
+		
 		if ($options['results'] && isset($options['results']['results'])) {
 			$totalResults = $options['results']['total'];
 			$options['results'] = $options['results']['results'];
