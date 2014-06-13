@@ -102,11 +102,31 @@ class Zotero_API {
 		'direction' => 'desc',
 		'start' => 0,
 		'limit' => [
-			'format' => [
-				'default' => 25,
-				'bib' => self::MAX_BIBLIOGRAPHY_ITEMS,
-				'keys' => 0,
-				'versions' => 0
+			'v' => [
+				'default' => [
+					'format' => [
+						'default' => 25,
+						'bib' => self::MAX_BIBLIOGRAPHY_ITEMS,
+						'keys' => 0,
+						'versions' => 0
+					]
+				],
+				1 => [
+					'format' => [
+						'default' => 50,
+						'bib' => self::MAX_BIBLIOGRAPHY_ITEMS,
+						'keys' => 0,
+						'versions' => 0
+					]
+				],
+				2 => [
+					'format' => [
+						'default' => 50,
+						'bib' => self::MAX_BIBLIOGRAPHY_ITEMS,
+						'keys' => 0,
+						'versions' => 0
+					]
+				]
 			]
 		],
 		
