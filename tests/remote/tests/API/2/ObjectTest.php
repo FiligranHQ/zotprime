@@ -472,6 +472,14 @@ class ObjectTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural?key=" . self::$config['apiKey'],
+			json_encode([[]]),
+			array("Content-Type: application/json")
+		);
+		$this->assert400($response, "Uploaded data must be a JSON object");
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural?key=" . self::$config['apiKey'],
 			json_encode(array(
 				"$objectTypePlural" => array(
 					"foo" => "bar"
@@ -479,6 +487,6 @@ class ObjectTests extends APITests {
 			)),
 			array("Content-Type: application/json")
 		);
-		$this->assert400ForObject($response, "Invalid property 'foo' in '$objectTypePlural'; expected JSON $objectType object");
+		$this->assert400($response, "'$objectTypePlural' must be an array");
 	}
 }

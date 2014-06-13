@@ -336,9 +336,7 @@ class VersionTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				$objectTypePlural => array($json)
-			)),
+			json_encode([$json]),
 			array(
 				"Content-Type: application/json",
 				"If-Unmodified-Since-Version: $version"
@@ -383,9 +381,7 @@ class VersionTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				$objectTypePlural => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert428ForObject($response);
@@ -395,9 +391,7 @@ class VersionTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				$objectTypePlural => array($json)
-			)),
+			json_encode([$json]),
 			array(
 				"Content-Type: application/json"
 			)
@@ -411,9 +405,7 @@ class VersionTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				$objectTypePlural => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert200($response);

@@ -389,9 +389,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$key = API::getFirstSuccessKeyFromResponse($response);
@@ -528,9 +526,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json2)
-			)),
+			json_encode([$json2]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, "'itemType' property not provided");
@@ -541,9 +537,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json2)
-			)),
+			json_encode([$json2]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, "'contentType' is valid only for attachment items");
@@ -614,9 +608,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode([
-				"items" => [$json]
-			])
+			json_encode([$json])
 		);
 		$this->assert200ForObject($response);
 		
@@ -650,9 +642,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode([
-				"items" => [$json]
-			])
+			json_encode([$json])
 		);
 		$this->assert200ForObject($response);
 		
@@ -672,9 +662,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert200($response);
@@ -690,9 +678,7 @@ class ItemTests extends APITests {
 			$response = API::userPost(
 				self::$config['userID'],
 				"items",
-				json_encode(array(
-					"items" => array($json)
-				)),
+				json_encode([$json]),
 				array("Content-Type: application/json")
 			);
 			$this->assert400ForObject($response, "Only file attachments and PDFs can be top-level items");
@@ -715,9 +701,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert200ForObject($response);
@@ -861,9 +845,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, "'invalidName' is not a valid linkMode");
@@ -873,9 +855,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, "'linkMode' property not provided");
@@ -896,9 +876,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, "'md5' is valid only for imported attachment items");
@@ -919,9 +897,7 @@ class ItemTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, "'mtime' is valid only for imported attachment items");
@@ -965,30 +941,28 @@ class ItemTests extends APITests {
 	
 	
 	public function testMappedCreatorTypes() {
-		$json = array(
-			"items" => array(
-				array(
-					'itemType' => 'presentation',
-					'title' => 'Test',
-					'creators' => array(
-						array(
-							"creatorType" => "author",
-							"name" => "Foo"
-						)
-					)
-				),
-				array(
-					'itemType' => 'presentation',
-					'title' => 'Test',
-					'creators' => array(
-						array(
-							"creatorType" => "editor",
-							"name" => "Foo"
-						)
-					)
-				)
-			)
-		);
+		$json = [
+			[
+				'itemType' => 'presentation',
+				'title' => 'Test',
+				'creators' => [
+					[
+						"creatorType" => "author",
+						"name" => "Foo"
+					]
+				]
+			],
+			[
+				'itemType' => 'presentation',
+				'title' => 'Test',
+				'creators' => [
+					[
+						"creatorType" => "editor",
+						"name" => "Foo"
+					]
+				]
+			]
+		];
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
@@ -1076,6 +1050,7 @@ class ItemTests extends APITests {
 		API::userClear(self::$config['userID']);
 		
 		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		$emptyCollectionKey = API::createCollection('Empty', false, $this, 'key');
 		
 		$parentTitle1 = "Parent Title";
 		$childTitle1 = "This is a Test Title";
@@ -1175,6 +1150,15 @@ class ItemTests extends APITests {
 		$xpath = $xml->xpath('//atom:entry/zapi:key');
 		$this->assertCount(1, $xpath);
 		$this->assertContains($parentKeys[0], $xpath);
+		
+		// /top, JSON, in empty collection
+		$response = API::userGet(
+			self::$config['userID'],
+			"collections/$emptyCollectionKey/items/top"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(0, $response);
+		$this->assertTotalResults(0, $response);
 		
 		// /top, keys
 		$response = API::userGet(

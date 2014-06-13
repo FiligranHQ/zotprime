@@ -76,17 +76,15 @@ class CollectionTests extends APITests {
 		$name2 = "Test Subcollection";
 		$parent2 = $json['key'];
 		
-		$json = array(
-			"collections" => array(
-				array(
-					'name' => $name1
-				),
-				array(
-					'name' => $name2,
-					'parentCollection' => $parent2
-				)
-			)
-		);
+		$json = [
+			[
+				'name' => $name1
+			],
+			[
+				'name' => $name2,
+				'parentCollection' => $parent2
+			]
+		];
 		
 		$response = API::userPost(
 			self::$config['userID'],
@@ -118,22 +116,20 @@ class CollectionTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections",
-			json_encode(array(
-				"collections" => array(
-					array(
-						'key' => $key1,
-						'name' => $newName1
-					),
-					array(
-						'key' => $key2,
-						'name' => $newName2
-					)
-				)
-			)),
-			array(
+			json_encode([
+				[
+					'key' => $key1,
+					'name' => $newName1
+				],
+				[
+					'key' => $key2,
+					'name' => $newName2
+				]
+			]),
+			[
 				"Content-Type: application/json",
 				"If-Unmodified-Since-Version: " . $data['version']
-			)
+			]
 		);
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);

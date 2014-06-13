@@ -146,14 +146,12 @@ class PermissionsTest extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections",
-			json_encode(array(
-				"collections" => array(
-					array(
-						"name" => "Test",
-						"parentCollection" => false
-					)
-				)
-			)),
+			json_encode([
+				[
+					"name" => "Test",
+					"parentCollection" => false
+				]
+			]),
 			array("Content-Type: application/json")
 		);
 		$this->assert200ForObject($response);

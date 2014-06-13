@@ -266,7 +266,7 @@ class RelationTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections",
-			json_encode(array("collections" => array($json)))
+			json_encode([$json])
 		);
 		$this->assert400ForObject($response, "Unsupported predicate 'foo:unknown'");
 		
@@ -276,7 +276,7 @@ class RelationTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections",
-			json_encode(array("collections" => array($json)))
+			json_encode([$json])
 		);
 		$this->assert400ForObject($response, "'relations' values currently must be Zotero collection URIs");
 		
@@ -284,7 +284,7 @@ class RelationTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections",
-			json_encode(array("collections" => array($json)))
+			json_encode([$json])
 		);
 		$this->assert400ForObject($response, "'relations' property must be an object");
 	}

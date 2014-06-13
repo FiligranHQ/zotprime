@@ -491,24 +491,29 @@ class Zotero_DataObjects {
 			);
 		}
 		
-		// If single collection object, stuff in 'collections' array
-		if ($requestParams['v'] < 2 && $type == 'collection'
-				&& !isset($json->collections)) {
-			$newJSON = new stdClass;
-			$newJSON->collections = array($json);
-			$json = $newJSON;
+		// If single collection object, stuff in array
+		if ($requestParams['v'] < 2 && $type == 'collection' && !isset($json->collections)) {
+			$json = [$json];
+		}
+		else if ($requestParams['v'] < 3) {
+			$json = $json->$types;
 		}
 		
 		$i = 0;
-		foreach ($json->$types as $prop => $jsonObject) {
+		foreach ($json as $prop => $jsonObject) {
 			Zotero_DB::beginTransaction();
 			
 			try {
 				if (!is_object($jsonObject)) {
 					throw new Exception(
-						"Invalid property '$prop' in '$types'; expected JSON $type object",
+						"Invalid value for index $prop in uploaded data; expected JSON $type object",
 						Z_ERROR_INVALID_INPUT
 					);
+				}
+				
+				// If full JSON was uploaded, trim to editable JSON
+				if (isset($jsonObject->data)) {
+					$jsonObject = $jsonObject->data;
 				}
 				
 				$className = "Zotero_" . ucwords($type);
@@ -561,32 +566,49 @@ class Zotero_DataObjects {
 	protected static function validateMultiObjectJSON($json, $requestParams) {
 		$objectTypePlural = static::field('objects');
 		
-		if (!is_object($json)) {
-			throw new Exception('$json must be a decoded JSON object');
-		}
-		
-		// Multiple-object format
-		if (isset($json->$objectTypePlural)) {
-			foreach ($json as $key=>$val) {
-				if ($key != $objectTypePlural) {
-					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+		if ($requestParams['v'] < 3) {
+			if (!is_object($json)) {
+				throw new Exception('Uploaded data must be a JSON object', Z_ERROR_INVALID_INPUT);
+			}
+			
+			// Multiple-object format
+			if (isset($json->$objectTypePlural)) {
+				if (!is_array($json->$objectTypePlural)) {
+					throw new Exception("'$objectTypePlural' must be an array", Z_ERROR_INVALID_INPUT);
 				}
-				$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
-				if (sizeOf($val) > Zotero_API::$$maxWriteKey) {
-					throw new Exception("Cannot add more than "
-						. Zotero_API::$$maxWriteKey
-						. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+				foreach ($json as $key=>$val) {
+					if ($key != $objectTypePlural) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
+					if (sizeOf($val) > Zotero_API::$$maxWriteKey) {
+						throw new Exception("Cannot add more than "
+							. Zotero_API::$$maxWriteKey
+							. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+					}
 				}
 			}
-		}
-		// Single-collection format (collections only)
-		else if ($requestParams['v'] < 2 && $objectTypePlural == 'collections') {
-			if (!isset($json->name)) {
-				throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
+			// Single-collection format (collections only)
+			else if ($requestParams['v'] < 2 && $objectTypePlural == 'collections') {
+				if (!isset($json->name)) {
+					throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
+				}
 			}
+			else {
+				throw new Exception("'$objectTypePlural' must be provided", Z_ERROR_INVALID_INPUT);
+			}
+			
+			return;
 		}
-		else {
-			throw new Exception("'$objectTypePlural' must be provided", Z_ERROR_INVALID_INPUT);
+			
+		if (!is_array($json)) {
+			throw new Exception('Uploaded data must be a JSON array', Z_ERROR_INVALID_INPUT);
+		}
+		$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
+		if (sizeOf($json) > Zotero_API::$$maxWriteKey) {
+			throw new Exception("Cannot add more than "
+				. Zotero_API::$$maxWriteKey
+				. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
 		}
 	}
 	

@@ -49,9 +49,7 @@ class GeneralTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array(
 				"Content-Type: application/json",
 				"Zotero-Write-Token: $token"
@@ -62,9 +60,7 @@ class GeneralTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array(
 				"Content-Type: application/json",
 				"Zotero-Write-Token: $token"

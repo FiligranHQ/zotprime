@@ -62,9 +62,7 @@ class NoteTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($this->json)
-			)),
+			json_encode([$this->json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject(
@@ -80,9 +78,7 @@ class NoteTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($this->json)
-			)),
+			json_encode([$this->json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject(
@@ -98,9 +94,7 @@ class NoteTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($this->json)
-			)),
+			json_encode([$this->json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject(
@@ -116,9 +110,7 @@ class NoteTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($this->json)
-			)),
+			json_encode([$this->json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject(
@@ -135,9 +127,7 @@ class NoteTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"items",
-			json_encode(array(
-				"items" => array($this->json)
-			)),
+			json_encode([$this->json]),
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject(

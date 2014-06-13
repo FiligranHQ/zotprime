@@ -378,9 +378,7 @@ class ObjectTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				"$objectTypePlural" => array($json1, $json2, $json3)
-			)),
+			json_encode([$json1, $json2, $json3]),
 			array("Content-Type: application/json")
 		);
 		$this->assert200($response);
@@ -439,9 +437,7 @@ class ObjectTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				"$objectTypePlural" => array($json1, $json2, $json3)
-			)),
+			json_encode([$json1, $json2, $json3]),
 			array("Content-Type: application/json")
 		);
 		$this->assert200($response);
@@ -470,13 +466,18 @@ class ObjectTests extends APITests {
 		$response = API::userPost(
 			self::$config['userID'],
 			"$objectTypePlural",
-			json_encode(array(
-				"$objectTypePlural" => array(
-					"foo" => "bar"
-				)
-			)),
+			json_encode(["foo" => "bar"]),
 			array("Content-Type: application/json")
 		);
-		$this->assert400ForObject($response, "Invalid property 'foo' in '$objectTypePlural'; expected JSON $objectType object");
+		$this->assert400($response, "Uploaded data must be a JSON array");
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([[], ""]),
+			array("Content-Type: application/json")
+		);
+		$this->assert400ForObject($response, "Invalid value for index 0 in uploaded data; expected JSON $objectType object");
+		$this->assert400ForObject($response, "Invalid value for index 1 in uploaded data; expected JSON $objectType object", 1);
 	}
 }

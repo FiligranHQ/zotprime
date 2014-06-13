@@ -75,9 +75,7 @@ class API3 {
 		$response = self::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		
@@ -102,9 +100,7 @@ class API3 {
 		return self::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => $json
-			)),
+			json_encode($json),
 			array("Content-Type: application/json")
 		);
 	}
@@ -125,9 +121,7 @@ class API3 {
 		$response = self::groupPost(
 			$groupID,
 			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		return self::handleCreateResponse('item', $response, $returnFormat, $context, $groupID);
@@ -149,9 +143,7 @@ class API3 {
 		$response = self::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		
@@ -174,9 +166,7 @@ class API3 {
 		$response = self::groupPost(
 			$groupID,
 			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		
@@ -197,9 +187,7 @@ class API3 {
 		$response = self::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
-			json_encode(array(
-				"items" => array($json)
-			)),
+			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
 		return self::handleCreateResponse('item', $response, $returnFormat, $context);
@@ -218,15 +206,13 @@ class API3 {
 			$relations = new stdClass;
 		}
 		
-		$json = array(
-			"collections" => array(
-				array(
-					'name' => $name,
-					'parentCollection' => $parent,
-					'relations' => $relations
-				)
-			)
-		);
+		$json = [
+			[
+				'name' => $name,
+				'parentCollection' => $parent,
+				'relations' => $relations
+			]
+		];
 		
 		$response = self::userPost(
 			self::$config['userID'],
@@ -252,14 +238,12 @@ class API3 {
 			);
 		}
 		
-		$json = array(
-			"searches" => array(
-				array(
-					'name' => $name,
-					'conditions' => $conditions
-				)
-			)
-		);
+		$json = [
+			[
+				'name' => $name,
+				'conditions' => $conditions
+			]
+		];
 		
 		$response = self::userPost(
 			self::$config['userID'],
