@@ -131,4 +131,44 @@ class SyncItemTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("204", $xml->updated[0]->items[0]->item[0]->field[1]);
 		$this->assertEquals(2, $xml->updated[0]->items[0]->item[0]->creator->count());
 	}
+	
+	
+	public function testComputerProgram() {
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		$itemKey = 'AAAAAAAA';
+		
+		// Create item via sync
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" itemType="computerProgram" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="' . $itemKey . '">'
+			. '<field name="version">1.0</field>'
+			. '</item></items></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Get item version via API
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$itemKey?key=" . self::$config['apiKey'] . "&content=json"
+		);
+		$this->assertEquals(200, $response->getStatus());
+		$xml = API::getItemXML($itemKey);
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		$this->assertEquals('1.0', $json['version']);
+		
+		$json['version'] = '1.1';
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/$itemKey?key=" . self::$config['apiKey'],
+			json_encode($json)
+		);
+		$this->assertEquals(204, $response->getStatus());
+		
+		$xml = Sync::updated(self::$sessionID);
+		$this->assertEquals('version', (string) $xml->updated[0]->items[0]->item[0]->field[0]['name']);
+	}
 }

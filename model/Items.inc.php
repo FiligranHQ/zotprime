@@ -798,6 +798,10 @@ class Zotero_Items extends Zotero_DataObjects {
 			// TODO: add custom fields
 			
 			$fieldName = $field->getAttribute('name');
+			// Special handling for renamed computerProgram 'version' field
+			if ($itemTypeID == 32 && $fieldName == 'version') {
+				$fieldName = 'versionNumber';
+			}
 			$itemObj->setField($fieldName, $field->nodeValue, false, true);
 			$setFields[$fieldName] = true;
 		}
@@ -954,6 +958,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		// Item data
+		$itemTypeID = $item->itemTypeID;
 		$fieldIDs = $item->getUsedFields();
 		foreach ($fieldIDs as $fieldID) {
 			$val = $item->getField($fieldID);
@@ -961,7 +966,12 @@ class Zotero_Items extends Zotero_DataObjects {
 				continue;
 			}
 			$f = $xml->addChild('field', htmlspecialchars($val));
-			$f['name'] = htmlspecialchars(Zotero_ItemFields::getName($fieldID));
+			$fieldName = Zotero_ItemFields::getName($fieldID);
+			// Special handling for renamed computerProgram 'version' field
+			if ($itemTypeID == 32 && $fieldName == 'versionNumber') {
+				$fieldName = 'version';
+			}
+			$f['name'] = htmlspecialchars($fieldName);
 		}
 		
 		// Deleted item flag
