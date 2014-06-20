@@ -172,7 +172,6 @@ class VersionTests extends APITests {
 		);
 		$this->assert200($response);
 		$objectVersion = $response->getHeader("Last-Modified-Version");
-		var_dump($response->getBody());
 		$xml = API::getXMLFromResponse($response);
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
