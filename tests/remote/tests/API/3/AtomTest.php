@@ -77,6 +77,30 @@ class AtomTests extends APITests {
 	}
 	
 	
+	public function testFeedURIs() {
+		$userID = self::$config['userID'];
+		
+		$response = API::userGet(
+			$userID,
+			"items?format=atom"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$links = $xml->xpath('/atom:feed/atom:link');
+		$this->assertEquals(self::$config['apiURLPrefix'] . "users/$userID/items?format=atom", (string) $links[0]['href']);
+		
+		// 'order'/'sort' should turn into 'sort'/'direction'
+		$response = API::userGet(
+			$userID,
+			"items?format=atom&order=dateModified&sort=asc"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$links = $xml->xpath('/atom:feed/atom:link');
+		$this->assertEquals(self::$config['apiURLPrefix'] . "users/$userID/items?direction=asc&format=atom&sort=dateModified", (string) $links[0]['href']);
+	}
+	
+	
 	public function testTotalResults() {
 		$response = API::userHead(
 			self::$config['userID'],

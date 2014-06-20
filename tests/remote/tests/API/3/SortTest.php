@@ -299,4 +299,192 @@ class SortTests extends APITests {
 		}, $xml->xpath('//atom:entry/zapi:key'));
 		$this->assertEquals($keysByDateAddedDescending, $keys);
 	}
+	
+	
+	public function testSortDirection() {
+		API::userClear(self::$config['userID']);
+		
+		// Setup
+		$dataArray = [];
+		
+		$dataArray[] = API::createItem("book", [
+			'title' => "B",
+			'creators' => [
+				[
+					"creatorType" => "author",
+					"name" => "B"
+				]
+			],
+			'dateAdded' => '2014-02-05T00:00:00Z',
+			'dateModified' => '2014-04-05T01:00:00Z'
+		], $this, 'jsonData');
+		
+		$dataArray[] = API::createItem("journalArticle", [
+			'title' => "A",
+			'creators' => [
+				[
+					"creatorType" => "author",
+					"name" => "A"
+				]
+			],
+			'dateAdded' => '2014-02-04T00:00:00Z',
+			'dateModified' => '2014-01-04T01:00:00Z'
+		], $this, 'jsonData');
+		
+		$dataArray[] = API::createItem("newspaperArticle", [
+			'title' => "F",
+			'creators' => [
+				[
+					"creatorType" => "author",
+					"name" => "F"
+				]
+			],
+			'dateAdded' => '2014-02-03T00:00:00Z',
+			'dateModified' => '2014-02-03T01:00:00Z'
+
+		], $this, 'jsonData');
+		
+		
+		$dataArray[] = API::createItem("book", [
+			'title' => "C",
+			'creators' => [
+				[
+					"creatorType" => "author",
+					"name" => "C"
+				]
+			],
+			'dateAdded' => '2014-02-02T00:00:00Z',
+			'dateModified' => '2014-03-02T01:00:00Z'
+		], $this, 'jsonData');
+		
+		// Get sorted keys
+		usort($dataArray, function ($a, $b) {
+			return strcmp($a['dateAdded'], $b['dateAdded']);
+		});
+		$keysByDateAddedAscending = array_map(function ($data) {
+			return $data['key'];
+		}, $dataArray);
+		
+		$keysByDateAddedDescending = array_reverse($keysByDateAddedAscending);
+		
+		// Ascending
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&sort=dateAdded&direction=asc"
+		);
+		$this->assert200($response);
+		$this->assertEquals($keysByDateAddedAscending, explode("\n", trim($response->getBody())));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=json&sort=dateAdded&direction=asc"
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$keys = array_map(function ($val) {
+			return $val['key'];
+		}, $json);
+		$this->assertEquals($keysByDateAddedAscending, $keys);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=atom&sort=dateAdded&direction=asc"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$keys = array_map(function ($val) {
+			return (string) $val;
+		}, $xml->xpath('//atom:entry/zapi:key'));
+		$this->assertEquals($keysByDateAddedAscending, $keys);
+		
+		// Ascending using old 'order'/'sort' instead of 'sort'/'direction'
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&order=dateAdded&sort=asc"
+		);
+		$this->assert200($response);
+		$this->assertEquals($keysByDateAddedAscending, explode("\n", trim($response->getBody())));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=json&order=dateAdded&sort=asc"
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$keys = array_map(function ($val) {
+			return $val['key'];
+		}, $json);
+		$this->assertEquals($keysByDateAddedAscending, $keys);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=atom&order=dateAdded&sort=asc"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$keys = array_map(function ($val) {
+			return (string) $val;
+		}, $xml->xpath('//atom:entry/zapi:key'));
+		$this->assertEquals($keysByDateAddedAscending, $keys);
+		
+		// Descending
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&sort=dateAdded&direction=desc"
+		);
+		$this->assert200($response);
+		$this->assertEquals($keysByDateAddedDescending, explode("\n", trim($response->getBody())));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=json&sort=dateAdded&direction=desc"
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$keys = array_map(function ($val) {
+			return $val['key'];
+		}, $json);
+		$this->assertEquals($keysByDateAddedDescending, $keys);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=atom&sort=dateAdded&direction=desc"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$keys = array_map(function ($val) {
+			return (string) $val;
+		}, $xml->xpath('//atom:entry/zapi:key'));
+		$this->assertEquals($keysByDateAddedDescending, $keys);
+		
+		// Descending
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&order=dateAdded&sort=desc"
+		);
+		$this->assert200($response);
+		$this->assertEquals($keysByDateAddedDescending, explode("\n", trim($response->getBody())));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=json&order=dateAdded&sort=desc"
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$keys = array_map(function ($val) {
+			return $val['key'];
+		}, $json);
+		$this->assertEquals($keysByDateAddedDescending, $keys);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=atom&order=dateAdded&sort=desc"
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$keys = array_map(function ($val) {
+			return (string) $val;
+		}, $xml->xpath('//atom:entry/zapi:key'));
+		$this->assertEquals($keysByDateAddedDescending, $keys);
+	}
 }

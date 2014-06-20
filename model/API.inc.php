@@ -475,7 +475,7 @@ class Zotero_API {
 		foreach ($params as $key => $val) {
 			switch ($key) {
 			case 'direction':
-				if ($val == self::getDefaultDirection($params['format'])) {
+				if ($val == self::getDefaultDirection($params['sort'])) {
 					continue 2;
 				}
 				break;
@@ -498,14 +498,31 @@ class Zotero_API {
 	
 	
 	/**
-	 * Build query string from non-default parameters, removing private parameters
-	 * and converting arrays to strings
+	 * Build query string from given parameters, removing private parameters, adjusting
+	 * parameter names based on API version, and converting arrays to strings
 	 */
-	public static function buildQueryString($action, $nonDefaultParams) {
-		$params = self::removePrivateParams($nonDefaultParams);
+	public static function buildQueryString($apiVersion, $action, $params, $excludeParams=[]) {
+		$params = self::removeParams($params, $excludeParams);
+		$params = self::removePrivateParams($params);
+		$tmpParams = [];
+		foreach ($params as $key => $val) {
+			if ($apiVersion < 3) {
+				if ($key == 'sort') {
+					$key = 'order';
+				}
+				else if ($key == 'direction') {
+					$key = 'sort';
+				}
+			}
+			$tmpParams[$key] = $val;
+		}
+		$params = $tmpParams;
+		
 		if (!$params) {
 			return "";
 		}
+		// Sort parameters alphabetically
+		ksort($params);
 		foreach ($params as $key => $val) {
 			if (is_array($val)) {
 				$params[$key] = implode(',', $val);
@@ -518,7 +535,8 @@ class Zotero_API {
 	/**
 	 * Generate self/first/prev/next/last/alternate links
 	 */
-	public static function buildLinks($action, $path, $totalResults, $queryParams, $nonDefaultParams) {
+	public static function buildLinks($action, $path, $totalResults, $queryParams, $nonDefaultParams, $excludeParams=[]) {
+		$apiVersion = $queryParams['v'];
 		$baseURI = Zotero_API::getBaseURI() . substr($path, 1);
 		$alternateBaseURI = Zotero_URI::getBaseWWWURI() . substr($path, 1);
 		
@@ -530,7 +548,7 @@ class Zotero_API {
 		// 'self'
 		$links['self'] = $baseURI;
 		if ($nonDefaultParams) {
-			$links['self'] .= Zotero_API::buildQueryString($action, $nonDefaultParams);
+			$links['self'] .= Zotero_API::buildQueryString($apiVersion, $action, $nonDefaultParams, $excludeParams);
 		}
 		
 		// 'first'
@@ -538,7 +556,7 @@ class Zotero_API {
 		if ($nonDefaultParams) {
 			$p = $nonDefaultParams;
 			unset($p['start']);
-			$links['first'] .= Zotero_API::buildQueryString($action, $p);
+			$links['first'] .= Zotero_API::buildQueryString($apiVersion, $action, $p, $excludeParams);
 		}
 		
 		// 'last'
@@ -563,14 +581,14 @@ class Zotero_API {
 			else {
 				unset($p['start']);
 			}
-			$links['last'] = $baseURI . Zotero_API::buildQueryString($action, $p);
+			$links['last'] = $baseURI . Zotero_API::buildQueryString($apiVersion, $action, $p, $excludeParams);
 			
 			// 'next'
 			$nextStart = $queryParams['start'] + $queryParams['limit'];
 			if ($nextStart < $totalResults) {
 				$p = $nonDefaultParams;
 				$p['start'] = $nextStart;
-				$links['next'] = $baseURI . Zotero_API::buildQueryString($action, $p);
+				$links['next'] = $baseURI . Zotero_API::buildQueryString($apiVersion, $action, $p, $excludeParams);
 			}
 		}
 		
@@ -739,15 +757,19 @@ class Zotero_API {
 	}
 	
 	
-	private static function removePrivateParams($params) {
-		$private = self::getPrivateParams();
-		$filtered = array();
+	private static function removeParams($params, $excludeParams) {
+		$filtered = [];
 		foreach ($params as $key => $val) {
-			if (!in_array($key, $private)) {
+			if (!in_array($key, $excludeParams)) {
 				$filtered[$key] = $val;
 			}
 		}
 		return $filtered;
+	}
+	
+	
+	private static function removePrivateParams($params) {
+		return self::removeParams($params, self::getPrivateParams());
 	}
 	
 	

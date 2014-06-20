@@ -52,10 +52,16 @@ class Zotero_Atom {
 		
 		// Generate canonical URI
 		$zoteroURI = Zotero_URI::getBaseURI() . substr($path, 1)
-			. Zotero_API::buildQueryString($action, $nonDefaultParams);
+			. Zotero_API::buildQueryString($queryParams['v'], $action, $nonDefaultParams, ['v']);
 		$baseURI = Zotero_API::getBaseURI() . substr($path, 1);
 		
-		$links = Zotero_API::buildLinks($action, $baseURI, $totalResults, $queryParams, $nonDefaultParams);
+		// API version isn't included in URLs (as with the API key)
+		//
+		// It could alternatively be made a private parameter so that it didn't appear
+		// in the Link header either, but for now it's still there.
+		$excludeParams = ['v'];
+		
+		$links = Zotero_API::buildLinks($action, $path, $totalResults, $queryParams, $nonDefaultParams, $excludeParams);
 		
 		$xml->id = $zoteroURI;
 		

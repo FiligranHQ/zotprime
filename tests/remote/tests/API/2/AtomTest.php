@@ -77,6 +77,30 @@ class AtomTests extends APITests {
 	}
 	
 	
+	public function testFeedURIs() {
+		$userID = self::$config['userID'];
+		
+		$response = API::userGet(
+			$userID,
+			"items?key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$links = $xml->xpath('/atom:feed/atom:link');
+		$this->assertEquals(self::$config['apiURLPrefix'] . "users/$userID/items", (string) $links[0]['href']);
+		
+		// 'order'/'sort' should stay as-is, not turn into 'sort'/'direction'
+		$response = API::userGet(
+			$userID,
+			"items?key=" . self::$config['apiKey'] . '&order=dateModified&sort=asc'
+		);
+		$this->assert200($response);
+		$xml = API::getXMLFromResponse($response);
+		$links = $xml->xpath('/atom:feed/atom:link');
+		$this->assertEquals(self::$config['apiURLPrefix'] . "users/$userID/items?order=dateModified&sort=asc", (string) $links[0]['href']);
+	}
+	
+	
 	public function testMultiContent() {
 		$keys = array_keys(self::$items);
 		$keyStr = implode(',', $keys);

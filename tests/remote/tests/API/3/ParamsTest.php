@@ -395,6 +395,17 @@ class ParamsTests extends APITests {
 		// Search by both by title, date asc
 		$response = API::userGet(
 			self::$config['userID'],
+			"items?q=title&sort=date&direction=asc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(2, $response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($keys[1], $json[0]['key']);
+		$this->assertEquals($keys[0], $json[1]['key']);
+		
+		// Search by both by title, date asc, with old-style parameters
+		$response = API::userGet(
+			self::$config['userID'],
 			"items?q=title&order=date&sort=asc"
 		);
 		$this->assert200($response);
@@ -404,6 +415,17 @@ class ParamsTests extends APITests {
 		$this->assertEquals($keys[0], $json[1]['key']);
 		
 		// Search by both by title, date desc
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?q=title&sort=date&direction=desc"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(2, $response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($keys[0], $json[0]['key']);
+		$this->assertEquals($keys[1], $json[1]['key']);
+		
+		// Search by both by title, date desc, with old-style parameters
 		$response = API::userGet(
 			self::$config['userID'],
 			"items?q=title&order=date&sort=desc"
