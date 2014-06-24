@@ -624,7 +624,7 @@ class ItemsController extends ApiController {
 					if ($this->method == 'HEAD') {
 						break;
 					}
-					echo Zotero_Cite::getBibliographyFromCitationServer($results, $this->queryParams);
+					echo Zotero_Cite::getBibliographyFromCitationServer($results['results'], $this->queryParams);
 					break;
 				
 				case 'csljson':
@@ -639,7 +639,7 @@ class ItemsController extends ApiController {
 					if ($this->method == 'HEAD') {
 						break;
 					}
-					$export = Zotero_Translate::doExport($results, $this->queryParams['format']);
+					$export = Zotero_Translate::doExport($results['results'], $this->queryParams['format']);
 					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];
 			}

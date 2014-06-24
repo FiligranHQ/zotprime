@@ -3656,14 +3656,6 @@ class Zotero_Item {
 			}
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
 				$export = Zotero_Translate::doExport([$this], $type);
-				$target->setAttribute('type', $export['mimeType']);
-				
-				// Insert XML into document
-				if (preg_match('/\+xml$/', $export['mimeType'])) {
-					// Strip prolog
-					$export['body'] = preg_replace('/^<\?xml.+\n/', "", $export['body']);
-				}
-				
 				$json[$type] = $export['body'];
 				unset($export);
 			}
@@ -3699,6 +3691,10 @@ class Zotero_Item {
 			if (!$this->loaded['itemData']) {
 				$this->loadItemData();
 			}
+		}
+		
+		if (!isset($requestParams['v'])) {
+			$requestParams['v'] = 3;
 		}
 		
 		$regularItem = $this->isRegularItem();

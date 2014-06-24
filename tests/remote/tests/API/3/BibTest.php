@@ -31,6 +31,7 @@ require_once 'include/api3.inc.php';
 
 class BibTests extends APITests {
 	private static $items;
+	private static $multiResponses = [];
 	private static $styles = array("default", "apa");
 	
 	public static function setUpBeforeClass() {
@@ -40,6 +41,7 @@ class BibTests extends APITests {
 		// Create test data
 		$key = API::createItem("book", array(
 			"title" => "Title",
+			"date" => "January 1, 2014",
 			"creators" => array(
 				array(
 					"creatorType" => "author",
@@ -52,27 +54,28 @@ class BibTests extends APITests {
 			'json' => [
 				"citation" => array(
 					"default" => '<span>Last, <i>Title</i>.</span>',
-					"apa" => '<span>(Last, n.d.)</span>'
+					"apa" => '<span>(Last, 2014)</span>'
 				),
 				"bib" => array(
-					"default" => '<div class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, n.d.</div></div>',
-					"apa" => '<div class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (n.d.). <i>Title</i>.</div></div>'
+					"default" => '<div class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, 2014.</div></div>',
+					"apa" => '<div class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (2014). <i>Title</i>.</div></div>'
 				)
 			],
 			'atom' => [
 				"citation" => array(
 					"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title</i>.</span></content>',
-					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, n.d.)</span></content>'
+					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, 2014)</span></content>'
 				),
 				"bib" => array(
-					"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, n.d.</div></div></content>',
-					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (n.d.). <i>Title</i>.</div></div></content>'
+					"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, 2014.</div></div></content>',
+					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (2014). <i>Title</i>.</div></div></content>'
 				)
 			]
 		];
 		
 		$key = API::createItem("book", array(
 			"title" => "Title 2",
+			"date" => "June 24, 2014",
 			"creators" => array(
 				array(
 					"creatorType" => "author",
@@ -90,23 +93,28 @@ class BibTests extends APITests {
 			'json' => [
 				"citation" => array(
 					"default" => '<span>Last, <i>Title 2</i>.</span>',
-					"apa" => '<span>(Last, n.d.)</span>'
+					"apa" => '<span>(Last, 2014)</span>'
 				),
 				"bib" => array(
-					"default" => '<div class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title 2</i>. Edited by Ed McEditor, n.d.</div></div>',
-					"apa" => '<div class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (n.d.). <i>Title 2</i>. (E. McEditor, Ed.).</div></div>'
+					"default" => '<div class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title 2</i>. Edited by Ed McEditor, 2014.</div></div>',
+					"apa" => '<div class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (2014). <i>Title 2</i>. (E. McEditor, Ed.).</div></div>'
 				)
 			],
 			'atom' => [
 				"citation" => array(
 					"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">Last, <i>Title 2</i>.</span></content>',
-					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, n.d.)</span></content>'
+					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="citation" type="xhtml"><span xmlns="http://www.w3.org/1999/xhtml">(Last, 2014)</span></content>'
 				),
 				"bib" => array(
-					"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title 2</i>. Edited by Ed McEditor, n.d.</div></div></content>',
-					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (n.d.). <i>Title 2</i>. (E. McEditor, Ed.).</div></div></content>'
+					"default" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title 2</i>. Edited by Ed McEditor, 2014.</div></div></content>',
+					"apa" => '<content xmlns:zapi="http://zotero.org/ns/api" zapi:type="bib" type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml" class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (2014). <i>Title 2</i>. (E. McEditor, Ed.).</div></div></content>'
 				)
 			]
+		];
+		
+		self::$multiResponses = [
+			"default" => '<?xml version="1.0"?><div class="csl-bib-body" style="line-height: 1.35; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, First. <i>Title</i>, 2014.</div><div class="csl-entry">&#x2014;&#x2014;&#x2014;. <i>Title 2</i>. Edited by Ed McEditor, 2014.</div></div>',
+			"apa" => '<?xml version="1.0"?><div class="csl-bib-body" style="line-height: 2; padding-left: 2em; text-indent:-2em;"><div class="csl-entry">Last, F. (2014a). <i>Title</i>.</div><div class="csl-entry">Last, F. (2014b). <i>Title 2</i>. (E. McEditor, Ed.).</div></div>'
 		];
 	}
 	
@@ -282,6 +290,18 @@ class BibTests extends APITests {
 				$content = str_replace('<content ', '<content xmlns:zapi="http://zotero.org/ns/api" ', $content);
 				$this->assertXmlStringEqualsXmlString(self::$items[$key]['atom']['bib'][$style], $content);
 			}
+		}
+	}
+	
+	
+	public function testFormatBibMultiple() {
+		foreach (self::$styles as $style) {
+			$response = API::userGet(
+				self::$config['userID'],
+				"items?format=bib" . ($style == "default" ? "" : "&style=$style")
+			);
+			$this->assert200($response);
+			$this->assertXmlStringEqualsXmlString(self::$multiResponses[$style], $response->getBody());
 		}
 	}
 }
