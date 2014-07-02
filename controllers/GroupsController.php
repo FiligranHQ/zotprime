@@ -349,6 +349,7 @@ class GroupsController extends ApiController {
 			
 			$title = "Users added to group '$group->name'";
 			$this->responseXML = Zotero_Atom::createAtomFeed(
+				'groupUsers',
 				$title,
 				$this->uri,
 				$entries,
@@ -441,6 +442,7 @@ class GroupsController extends ApiController {
 			
 			$title = "Users changed in group '$group->name'";
 			$this->responseXML = Zotero_Atom::createAtomFeed(
+				'groupUsers',
 				$title,
 				$this->uri,
 				$entries,
