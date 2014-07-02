@@ -2299,13 +2299,13 @@ class Zotero_Items extends Zotero_DataObjects {
 							&& !Zotero_Date::isSQLDate($val)
 							&& !Zotero_Date::isSQLDateTime($val)
 							&& !Zotero_Date::isISO8601($val)) {
-						throw new Exception("'$key' must be an ISO 8601 or UTC SQL DATETIME date ($val)", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' must be in ISO 8601 or UTC 'YYYY-MM-DD[ hh-mm-dd]' format or 'CURRENT_TIMESTAMP' ($val)", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
 				case 'dateAdded':
 					if (!Zotero_Date::isSQLDateTime($val) && !Zotero_Date::isISO8601($val)) {
-						throw new Exception("'$key' must be an ISO 8601 or UTC SQL DATETIME date", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' must be in ISO 8601 or UTC 'YYYY-MM-DD hh-mm-dd' format", Z_ERROR_INVALID_INPUT);
 					}
 					
 					if (!$isNew) {
@@ -2321,7 +2321,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				
 				case 'dateModified':
 					if (!Zotero_Date::isSQLDateTime($val) && !Zotero_Date::isISO8601($val)) {
-						throw new Exception("'$key' must be an ISO 8601 or UTC SQL DATETIME date ($val)", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' must be in ISO 8601 or UTC 'YYYY-MM-DD hh-mm-dd' format ($val)", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				

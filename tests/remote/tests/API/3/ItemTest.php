@@ -178,7 +178,7 @@ class ItemTests extends APITests {
 		$response = API::createItem("book", array(
 			'accessDate' => $date
 		), $this, 'response');
-		$this->assert400ForObject($response, "'accessDate' must be an ISO 8601 or UTC SQL DATETIME date (February 1, 2014)");
+		$this->assert400ForObject($response, "'accessDate' must be in ISO 8601 or UTC 'YYYY-MM-DD[ hh-mm-dd]' format or 'CURRENT_TIMESTAMP' (February 1, 2014)");
 	}
 	
 	
