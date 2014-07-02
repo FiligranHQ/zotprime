@@ -505,6 +505,7 @@ class GroupsController extends ApiController {
 		$totalResults = sizeOf($entries);
 		
 		$this->responseXML = Zotero_Atom::createAtomFeed(
+			'groupUsers',
 			$title,
 			$this->uri,
 			$entries,
