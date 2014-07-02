@@ -2293,7 +2293,11 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'accessDate':
-					if ($val !== '' && !Zotero_Date::isSQLDateTime($val) && !Zotero_Date::isISO8601($val)) {
+					if ($val !== ''
+							&& $val != 'CURRENT_TIMESTAMP'
+							&& !Zotero_Date::isSQLDate($val)
+							&& !Zotero_Date::isSQLDateTime($val)
+							&& !Zotero_Date::isISO8601($val)) {
 						throw new Exception("'$key' must be an ISO 8601 or UTC SQL DATETIME date ($val)", Z_ERROR_INVALID_INPUT);
 					}
 					break;
