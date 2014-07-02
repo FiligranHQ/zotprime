@@ -159,7 +159,10 @@ class ApiController extends Controller {
 			if (function_exists('apache_request_headers')) {
 				$headers = apache_request_headers();
 				if (isset($headers['Authorization'])) {
-					$authorization = $headers['Authorization'];
+					// Look for "Authorization: Bearer" from OAuth 2.0, and ignore everything else
+					if (preg_match('/^bearer/i', $headers['Authorization'], $matches)) {
+						$authorization = $headers['Authorization'];
+					}
 				}
 			}
 			if (isset($authorization) || isset($_GET['key'])) {

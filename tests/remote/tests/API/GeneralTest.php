@@ -141,6 +141,36 @@ class GeneralTests extends APITests {
 			]
 		);
 		$this->assertHTTPStatus(400, $response);
+		
+		// Invalid Bearer format
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=$apiKey",
+			[
+				"Authorization: Bearer key=$apiKey"
+			]
+		);
+		$this->assertHTTPStatus(400, $response);
+		
+		// Ignored OAuth 1.0 header, with key query parameter
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?key=$apiKey",
+			[
+				'Authorization: OAuth oauth_consumer_key="49bea9ec4a2765d35b42"'
+			]
+		);
+		$this->assertHTTPStatus(200, $response);
+		
+		// Ignored OAuth 1.0 header, with no key query parameter
+		$response = API::userGet(
+			self::$config['userID'],
+			"items",
+			[
+				'Authorization: OAuth oauth_consumer_key="49bea9ec4a2765d35b42"'
+			]
+		);
+		$this->assertHTTPStatus(403, $response);
 	}
 	
 	
