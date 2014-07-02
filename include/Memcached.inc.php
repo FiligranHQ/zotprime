@@ -162,7 +162,7 @@ class Z_MemcachedClientLocal {
 		$success = $this->client->set($key, $val, $exptime);
 		$this->requestTime += microtime(true) - $t;
 		if (!$success && !$this->errorLogged) {
-			Z_Core::logError("Setting memcache value failed (key $key, value $val)");
+			Z_Core::logError("Setting memcache value failed for key $key: " . $this->client->getResultMessage());
 			$this->errorLogged = true;
 		}
 		return $success;
