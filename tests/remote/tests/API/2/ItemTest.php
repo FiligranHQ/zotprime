@@ -249,6 +249,18 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testDateAccessedInvalid() {
+		$date = 'February 1, 2014';
+		$xml = API::createItem("book", array(
+			'accessDate' => $date
+		), $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$json = json_decode($data['content'], true);
+		// Invalid dates should be ignored
+		$this->assertEmpty($json['accessDate']);
+	}
+	
+	
 	public function testChangeItemType() {
 		$json = API::getItemTemplate("book");
 		$json->title = "Foo";

@@ -2293,7 +2293,8 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'accessDate':
-					if ($val !== ''
+					if ($apiVersion >= 3
+							&& $val !== ''
 							&& $val != 'CURRENT_TIMESTAMP'
 							&& !Zotero_Date::isSQLDate($val)
 							&& !Zotero_Date::isSQLDateTime($val)

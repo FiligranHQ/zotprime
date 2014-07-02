@@ -173,6 +173,15 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testDateAccessedInvalid() {
+		$date = 'February 1, 2014';
+		$response = API::createItem("book", array(
+			'accessDate' => $date
+		), $this, 'response');
+		$this->assert400ForObject($response, "'accessDate' must be an ISO 8601 or UTC SQL DATETIME date (February 1, 2014)");
+	}
+	
+	
 	public function testDateAddedNewItem8601() {
 		// In case this is ever extended to other objects
 		$objectType = 'item';
