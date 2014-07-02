@@ -157,7 +157,7 @@ class GeneralTests extends APITests {
 			self::$config['userID'],
 			"items?key=$apiKey",
 			[
-				'Authorization: OAuth oauth_consumer_key="49bea9ec4a2765d35b42"'
+				'Authorization: OAuth oauth_consumer_key="aaaaaaaaaaaaaaaaaaaa"'
 			]
 		);
 		$this->assertHTTPStatus(200, $response);
@@ -167,7 +167,7 @@ class GeneralTests extends APITests {
 			self::$config['userID'],
 			"items",
 			[
-				'Authorization: OAuth oauth_consumer_key="49bea9ec4a2765d35b42"'
+				'Authorization: OAuth oauth_consumer_key="aaaaaaaaaaaaaaaaaaaa"'
 			]
 		);
 		$this->assertHTTPStatus(403, $response);
