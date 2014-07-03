@@ -33,7 +33,7 @@ class Zotero_URI {
 		return Z_CONFIG::$WWW_BASE_URI;
 	}
 	
-	public static function getLibraryURI($libraryID, $www=false) {
+	public static function getLibraryURI($libraryID, $www=false, $usePublicGroupName=false) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
 			case 'user':
@@ -43,7 +43,7 @@ class Zotero_URI {
 			case 'group':
 				$id = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 				$group = Zotero_Groups::get($id);
-				return self::getGroupURI($group, $www);
+				return self::getGroupURI($group, $www, $usePublicGroupName);
 		}
 	}
 	
@@ -55,14 +55,14 @@ class Zotero_URI {
 		return self::getBaseURI() . "users/$userID";
 	}
 	
-	public static function getItemURI(Zotero_Item $item, $www=false) {
+	public static function getItemURI(Zotero_Item $item, $www=false, $usePublicGroupName=false) {
 		if (!$item->libraryID) {
 			throw new Exception("Can't get URI for unsaved item");
 		}
-		return self::getLibraryURI($item->libraryID, $www) . "/items/$item->key";
+		return self::getLibraryURI($item->libraryID, $www, $usePublicGroupName) . "/items/$item->key";
 	}
 	
-	public static function getGroupURI(Zotero_Group $group, $www=false) {
+	public static function getGroupURI(Zotero_Group $group, $www=false, $usePublicGroupName=false) {
 		if ($www) {
 			$slug = $group->slug;
 			if (!$slug) {
@@ -70,7 +70,16 @@ class Zotero_URI {
 			}
 			return self::getBaseWWWURI() . "groups/$slug";
 		}
-		return self::getBaseURI() . "groups/" . $group->id;
+		if ($usePublicGroupName) {
+			$id = $group->slug;
+			if ($id === null) {
+				$id = $group->id;
+			}
+		}
+		else {
+			$id = $group->id;
+		}
+		return self::getBaseURI() . "groups/" . $id;
 	}
 	
 	public static function getGroupUserURI(Zotero_Group $group, $userID) {

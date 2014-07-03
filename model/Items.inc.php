@@ -1118,9 +1118,9 @@ class Zotero_Items extends Zotero_DataObjects {
 								? $item->numChildren()
 								: $item->numAttachments();
 		}
-		// <id> changes based on group visibility, for now
+		// <id> changes based on group visibility in v1
 		if ($queryParams['v'] < 2) {
-			$id = Zotero_URI::getItemURI($item, true);
+			$id = Zotero_URI::getItemURI($item, false, true);
 		}
 		else {
 			$id = Zotero_URI::getItemURI($item);
