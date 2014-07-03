@@ -1031,6 +1031,17 @@ class Zotero_API {
 	
 	
 	/**
+	 * Trim full repsonse JSON to editable JSON
+	 */
+	public static function extractEditableJSON($json) {
+		if (isset($json->data)) {
+			$json = $json->data;
+		}
+		return $json;
+	}
+	
+	
+	/**
 	 * Validate the object key from JSON and load the passed object with it
 	 *
 	 * @param object $object  Zotero_Item, Zotero_Collection, or Zotero_Search

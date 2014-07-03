@@ -337,6 +337,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 	                                      $requestParams,
 	                                      $userID,
 	                                      $requireVersion=0) {
+		$json = Zotero_API::extractEditableJSON($json);
 		Zotero_API::processJSONObjectKey($collection, $json, $requestParams);
 		self::validateJSONCollection($json, $requestParams);
 		Zotero_API::checkJSONObjectVersion(

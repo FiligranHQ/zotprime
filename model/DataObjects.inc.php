@@ -511,11 +511,6 @@ class Zotero_DataObjects {
 					);
 				}
 				
-				// If full JSON was uploaded, trim to editable JSON
-				if (isset($jsonObject->data)) {
-					$jsonObject = $jsonObject->data;
-				}
-				
 				$className = "Zotero_" . ucwords($type);
 				$obj = new $className;
 				$obj->libraryID = $libraryID;

@@ -1661,6 +1661,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                      $userID,
 	                                      $requireVersion=0,
 	                                      $partialUpdate=false) {
+		$json = Zotero_API::extractEditableJSON($json);
+		
 		$exists = Zotero_API::processJSONObjectKey($item, $json, $requestParams);
 		
 		// computerProgram used 'version' instead of 'versionNumber' before v3

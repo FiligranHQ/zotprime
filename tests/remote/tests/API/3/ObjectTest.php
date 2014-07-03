@@ -158,6 +158,20 @@ class ObjectTests extends APITests {
 	}
 	
 	
+	public function testResponseJSONPost() {
+		$this->_testResponseJSONPost('collection');
+		$this->_testResponseJSONPost('item');
+		$this->_testResponseJSONPost('search');
+	}
+	
+	
+	public function testResponseJSONPut() {
+		$this->_testResponseJSONPut('collection');
+		$this->_testResponseJSONPut('item');
+		$this->_testResponseJSONPut('search');
+	}
+	
+	
 	public function testPartialWriteFailure() {
 		$this->_testPartialWriteFailure('collection');
 		$this->_testPartialWriteFailure('item');
@@ -339,6 +353,187 @@ class ObjectTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertNumResults(0, $response);
+	}
+	
+	
+	private function _testResponseJSONPost($objectType) {
+		API::userClear(self::$config['userID']);
+		
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		switch ($objectType) {
+		case 'collection':
+			$json1 = ["name" => "Test 1"];
+			$json2 = ["name" => "Test 2"];
+			break;
+		
+		case 'item':
+			$json1 = API::getItemTemplate('book');
+			$json2 = clone $json1;
+			$json1->title = "Test 1";
+			$json2->title = "Test 2";
+			break;
+		
+		case 'search':
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'value'
+				)
+			);
+			$json1 = ["name" => "Test 1", "conditions" => $conditions];
+			$json2 = ["name" => "Test 2", "conditions" => $conditions];
+			break;
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			$objectTypePlural,
+			json_encode([$json1, $json2]),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assert200ForObject($response, false, 0);
+		$this->assert200ForObject($response, false, 1);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			$objectTypePlural
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		switch ($objectType) {
+		case 'item':
+			$json[0]['data']['title'] = $json[0]['data']['title'] == "Test 1" ? "Test A" : "Test B";
+			$json[1]['data']['title'] = $json[1]['data']['title'] == "Test 2" ? "Test B" : "Test A";
+			break;
+		
+		case 'collection':
+		case 'search':
+			$json[0]['data']['name'] = $json[0]['data']['name'] == "Test 1" ? "Test A" : "Test B";
+			$json[1]['data']['name'] = $json[1]['data']['name'] == "Test 2" ? "Test B" : "Test A";
+			break;
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			$objectTypePlural,
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assert200ForObject($response, false, 0);
+		$this->assert200ForObject($response, false, 1);
+		
+		// Check
+		$response = API::userGet(
+			self::$config['userID'],
+			$objectTypePlural
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		switch ($objectTypePlural) {
+		case 'item':
+			$this->assertEquals("Test A", $json[0]['data']['title']);
+			$this->assertEquals("Test B", $json[1]['data']['title']);
+			break;
+		
+		case 'collection':
+		case 'search':
+			$this->assertEquals("Test A", $json[0]['data']['name']);
+			$this->assertEquals("Test B", $json[1]['data']['name']);
+			break;
+		}
+	}
+	
+	
+	private function _testResponseJSONPut($objectType) {
+		API::userClear(self::$config['userID']);
+		
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		switch ($objectType) {
+		case 'collection':
+			$json1 = ["name" => "Test 1"];
+			break;
+		
+		case 'item':
+			$json1 = API::getItemTemplate('book');
+			$json1->title = "Test 1";
+			break;
+		
+		case 'search':
+			$conditions = array(
+				array(
+					'condition' => 'title',
+					'operator' => 'contains',
+					'value' => 'value'
+				)
+			);
+			$json1 = ["name" => "Test 1", "conditions" => $conditions];
+			break;
+		}
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			$objectTypePlural,
+			json_encode([$json1]),
+			array("Content-Type: application/json")
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assert200ForObject($response, false, 0);
+		$objectKey = $json['success'][0];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey"
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		switch ($objectType) {
+		case 'item':
+			$json['data']['title'] = "Test 2";
+			break;
+		
+		case 'collection':
+		case 'search':
+			$json['data']['name'] = "Test 2";
+			break;
+		}
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey",
+			json_encode($json),
+			array("Content-Type: application/json")
+		);
+		$this->assert204($response);
+		
+		// Check
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey"
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		switch ($objectTypePlural) {
+		case 'item':
+			$this->assertEquals("Test 2", $json['data']['title']);
+			break;
+		
+		case 'collection':
+		case 'search':
+			$this->assertEquals("Test 2", $json['data']['name']);
+			break;
+		}
 	}
 	
 	

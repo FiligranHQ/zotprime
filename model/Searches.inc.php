@@ -230,6 +230,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 	                                      $json,
 	                                      $requestParams,
 	                                      $requireVersion=0) {
+		$json = Zotero_API::extractEditableJSON($json);
 		Zotero_API::processJSONObjectKey($search, $json, $requestParams);
 		self::validateJSONSearch($json, $requestParams);
 		Zotero_API::checkJSONObjectVersion(
