@@ -33,36 +33,43 @@ class Zotero_URI {
 		return Z_CONFIG::$WWW_BASE_URI;
 	}
 	
-	public static function getLibraryURI($libraryID, $www=false, $usePublicGroupName=false) {
+	public static function getLibraryURI($libraryID, $www=false, $useSlug=false) {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
 			case 'user':
 				$id = Zotero_Users::getUserIDFromLibraryID($libraryID);
-				return self::getUserURI($id, $www);
+				return self::getUserURI($id, $www, $useSlug);
 			
 			case 'group':
 				$id = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 				$group = Zotero_Groups::get($id);
-				return self::getGroupURI($group, $www, $usePublicGroupName);
+				return self::getGroupURI($group, $www, $useSlug);
 		}
 	}
 	
-	public static function getUserURI($userID, $www=false) {
+	public static function getUserURI($userID, $www=false, $useSlug=false) {
 		if ($www) {
 			$username = Zotero_Users::getUsername($userID);
 			return self::getBaseWWWURI() . Zotero_Utilities::slugify($username);
 		}
-		return self::getBaseURI() . "users/$userID";
+		if ($useSlug) {
+			$username = Zotero_Users::getUsername($userID);
+			$id = Zotero_Utilities::slugify($username);
+		}
+		else {
+			$id = $userID;
+		}
+		return self::getBaseURI() . "users/$id";
 	}
 	
-	public static function getItemURI(Zotero_Item $item, $www=false, $usePublicGroupName=false) {
+	public static function getItemURI(Zotero_Item $item, $www=false, $useSlug=false) {
 		if (!$item->libraryID) {
 			throw new Exception("Can't get URI for unsaved item");
 		}
-		return self::getLibraryURI($item->libraryID, $www, $usePublicGroupName) . "/items/$item->key";
+		return self::getLibraryURI($item->libraryID, $www, $useSlug) . "/items/$item->key";
 	}
 	
-	public static function getGroupURI(Zotero_Group $group, $www=false, $usePublicGroupName=false) {
+	public static function getGroupURI(Zotero_Group $group, $www=false, $useSlug=false) {
 		if ($www) {
 			$slug = $group->slug;
 			if (!$slug) {
@@ -70,7 +77,7 @@ class Zotero_URI {
 			}
 			return self::getBaseWWWURI() . "groups/$slug";
 		}
-		if ($usePublicGroupName) {
+		if ($useSlug) {
 			$id = $group->slug;
 			if ($id === null) {
 				$id = $group->id;
