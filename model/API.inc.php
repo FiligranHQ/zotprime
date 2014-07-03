@@ -138,7 +138,7 @@ class Zotero_API {
 	/**
 	 * Parse query string into parameters, validating and filling in defaults
 	 */
-	public static function parseQueryParams($queryString, $action, $singleObject, $apiVersion=false) {
+	public static function parseQueryParams($queryString, $action, $singleObject, $apiVersion=false, $atomAccepted=false) {
 		// Handle multiple identical parameters in the CGI-standard way instead of
 		// PHP's foo[]=bar way
 		$queryParams = Zotero_URL::proper_parse_str($queryString);
@@ -147,6 +147,10 @@ class Zotero_API {
 		//
 		// Handle some special cases
 		//
+		// If client accepts Atom, serve it if an explicit format isn't requested
+		if ($atomAccepted && empty($queryParams['format'])) {
+			$queryParams['format'] = 'atom';
+		}
 		
 		// Set API version based on header
 		if ($apiVersion) {

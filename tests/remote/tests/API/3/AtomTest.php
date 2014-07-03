@@ -163,5 +163,27 @@ class AtomTests extends APITests {
 	public function testMultiContentCached() {
 		self::testMultiContent();
 	}
+	
+	
+	public function testAcceptHeader() {
+		$response = API::userGet(
+			self::$config['userID'],
+			"items",
+			[
+				"Accept: application/atom+xml,application/rdf+xml,application/rss+xml,application/xml,text/xml,*/*"
+			]
+		);
+		$this->assertContentType('application/atom+xml', $response);
+		
+		// But format= should still override
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=json",
+			[
+				"Accept: application/atom+xml,application/rdf+xml,application/rss+xml,application/xml,text/xml,*/*"
+			]
+		);
+		$this->assertContentType('application/json', $response);
+	}
 }
 ?>

@@ -313,13 +313,21 @@ class ApiController extends Controller {
 		
 		$this->checkLibraryIfModifiedSinceVersion($this->action);
 		
+		// If Accept header includes application/atom+xml, send Atom, as long as there's no 'format'
+		$atomAccepted = false;
+		if (!empty($_SERVER['HTTP_ACCEPT'])) {
+			$accept = preg_split('/\s*,\s*/', $_SERVER['HTTP_ACCEPT']);
+			$atomAccepted = in_array('application/atom+xml', $accept);
+		}
+		
 		$this->queryParams = Zotero_API::parseQueryParams(
 			$_SERVER['QUERY_STRING'],
 			$this->action,
 			$this->singleObject,
 			!empty($_SERVER['HTTP_ZOTERO_API_VERSION'])
 				? (int) $_SERVER['HTTP_ZOTERO_API_VERSION']
-				: false
+				: false,
+			$atomAccepted
 		);
 		
 		$this->apiVersion = $version = $this->queryParams['v'];
