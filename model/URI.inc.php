@@ -54,12 +54,9 @@ class Zotero_URI {
 		}
 		if ($useSlug) {
 			$username = Zotero_Users::getUsername($userID);
-			$id = Zotero_Utilities::slugify($username);
+			return self::getBaseURI() . Zotero_Utilities::slugify($username);
 		}
-		else {
-			$id = $userID;
-		}
-		return self::getBaseURI() . "users/$id";
+		return self::getBaseURI() . "users/$userID";
 	}
 	
 	public static function getItemURI(Zotero_Item $item, $www=false, $useSlug=false) {
