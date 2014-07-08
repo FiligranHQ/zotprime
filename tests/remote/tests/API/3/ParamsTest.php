@@ -186,6 +186,7 @@ class ParamsTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertNumResults(1, $response);
+		$this->assertTotalResults(1, $response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertEquals($keys[0], $json[0]['key']);
 		
@@ -195,6 +196,7 @@ class ParamsTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertNumResults(2, $response);
+		$this->assertTotalResults(2, $response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertEquals($keys[0], $json[0]['key']);
 		$this->assertEquals($keys[1], $json[1]['key']);
