@@ -99,7 +99,7 @@ class ApiController extends Controller {
 			header("Access-Control-Allow-Origin: *");
 			header("Access-Control-Allow-Methods: HEAD, GET, POST, PUT, PATCH, DELETE");
 			header("Access-Control-Allow-Headers: Content-Type, If-Match, If-None-Match, If-Modified-Since-Version, If-Unmodified-Since-Version, Zotero-API-Version, Zotero-Write-Token");
-			header("Access-Control-Expose-Headers: Backoff, ETag, Last-Modified-Version, Link, Retry-After, Zotero-API-Version");
+			header("Access-Control-Expose-Headers: Backoff, ETag, Last-Modified-Version, Link, Retry-After, Total-Results, Zotero-API-Version");
 		}
 		
 		if ($this->method == 'OPTIONS') {
