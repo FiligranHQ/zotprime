@@ -89,12 +89,17 @@ class Zotero_Tags extends Zotero_DataObjects {
 		
 		// TODO: cache
 		
-		$sql = "SELECT tagID FROM tags WHERE name";
+		$sql = "SELECT tagID FROM tags WHERE ";
 		if ($caseInsensitive) {
-			$sql .= " COLLATE utf8_general_ci ";
+			$sql .= "LOWER(name)=?";
+			$params = [strtolower($name)];
 		}
-		$sql .= "=? AND type=? AND libraryID=?";
-		$params = array($name, $type, $libraryID);
+		else {
+			$sql .= "name=?";
+			$params = [$name];
+		}
+		$sql .= " AND type=? AND libraryID=?";
+		array_push($params, $type, $libraryID);
 		$tagID = Zotero_DB::valueQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		return $tagID;

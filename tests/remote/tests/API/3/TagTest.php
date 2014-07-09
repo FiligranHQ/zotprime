@@ -367,4 +367,31 @@ class TagTests extends APITests {
 		$json2 = API::getItem($data2['key'], $this, 'json');
 		$this->assertEquals($version2, $json2['version']);
 	}
+	
+	
+	public function testTagDiacritics() {
+		$data = API::createItem("book", [
+			"tags" => [
+				["tag" => "ëtest"],
+			]
+		], $this, 'jsonData');
+		$version = $data['version'];
+		
+		// Add 'etest', without accent
+		$data['tags'] = [
+			["tag" => "ëtest"],
+			["tag" => "etest"],
+		];
+		
+		$response = API::postItem($data);
+		$this->assert200($response);
+		$this->assert200ForObject($response);
+		
+		// Item version should be one greater than last update
+		$data = API::getItem($data['key'], $this, 'json')['data'];
+		$this->assertEquals($version + 1, $data['version']);
+		$this->assertCount(2, $data['tags']);
+		$this->assertContains(["tag" => "ëtest"], $data['tags']);
+		$this->assertContains(["tag" => "etest"], $data['tags']);
+	}
 }
