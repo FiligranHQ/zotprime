@@ -125,7 +125,13 @@ class APITests extends \APITests {
 					var_dump($json);
 					throw $e;
 				}
-				$this->assertEquals($code, $json['failed'][$index]['code']);
+				try {
+					$this->assertEquals($code, $json['failed'][$index]['code']);
+				}
+				catch (Exception $e) {
+					var_dump($json);
+					throw $e;
+				}
 				if ($expectedMessage) {
 					$this->assertEquals($expectedMessage, $json['failed'][$index]['message']);
 				}
