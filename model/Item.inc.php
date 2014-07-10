@@ -1297,26 +1297,25 @@ class Zotero_Item {
 				
 				// Note
 				if ($this->isNote() || $this->changed['note']) {
-					$noteIsSanitized = false;
+					if (!is_string($this->noteText)) {
+						$this->noteText = '';
+					}
 					// If we don't have a sanitized note, generate one
 					if (is_null($this->noteTextSanitized)) {
 						$noteTextSanitized = Zotero_Notes::sanitize($this->noteText);
 						
-						// But if the same as original, just use reference
-						if ($this->noteText == $noteTextSanitized) {
-							$this->noteTextSanitized =& $this->noteText;
-							$noteIsSanitized = true;
+						// But if note is sanitized already, store empty string
+						if ($this->noteText === $noteTextSanitized) {
+							$this->noteTextSanitized = '';
 						}
 						else {
 							$this->noteTextSanitized = $noteTextSanitized;
 						}
 					}
 					
-					// If note is sanitized already, store empty string
-					// If not, store sanitized version
-					$noteTextSanitized = $noteIsSanitized ? '' : $this->noteTextSanitized;
-					
-					$title = Zotero_Notes::noteToTitle($this->noteTextSanitized);
+					$this->noteTitle = Zotero_Notes::noteToTitle(
+						$this->noteTextSanitized === '' ? $this->noteText : $this->noteTextSanitized
+					);
 					
 					$sql = "INSERT INTO itemNotes
 							(itemID, sourceItemID, note, noteSanitized, title, hash)
@@ -1327,9 +1326,9 @@ class Zotero_Item {
 					$bindParams = array(
 						$itemID,
 						$parent ? $parent : null,
-						$this->noteText ? $this->noteText : '',
-						$noteTextSanitized,
-						$title,
+						$this->noteText !== null ? $this->noteText : '',
+						$this->noteTextSanitized,
+						$this->noteTitle,
 						$hash
 					);
 					
@@ -1694,25 +1693,21 @@ class Zotero_Item {
 				// Note or attachment note
 				//
 				if ($this->changed['note']) {
-					$noteIsSanitized = false;
 					// If we don't have a sanitized note, generate one
 					if (is_null($this->noteTextSanitized)) {
 						$noteTextSanitized = Zotero_Notes::sanitize($this->noteText);
-						// But if the same as original, just use reference
+						// But if note is sanitized already, store empty string
 						if ($this->noteText == $noteTextSanitized) {
-							$this->noteTextSanitized =& $this->noteText;
-							$noteIsSanitized = true;
+							$this->noteTextSanitized = '';
 						}
 						else {
 							$this->noteTextSanitized = $noteTextSanitized;
 						}
 					}
 					
-					// If note is sanitized already, store empty string
-					// If not, store sanitized version
-					$noteTextSanitized = $noteIsSanitized ? '' : $this->noteTextSanitized;
-					
-					$title = Zotero_Notes::noteToTitle($this->noteTextSanitized);
+					$this->noteTitle = Zotero_Notes::noteToTitle(
+						$this->noteTextSanitized === '' ? $this->noteText : $this->noteTextSanitized
+					);
 					
 					// Only record sourceItemID in itemNotes for notes
 					if ($this->isNote()) {
@@ -1726,8 +1721,8 @@ class Zotero_Item {
 							ON DUPLICATE KEY UPDATE sourceItemID=?, note=?, noteSanitized=?, title=?, hash=?";
 					$bindParams = array(
 						$this->id,
-						$sourceItemID, $this->noteText ? $this->noteText : '', $noteTextSanitized, $title, $hash,
-						$sourceItemID, $this->noteText ? $this->noteText : '', $noteTextSanitized, $title, $hash
+						$sourceItemID, $this->noteText, $this->noteTextSanitized, $this->noteTitle, $hash,
+						$sourceItemID, $this->noteText, $this->noteTextSanitized, $this->noteTitle, $hash
 					);
 					Zotero_DB::query($sql, $bindParams, $shardID);
 					Zotero_Notes::updateNoteCache($this->libraryID, $this->id, $this->noteText);
@@ -2527,33 +2522,11 @@ class Zotero_Item {
 				if (!$row) {
 					$row = array('note' => '', 'noteSanitized' => '');
 				}
-				// Empty string means the note is sanitized
-				// Null means not yet processed
-				if ($row['noteSanitized'] === '') {
-					$this->noteText = $row['note'];
-					$this->noteTextSanitized =& $this->noteText;
-				}
-				else {
-					$this->noteText = $row['note'];
-					if (!is_null($row['noteSanitized'])) {
-						$this->noteTextSanitized = $row['noteSanitized'];
-					}
-				}
+				$this->noteText = $row['note'];
+				$this->noteTextSanitized = $row['noteSanitized'];
 			}
-			
-			// DEBUG: Shouldn't be necessary anymore
-			if (is_null($this->noteTextSanitized)) {
-				$sanitized = Zotero_Notes::sanitize($this->noteText);
-				// If sanitized version is the same, use reference
-				if ($this->noteText == $sanitized) {
-					$this->noteTextSanitized =& $this->noteText;
-				}
-				else {
-					$this->noteTextSanitized = $sanitized;
-				}
-			}
-			
-			return $this->noteTextSanitized;
+			// Empty string means the original note is sanitized
+			return $this->noteTextSanitized === '' ? $this->noteText : $this->noteTextSanitized;
 		}
 		
 		if (is_null($this->noteText)) {
@@ -2562,7 +2535,7 @@ class Zotero_Item {
 				$sql = "SELECT note FROM itemNotes WHERE itemID=?";
 				$note = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 			}
-			$this->noteText = $note ? $note : '';
+			$this->noteText = $note !== false ? $note : '';
 		}
 		
 		if ($this->noteText !== '' && $htmlspecialchars) {
@@ -2593,11 +2566,8 @@ class Zotero_Item {
 			trigger_error("setNote() can only be called on notes and attachments", E_USER_ERROR);
 		}
 		
-		$currentHash = $this->getNoteHash();
-		$hash = $text ? md5($text) : false;
-		if ($currentHash == $hash) {
-			Z_Core::debug("Note text hasn't changed in setNote()");
-			return;
+		if (!is_string($text)) {
+			$text = '';
 		}
 		
 		if (mb_strlen($text) > Zotero_Notes::$MAX_NOTE_LENGTH) {
@@ -2632,8 +2602,21 @@ class Zotero_Item {
 			throw new Exception($msg, Z_ERROR_NOTE_TOO_LONG);
 		}
 		
+		$sanitizedText = Zotero_Notes::sanitize($text);
+		
+		if ($sanitizedText === $this->getNote(true)) {
+			Z_Core::debug("Note text hasn't changed in setNote()");
+			return;
+		}
+		
 		$this->noteText = $text;
-		$this->noteTextSanitized = null;
+		// If sanitized version is the same as original, store empty string
+		if ($text === $sanitizedText) {
+			$this->noteTextSanitized = '';
+		}
+		else {
+			$this->noteTextSanitized = $sanitizedText;
+		}
 		$this->changed['note'] = true;
 	}
 	

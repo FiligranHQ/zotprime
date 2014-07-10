@@ -135,5 +135,13 @@ class NoteTests extends APITests {
 			"Note '&lt;p&gt;&lt;!-- 1234567890123456789012345678901234567890123456789012345678901234...' too long"
 		);
 	}
+	
+	
+	public function testSaveUnchangedSanitizedNote() {
+		$json = API::createNoteItem("<span >Foo</span>", false, $this, 'json');
+		$response = API::postItem($json['data']);
+		$json = API::getJSONFromResponse($response);
+		$this->assertArrayHasKey(0, $json['unchanged']);
+	}
 }
 ?>
