@@ -56,6 +56,7 @@ class Zotero_Errors {
 				$error['log'] = true;
 				break;
 			
+			case Z_ERROR_COLLECTION_NOT_FOUND:
 			// 404?
 			case Z_ERROR_TAG_NOT_FOUND:
 				$error['code'] = 400;

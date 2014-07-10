@@ -296,5 +296,10 @@ class CollectionTests extends APITests {
 		$this->assertContains($itemKey1, $keys);
 		$this->assertContains($itemKey2, $keys);
 	}
+	
+	public function testCollectionItemMissingCollection() {
+		$response = API::createItem("book", ['collections' => ["AAAAAAAA"]], $this, 'response');
+		$this->assert400ForObject($response, "Collection with key 'AAAAAAAA' not found");
+	}
 }
 ?>
