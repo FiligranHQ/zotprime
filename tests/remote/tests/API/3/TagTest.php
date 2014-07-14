@@ -189,6 +189,28 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function testKeyedItemWithTags() {
+		API::userClear(self::$config['userID']);
+		
+		// Create items with tags
+		require_once '../../model/ID.inc.php';
+		$itemKey = \Zotero_ID::getKey();
+		$json = API::createItem("book", [
+			"key" => $itemKey,
+			"version" => 0,
+			"tags" => [
+				["tag" => "a"],
+				["tag" => "b"]
+			]
+		], $this, 'responseJSON');
+		
+		$json = API::getItem($itemKey, $this, 'json')['data'];
+		$this->assertCount(2, $json['tags']);
+		$this->assertContains(['tag' => 'a'], $json['tags']);
+		$this->assertContains(['tag' => 'b'], $json['tags']);
+	}
+	
+	
 	public function testTagSearch() {
 		$tags1 = array("a", "aa", "b");
 		$tags2 = array("b", "c", "cc");

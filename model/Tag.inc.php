@@ -137,11 +137,6 @@ class Zotero_Tag {
 			return false;
 		}
 		
-		$item = Zotero_Items::getByLibraryAndKey($this->libraryID, $key);
-		if (!$item) {
-			throw new Exception("Can't link invalid item $key to tag {$this->libraryID}/{$this->key}");
-		}
-		
 		$this->prepFieldChange('linkedItems');
 		$this->linkedItems[] = $key;
 		return true;
