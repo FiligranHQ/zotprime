@@ -57,7 +57,9 @@ class Z_MemcachedClientLocal {
 				Memcached::OPT_BINARY_PROTOCOL => true,
 				Memcached::OPT_SERIALIZER => Memcached::SERIALIZER_IGBINARY,
 				Memcached::OPT_NO_BLOCK => true,
-				Memcached::OPT_TCP_NODELAY => true
+				Memcached::OPT_TCP_NODELAY => true,
+				Memcached::OPT_REMOVE_FAILED_SERVERS => true,
+				Memcached::OPT_RETRY_TIMEOUT => 10
 			]);
 			
 			// Add server connections
