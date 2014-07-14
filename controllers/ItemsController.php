@@ -447,7 +447,7 @@ class ItemsController extends ApiController {
 						
 						// Server-side translation
 						if (isset($obj->url)) {
-							if ($this->apiVersion < 2) {
+							if ($this->apiVersion == 1) {
 								Zotero_DB::beginTransaction();
 							}
 							
@@ -461,13 +461,13 @@ class ItemsController extends ApiController {
 								$this->queryParams
 							);
 							
-							if ($this->apiVersion < 2) {
+							if ($this->apiVersion == 1) {
 								Zotero_DB::commit();
 							}
 							// Multiple choices
 							if ($results instanceof stdClass) {
 								header("Content-Type: application/json");
-								if ($this->queryParams['v'] >= 3) {
+								if ($this->queryParams['v'] >= 2) {
 									echo Zotero_Utilities::formatJSON([
 										'url' => $obj->url,
 										'token' => $token,
@@ -491,7 +491,7 @@ class ItemsController extends ApiController {
 								}
 							}
 							// In v1, return data for saved items
-							else if ($this->apiVersion < 2) {
+							else if ($this->apiVersion == 1) {
 								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
 								$keys = array_merge(
 									get_object_vars($results['success']),
@@ -1070,22 +1070,25 @@ class ItemsController extends ApiController {
 	 * Get a token to pass to the translation server to retain state for multi-item saves
 	 */
 	protected function getTranslationToken($obj) {
-		$allowExplicitToken = $this->queryParams['v'] >= 3 || ($this->queryParams['v'] == 1 && Z_ENV_TESTING_SITE);
+		$allowExplicitToken = $this->queryParams['v'] >= 2 || ($this->queryParams['v'] == 1 && Z_ENV_TESTING_SITE);
 		
 		if ($allowExplicitToken && isset($obj->token)) {
+			if (!isset($obj->items)) {
+				throw new Exception("'token' is valid only for item selection requests", Z_ERROR_INVALID_INPUT);
+			}
 			return $obj->token;
 		}
 		
-		// If not cookie auth, generate a token automatically
-		if (!$this->cookieAuth) {
-			if (!$allowExplicitToken) {
-				return false;
-			}
-			if (isset($obj->items)) {
-				throw new Exception("Token not provided with selected items", Z_ERROR_INVALID_INPUT);
-			}
-			return md5($this->userID . $_SERVER['REMOTE_ADDR'] . uniqid());
+		// Bookmarklet uses cookie auth with v1
+		if ($this->queryParams['v'] == 1 && $this->cookieAuth) {
+			return md5($this->userID . $_GET['session']);
 		}
-		return md5($this->userID . $_GET['session']);
+		if (!$allowExplicitToken) {
+			return false;
+		}
+		if (isset($obj->items)) {
+			throw new Exception("Token not provided with selected items", Z_ERROR_INVALID_INPUT);
+		}
+		return md5($this->userID . $_SERVER['REMOTE_ADDR'] . uniqid());
 	}
 }

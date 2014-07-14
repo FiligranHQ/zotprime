@@ -163,4 +163,18 @@ class TranslationTests extends APITests {
 		$data = API::getItem($itemKey, $this, 'json')['data'];
 		$this->assertEquals($title, $data['title']);
 	}
+	
+	
+	public function testWebTranslationInvalidToken() {
+		$response = API::userPost(
+			self::$config['userID'],
+			"items?key=" . self::$config['apiKey'],
+			json_encode([
+				"url" => "http://www.amazon.com/s/field-keywords=zotero",
+				"token" => md5(uniqid())
+			]),
+			["Content-Type: application/json"]
+		);
+		$this->assert400($response, "'token' is valid only for item selection requests");
+	}
 }
