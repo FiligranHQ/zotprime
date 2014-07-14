@@ -587,17 +587,6 @@ class ApiController extends Controller {
 	}
 	
 	
-	/**
-	 * Get a token to pass to the translation server to retain state for multi-item saves
-	 */
-	protected function getTranslationToken() {
-		if (!$this->cookieAuth) {
-			return false;
-		}
-		return md5($this->userID . $_GET['session']);
-	}
-	
-	
 	protected function getWriteTokenCacheKey() {
 		if (empty($_SERVER['HTTP_ZOTERO_WRITE_TOKEN'])) {
 			return false;

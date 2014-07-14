@@ -451,23 +451,35 @@ class ItemsController extends ApiController {
 								Zotero_DB::beginTransaction();
 							}
 							
+							$token = $this->getTranslationToken($obj);
+							
 							$results = Zotero_Items::addFromURL(
 								$obj,
 								$this->objectLibraryID,
 								$this->userID,
-								$this->getTranslationToken(),
+								$token,
 								$this->queryParams
 							);
 							
 							if ($this->apiVersion < 2) {
 								Zotero_DB::commit();
 							}
-							
+							// Multiple choices
 							if ($results instanceof stdClass) {
 								header("Content-Type: application/json");
-								echo json_encode($results->select);
+								if ($this->queryParams['v'] >= 3) {
+									echo Zotero_Utilities::formatJSON([
+										'url' => $obj->url,
+										'token' => $token,
+										'items' => $results->select
+									]);
+								}
+								else {
+									echo Zotero_Utilities::formatJSON($results->select);
+								}
 								$this->e300();
 							}
+							// Error from translation server
 							else if (is_int($results)) {
 								switch ($results) {
 									case 501:
@@ -478,6 +490,7 @@ class ItemsController extends ApiController {
 										$this->e500("Error translating URL");
 								}
 							}
+							// In v1, return data for saved items
 							else if ($this->apiVersion < 2) {
 								$uri = Zotero_API::getItemsURI($this->objectLibraryID);
 								$keys = array_merge(
@@ -503,14 +516,7 @@ class ItemsController extends ApiController {
 									$this->permissions
 								);
 							}
-							// FIXME
-							else {
-								$keys = $response;
-								
-								if (!$keys) {
-									throw new Exception("No items added");
-								}
-							}
+							// Otherwise return write status report
 						}
 						// Uploaded items
 						else {
@@ -1057,5 +1063,29 @@ class ItemsController extends ApiController {
 			}
 		}
 		exit;
+	}
+	
+	
+	/**
+	 * Get a token to pass to the translation server to retain state for multi-item saves
+	 */
+	protected function getTranslationToken($obj) {
+		$allowExplicitToken = $this->queryParams['v'] >= 3 || ($this->queryParams['v'] == 1 && Z_ENV_TESTING_SITE);
+		
+		if ($allowExplicitToken && isset($obj->token)) {
+			return $obj->token;
+		}
+		
+		// If not cookie auth, generate a token automatically
+		if (!$this->cookieAuth) {
+			if (!$allowExplicitToken) {
+				return false;
+			}
+			if (isset($obj->items)) {
+				throw new Exception("Token not provided with selected items", Z_ERROR_INVALID_INPUT);
+			}
+			return md5($this->userID . $_SERVER['REMOTE_ADDR'] . uniqid());
+		}
+		return md5($this->userID . $_GET['session']);
 	}
 }

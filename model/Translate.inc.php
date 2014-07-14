@@ -117,10 +117,14 @@ class Zotero_Translate {
 	
 	
 	public static function doWeb($url, $sessionKey, $items=false) {
-		$json = array(
+		if (!$sessionKey) {
+			throw new Exception("Session key not provided");
+		}
+		
+		$json = [
 			"url" => $url,
 			"sessionid" => $sessionKey
-		);
+		];
 		
 		if ($items) {
 			$json['items'] = $items;
@@ -156,7 +160,7 @@ class Zotero_Translate {
 			$mimeType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
 			
 			if ($code != 200 && $code != 300) {
-				// For explicit errors, trust translation server and bail
+				// For explicit errors, trust translation server and bail with response code
 				if ($code == 500 && strpos($response, "An error occurred during translation") !== false) {
 					error_log("Error translating $url");
 					return 500;
@@ -187,9 +191,11 @@ class Zotero_Translate {
 		$response = json_decode($response);
 		
 		$obj = new stdClass;
+		// Multiple choices
 		if ($code == 300) {
 			$obj->select = $response;
 		}
+		// Saved items
 		else {
 			$obj->items = $response;
 		}

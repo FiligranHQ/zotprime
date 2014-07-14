@@ -1599,10 +1599,11 @@ class Zotero_Items extends Zotero_DataObjects {
 	 *   "url": "http://..."
 	 * }
 	 *
-	 * Item selection for multi-item results
+	 * Item selection for multi-item results:
 	 *
 	 * {
 	 *   "url": "http://...",
+	 *   "token": "<token>"
 	 *   "items": {
 	 *     "0": "Item 1 Title",
 	 *     "3": "Item 2 Title"
@@ -1613,7 +1614,27 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * with a 'select' property containing an array of titles for multi-item results
 	 */
 	public static function addFromURL($json, $libraryID, $userID, $translationToken, $requestParams) {
-		self::validateJSONURL($json);
+		if (!$translationToken) {
+			throw new Exception("Translation token not provided");
+		}
+		
+		self::validateJSONURL($json, $requestParams);
+		
+		$cacheKey = 'addFromURLKeyMappings_' . md5($json->url . $translationToken);
+		
+		// Replace numeric keys with URLs for selected items
+		if (isset($json->items) && $requestParams['v'] >= 2) {
+			$keyMappings = Z_Core::$MC->get($cacheKey);
+			$newItems = [];
+			foreach ($json->items as $number => $title) {
+				if (!isset($keyMappings[$number])) {
+					throw new Exception("Index '$number' not found for URL and token", Z_ERROR_INVALID_INPUT);
+				}
+				$url = $keyMappings[$number];
+				$newItems[$url] = $title;
+			}
+			$json->items = $newItems;
+		}
 		
 		$response = Zotero_Translate::doWeb(
 			$json->url,
@@ -1626,17 +1647,57 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		if (isset($response->items)) {
+			if ($requestParams['v'] >= 2) {
+				$response = $response->items;
+				
+				for ($i=0, $len=sizeOf($response); $i<$len; $i++) {
+					// Assign key here so that we can add notes if necessary
+					do {
+						$itemKey = Zotero_ID::getKey();
+					}
+					while (Zotero_Items::existsByLibraryAndKey($libraryID, $itemKey));
+					$response[$i]->key = $itemKey;
+					
+					// Pull out notes and stick in separate items
+					if (isset($response[$i]->notes)) {
+						foreach ($response[$i]->notes as $note) {
+							$newNote = (object) [
+								"itemType" => "note",
+								"note" => $note->note,
+								"parentItem" => $itemKey
+							];
+							$response[] = $newNote;
+						}
+						unset($response[$i]->notes);
+					}
+					
+					// TODO: link attachments, or not possible from translation-server?
+				}
+			}
 			try {
 				self::validateMultiObjectJSON($response, $requestParams);
 			}
 			catch (Exception $e) {
 				error_log($e);
-				error_log($response);
+				error_log(json_encode($response));
 				throw new Exception("Invalid JSON from doWeb()");
 			}
 		}
 		// Multi-item select
 		else if (isset($response->select)) {
+			// Replace URLs with numeric keys for found items
+			if ($requestParams['v'] >= 2) {
+				$keyMappings = [];
+				$newItems = new stdClass;
+				$number = 0;
+				foreach ($response->select as $url => $title) {
+					$keyMappings[$number] = $url;
+					$newItems->$number = $title;
+					$number++;
+				}
+				Z_Core::$MC->set($cacheKey, $keyMappings, 600);
+				$response->select = $newItems;
+			}
 			return $response;
 		}
 		else {
@@ -2350,8 +2411,20 @@ class Zotero_Items extends Zotero_DataObjects {
 			throw new Exception("URL not provided");
 		}
 		
-		foreach ($json as $key=>$val) {
-			if (!in_array($key, array('url', 'items'))) {
+		if (!is_string($json->url)) {
+			throw new Exception("'url' must be a string", Z_ERROR_INVALID_INPUT);
+		}
+		
+		if (isset($json->items) && !is_object($json->items)) {
+			throw new Exception("'items' must be an object", Z_ERROR_INVALID_INPUT);
+		}
+		
+		if (isset($json->token) && !is_string($json->token)) {
+			throw new Exception("Invalid token", Z_ERROR_INVALID_INPUT);
+		}
+		
+		foreach ($json as $key => $val) {
+			if (!in_array($key, array('url', 'token', 'items'))) {
 				throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 			}
 			
