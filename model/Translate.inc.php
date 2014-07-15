@@ -121,6 +121,13 @@ class Zotero_Translate {
 			throw new Exception("Session key not provided");
 		}
 		
+		$servers = Z_CONFIG::$TRANSLATION_SERVERS;
+		
+		// Try servers in a random order
+		shuffle($servers);
+		
+		$cacheKey = 'sessionTranslationServer_' . $sessionKey;
+		
 		$json = [
 			"url" => $url,
 			"sessionid" => $sessionKey
@@ -128,16 +135,18 @@ class Zotero_Translate {
 		
 		if ($items) {
 			$json['items'] = $items;
+			
+			// Send session requests to the same node
+			if ($server = Z_Core::$MC->get($cacheKey)) {
+				$servers = [$server];
+			}
+			else {
+				error_log("WARNING: Server not found for translation session");
+			}
 		}
 		
 		$json = json_encode($json);
 		
-		$servers = Z_CONFIG::$TRANSLATION_SERVERS;
-		
-		// Try servers in a random order
-		//
-		// TODO: send a 300 follow-up to the same node
-		shuffle($servers);
 		
 		foreach ($servers as $server) {
 			$serverURL = "http://$server/web";
@@ -181,6 +190,10 @@ class Zotero_Translate {
 				$response = "";
 			}
 			
+			// Remember translation-server node for item selection
+			if ($code == 300) {
+				Z_Core::$MC->set($cacheKey, $server, 600);
+			}
 			break;
 		}
 		
