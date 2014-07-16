@@ -358,12 +358,20 @@ class ItemsController extends ApiController {
 						$this->permissions
 					);
 				}
+				// Deleted items
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
 					
 					$title = "Deleted Items";
-					$itemIDs = Zotero_Items::getDeleted($this->objectLibraryID, true);
+					$this->queryParams['trashedItemsOnly'] = true;
 					$includeTrashed = true;
+					$results = Zotero_Items::search(
+						$this->objectLibraryID,
+						false,
+						$this->queryParams,
+						$includeTrashed,
+						$this->permissions
+					);
 				}
 				else if ($this->subset == 'children') {
 					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);

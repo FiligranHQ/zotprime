@@ -1544,6 +1544,35 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testTrash() {
+		API::userClear(self::$config['userID']);
+		
+		$key1 = API::createItem("book", false, $this, 'key');
+		
+		$key2 = API::createItem("book", [
+			"deleted" => 1
+		], $this, 'key');
+		
+		// Item should show up in trash
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/trash"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(1, $json);
+		$this->assertEquals($key2, $json[0]['key']);
+		
+		// And not show up in main items
+		$response = API::userGet(
+			self::$config['userID'],
+			"items"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(1, $json);
+		$this->assertEquals($key1, $json[0]['key']);
+	}
+	
+	
 	public function testParentItem() {
 		$json = API::createItem("book", false, $this, 'jsonData');
 		$parentKey = $json['key'];

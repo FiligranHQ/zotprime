@@ -216,7 +216,12 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN "
 					. "(" . implode(',', $dateFieldIDs) . ")) ";
 		}
-		if (!$includeTrashed) {
+		if ($includeTrashed) {
+			if (!empty($params['trashedItemsOnly'])) {
+				$sql .= "JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
+			}
+		}
+		else {
 			$sql .= "LEFT JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
 			
 			// In /top mode, we don't want to show results for deleted parents or children
