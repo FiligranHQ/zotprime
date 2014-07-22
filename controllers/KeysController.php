@@ -31,6 +31,8 @@ class KeysController extends ApiController {
 		$userID = $this->objectUserID;
 		$key = $this->objectName;
 		
+		$this->allowMethods(['GET', 'POST', 'PUT', 'DELETE']);
+		
 		if ($this->method == 'GET') {
 			// Single key
 			if ($key) {
@@ -94,6 +96,24 @@ class KeysController extends ApiController {
 					}
 				}
 			}
+		}
+		
+		else if ($this->method == 'DELETE') {
+			if (!$key) {
+				$this->e400("DELETE requests must end with a key");
+			}
+			
+			Zotero_DB::beginTransaction();
+			
+			$keyObj = Zotero_Keys::getByKey($key);
+			if (!$keyObj) {
+				$this->e404("Key '$key' does not exist");
+			}
+			$keyObj->erase();
+			Zotero_DB::commit();
+			
+			header("HTTP/1.1 204 No Content");
+			exit;
 		}
 		
 		else {
@@ -236,24 +256,6 @@ class KeysController extends ApiController {
 				}
 				
 				Zotero_DB::commit();
-			}
-			
-			else if ($this->method == 'DELETE') {
-				if (!$key) {
-					$this->e400("DELETE requests must end with a key");
-				}
-				
-				Zotero_DB::beginTransaction();
-				
-				$keyObj = Zotero_Keys::getByKey($key);
-				if (!$keyObj) {
-					$this->e404("Key '$key' does not exist");
-				}
-				$keyObj->erase();
-				Zotero_DB::commit();
-				
-				header("HTTP/1.1 204 No Content");
-				exit;
 			}
 		}
 		

@@ -220,8 +220,10 @@ class ApiController extends Controller {
 				}
 				
 				// Explicit auth request or not a GET request
-				if ($this->method != "GET") {
-					$this->e403('You must specify a key to access the Zotero API.');
+				//
+				// /users/<id>/keys is an exception, since the key is embedded in the URL
+				if ($this->method != "GET" && $this->action != 'keys') {
+					$this->e403('An API key is required for write requests.');
 				}
 				
 				// Anonymous request
