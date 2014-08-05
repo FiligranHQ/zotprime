@@ -144,6 +144,56 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testDateWithoutDay() {
+		$date = 'Sept 2012';
+		$parsedDate = '2012-09';
+		
+		$json = API::createItem("book", array(
+			"date" => $date
+		), $this, 'jsonData');
+		$key = $json['key'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($date, $json['data']['date']);
+		
+		// meta.parsedDate (JSON)
+		$this->assertEquals($parsedDate, $json['meta']['parsedDate']);
+		
+		// zapi:parsedDate (Atom)
+		$xml = API::getItem($key, $this, 'atom');
+		$this->assertEquals($parsedDate, array_shift($xml->xpath('/atom:entry/zapi:parsedDate')));
+	}
+	
+	
+	public function testDateWithoutMonth() {
+		$date = '2012';
+		$parsedDate = '2012';
+		
+		$json = API::createItem("book", array(
+			"date" => $date
+		), $this, 'jsonData');
+		$key = $json['key'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($date, $json['data']['date']);
+		
+		// meta.parsedDate (JSON)
+		$this->assertEquals($parsedDate, $json['meta']['parsedDate']);
+		
+		// zapi:parsedDate (Atom)
+		$xml = API::getItem($key, $this, 'atom');
+		$this->assertEquals($parsedDate, array_shift($xml->xpath('/atom:entry/zapi:parsedDate')));
+	}
+	
+	
 	public function testDateAccessed8601() {
 		$date = '2014-02-01T01:23:45Z';
 		$data = API::createItem("book", array(

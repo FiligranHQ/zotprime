@@ -3589,7 +3589,7 @@ class Zotero_Item {
 			if ($val !== '') {
 				$sqlDate = Zotero_Date::multipartToSQL($val);
 				if (substr($sqlDate, 0, 4) !== '0000') {
-					$json['meta']->parsedDate = $sqlDate;
+					$json['meta']->parsedDate = Zotero_Date::sqlToISO8601($sqlDate);
 				}
 			}
 			

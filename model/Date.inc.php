@@ -329,14 +329,24 @@ class Zotero_Date {
 	
 	public static function sqlToISO8601($sqlDate) {
 		$date = substr($sqlDate, 0, 10);
-		// Replace '00' with '01' in month and day
-		$date = str_replace("-00-", "-01-", $date);
-		$date = str_replace("-00", "-01", $date);
-		$time = substr($sqlDate, 11);
-		if (!$time) {
-			$time = "00:00:00";
+		preg_match('/^([0-9]{4})\-([0-9]{2})\-([0-9]{2})/', $sqlDate, $matches);
+		if (!$matches) {
+			return false;
 		}
-		return $date . "T" . $time . "Z";
+		$date = $matches[1];
+		// Drop parts for reduced precision
+		if ($matches[2] !== "00") {
+			$date .= "-" . $matches[2];
+			if ($matches[3] !== "00") {
+				$date .= "-" . $matches[3];
+			}
+		}
+		$time = substr($sqlDate, 11);
+		// TODO: validate times
+		if ($time) {
+			$date .= "T" . $time . "Z";
+		}
+		return $date;
 	}
 	
 	

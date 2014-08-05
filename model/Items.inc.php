@@ -1391,7 +1391,11 @@ class Zotero_Items extends Zotero_DataObjects {
 				else {
 					$sqlDate = Zotero_Date::multipartToSQL($val);
 					if (substr($sqlDate, 0, 4) !== '0000') {
-						$xml->addChild('zapi:parsedDate', $sqlDate, Zotero_Atom::$nsZoteroAPI);
+						$xml->addChild(
+							'zapi:parsedDate',
+							Zotero_Date::sqlToISO8601($sqlDate),
+							Zotero_Atom::$nsZoteroAPI
+						);
 					}
 				}
 			}
