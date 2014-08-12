@@ -2085,6 +2085,12 @@ class Zotero_Item {
 										. "for item " . $this->libraryKey);
 									continue;
 								}
+								// If item has already changed, assume something else is taking
+								// care of saving it and don't do so now, to avoid endless loops
+								// with circular relations
+								if ($relatedItem->hasChanged()) {
+									continue;
+								}
 								$relatedItem->updateVersion($userID);
 							}
 						}
@@ -4159,7 +4165,11 @@ class Zotero_Item {
 			$this->libraryID, false, Zotero_Relations::$relatedItemPredicate, $itemURI
 		);
 		foreach ($reverseRelations as $rel) {
-			$relations[] = [$rel->predicate, $rel->subject];
+			$r = [$rel->predicate, $rel->subject];
+			// Only add if not already added in other direction
+			if (!in_array($r, $relations)) {
+				$relations[] = $r;
+			}
 		}
 		
 		// Also include any owl:sameAs relations with this item as the object

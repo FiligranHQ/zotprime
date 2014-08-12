@@ -480,65 +480,99 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testCircularRelatedItems() {
-		$keys = [
-			API::createItem("book", false, null, 'key'),
-			API::createItem("book", false, null, 'key'),
-			API::createItem("book", false, null, 'key')
+		$parentKey = API::createItem("book", false, null, 'key');
+		$noteKeys = [
+			API::createNoteItem("Note 1", $parentKey, null, 'key'),
+			API::createNoteItem("Note 2", $parentKey, null, 'key'),
+			API::createNoteItem("Note 3", $parentKey, null, 'key'),
+			API::createNoteItem("Note 4", $parentKey, null, 'key')
 		];
-		$keys[] = API::createAttachmentItem("linked_url", [], $keys[0], null, 'key');
 		
 		$xml = Sync::updated(self::$sessionID);
 		$updateKey = $xml['updateKey'];
 		
-		$item1XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[0]}']"));
-		$item2XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[1]}']"));
-		$item3XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[2]}']"));
-		$item4XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$keys[3]}']"));
+		$note1XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[0]}']"));
+		$note2XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[1]}']"));
+		$note3XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[2]}']"));
+		$note4XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[3]}']"));
 		
-		$item1XML['libraryID'] = self::$config['libraryID'];
-		$item2XML['libraryID'] = self::$config['libraryID'];
-		$item3XML['libraryID'] = self::$config['libraryID'];
-		$item4XML['libraryID'] = self::$config['libraryID'];
+		$note1XML['libraryID'] = self::$config['libraryID'];
+		$note2XML['libraryID'] = self::$config['libraryID'];
+		$note3XML['libraryID'] = self::$config['libraryID'];
+		$note4XML['libraryID'] = self::$config['libraryID'];
 		
-		$item1XML->related = implode(' ', [
-			(string) $item2XML['key'],
-			(string) $item3XML['key'],
-			(string) $item4XML['key']
+		$note1XML->related = implode(' ', [
+			$parentKey,
+			(string) $note2XML['key'],
+			(string) $note3XML['key'],
+			(string) $note4XML['key']
 		]);
 		
-		$item2XML->related = implode(' ', [
-			(string) $item1XML['key'],
-			(string) $item3XML['key'],
-			(string) $item4XML['key']
+		$note2XML->related = implode(' ', [
+			$parentKey,
+			(string) $note1XML['key'],
+			(string) $note3XML['key'],
+			(string) $note4XML['key']
 		]);
 		
-		$item3XML->related = implode(' ', [
-			(string) $item1XML['key'],
-			(string) $item2XML['key'],
-			(string) $item4XML['key']
+		$note3XML->related = implode(' ', [
+			$parentKey,
+			(string) $note1XML['key'],
+			(string) $note2XML['key'],
+			(string) $note4XML['key']
 		]);
 		
-		$item4XML->related = implode(' ', [
-			(string) $item1XML['key'],
-			(string) $item2XML['key'],
-			(string) $item3XML['key']
+		$note4XML->related = implode(' ', [
+			$parentKey,
+			(string) $note1XML['key'],
+			(string) $note2XML['key'],
+			(string) $note3XML['key']
 		]);
 		
 		$xmlstr = '<data version="9">'
 			. '<items>'
-			. $item1XML->asXML()
-			. $item2XML->asXML()
-			. $item3XML->asXML()
-			. $item4XML->asXML()
+			. $note1XML->asXML()
+			. $note2XML->asXML()
+			. $note3XML->asXML()
+			. $note4XML->asXML()
 			. '</items>'
 			. '</data>';
-		
-		var_dump($xmlstr);
 		
 		$response = Sync::upload(self::$sessionID, $updateKey, $xmlstr);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
 		$xml = Sync::updated(self::$sessionID);
-		var_dump($xml->asXML());
+		
+		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[0]}']"));
+		$keys = split(' ', $noteXML->related);
+		$this->assertCount(4, $keys);
+		$this->assertContains($parentKey, $keys);
+		$this->assertContains((string) $noteKeys[1], $keys);
+		$this->assertContains((string) $noteKeys[2], $keys);
+		$this->assertContains((string) $noteKeys[3], $keys);
+		
+		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[1]}']"));
+		$keys = split(' ', $noteXML->related);
+		$this->assertCount(4, $keys);
+		$this->assertContains($parentKey, $keys);
+		$this->assertContains((string) $noteKeys[0], $keys);
+		$this->assertContains((string) $noteKeys[2], $keys);
+		$this->assertContains((string) $noteKeys[3], $keys);
+		
+		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[2]}']"));
+		$keys = split(' ', $noteXML->related);
+		$this->assertCount(4, $keys);
+		$this->assertContains($parentKey, $keys);
+		$this->assertContains((string) $noteKeys[0], $keys);
+		$this->assertContains((string) $noteKeys[1], $keys);
+		$this->assertContains((string) $noteKeys[3], $keys);
+		
+		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[3]}']"));
+		$keys = split(' ', $noteXML->related);
+		$this->assertCount(4, $keys);
+		$this->assertContains($parentKey, $keys);
+		$this->assertContains((string) $noteKeys[0], $keys);
+		$this->assertContains((string) $noteKeys[1], $keys);
+		$this->assertContains((string) $noteKeys[2], $keys);
 	}
 }
