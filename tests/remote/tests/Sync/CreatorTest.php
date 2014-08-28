@@ -242,25 +242,60 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 	
 	
 	public function testEmptyCreator() {
-		$key = 'AAAAAAAA';
-		
 		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		
-		// Create item via sync
+		// Create creator via sync
 		$data = '<data version="9"><creators>'
 			. '<creator libraryID="' . self::$config['libraryID'] . '" '
-			. 'key="BBBBBBBB" dateAdded="2013-12-01 04:53:20" dateModified="2013-12-01 04:54:09">'
-			. '<name>' . chr(0xEF) . chr(0xBB) . chr(0xBF) . '</name>'
+			. 'key="AAAAAAAA" dateAdded="2013-12-01 03:53:20" dateModified="2013-12-01 03:54:09">'
+			. '<name></name>'
 			. '<fieldMode>1</fieldMode>'
-			. '</creator></creators></data>';
+			. '</creator>'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="BBBBBBBB" dateAdded="2013-12-01 04:53:20" dateModified="2013-12-01 04:54:09">'
+			. '<name>' . chr(0xEF) . chr(0xBB) . chr(0xBF) . '</name>' // \uFEFF
+			. '<fieldMode>1</fieldMode>'
+			. '</creator>'
+			. '</creators></data>';
 		$response = Sync::upload(self::$sessionID, $updateKey, $data);
 		Sync::waitForUpload(self::$sessionID, $response, $this);
 		
-		// Get creator via sync
+		// Creators should have been skipped
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		$this->assertEquals(0, sizeOf($xml->updated->creators->creator));
+		
+		// Create creator with valid name
+		$data = '<data version="9"><creators>'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="AAAAAAAA" dateAdded="2013-12-01 03:53:20" dateModified="2013-12-01 03:54:09">'
+			. '<name>Test</name>'
+			. '<fieldMode>1</fieldMode>'
+			. '</creator>'
+			. '</creators></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
 		$xml = Sync::updated(self::$sessionID);
 		$updateKey = (string) $xml['updateKey'];
 		$this->assertEquals(1, sizeOf($xml->updated->creators->creator));
-		var_dump($xml->asXML());
+		
+		// Update with empty
+		$data = '<data version="9"><creators>'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="AAAAAAAA" dateAdded="2013-12-01 03:53:20" dateModified="2013-12-01 03:54:09">'
+			. '<name>' . chr(0xEF) . chr(0xBB) . chr(0xBF) . '</name>'
+			. '<fieldMode>1</fieldMode>'
+			. '</creator>'
+			. '</creators></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		$this->assertEquals(1, sizeOf($xml->updated->creators->creator));
+		// Not ideal, but for now the updated creator should just be ignored
+		$this->assertEquals("Test", (string) $xml->updated->creators->creator->name);
 	}
 }

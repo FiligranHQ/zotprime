@@ -847,6 +847,10 @@ class Zotero_Items extends Zotero_DataObjects {
 						" does not match item creator key $key");
 				}
 			}
+			if (Zotero_Utilities::unicodeTrim($creatorObj->firstName) === ''
+					&& Zotero_Utilities::unicodeTrim($creatorObj->lastName) === '') {
+				continue;
+			}
 			$creatorTypeID = Zotero_CreatorTypes::getID($creator->getAttribute('creatorType'));
 			$itemObj->setCreator($pos, $creatorObj, $creatorTypeID);
 			$i++;
@@ -1791,20 +1795,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					}
 					
 					$orderIndex = -1;
-					
-					foreach ($val as $orderIndex=>$newCreatorData) {
-						if ((!isset($newCreatorData->name) || trim($newCreatorData->name) == "")
-								&& (!isset($newCreatorData->firstName) || trim($newCreatorData->firstName) == "")
-								&& (!isset($newCreatorData->lastName) || trim($newCreatorData->lastName) == "")) {
-							// This should never happen, because of check in validateJSONItem()
-							if ($exists) {
-								throw new Exception("Nameless creator in update request");
-							}
-							// On item creation, ignore creators with empty names,
-							// because that's in the item template that the API returns
-							break;
-						}
-						
+					foreach ($val as $newCreatorData) {
 						// JSON uses 'name' and 'firstName'/'lastName',
 						// so switch to just 'firstName'/'lastName'
 						if (isset($newCreatorData->name)) {
@@ -1816,6 +1807,14 @@ class Zotero_Items extends Zotero_DataObjects {
 						else {
 							$newCreatorData->fieldMode = 0;
 						}
+						
+						// Skip empty creators
+						if (Zotero_Utilities::unicodeTrim($newCreatorData->firstName) === ""
+								&& Zotero_Utilities::unicodeTrim($newCreatorData->lastName) === "") {
+							break;
+						}
+						
+						$orderIndex++;
 						
 						$newCreatorTypeID = Zotero_CreatorTypes::getID($newCreatorData->creatorType);
 						

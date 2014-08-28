@@ -168,12 +168,28 @@ class Zotero_Creators extends Zotero_DataObjects {
 		$xmlCreator->setAttributeNode(new DOMAttr('dateModified', $creator->dateModified));
 		
 		if ($creator->fieldMode == 1) {
-			$xmlCreator->appendChild(new DOMElement('name', htmlspecialchars($creator->lastName)));
+			$lastName = htmlspecialchars($creator->lastName);
+			
+			if (Zotero_Utilities::unicodeTrim($lastName) === "") {
+				error_log("Empty name for creator " . $creator->libraryID . "/" . $creator->key);
+				$lastName = json_decode('"\uFFFD"');
+			}
+			
+			$xmlCreator->appendChild(new DOMElement('name', $lastName));
 			$xmlCreator->appendChild(new DOMElement('fieldMode', 1));
 		}
 		else {
-			$xmlCreator->appendChild(new DOMElement('firstName', htmlspecialchars($creator->firstName)));
-			$xmlCreator->appendChild(new DOMElement('lastName', htmlspecialchars($creator->lastName)));
+			$firstName = htmlspecialchars($creator->firstName);
+			$lastName = htmlspecialchars($creator->lastName);
+			
+			if (Zotero_Utilities::unicodeTrim($firstName) === "" && Zotero_Utilities::unicodeTrim($lastName) === "") {
+				error_log("Empty first or last name for creator " . $creator->libraryID . "/" . $creator->key);
+				$firstName = json_decode('"\uFFFD"');
+				$lastName = json_decode('"\uFFFD"');
+			}
+			
+			$xmlCreator->appendChild(new DOMElement('firstName', $firstName));
+			$xmlCreator->appendChild(new DOMElement('lastName', $lastName));
 		}
 		
 		if ($creator->birthYear) {

@@ -150,6 +150,14 @@ class Zotero_Utilities {
 	}
 	
 	
+	/**
+	 * JavaScript-equivalent trim, which strips all Unicode whitespace
+	 */
+	public static function unicodeTrim($str) {
+		return preg_replace('/^[\pZ\pC]+|[\pZ\pC]+$/u','', $str);
+	}
+	
+	
 	public static function getObjectTypeFromObject($object) {
 		if (!preg_match("/(Item|Collection|Search|Setting)$/", get_class($object), $matches)) {
 			throw new Exception("Invalid object type");

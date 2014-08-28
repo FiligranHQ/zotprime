@@ -143,4 +143,17 @@ class CreatorTests extends APITests {
 		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Test et al.", $creatorSummary);
 	}
+	
+	
+	public function testEmptyCreator() {
+		$json = API::createItem("book", array(
+			"creators" => array(
+				array(
+					"creatorType" => "author",
+					"name" => chr(0xEF) . chr(0xBB) . chr(0xBF)
+				)
+			)
+		), $this, 'json');
+		$this->assertArrayNotHasKey('creatorSummary', $json['meta']);
+	}
 }

@@ -92,6 +92,11 @@ class Zotero_Creator {
 				$this->checkValue($field, $value);
 				$this->$field = $value;
 				return;
+			
+			case 'firstName':
+			case 'lastName':
+				$value = Zotero_Utilities::unicodeTrim($value);
+				break;
 		}
 		
 		if ($this->id || $this->key) {
@@ -105,7 +110,7 @@ class Zotero_Creator {
 		
 		$this->checkValue($field, $value);
 		
-		if ($this->$field != $value) {
+		if ($this->$field !== $value) {
 			$this->changed[$field] = true;
 			$this->$field = $value;
 		}

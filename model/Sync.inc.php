@@ -1431,6 +1431,10 @@ class Zotero_Sync {
 						$keys[$key] = true;
 						
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
+						if (Zotero_Utilities::unicodeTrim($creatorObj->firstName) === ''
+								&& Zotero_Utilities::unicodeTrim($creatorObj->lastName) === '') {
+							continue;
+						}
 						$addedLibraryIDs[] = $creatorObj->libraryID;
 						
 						$changed = $creatorObj->save($userID);
