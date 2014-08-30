@@ -296,6 +296,29 @@ class ParamsTests extends APITests {
 	}
 	
 	
+	// Test disabled because it's slow
+	/*public function testPaginationWithItemKey() {
+		$totalResults = 27;
+		
+		for ($i=0; $i<$totalResults; $i++) {
+			API::createItem("book", false, $this, 'key');
+		}
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&limit=50"
+		);
+		$keys = explode("\n", trim($response->getBody()));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=json&itemKey=" . join(",", $keys)
+		);
+		$json = API::getJSONFromResponse($response);;
+		$this->assertCount($totalResults, $json);
+	}*/
+	
+	
 	public function testCollectionQuickSearch() {
 		$title1 = "Test Title";
 		$title2 = "Another Title";
