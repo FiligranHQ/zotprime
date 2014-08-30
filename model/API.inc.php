@@ -26,6 +26,7 @@
 
 class Zotero_API {
 	const MAX_BIBLIOGRAPHY_ITEMS = 150;
+	const MAX_OBJECT_KEYS = 50;
 	
 	public static $maxWriteCollections = 50;
 	public static $maxWriteItems = 50;
@@ -459,6 +460,9 @@ class Zotero_API {
 					}
 				}
 				$queryParams[$key] = $objectKeys;
+				
+				// Force limit if explicit object keys are used
+				$finalParams['limit'] = self::MAX_OBJECT_KEYS;
 				break;
 			}
 			
