@@ -137,6 +137,20 @@ class NoteTests extends APITests {
 	}
 	
 	
+	public function testSaveHTML() {
+		$content = '<p>Foo &amp; Bar</p>';
+		$json = API::createNoteItem($content, false, $this, 'json');
+		$this->assertEquals($content, $json['data']['note']);
+	}
+	
+	
+	public function testSaveHTMLAtom() {
+		$content = '<p>Foo &amp; Bar</p>';
+		$xml = API::createNoteItem($content, false, $this, 'atom');
+		$this->assertEquals($content, json_decode($xml->content)->note);
+	}
+	
+	
 	public function testSaveUnchangedSanitizedNote() {
 		$json = API::createNoteItem("<span >Foo</span>", false, $this, 'json');
 		$response = API::postItem($json['data']);
