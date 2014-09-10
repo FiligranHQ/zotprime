@@ -239,7 +239,7 @@ class Zotero_API {
 						throw new Exception("'$key' is not valid for format=bib", Z_ERROR_INVALID_INPUT);
 					}
 				}
-				else if (in_array($format, array('keys', 'versions'))) {
+				else if ($apiVersion < 3 && in_array($format, array('keys', 'versions'))) {
 					switch ($key) {
 					// Invalid parameters
 					case 'start':
@@ -271,7 +271,7 @@ class Zotero_API {
 			case 'start':
 				$finalParams[$key] = (int) $queryParams[$key];
 				continue 2;
-				
+			
 			case 'limit':
 				// Maximum limit depends on 'format'
 				$limitMax = self::getLimitMax($format);
