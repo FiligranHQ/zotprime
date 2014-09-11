@@ -41,7 +41,7 @@ class DeletedController extends ApiController {
 		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 		
 		// TEMP: sync transition
-		if (isset($this->queryParams['sincetime'])) {
+		if ($this->queryParams['sincetime'] !== null) {
 			$deleted = array(
 				"collections" => Zotero_Collections::getDeleteLogKeys(
 					$this->objectLibraryID, $this->queryParams['sincetime'], true
@@ -63,7 +63,7 @@ class DeletedController extends ApiController {
 			$this->end();
 		}
 		
-		if (!isset($this->queryParams['since'])) {
+		if ($this->queryParams['since'] === null) {
 			$this->e400("'since' parameter must be provided");
 		}
 		

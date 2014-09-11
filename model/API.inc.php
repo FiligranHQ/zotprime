@@ -85,8 +85,8 @@ class Zotero_API {
 		'searchKey' => [],
 		'tag' => '',
 		'tagType' => '',
-		'since' => 0,
-		'sincetime' => 1,
+		'since' => null,
+		'sincetime' => null,
 		
 		'sort' => [
 			'v' => [

@@ -73,6 +73,7 @@ class ObjectTests extends APITests {
 		
 		$objectKeys['collection'][] = API::createCollection("Name", false, $this, 'key');
 		$objectKeys['collection'][] = API::createCollection("Name", false, $this, 'key');
+		$objectKeys['collection'][] = API::createCollection("Name", false, $this, 'key');
 		$objectKeys['item'][] = API::createItem(
 			"book",
 			array(
@@ -85,6 +86,8 @@ class ObjectTests extends APITests {
 			'key'
 		);
 		$objectKeys['item'][] = API::createItem("book", array("title" => "Title"), $this, 'key');
+		$objectKeys['item'][] = API::createItem("book", array("title" => "Title"), $this, 'key');
+		$objectKeys['search'][] = API::createSearch("Name", 'default', $this, 'key');
 		$objectKeys['search'][] = API::createSearch("Name", 'default', $this, 'key');
 		$objectKeys['search'][] = API::createSearch("Name", 'default', $this, 'key');
 		
@@ -93,9 +96,9 @@ class ObjectTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
 		);
-		$libraryVersion = $response->getHeader("Last-Modified-Version");
+		$libraryVersion1 = $response->getHeader("Last-Modified-Version");
 		
-		// Delete objects
+		// Delete first object
 		$config = self::$config;
 		$func = function ($objectType, $libraryVersion) use ($config, $self, $objectKeys) {
 			$objectTypePlural = API::getPluralObjectType($objectType);
@@ -103,20 +106,39 @@ class ObjectTests extends APITests {
 			$response = API::userDelete(
 				$config['userID'],
 				"$objectTypePlural?key=" . $config['apiKey']
-					. "&$keyProp=" . implode(',', $objectKeys[$objectType]),
+					. "&$keyProp=" . $objectKeys[$objectType][0],
 				array("If-Unmodified-Since-Version: " . $libraryVersion)
 			);
 			$self->assert204($response);
 			return $response->getHeader("Last-Modified-Version");
 		};
-		$newLibraryVersion = $func('collection', $libraryVersion);
-		$newLibraryVersion = $func('item', $newLibraryVersion);
-		$newLibraryVersion = $func('search', $newLibraryVersion);
+		$tempLibraryVersion = $func('collection', $libraryVersion1);
+		$tempLibraryVersion = $func('item', $tempLibraryVersion);
+		$tempLibraryVersion = $func('search', $tempLibraryVersion);
+		$libraryVersion2 = $tempLibraryVersion;
 		
-		// Request deleted objects
+		// Delete second and third objects
+		$func = function ($objectType, $libraryVersion) use ($config, $self, $objectKeys) {
+			$objectTypePlural = API::getPluralObjectType($objectType);
+			$keyProp = $objectType . "Key";
+			$response = API::userDelete(
+				$config['userID'],
+				"$objectTypePlural?key=" . $config['apiKey']
+					. "&$keyProp=" . implode(',', array_slice($objectKeys[$objectType], 1)),
+				array("If-Unmodified-Since-Version: " . $libraryVersion)
+			);
+			$self->assert204($response);
+			return $response->getHeader("Last-Modified-Version");
+		};
+		$tempLibraryVersion = $func('collection', $tempLibraryVersion);
+		$tempLibraryVersion = $func('item', $tempLibraryVersion);
+		$libraryVersion3 = $func('search', $tempLibraryVersion);
+		
+		
+		// Request all deleted objects
 		$response = API::userGet(
 			self::$config['userID'],
-			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion"
+			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion1"
 		);
 		$this->assert200($response);
 		$json = json_decode($response->getBody(), true);
@@ -137,21 +159,49 @@ class ObjectTests extends APITests {
 		$func($json, 'item', $objectKeys['item']);
 		$func($json, 'search', $objectKeys['search']);
 		// Tags aren't deleted by removing from items
-		$func($json, 'tag', array());
+		$func($json, 'tag', []);
+		
+		
+		// Request second and third deleted objects
+		$response = API::userGet(
+			self::$config['userID'],
+			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion2"
+		);
+		$this->assert200($response);
+		$json = json_decode($response->getBody(), true);
+		$version = $response->getHeader("Last-Modified-Version");
+		$this->assertNotNull($version);
+		$this->assertContentType("application/json", $response);
+		
+		// Verify keys
+		$func = function ($json, $objectType, $objectKeys) use ($self) {
+			$objectTypePlural = API::getPluralObjectType($objectType);
+			$self->assertArrayHasKey($objectTypePlural, $json);
+			$self->assertCount(sizeOf($objectKeys), $json[$objectTypePlural]);
+			foreach ($objectKeys as $key) {
+				$self->assertContains($key, $json[$objectTypePlural]);
+			}
+		};
+		$func($json, 'collection', array_slice($objectKeys['collection'], 1));
+		$func($json, 'item', array_slice($objectKeys['item'], 1));
+		$func($json, 'search', array_slice($objectKeys['search'], 1));
+		// Tags aren't deleted by removing from items
+		$func($json, 'tag', []);
+		
 		
 		// Explicit tag deletion
 		$response = API::userDelete(
 			self::$config['userID'],
 			"tags?key=" . self::$config['apiKey']
 			. "&tag=" . implode('%20||%20', $objectKeys['tag']),
-			array("If-Unmodified-Since-Version: " . $newLibraryVersion)
+			array("If-Unmodified-Since-Version: " . $libraryVersion3)
 		);
 		$self->assert204($response);
 		
 		// Verify deleted tags
 		$response = API::userGet(
 			self::$config['userID'],
-			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion"
+			"deleted?key=" . self::$config['apiKey'] . "&newer=$libraryVersion3"
 		);
 		$this->assert200($response);
 		$json = json_decode($response->getBody(), true);
