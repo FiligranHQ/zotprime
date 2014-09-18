@@ -378,7 +378,7 @@ class SyncController extends Controller {
 				}
 				
 				$locked = $this->responseXML->addChild('locked');
-				$locked['wait'] = 1;
+				$locked['wait'] = 1000;
 			}
 			else {
 				try {
