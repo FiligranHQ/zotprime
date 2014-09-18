@@ -11,8 +11,10 @@ require("header.inc.php");
 define('SET_NAME_EXISTING', 'storage:keys:existing');
 define('SET_NAME_S3', 'storage:keys:s3');
 define('SET_NAME_DIFF', 'storage:keys:diff');
-define('MAX_TIME', time() - (60 * 60 * 24 * 30 * 20)); // 6 months
+define('MAX_TIME', time() - (60 * 60 * 24 * 30 * 6)); // 6 months
 define('DRY_RUN', false);
+
+$startKey = empty($argv[1]) ? false : $argv[1];
 
 $redis = Z_Redis::get();
 
@@ -24,11 +26,17 @@ if (!$redis->srandmember(SET_NAME_EXISTING)) {
 $redis->del(SET_NAME_S3);
 $redis->del(SET_NAME_DIFF);
 
+echo "Listing objects on S3\n";
+
 // Get iterator for all files in S3
 $s3 = Z_Core::$AWS->get('s3');
-$iterator = $s3->getIterator('ListObjects', [
+$options = [
 	'Bucket' => Z_CONFIG::$S3_BUCKET
-]);
+];
+if ($startKey) {
+	$options['Marker'] = $startKey;
+}
+$iterator = $s3->getIterator('ListObjects', $options);
 
 $deleted = 0;
 $ignoredS3 = 0;
@@ -54,12 +62,18 @@ foreach ($iterator as $object) {
 	// Otherwise, add to Redis
 	$arr[] = $key;
 	$i++;
-	if ($i % 50 == 0) {
+	if ($i % 50000 == 0) {
 		call_user_func_array([$redis, "sadd"], $arr);
 		$result = deleteFromS3();
 		$deleted += $result['deleted'];
 		$ignoredDB += $result['ignoredDB'];
 		$arr = [SET_NAME_S3];
+		
+		echo "Deleted: " . number_format($deleted) . "\n";
+		echo "Ignored (S3): " . number_format($ignoredS3) . "\n";
+		echo "Ignored (DB): " . number_format($ignoredDB) . "\n";
+		echo "Index is $i\n";
+		sleep(1);
 	}
 }
 if (sizeOf($arr) > 1) {
@@ -130,7 +144,7 @@ function deleteFromS3() {
 				echo json_encode($options) . "\n";
 			}
 			else {
-				$S3->deleteObjects($obj);
+				$s3->deleteObjects($options);
 			}
 			$toDelete = [];
 		}

@@ -52,6 +52,50 @@ foreach ($shardIDs as $shardID) {
 	echo "Inserted " . $inserted . " storageFileIDs\n";
 }
 
+//
+// Join against storageFiles to get the S3 key names
+//
+$info = Zotero_DBConnectAuth('master');
+$masterDB = new mysqli($info['host'], $info['user'], $info['pass'], $info['db'], $info['port']);
+$masterDB->set_charset('utf8');
+
+$sql = "SELECT CONCAT(hash, '/', IF(zip=1, 'c/', ''), filename) AS `key` "
+	. "FROM storageFilesExisting JOIN storageFiles USING (storageFileID) ORDER BY storageFileID LIMIT ";
+$offset = 0;
+$prefetch = 50000;
+$numRows = 100000;
+while (true) {
+	echo "Getting $numRows rows starting at $offset\n";
+	
+	$stmt = $masterDB->prepare($sql . "$offset, $numRows") or die($masterDB->error);
+	$stmt->attr_set(MYSQLI_STMT_ATTR_CURSOR_TYPE, MYSQLI_CURSOR_TYPE_READ_ONLY);
+	$stmt->attr_set(MYSQLI_STMT_ATTR_PREFETCH_ROWS, $prefetch);
+	$stmt->execute();
+	$stmt->bind_result($key);
+	
+	// Add keys to redis set
+	$i = 0;
+	$arr = [SET_NAME_EXISTING];
+	while ($stmt->fetch()) {
+		$arr[] = $key;
+		$i++;
+		if ($i % 50 == 0) {
+			call_user_func_array([$redis, "sadd"], $arr);
+			$arr = [SET_NAME_EXISTING];
+		}
+	}
+	if (sizeOf($arr) > 1) {
+		call_user_func_array([$redis, "sadd"], $arr);
+	}
+	$stmt->close();
+	
+	if ($i == 0) {
+		break;
+	}
+	
+	$offset += $numRows;
+}
+
 // Join against storageFiles to get the S3 key names
 $sql = "SELECT CONCAT(hash, '/', IF(zip=1, 'c/', ''), filename) AS `key` "
 	. "FROM storageFilesExisting JOIN storageFiles USING (storageFileID) ORDER BY storageFileID";
