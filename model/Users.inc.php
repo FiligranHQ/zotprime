@@ -29,11 +29,17 @@ class Zotero_Users {
 	
 	private static $usernamesByID = [];
 	private static $realNamesByID = [];
+	private static $userLibraryIDs = [];
+	private static $libraryUserIDs = [];
 	
 	public static function getLibraryIDFromUserID($userID) {
+		if (isset(self::$userLibraryIDs[$userID])) {
+			return self::$userLibraryIDs[$userID];
+		}
 		$cacheKey = 'userLibraryID_' . $userID;
 		$libraryID = Z_Core::$MC->get($cacheKey);
 		if ($libraryID) {
+			self::$userLibraryIDs[$libraryID] = $libraryID;
 			return $libraryID;
 		}
 		$sql = "SELECT libraryID FROM users WHERE userID=?";
@@ -41,15 +47,20 @@ class Zotero_Users {
 		if (!$libraryID) {
 			throw new Exception("User $userID does not exist", Z_ERROR_USER_NOT_FOUND);
 		}
+		self::$userLibraryIDs[$userID] = $libraryID;
 		Z_Core::$MC->set($cacheKey, $libraryID);
 		return $libraryID;
 	}
 	
 	
 	public static function getUserIDFromLibraryID($libraryID) {
+		if (isset(self::$libraryUserIDs[$libraryID])) {
+			return self::$libraryUserIDs[$libraryID];
+		}
 		$cacheKey = 'libraryUserID_' . $libraryID;
 		$userID = Z_Core::$MC->get($cacheKey);
 		if ($userID) {
+			self::$libraryUserIDs[$libraryID] = $userID;
 			return $userID;
 		}
 		$sql = "SELECT userID FROM users WHERE libraryID=?";
@@ -57,6 +68,7 @@ class Zotero_Users {
 		if (!$userID) {
 			throw new Exception("User with libraryID $libraryID does not exist");
 		}
+		self::$libraryUserIDs[$libraryID] = $userID;
 		Z_Core::$MC->set($cacheKey, $userID);
 		return $userID;
 	}
