@@ -322,13 +322,20 @@ class ApiController extends Controller {
 			$atomAccepted = in_array('application/atom+xml', $accept);
 		}
 		
+		$apiVersion = !empty($_SERVER['HTTP_ZOTERO_API_VERSION'])
+				? (int) $_SERVER['HTTP_ZOTERO_API_VERSION']
+				: false;
+		// Serve v1 to ZotPad 1.x, at Mikko's request
+		if (!$apiVersion && !empty($_SERVER['HTTP_USER_AGENT'])
+				&& strpos($_SERVER['HTTP_USER_AGENT'], 'ZotPad 1') === 0) {
+			$apiVersion = 1;
+		}
+		
 		$this->queryParams = Zotero_API::parseQueryParams(
 			$_SERVER['QUERY_STRING'],
 			$this->action,
 			$this->singleObject,
-			!empty($_SERVER['HTTP_ZOTERO_API_VERSION'])
-				? (int) $_SERVER['HTTP_ZOTERO_API_VERSION']
-				: false,
+			$apiVersion,
 			$atomAccepted
 		);
 		
