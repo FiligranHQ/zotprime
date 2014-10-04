@@ -36,104 +36,74 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 		$password = $data['password'];
 		$isEmailAddress = strpos($username, '@') !== false;
 		
-		$cacheKey = 'userAuthHash_' . sha1($username . $salt . $password);
+		$cacheKey = 'userAuthHash_' . hash('sha256', $username . password_hash($password, PASSWORD_DEFAULT));
 		$userID = Z_Core::$MC->get($cacheKey);
 		if ($userID) {
 			return $userID;
 		}
 		
-		// Query the database looking for a salted SHA1 password
-		$passwordSha1 = sha1($salt . $password);
+		// Username
 		if (!$isEmailAddress) {
-			// Try username
-			$sql = "SELECT userID, username FROM $databaseName.users
-					   WHERE username = ? AND password = ?
-					   LIMIT 1";
-			$params = array($username, $passwordSha1);
-			try {
-				$retry = true;
-				$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				if (!$row) {
-					$retry = false;
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-			}
-			catch (Exception $e) {
-				if ($retry) {
-					Z_Core::logError("WARNING: $e -- retrying on primary");
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-			}
+			$sql = "SELECT userID, username, password AS hash FROM $databaseName.users WHERE username=?";
+			$params = [$username];
 		}
 		else {
-			// Try both username and e-mail address
-			$sql = "SELECT userID, username FROM $databaseName.users
-					   WHERE username = ? AND password = ?
-					   UNION
-					   SELECT userID, username FROM $databaseName.users
-					   WHERE email = ? AND password = ?
-					   ORDER BY username = ? DESC
-					   LIMIT 1";
-			$params = array($username, $passwordSha1, $username, $passwordSha1, $username);
-			try {
-				$retry = true;
-				$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				if (!$row) {
-					$retry = false;
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
+			$sql = "SELECT userID, username, password AS hash FROM $databaseName.users
+			   WHERE username = ?
+			   UNION
+			   SELECT userID, username, password AS hash FROM $databaseName.users
+			   WHERE email = ?
+			   ORDER BY username = ? DESC";
+			$params = [$username, $username, $username];
+		}
+		
+		try {
+			$retry = true;
+			$rows = Zotero_WWW_DB_2::query($sql, $params);
+			if (!$rows) {
+				$retry = false;
+				$rows = Zotero_WWW_DB_1::query($sql, $params);
 			}
-			catch (Exception $e) {
-				if ($retry) {
-					Z_Core::logError("WARNING: $e -- retrying on primary");
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
+		}
+		catch (Exception $e) {
+			if ($retry) {
+				Z_Core::logError("WARNING: $e -- retrying on primary");
+				$rows = Zotero_WWW_DB_1::query($sql, $params);
 			}
 		}
 		
-		// If not found, check for an MD5 password
-		if (!$row) {
-			$passwordMd5 = md5($password);
-			if (!$isEmailAddress) {
-				// Try username
-				$sql = "SELECT userID, username FROM $databaseName.users
-						   WHERE username = ? AND password = ? LIMIT 1";
-				$params = array($username, $passwordMd5);
-				try {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					Z_Core::logError("WARNING: $e -- retrying on primary");
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-			}
-			else {
-				// Try both username and e-mail address
-				$sql = "SELECT userID, username FROM $databaseName.users
-						   WHERE username = ? AND password = ?
-						   UNION
-						   SELECT userID, username FROM $databaseName.users
-						   WHERE email = ? AND password = ?
-						   ORDER BY username = ? DESC
-						   LIMIT 1";
-				$params = array($username, $passwordMd5, $username, $passwordMd5, $username);
-				try {
-					$row = Zotero_WWW_DB_2::rowQuery($sql, $params);
-				}
-				catch (Exception $e) {
-					Z_Core::logError("WARNING: $e -- retrying on primary");
-					$row = Zotero_WWW_DB_1::rowQuery($sql, $params);
-				}
-			}
-		}
-		
-		if (!$row) {
+		if (!$rows) {
 			return false;
 		}
 		
-		self::updateUser($row['userID'], $row['username']);
-		Z_Core::$MC->set($cacheKey, $row['userID'], 60);
-		return $row['userID'];
+		$found = false;
+		foreach ($rows as $row) {
+			// Try bcrypt
+			$found = password_verify($password, $row['hash']);
+			
+			// Try salted SHA1
+			if (!$found) {
+				$found = sha1($salt . $password) == $row['hash'];
+			}
+			
+			// Try MD5
+			if (!$found) {
+				$found = md5($password) == $row['hash'];
+			}
+			
+			if ($found) {
+				$foundRow = $row;
+				break;
+			}
+		}
+		
+		if (!$found) {
+			return false;
+		}
+		
+		self::updateUser($foundRow['userID'], $foundRow['username']);
+		Z_Core::$MC->set($cacheKey, $foundRow['userID'], 60);
+		return $foundRow['userID'];
 	}
 	
 	
