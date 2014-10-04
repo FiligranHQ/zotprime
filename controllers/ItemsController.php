@@ -598,7 +598,7 @@ class ItemsController extends ApiController {
 			}
 			
 			if ($this->queryParams['format'] == 'bib') {
-				if (($itemIDs ? sizeOf($itemIDs) : $results['total']) > Zotero_API::MAX_BIBLIOGRAPHY_ITEMS) {
+				if (($itemIDs ? sizeOf($itemIDs) : (!empty($results) ? $results['total'] : 0)) > Zotero_API::MAX_BIBLIOGRAPHY_ITEMS) {
 					$this->e413("Cannot generate bibliography with more than " . Zotero_API::MAX_BIBLIOGRAPHY_ITEMS . " items");
 				}
 			}
@@ -638,7 +638,9 @@ class ItemsController extends ApiController {
 					if ($this->method == 'HEAD') {
 						break;
 					}
-					echo Zotero_Cite::getBibliographyFromCitationServer($results['results'], $this->queryParams);
+					if (isset($results['results'])) {
+						echo Zotero_Cite::getBibliographyFromCitationServer($results['results'], $this->queryParams);
+					}
 					break;
 				
 				case 'csljson':
