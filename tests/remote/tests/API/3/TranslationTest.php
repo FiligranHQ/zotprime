@@ -81,8 +81,9 @@ class TranslationTests extends APITests {
 		$itemKey = $json['success'][0];
 		$data = API::getItem($itemKey, $this, 'json')['data'];
 		$this->assertEquals($title, $data['title']);
-		$this->assertCount(1, $data['tags']);
-		$this->assertContains(['tag' => 'chip-seq; clustering; non-coding rna; rna polymerase; macrophage', 'type' => 1], $data['tags']); // TODO: split in translator
+		// NOTE: Tags currently not served via BibTeX (though available in RIS)
+		$this->assertCount(0, $data['tags']);
+		//$this->assertContains(['tag' => 'chip-seq; clustering; non-coding rna; rna polymerase; macrophage', 'type' => 1], $data['tags']); // TODO: split in translator
 		
 		// Check note
 		$itemKey = $json['success'][1];
