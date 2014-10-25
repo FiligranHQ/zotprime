@@ -948,6 +948,8 @@ class Zotero_API {
 	
 	
 	public static function multiResponse($options, $overrideFormat=false) {
+		$format = $overrideFormat ? $overrideFormat : $options['requestParams']['format'];
+		
 		if (empty($options['results'])) {
 			$options['results'] = [
 				'results' => [],
@@ -962,8 +964,6 @@ class Zotero_API {
 				header("Total-Results: $totalResults");
 			}
 		}
-		
-		$format = $overrideFormat ? $overrideFormat : $options['requestParams']['format'];
 		
 		switch ($format) {
 		case 'atom':
@@ -1013,7 +1013,12 @@ class Zotero_API {
 				break;
 			
 			case 'versions':
-				echo Zotero_Utilities::formatJSON($options['results']);
+				if (!empty($options['results'])) {
+					echo Zotero_Utilities::formatJSON($options['results']);
+				}
+				else {
+					echo Zotero_Utilities::formatJSON(new stdClass);
+				}
 				break;
 				
 			case 'writereport':

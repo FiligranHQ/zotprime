@@ -219,6 +219,28 @@ class ObjectTests extends APITests {
 	}
 	
 	
+	public function testEmptyVersionsResponse() {
+		$this->_testEmptyVersionsResponse('collection');
+		$this->_testEmptyVersionsResponse('item');
+		$this->_testEmptyVersionsResponse('search');
+	}
+	
+	
+	private function _testEmptyVersionsResponse($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		$keyProp = $objectType . "Key";
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"$objectTypePlural?format=versions&$keyProp=NNNNNNNN"
+		);
+		$this->assert200($response);
+		$json = json_decode($response->getBody());
+		$this->assertInternalType('object', $json);
+		$this->assertCount(0, get_object_vars($json));
+	}
+	
+	
 	public function testResponseJSONPost() {
 		$this->_testResponseJSONPost('collection');
 		$this->_testResponseJSONPost('item');
