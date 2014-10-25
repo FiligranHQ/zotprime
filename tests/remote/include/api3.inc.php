@@ -354,7 +354,7 @@ class API3 {
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
-		if (self::$apiKey) {
+		if (!$auth && self::$apiKey) {
 			$headers[] = "Authorization: Bearer " . self::$apiKey;
 		}
 		$response = HTTP::get($url, $headers, $auth);
@@ -378,7 +378,7 @@ class API3 {
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
-		if (self::$apiKey) {
+		if (!$auth && self::$apiKey) {
 			$headers[] = "Authorization: Bearer " . self::$apiKey;
 		}
 		$response = HTTP::post($url, $data, $headers, $auth);
@@ -399,7 +399,7 @@ class API3 {
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
-		if (self::$apiKey) {
+		if (!$auth && self::$apiKey) {
 			$headers[] = "Authorization: Bearer " . self::$apiKey;
 		}
 		$response = HTTP::put($url, $data, $headers, $auth);
@@ -420,7 +420,7 @@ class API3 {
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
-		if (self::$apiKey) {
+		if (!$auth && self::$apiKey) {
 			$headers[] = "Authorization: Bearer " . self::$apiKey;
 		}
 		$response = HTTP::patch($url, $data, $headers, $auth);
@@ -437,7 +437,7 @@ class API3 {
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
-		if (self::$apiKey) {
+		if (!$auth && self::$apiKey) {
 			$headers[] = "Authorization: Bearer " . self::$apiKey;
 		}
 		$response = HTTP::head($url, $headers, $auth);
@@ -454,7 +454,7 @@ class API3 {
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
 		}
-		if (self::$apiKey) {
+		if (!$auth && self::$apiKey) {
 			$headers[] = "Authorization: Bearer " . self::$apiKey;
 		}
 		$response = HTTP::delete($url, $headers, $auth);

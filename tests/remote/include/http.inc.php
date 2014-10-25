@@ -29,7 +29,7 @@ require_once 'HTTP/Request2.php';
 class HTTP {
 	private static $config;
 	
-	private function loadConfig() {
+	private static function loadConfig() {
 		require 'include/config.inc.php';
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
@@ -37,32 +37,38 @@ class HTTP {
 	}
 	
 	
-	public function get($url, $headers=array(), $auth=false) {
-		self::loadConfig();
+	private static function getRequest($url, $headers, $auth) {
 		$req = new HTTP_Request2($url);
 		$req->setHeader($headers);
 		if ($auth) {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
+		$req->setHeader("Expect:");
 		$req->setConfig('ssl_verify_peer', false);
+		return $req;
+	}
+	
+	private static function sendRequest($req) {
+		return $req->send();
+	}
+	
+	
+	public static function get($url, $headers=array(), $auth=false) {
+		self::loadConfig();
+		$req = self::getRequest($url, $headers, $auth);
 		if (self::$config['verbose'] >= 1) {
 			echo "\nGET $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		if (self::$config['verbose'] >= 2) {
 			echo "\n\n" . $response->getBody() . "\n";
 		}
 		return $response;
 	}
 	
-	public function post($url, $data, $headers=array(), $auth=false) {
-		$req = new HTTP_Request2($url);
+	public static function post($url, $data, $headers=array(), $auth=false) {
+		$req = self::getRequest($url, $headers, $auth);
 		$req->setMethod(HTTP_Request2::METHOD_POST);
-		$req->setHeader($headers);
-		if ($auth) {
-			$req->setAuth($auth['username'], $auth['password']);
-		}
-		$req->setConfig('ssl_verify_peer', false);
 		if (is_array($data)) {
 			$req->addPostParameter($data);
 		}
@@ -72,79 +78,60 @@ class HTTP {
 		if (self::$config['verbose'] >= 1) {
 			echo "\nPOST $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		return $response;
 	}
 	
-	public function put($url, $data, $headers=array(), $auth=false) {
-		$req = new HTTP_Request2($url);
+	public static function put($url, $data, $headers=array(), $auth=false) {
+		$req = self::getRequest($url, $headers, $auth);
 		$req->setMethod(HTTP_Request2::METHOD_PUT);
-		$req->setHeader($headers);
-		if ($auth) {
-			$req->setAuth($auth['username'], $auth['password']);
-		}
-		$req->setConfig('ssl_verify_peer', false);
 		$req->setBody($data);
 		if (self::$config['verbose'] >= 1) {
 			echo "\nPUT $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		return $response;
 	}
 	
-	public function patch($url, $data, $headers=array()) {
-		$req = new HTTP_Request2($url);
+	public static function patch($url, $data, $headers=array(), $auth=false) {
+		$req = self::getRequest($url, $headers, $auth);
 		$req->setMethod("PATCH");
-		$req->setHeader($headers);
-		$req->setConfig('ssl_verify_peer', false);
 		$req->setBody($data);
 		if (self::$config['verbose'] >= 1) {
 			echo "\nPATCH $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		return $response;
 	}
 	
-	public function head($url, $headers=array(), $auth=false) {
-		$req = new HTTP_Request2($url);
+	public static function head($url, $headers=array(), $auth=false) {
+		$req = self::getRequest($url, $headers, $auth);
 		$req->setMethod(HTTP_Request2::METHOD_HEAD);
-		$req->setHeader($headers);
-		if ($auth) {
-			$req->setAuth($auth['username'], $auth['password']);
-		}
-		$req->setConfig('ssl_verify_peer', false);
 		if (self::$config['verbose'] >= 1) {
 			echo "\nHEAD $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		return $response;
 	}
 	
 	
-	public function options($url, $headers=[]) {
-		$req = new HTTP_Request2($url);
+	public static function options($url, $headers=[], $auth=false) {
+		$req = self::getRequest($url, $headers, $auth);
 		$req->setMethod(HTTP_Request2::METHOD_OPTIONS);
-		$req->setHeader($headers);
-		$req->setConfig('ssl_verify_peer', false);
 		if (self::$config['verbose'] >= 1) {
 			echo "\nOPTIONS $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		return $response;
 	}
 	
-	public function delete($url, $headers=array(), $auth=false) {
-		$req = new HTTP_Request2($url);
+	public static function delete($url, $headers=array(), $auth=false) {
+		$req = self::getRequest($url, $headers, $auth);
 		$req->setMethod(HTTP_Request2::METHOD_DELETE);
-		$req->setHeader($headers);
-		if ($auth) {
-			$req->setAuth($auth['username'], $auth['password']);
-		}
-		$req->setConfig('ssl_verify_peer', false);
 		if (self::$config['verbose'] >= 1) {
 			echo "\nDELETE $url\n";
 		}
-		$response = $req->send();
+		$response = self::sendRequest($req);
 		return $response;
 	}
 }
