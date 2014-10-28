@@ -156,4 +156,25 @@ class CreatorTests extends APITests {
 		), $this, 'json');
 		$this->assertArrayNotHasKey('creatorSummary', $json['meta']);
 	}
+	
+	
+	public function testCreatorCaseSensitivity() {
+		API::createItem("book", array(
+			"creators" => array(
+				array(
+					"creatorType" => "author",
+					"name" => "SMITH"
+				)
+			)
+		), $this, 'json');
+		$json = API::createItem("book", array(
+			"creators" => array(
+				array(
+					"creatorType" => "author",
+					"name" => "Smith"
+				)
+			)
+		), $this, 'json');
+		$this->assertEquals('Smith', $json['data']['creators'][0]['name']);
+	}
 }
