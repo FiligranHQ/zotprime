@@ -36,7 +36,7 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 		$password = $data['password'];
 		$isEmailAddress = strpos($username, '@') !== false;
 		
-		$cacheKey = 'userAuthHash_' . hash('sha256', $username . password_hash($password, PASSWORD_DEFAULT));
+		$cacheKey = 'userAuthHash_' . hash('sha256', $username . $password);
 		$userID = Z_Core::$MC->get($cacheKey);
 		if ($userID) {
 			return $userID;
