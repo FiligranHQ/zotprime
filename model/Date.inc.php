@@ -247,7 +247,7 @@ class Zotero_Date {
 	public static function isMultipart($str) {
 		$isMultipart = !!preg_match(self::$multipartRE, $str);
 		// Make sure the year actually appears after YYYY-MM-DD and this isn't just an SQL date
-		if ($isMultipart) {
+		if ($isMultipart && substr($str, 0, 4) != '0000') {
 			 $isMultipart = strpos(substr($str, 11), substr($str, 0, 4)) !== false;
 		}
 		return $isMultipart;

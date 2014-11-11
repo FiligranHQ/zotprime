@@ -194,6 +194,28 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testDateUnparseable() {
+		$json = API::createItem("book", array(
+			"date" => 'n.d.'
+		), $this, 'jsonData');
+		$key = $json['key'];
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$key"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals('n.d.', $json['data']['date']);
+		
+		// meta.parsedDate (JSON)
+		$this->assertArrayNotHasKey('parsedDate', $json['meta']);
+		
+		// zapi:parsedDate (Atom)
+		$xml = API::getItem($key, $this, 'atom');
+		$this->assertCount(0, $xml->xpath('/atom:entry/zapi:parsedDate'));
+	}
+	
+	
 	public function testDateAccessed8601() {
 		$date = '2014-02-01T01:23:45Z';
 		$data = API::createItem("book", array(
