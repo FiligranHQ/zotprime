@@ -471,6 +471,7 @@ class VersionTests extends APITests {
 		
 		case 'item':
 			$dataArray[] = API::createItem("book", array("title" => "Title"), $this, 'jsonData');
+			$dataArray[] = API::createNoteItem("Foo", $dataArray[0]['key'], $this, 'jsonData');
 			$dataArray[] = API::createItem("book", array("title" => "Title"), $this, 'jsonData');
 			$dataArray[] = API::createItem("book", array("title" => "Title"), $this, 'jsonData');
 			break;
@@ -515,13 +516,7 @@ class VersionTests extends APITests {
 			);
 		}
 		
-		$objects = [];
-		while ($data = array_shift($dataArray)) {
-			$objects[] = [
-				"key" => $data['key'],
-				"version" => $data['version']
-			];
-		}
+		$objects = $dataArray;
 		
 		$firstVersion = $objects[0]['version'];
 		
@@ -533,16 +528,41 @@ class VersionTests extends APITests {
 		$this->assert200($response);
 		$json = json_decode($response->getBody(), true);
 		$this->assertNotNull($json);
-		
+		$this->assertCount(sizeOf($objects) - 1, $json);
 		$keys = array_keys($json);
 		
+		if ($objectType == 'item') {
+			$this->assertEquals($objects[3]['key'], array_shift($keys));
+			$this->assertEquals($objects[3]['version'], array_shift($json));
+		}
 		$this->assertEquals($objects[2]['key'], array_shift($keys));
 		$this->assertEquals($objects[2]['version'], array_shift($json));
 		$this->assertEquals($objects[1]['key'], array_shift($keys));
 		$this->assertEquals($objects[1]['version'], array_shift($json));
 		$this->assertEmpty($json);
+		
+		// Test /top for items
+		if ($objectType == 'item') {
+			$response = API::userGet(
+				self::$config['userID'],
+				"items/top?format=versions&$sinceParam=$firstVersion"
+			);
+			
+			$this->assert200($response);
+			$json = json_decode($response->getBody(), true);
+			$this->assertNotNull($json);
+			$this->assertCount(sizeOf($objects) - 2, $json); // Exclude first item and child
+			$keys = array_keys($json);
+			
+			$objects = $dataArray;
+			
+			$this->assertEquals($objects[3]['key'], array_shift($keys));
+			$this->assertEquals($objects[3]['version'], array_shift($json));
+			$this->assertEquals($objects[2]['key'], array_shift($keys));
+			$this->assertEquals($objects[2]['version'], array_shift($json));
+			$this->assertEmpty($json);
+		}
 	}
-	
 	
 	private function _testUploadUnmodified($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);

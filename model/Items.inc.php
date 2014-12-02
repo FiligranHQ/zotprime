@@ -137,11 +137,13 @@ class Zotero_Items extends Zotero_DataObjects {
 		if ($onlyTopLevel) {
 			$itemIDSelector = "COALESCE(IA.sourceItemID, INo.sourceItemID, I.itemID)";
 			$itemKeySelector = "COALESCE(IP.key, I.key)";
+			$itemVersionSelector = "COALESCE(IP.version, I.version)";
 			$itemTypeIDSelector = "COALESCE(IP.itemTypeID, I.itemTypeID)";
 		}
 		else {
 			$itemIDSelector = "I.itemID";
 			$itemKeySelector = "I.key";
+			$itemVersionSelector = "I.version";
 			$itemTypeIDSelector = "I.itemTypeID";
 		}
 		
@@ -150,12 +152,7 @@ class Zotero_Items extends Zotero_DataObjects {
 			$sql .= "$itemKeySelector AS `key`";
 			
 			if ($params['format'] == 'versions') {
-				if ($onlyTopLevel) {
-					$sql .= ", COALESCE(IP.version, I.version) AS version";
-				}
-				else {
-					$sql .= ", I.version";
-				}
+				$sql .= ", $itemVersionSelector AS version";
 			}
 		}
 		else {
@@ -398,7 +395,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		}
 		
 		if (!empty($params['since'])) {
-			$sql .= "AND version > ? ";
+			$sql .= "AND $itemVersionSelector > ? ";
 			$sqlParams[] = $params['since'];
 		}
 		
