@@ -206,8 +206,11 @@ class ApiController extends Controller {
 				}
 			}
 			// Website cookie authentication
-			else if (!empty($_COOKIE) && !empty($_GET['session']) &&
-					($this->userID = Zotero_Users::getUserIDFromSession($_COOKIE, $_GET['session']))) {
+			//
+			// For CSRF protection, session cookie has to be passed in the 'session' parameter,
+			// which JS code on other sites can't do because it can't access the website cookie.
+			else if (!empty($_GET['session']) &&
+					($this->userID = Zotero_Users::getUserIDFromSessionID($_GET['session']))) {
 				// Users who haven't synced may not exist in our DB
 				if (!Zotero_Users::exists($this->userID)) {
 					Zotero_Users::add($this->userID);
