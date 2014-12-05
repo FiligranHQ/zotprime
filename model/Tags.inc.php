@@ -128,11 +128,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS tagID FROM tags ";
-		if (!empty($params['sort']) && $params['sort'] == 'numItems') {
-			$sql .= " LEFT JOIN itemTags USING (tagID)";
-		}
-		$sql .= "WHERE libraryID=? ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT tagID FROM tags ";
+			. "JOIN itemTags USING (tagID) WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
 		
 		// Pass a list of tagIDs, for when the initial search is done via SQL

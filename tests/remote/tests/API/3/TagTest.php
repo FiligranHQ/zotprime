@@ -43,6 +43,12 @@ class TagTests extends APITests {
 	}
 	
 	
+	
+	public function setUp() {
+		parent::setUp();
+		API::userClear(self::$config['userID']);
+	}
+	
 	public function testEmptyTag() {
 		$json = API::getItemTemplate("book");
 		$json->tags[] = array(
@@ -233,6 +239,41 @@ class TagTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertNumResults(sizeOf($tags1), $response);
+	}
+	
+	
+	public function testOrphanedTag() {
+		$json = API::createItem("book", array(
+			"tags" => [["tag" => "a"]]
+		), $this, 'jsonData');
+		$libraryVersion1 = $json['version'];
+		$itemKey1 = $json['key'];
+		
+		$json = API::createItem("book", array(
+			"tags" => [["tag" => "b"]]
+		), $this, 'jsonData');
+		$itemKey2 = $json['key'];
+		
+		$json = API::createItem("book", array(
+			"tags" => [["tag" => "b"]]
+		), $this, 'jsonData');
+		$itemKey3 = $json['key'];
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"items/$itemKey1",
+			array("If-Unmodified-Since-Version: $libraryVersion1")
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"tags"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$json = API::getJSONFromResponse($response)[0];
+		$this->assertEquals("b", $json['tag']);
 	}
 	
 	
