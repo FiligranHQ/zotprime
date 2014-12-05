@@ -199,6 +199,25 @@ class SortTests extends APITests {
 	}
 	
 	
+	// Old sort=asc, with no 'order' param
+	public function testSortSortParamAsDirectionWithoutOrder() {
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&sort=asc"
+		);
+		// We can't test dateAdded without adding lots of delays,
+		// so just make sure this doesn't throw an error
+		$this->assert200($response);
+	}
+	
+	
+	//
+	//
+	// Test below here do their own clears
+	//
+	//
+	
+	
 	public function testSortDefault() {
 		API::userClear(self::$config['userID']);
 		

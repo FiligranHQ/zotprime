@@ -178,16 +178,16 @@ class Zotero_API {
 			// If 'order' is a direction, move it to 'direction'
 			if (in_array($queryParams['order'], ['asc', 'desc'])) {
 				$finalParams['direction'] = $queryParams['direction'] = $queryParams['order'];
-				continue;
 			}
-			// Move 'order' to 'sort'
-			if (isset($queryParams['sort'])) {
-				// If 'sort' already has a direction, move it to 'direction'
-				if (in_array($queryParams['sort'], ['asc', 'desc'])) {
+			// Otherwise it's a field, so move it to 'sort'
+			else {
+				// If 'sort' already has a direction, move that to 'direction' first
+				if (isset($queryParams['sort']) && in_array($queryParams['sort'], ['asc', 'desc'])) {
 					$finalParams['direction'] = $queryParams['direction'] = $queryParams['sort'];
 				}
+				
+				$queryParams['sort'] = $queryParams['order'];
 			}
-			$queryParams['sort'] = $queryParams['order'];
 			unset($queryParams['order']);
 		}
 		
@@ -353,9 +353,10 @@ class Zotero_API {
 				break;
 			
 			case 'sort':
+				// If direction, move to 'direction' and use default 'sort' value
 				if (in_array($queryParams[$key], array('asc', 'desc'))) {
 					$finalParams['direction'] = $queryParams['direction'] = $queryParams[$key];
-					continue;
+					continue 2;
 				}
 				
 				// Whether to sort empty values first
