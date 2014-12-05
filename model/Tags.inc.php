@@ -128,7 +128,7 @@ class Zotero_Tags extends Zotero_DataObjects {
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
-		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT tagID FROM tags ";
+		$sql = "SELECT SQL_CALC_FOUND_ROWS DISTINCT tagID FROM tags "
 			. "JOIN itemTags USING (tagID) WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
 		
