@@ -381,7 +381,7 @@ class Zotero_Key {
 							}
 							break;
 							
-						case 'groups':
+						case 'group':
 							$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 							$json['access']['groups'][$groupID]['library'] = true;
 							$json['access']['groups'][$groupID]['write'] = !empty($p['write']);
