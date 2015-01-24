@@ -37,8 +37,22 @@ class KeysController extends ApiController {
 			// Single key
 			if ($key) {
 				$keyObj = Zotero_Keys::getByKey($key);
-				if (!$keyObj || $keyObj->userID != $this->objectUserID) {
+				if (!$keyObj) {
 					$this->e404("Key not found");
+				}
+				
+				// /users/<userID>/keys/<keyID> (deprecated)
+				if ($userID) {
+					// If we have a userID, make sure it matches
+					if ($keyObj->userID != $userID) {
+						$this->e404("Key not found");
+					}
+				}
+				// /keys/<keyID>
+				else {
+					if ($this->apiVersion < 3) {
+						$this->e404();
+					}
 				}
 				
 				if ($this->apiVersion >= 3) {
@@ -277,6 +291,10 @@ class KeysController extends ApiController {
 	
 	
 	protected function getFieldsFromJSON($json) {
+		if (!isset($json['name'])) {
+			throw new Exception("Key name not provided", Z_ERROR_INVALID_INPUT);
+		}
+		
 		$fields = [];
 		$fields['name'] = $json['name'];
 		$fields['access'] = [];
@@ -342,7 +360,7 @@ class KeysController extends ApiController {
 					if (!$group) {
 						$this->e400("Group not found");
 					}
-					if (!$group->hasUser($this->objectUserID)) {
+					if (!$group->hasUser($keyObj->userID)) {
 						$this->e400("User $this->id is not a member of group $group->id");
 					}
 					$keyObj->setPermission($group->libraryID, 'library', true);
@@ -351,7 +369,7 @@ class KeysController extends ApiController {
 			}
 			// Personal library access (<access library="1" notes="0"/>)
 			else {
-				$libraryID = Zotero_Users::getLibraryIDFromUserID($this->objectUserID);
+				$libraryID = Zotero_Users::getLibraryIDFromUserID($keyObj->userID);
 				$keyObj->setPermission($libraryID, $accessField, $accessVal);
 				$keyObj->setPermission($libraryID, 'write', $accessElement['write']);
 			}

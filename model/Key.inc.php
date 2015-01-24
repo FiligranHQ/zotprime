@@ -352,8 +352,8 @@ class Zotero_Key {
 		}
 		
 		$json = [];
-		
 		$json['key'] = $this->key;
+		$json['userID'] = $this->userID;
 		$json['name'] = $this->name;
 		
 		if ($this->permissions) {

@@ -68,6 +68,7 @@ else {
 	$router->map('/groups/i:objectGroupID/:scopeObject/:scopeObjectKey/items/:objectKey/:subset', array('controller' => 'Items'));
 	
 	// User API keys
+	$router->map('/keys/:objectName', array('controller' => 'Keys'));
 	$router->map('/users/i:objectUserID/keys/:objectName', array('controller' => 'Keys'));
 	
 	// User/library settings

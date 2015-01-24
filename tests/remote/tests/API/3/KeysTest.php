@@ -64,6 +64,46 @@ class KeysTest extends APITests {
 	}
 	
 	
+	public function testGetKey() {
+		API::useAPIKey("");
+		$response = API::get('keys/' . self::$config['apiKey']);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals(self::$config['apiKey'], $json['key']);
+		$this->assertEquals(self::$config['userID'], $json['userID']);
+		$this->arrayHasKey("user", $json['access']);
+		$this->arrayHasKey("groups", $json['access']);
+		$this->assertTrue($json['access']['user']['library']);
+		$this->assertTrue($json['access']['user']['files']);
+		$this->assertTrue($json['access']['user']['notes']);
+		$this->assertTrue($json['access']['user']['write']);
+		$this->assertTrue($json['access']['groups']['all']['library']);
+		$this->assertTrue($json['access']['groups']['all']['write']);
+	}
+	
+	
+	// Deprecated
+	public function testGetKeyWithUser() {
+		API::useAPIKey("");
+		$response = API::userGet(
+			self::$config['userID'],
+			'keys/' . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals(self::$config['apiKey'], $json['key']);
+		$this->assertEquals(self::$config['userID'], $json['userID']);
+		$this->arrayHasKey("user", $json['access']);
+		$this->arrayHasKey("groups", $json['access']);
+		$this->assertTrue($json['access']['user']['library']);
+		$this->assertTrue($json['access']['user']['files']);
+		$this->assertTrue($json['access']['user']['notes']);
+		$this->assertTrue($json['access']['user']['write']);
+		$this->assertTrue($json['access']['groups']['all']['library']);
+		$this->assertTrue($json['access']['groups']['all']['write']);
+	}
+	
+	
 	public function testKeyCreateAndDelete() {
 		API::useAPIKey("");
 		
