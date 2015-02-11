@@ -446,6 +446,14 @@ class SortTests extends APITests {
 		}, $xml->xpath('//atom:entry/zapi:key'));
 		$this->assertEquals($keysByDateAddedAscending, $keys);
 		
+		// Deprecated 'order'/'sort', but the wrong way
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?format=keys&sort=dateAdded&order=asc"
+		);
+		$this->assert200($response);
+		$this->assertEquals($keysByDateAddedAscending, explode("\n", trim($response->getBody())));
+		
 		// Descending
 		$response = API::userGet(
 			self::$config['userID'],
