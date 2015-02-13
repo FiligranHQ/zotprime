@@ -477,7 +477,12 @@ class Zotero_Tag {
 		
 		$xml['libraryID'] = $this->libraryID;
 		$xml['key'] = $this->key;
-		$xml['name'] = $this->name;
+		$name = $this->name;
+		if (trim($name) === "") {
+			error_log("Empty tag " . $this->libraryID . "/" . $this->key);
+			$name = json_decode('"\uFFFD"');
+		}
+		$xml['name'] = $name;
 		$xml['dateAdded'] = $this->dateAdded;
 		$xml['dateModified'] = $this->dateModified;
 		if ($this->type) {
