@@ -451,7 +451,9 @@ class Zotero_Storage {
 		}
 		$moreInfo = self::getFileInfoByID($info['storageFileID']);
 		if (!$moreInfo) {
-			throw new Exception("storageFileID {$info['storageFileID']} not found in storageFiles");
+			error_log("WARNING: storageFileID {$info['storageFileID']} not found in storageFiles "
+				. "for item $item->libraryKey");
+			return false;
 		}
 		return array_merge($moreInfo, $info);
 	}
