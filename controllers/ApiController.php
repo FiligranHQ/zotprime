@@ -883,7 +883,7 @@ class ApiController extends Controller {
 			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
 			}
-			$str .= $_SERVER['REQUEST_URI'] . "  \n";
+			$str .= $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "  \n";
 			$str .= $error['exception'] . "  \n";
 			// Show request body unless it's too big
 			if ($error['code'] != 413) {
