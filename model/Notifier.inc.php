@@ -160,7 +160,7 @@ class Zotero_Notifier {
 					);
 				}
 				catch (Exception $e) {
-					error_log($e);
+					error_log("WARNING: $e");
 				}
 			}
 		}
