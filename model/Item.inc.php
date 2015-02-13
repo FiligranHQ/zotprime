@@ -4068,7 +4068,7 @@ class Zotero_Item {
 				$keys[] = $item->key;
 			}
 		}
-		return $keys;
+		return array_unique($keys);
 	}
 	
 	
