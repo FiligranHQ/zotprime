@@ -183,13 +183,6 @@ class ItemsController extends ApiController {
 				// Delete item
 				else if ($this->method == 'DELETE') {
 					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
-					
-					try {
-						Zotero_Processors::notifyProcessors('index');
-					}
-					catch (Exception $e) {
-						Z_Core::logError($e);
-					}
 				}
 				else {
 					throw new Exception("Unexpected method $this->method");
