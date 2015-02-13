@@ -1,11 +1,12 @@
 <?
 $config = array(
-	'verbose' => false,
+	'verbose' => 0, // 0 => off, 1 => HTTP requests, 2 => HTTP request/response bodies
 	'syncURLPrefix' => "",
 	'apiURLPrefix' => "",
 	'rootUsername' => "",
 	'rootPassword' => "",
 	'awsRegion' => "us-east-1",
+	's3Bucket' => "",
 	'awsAccessKey' => "", // leave credentials empty to use IAM role
 	'awsSecretKey' => "",
 	'syncVersion' => 9,
@@ -20,7 +21,6 @@ $config = array(
 	'ownedPrivateGroupLibraryID' => 0,
 	'ownedPrivateGroupName' => 'Private Test Group',
 	'ownedPublicGroupID' => 0, // should have libraryEditing='members'
-	'ownedPublicPrivateNotesGroupID' => 0,
 	
 	// User 2 (should be in user 1's private group)
 	'userID2' => 0,

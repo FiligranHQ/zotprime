@@ -18,7 +18,6 @@ class Z_CONFIG {
 	public static $AUTH_SALT = '';
 	public static $API_SUPER_USERNAME = '';
 	public static $API_SUPER_PASSWORD = '';
-	public static $SESSION_AUTH_KEY = '';
 	
 	public static $AWS_REGION = 'us-east-1';
 	public static $AWS_ACCESS_KEY = ''; // leave credentials empty to use IAM role
