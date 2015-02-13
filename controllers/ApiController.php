@@ -58,6 +58,7 @@ class ApiController extends Controller {
 	protected $httpAuth = false;
 	protected $cookieAuth = false;
 	protected $libraryVersion;
+	protected $headers = [];
 	
 	private $startTime = false;
 	private $timeLogged = false;
@@ -77,6 +78,7 @@ class ApiController extends Controller {
 		require_once('../model/Error.inc.php');
 		
 		register_shutdown_function(array($this, 'checkDBTransactionState'));
+		register_shutdown_function(array($this, 'addHeaders'));
 		register_shutdown_function(array($this, 'logTotalRequestTime'));
 		register_shutdown_function(array($this, 'checkForFatalError'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
@@ -896,6 +898,11 @@ class ApiController extends Controller {
 		}
 	}
 	
+	public function addHeaders() {
+		foreach ($this->headers as $header => $value) {
+			header("$header: $value");
+		}
+	}
 	
 	public function checkForFatalError() {
 		$lastError = error_get_last();
