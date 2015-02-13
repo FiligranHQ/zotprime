@@ -705,7 +705,7 @@ class Zotero_DataObjects {
 			
 			if ($userID && !Zotero_Libraries::userCanEdit($libraryID, $userID)) {
 				throw new Exception("Cannot edit " . static::field('object')
-					. " in library $obj->libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
+					. " in library $libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
 			}
 			
 			if ($obj->getName() == 'item') {
