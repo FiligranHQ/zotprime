@@ -210,7 +210,11 @@ class Zotero_Key {
 		Zotero_DB::beginTransaction();
 		
 		if (!$this->key) {
+			$isNew = true;
 			$this->key = Zotero_Keys::generate();
+		}
+		else {
+			$isNew = false;
 		}
 		
 		$fields = array(
@@ -240,6 +244,22 @@ class Zotero_Key {
 			$this->id = $insertID;
 		}
 		
+		if (!$insertID) {
+			$sql = "SELECT * FROM keyPermissions WHERE keyID=?";
+			$oldRows = Zotero_DB::query($sql, $this->id);
+		}
+		$oldPermissions = [];
+		$newPermissions = [];
+		$librariesToAdd = [];
+		$librariesToRemove = [];
+		
+		// Massage rows into permissions format
+		if (!$isNew && isset($oldRows)) {
+			foreach ($oldRows as $row) {
+				$oldPermissions[$row['libraryID']][$row['permission']] = !!$row['granted'];
+			}
+		}
+		
 		// Delete existing permissions
 		$sql = "DELETE FROM keyPermissions WHERE keyID=?";
 		Zotero_DB::query($sql, $this->id);
@@ -255,7 +275,39 @@ class Zotero_Key {
 					$sql = "INSERT INTO keyPermissions VALUES (?, ?, ?, ?)";
 					// TODO: support negative permissions
 					Zotero_DB::query($sql, array($this->id, $libraryID, $permission, 1));
+					
+					$newPermissions[$libraryID][$permission] = true;
 				}
+			}
+		}
+		
+		$this->permissions = $newPermissions;
+		
+		// Send notifications for added and removed API key – library pairs
+		if (!$isNew) {
+			$librariesToAdd = $this->permissionsDiff(
+				$oldPermissions, $newPermissions, $this->userID
+			);
+			$librariesToRemove = $this->permissionsDiff(
+				$newPermissions, $oldPermissions, $this->userID
+			);
+			if ($librariesToAdd) {
+				Zotero_Notifier::trigger(
+					'add',
+					'apikey-library',
+					array_map(function ($libraryID) {
+						return $this->key . "-" . $libraryID;
+					}, array_unique($librariesToAdd))
+				);
+			}
+			if ($librariesToRemove) {
+				Zotero_Notifier::trigger(
+					'remove',
+					'apikey-library',
+					array_map(function ($libraryID) {
+						return $this->key . "-" . $libraryID;
+					}, array_unique($librariesToRemove))
+				);
 			}
 		}
 		
@@ -264,6 +316,43 @@ class Zotero_Key {
 		$this->load();
 		
 		return $this->id;
+	}
+	
+	
+	/**
+	 * Calculate the difference between two sets of permissions,
+	 * taking all-group access into account
+	 */
+	private function permissionsDiff($permissions1, $permissions2, $userID) {
+		$diff = [];
+		foreach ($permissions2 as $libraryID => $libraryPermissions) {
+			if (!$libraryPermissions['library']) {
+				continue;
+			}
+			if (empty($permissions1[$libraryID]['library'])) {
+				// If second set has a 0 (all-group access), diff is user's groups not
+				// explicitly listed in first set
+				if ($libraryID === 0) {
+					$diff = array_merge(
+						$diff,
+						array_filter(
+							Zotero_Groups::getUserGroupLibraries($userID),
+							function ($libraryID) use ($permissions1) {
+								return empty($permissions1[$libraryID]['library']);
+							}
+						)
+					);
+				}
+				else {
+					$libraryType = Zotero_Libraries::getType($libraryID);
+					if ($libraryType == 'user'
+							|| ($libraryType == 'group' && empty($permissions1[0]['library']))) {
+						$diff[] = $libraryID;
+					}
+				}
+			}
+		}
+		return $diff;
 	}
 	
 	

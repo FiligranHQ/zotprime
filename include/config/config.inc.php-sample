@@ -47,8 +47,7 @@ class Z_CONFIG {
 	
 	public static $SEARCH_HOSTS = [''];
 	
-	public static $SQS_QUEUE_URL_PREFIX = '';
-	public static $SQS_QUEUE_ITEM_UPDATES = 'item-updates';
+	public static $SNS_TOPIC_STREAM_EVENTS = 'arn:aws:sns:...';
 	
 	public static $ATTACHMENT_SERVER_HOSTS = array("files1.localdomain", "files2.localdomain");
 	public static $ATTACHMENT_SERVER_DYNAMIC_PORT = 80;

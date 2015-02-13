@@ -35,6 +35,7 @@ require_once 'include/api3.inc.php';
 class APITests extends \APITests {
 	protected static $config;
 	protected static $nsZAPI;
+	private $notificationHeader = 'zotero-debug-notifications';
 	
 	public static function setUpBeforeClass() {
 		require 'include/config.inc.php';
@@ -189,5 +190,39 @@ class APITests extends \APITests {
 		$this->assertEquals(0, (int) $zapiNodes->totalResults);
 		$this->assertEquals(0, count($xml->entry));
 	}
+	
+	
+	protected function assertCountNotifications($expected, $response) {
+		$header = $response->getHeader($this->notificationHeader);
+		try {
+			if ($expected === 0) {
+				$this->assertNull($header);
+			}
+			else {
+				$this->assertNotNull($header);
+				$this->assertCount($expected, json_decode(base64_decode($header), true));
+			}
+		}
+		catch (Exception $e) {
+			echo "\nHeaders: " . base64_decode($header) . "\n";
+			throw $e;
+		}
+	}
+	
+	
+	protected function assertHasNotification($notification, $response) {
+		$header = $response->getHeader($this->notificationHeader);
+		$this->assertNotNull($header);
+		// Header contains a Base64-encode array of encoded JSON notifications
+		$notifications = json_decode(base64_decode($header), true);
+		try {
+			$this->assertContains($notification, array_map(function ($x) {
+				return json_decode($x, true);
+			}, $notifications));
+		}
+		catch (Exception $e) {
+			echo "\nHeaders: " . base64_decode($header) . "\n";
+			throw $e;
+		}
+	}
 }
-

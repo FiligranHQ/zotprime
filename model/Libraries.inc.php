@@ -69,6 +69,21 @@ class Zotero_Libraries {
 	}
 	
 	
+	/**
+	 * Get the type-specific id (userID or groupID) of the library
+	 */
+	public static function getLibraryTypeID($libraryID) {
+		$type = self::getType($libraryID);
+		switch ($type) {
+			case 'user':
+				return Zotero_Users::getUserIDFromLibraryID($libraryID);
+			
+			case 'group':
+				return Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+		}
+	}
+	
+	
 	public static function getType($libraryID) {
 		if (!$libraryID) {
 			throw new Exception("Library not provided");

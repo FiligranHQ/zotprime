@@ -1784,6 +1784,11 @@ class Zotero_Sync {
 				}
 			}
 			
+			// Send notifications for changed libraries
+			foreach ($affectedLibraries as $libraryID) {
+				Zotero_Notifier::trigger('modify', 'library', $libraryID);
+			}
+			
 			Zotero_DB::commit();
 			
 			if ($profile) {

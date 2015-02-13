@@ -25,48 +25,104 @@
 */
 
 class Zotero_NotifierObserver {
-	public static function init() {
-		// TEMP: disabled
-		//Zotero_Notifier::registerObserver(__CLASS__, array("item", "library"));
+	private static $messageReceivers = [];
+	
+	public static function init($messageReceiver=null) {
+		Zotero_Notifier::registerObserver(__CLASS__, ["library", "apikey-library"], "NotifierObserver");
+		
+		// Send notifications to SNS by default
+		self::$messageReceivers[] = function ($topic, $message) {
+			$sns = Z_Core::$AWS->get('Sns');
+			$sns->publish([
+				'TopicArn' => $topic,
+				'Message' => $message
+			]);
+		};
+	}
+	
+	
+	public static function addMessageReceiver($messageReceiver) {
+		self::$messageReceivers[] = $messageReceiver;
 	}
 	
 	
 	public static function notify($event, $type, $ids, $extraData) {
-		if ($type == "item") {
-			$url = Z_CONFIG::$SQS_QUEUE_URL_PREFIX
-				. Z_CONFIG::$SQS_QUEUE_ITEM_UPDATES;
+		if ($type == "library") {
+			switch ($event) {
+			case "modify":
+				$event = "topicUpdated";
+				break;
 			
-			$messages = array();
-			foreach ($ids as $libraryKey) {
-				list($libraryID, $key) = explode("/", $libraryKey);
-				$message = array(
-					"libraryID" => (int) $libraryID,
-					"key" => $key,
-					"event" => $event
-				);
-				if (!empty($extraData[$libraryKey])) {
-					$message["data"] = $extraData[$libraryKey];
-				}
-				$messages[] = json_encode($message);
+			case "delete":
+				$event = "topicDeleted";
+				break;
+			
+			default:
+				return;
 			}
-			Z_SQS::sendBatch($url, $messages);
+			
+			$entries = [];
+			foreach ($ids as $id) {
+				$libraryID = $id;
+				$topic = '/' . Zotero_Libraries::getType($libraryID) . "s/"
+					. Zotero_Libraries::getLibraryTypeID($libraryID);
+				$message = [
+					"event" => $event,
+					"topic" => $topic
+				];
+				if (!empty($extraData[$id])) {
+					foreach ($extraData[$id] as $key => $val) {
+						$message[$key] = $val;
+					}
+				}
+				foreach (self::$messageReceivers as $receiver) {
+					$receiver(
+						Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS,
+						json_encode($message, JSON_UNESCAPED_SLASHES)
+					);
+				}
+			}
 		}
-		else if ($type == "library") {
-			$url = Z_CONFIG::$SQS_QUEUE_URL_PREFIX
-				. Z_CONFIG::$SQS_QUEUE_LIBRARY_UPDATES;
+		else if ($type == "apikey-library") {
+			switch ($event) {
+			case "add":
+				$event = "topicAdded";
+				break;
 			
-			$messages = array();
-			foreach ($ids as $libraryID) {
-				$message = array(
-					"libraryID" => (int) $libraryID,
-					"event" => $event
-				);
-				if (!empty($extraData[$libraryID])) {
-					$message["data"] = $extraData[$libraryID];
-				}
-				$messages[] = json_encode($message);
+			case "remove":
+				$event = "topicRemoved";
+				break;
+			
+			default:
+				return;
 			}
-			Z_SQS::sendBatch($url, $messages);
+			
+			$entries = [];
+			foreach ($ids as $id) {
+				list($apiKey, $libraryID) = explode("-", $id);
+				$topic = '/' . Zotero_Libraries::getType($libraryID) . "s/"
+					. Zotero_Libraries::getLibraryTypeID($libraryID);
+				$message = [
+					"event" => $event,
+					"apiKey" => $apiKey,
+					"topic" => $topic
+				];
+				if (!empty($extraData[$id])) {
+					foreach ($extraData[$id] as $key => $val) {
+						$message[$key] = $val;
+					}
+				}
+				self::send($message);
+			}
+		}
+	}
+	
+	
+	private static function send($message) {
+		$message = json_encode($message, JSON_UNESCAPED_SLASHES);
+		Z_Core::debug("Sending notification: " . $message);
+		foreach (self::$messageReceivers as $receiver) {
+			$receiver(Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS, $message);
 		}
 	}
 }

@@ -313,6 +313,12 @@ class Zotero_Group {
 			Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($libraryID));
 		}
 		
+		// Send library add notification for all user's API keys with access to this group
+		$apiKeys = Zotero_Keys::getUserKeysWithLibrary($userID, $this->libraryID);
+		Zotero_Notifier::trigger('add', 'apikey-library', array_map(function ($key) {
+			return $key->key . "-" . $this->libraryID;
+		}, $apiKeys));
+		
 		// If group is locked by a sync, flag for later timestamp update
 		// once the sync is done so that the uploading user gets the change
 		try {
@@ -404,6 +410,12 @@ class Zotero_Group {
 		$sql = "REPLACE INTO syncDeleteLogIDs (libraryID, objectType, id) VALUES (?, 'group', ?)";
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 		Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($libraryID));
+		
+		// Send library removal notification for all user's API keys with access to this group
+		$apiKeys = Zotero_Keys::getUserKeysWithLibrary($userID, $this->libraryID);
+		Zotero_Notifier::trigger('remove', 'apikey-library', array_map(function ($key) {
+			return $key->key . "-" . $this->libraryID;
+		}, $apiKeys));
 		
 		// If group is locked by a sync, flag for later timestamp update
 		// once the sync is done so that the uploading user gets the change
@@ -607,6 +619,7 @@ class Zotero_Group {
 		if (!empty($this->changed['ownerUserID'])) {
 			$sql = "SELECT userID FROM groupUsers WHERE groupID=? AND role='owner'";
 			$currentOwner = Zotero_DB::valueQuery($sql, $this->id);
+			$newOwner = $this->ownerUserID;
 			
 			// Move existing owner out of the way, if there is one
 			if ($currentOwner) {
@@ -615,20 +628,34 @@ class Zotero_Group {
 			}
 			
 			// Make sure new owner exists in DB
-			if (!Zotero_Users::exists($this->ownerUserID)) {
-				Zotero_Users::addFromWWW($this->ownerUserID);
+			if (!Zotero_Users::exists($newOwner)) {
+				Zotero_Users::addFromWWW($newOwner);
 			}
 			
 			// Add new owner to group
 			$sql = "INSERT INTO groupUsers (groupID, userID, role, joined) VALUES
 					(?, ?, 'owner', CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE
 					role='owner', lastUpdated=CURRENT_TIMESTAMP";
-			Zotero_DB::query($sql, array($this->id, $this->ownerUserID));
+			Zotero_DB::query($sql, array($this->id, $newOwner));
 			
 			// Delete any record of this user losing access to the group
 			$libraryID = Zotero_Users::getLibraryIDFromUserID($this->ownerUserID);
 			$sql = "DELETE FROM syncDeleteLogIDs WHERE libraryID=? AND objectType='group' AND id=?";
 			Zotero_DB::query($sql, array($libraryID, $this->id), Zotero_Shards::getByLibraryID($this->libraryID));
+			
+			// Send library removal notification for all API keys belonging to the former owner
+			// with access to this group
+			$apiKeys = Zotero_Keys::getUserKeysWithLibrary($currentOwner, $this->libraryID);
+			Zotero_Notifier::trigger('remove', 'apikey-library', array_map(function ($key) {
+				return $key->key . "-" . $this->libraryID;
+			}, $apiKeys));
+			
+			// Send library add notification for all API keys belonging to the new owner
+			// with access to this group
+			$apiKeys = Zotero_Keys::getUserKeysWithLibrary($newOwner, $this->libraryID);
+			Zotero_Notifier::trigger('add', 'apikey-library', array_map(function ($key) {
+				return $key->key . "-" . $this->libraryID;
+			}, $apiKeys));
 		}
 		
 		// If any of the group's users have a queued upload, flag group for a timestamp
@@ -706,6 +733,8 @@ class Zotero_Group {
 		catch (Exception $e) {
 			Z_Core::logError($e);
 		}
+		
+		Zotero_Notifier::trigger('delete', 'library', $this->libraryID);
 		
 		Zotero_DB::commit();
 		

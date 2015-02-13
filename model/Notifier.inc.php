@@ -31,16 +31,17 @@ class Zotero_Notifier {
 	private static $observers = array();
 	
 	private static $types = array(
-		'collection', 'creator', 'search', 'share', 'share-items', 'item',
+		'apikey-library', 'collection', 'creator', 'search', 'share', 'share-items', 'item',
 		'collection-item', 'item-tag', 'tag', 'group', 'trash', 'relation',
 		'library'
 	);
 	
 	/**
-	 * @param $obj Class class with method notify($event, $type, $ids, $extraData)
+	 * @param $observer Class Class with method notify($event, $type, $ids, $extraData)
 	 * @param $types [array] Types to receive notications for
+	 * @param $label [string] Name of the observer
 	 */
-	public static function registerObserver($observer, $types=array()) {
+	public static function registerObserver($observer, $types=[], $name='') {
 		if (is_scalar($types)) {
 			$types = array($types);
 		}
@@ -50,34 +51,40 @@ class Zotero_Notifier {
 			}
 		}
 		
-		$len = 2;
-		$tries = 10;
-		do {
-			// Increase the hash length if we can't find a unique key
-			if (!$tries) {
-				$len++;
-				$tries = 5;
+		if (empty($name) || isset(self::$observers[$name])) {
+			$len = 2;
+			$tries = 10;
+			do {
+				// Increase the hash length if we can't find a unique key
+				if (!$tries) {
+					$len++;
+					$tries = 5;
+				}
+				
+				$key = strlen($name) ? "$name-" : '';
+				$key .= Zotero_Utilities::randomString($len, 'mixed');
+				$tries--;
 			}
-			
-			$hash = Zotero_Utilities::randomString($len, 'mixed');
-			$tries--;
+			while (isset(self::$observers[$key]));
 		}
-		while (isset(self::$observers[$hash]));
+		else {
+			$key = $name;
+		}
 		
 		Z_Core::debug('Registering observer for '
 			. ($types ? '[' . implode(",", $types) . ']' : 'all types')
-			. ' in notifier with hash ' . $hash . "'", 4);
-		self::$observers[$hash] = array(
+			. ' in notifier ' . $key . "'", 4);
+		self::$observers[$key] = array(
 			"observer" => $observer,
 			"types" => $types
 		);
-		return $hash;
+		return $key;
 	}
 	
 	
-	public static function unregisterObserver($hash) {
-		Z_Core::debug("Unregistering observer in notifier with hash '$hash'", 4);
-		unset(self::$observers[$hash]);
+	public static function unregisterObserver($key) {
+		Z_Core::debug("Unregistering observer in notifier '$key'", 4);
+		unset(self::$observers[$key]);
 	}
 	
 	
@@ -140,7 +147,7 @@ class Zotero_Notifier {
 		}
 		
 		foreach (self::$observers as $hash => $observer) {
-			Z_Core::debug("Calling notify('$event') on observer with hash '$hash'", 4);
+			Z_Core::debug("Calling notify('$event', '$type', ...) on observer with hash '$hash'", 4);
 			
 			// Find observers that handle notifications for this type (or all types)
 			if (!$observer['types'] || in_array($type, $observer['types'])) {
@@ -196,6 +203,7 @@ class Zotero_Notifier {
 	 */
 	public static function commit($unlock=null) {
 		if (!self::$queue) {
+			self::reset();
 			return;
 		}
 		
@@ -216,7 +224,7 @@ class Zotero_Notifier {
 			'item-tag',
 			'tag'
 		);
-		uasort(self::$queue, function ($a, $b) {
+		uasort(self::$queue, function ($a, $b) use ($order) {
 			return array_search($b, $order) - array_search($a, $order);
 		});
 		

@@ -364,6 +364,17 @@ class API3 {
 		return $response;
 	}
 	
+	public static function superGet($url, $headers=[]) {
+		return self::get(
+			$url,
+			$headers,
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
+	}
+	
 	public static function userGet($userID, $suffix, $headers=array(), $auth=false) {
 		return self::get("users/$userID/$suffix", $headers, $auth);
 	}
@@ -385,6 +396,18 @@ class API3 {
 		return $response;
 	}
 	
+	public static function superPost($url, $data, $headers=[]) {
+		return self::post(
+			$url,
+			$data,
+			$headers,
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
+	}
+	
 	public static function userPost($userID, $suffix, $data, $headers=array(), $auth=false) {
 		return self::post("users/$userID/$suffix", $data, $headers, $auth);
 	}
@@ -404,6 +427,18 @@ class API3 {
 		}
 		$response = HTTP::put($url, $data, $headers, $auth);
 		return $response;
+	}
+	
+	public static function superPut($url, $data, $headers=[]) {
+		return self::put(
+			$url,
+			$data,
+			$headers,
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
 	}
 	
 	public static function userPut($userID, $suffix, $data, $headers=array(), $auth=false) {
@@ -459,6 +494,17 @@ class API3 {
 		}
 		$response = HTTP::delete($url, $headers, $auth);
 		return $response;
+	}
+	
+	public static function superDelete($url, $headers=[]) {
+		return self::delete(
+			$url,
+			$headers,
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
 	}
 	
 	public static function userDelete($userID, $suffix, $headers=array(), $auth=false) {

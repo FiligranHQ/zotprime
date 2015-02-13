@@ -51,6 +51,29 @@ class Zotero_Keys {
 	}
 	
 	
+	public static function getUserKeysWithLibrary($userID, $libraryID) {
+		$libraryType = Zotero_Libraries::getType($libraryID);
+		
+		$sql = "SELECT keyID FROM `keys` JOIN keyPermissions USING (keyID) "
+			. "WHERE userID=? AND (libraryID=?";
+		// If group library, include keys with access to all groups
+		if ($libraryType == 'group') {
+			$sql .= " OR libraryID=0";
+		}
+		$sql .= ") AND permission='library' AND granted=1";
+		$keyIDs = Zotero_DB::columnQuery($sql, [$userID, $libraryID]);
+		$keys = [];
+		if ($keyIDs) {
+			foreach ($keyIDs as $keyID) {
+				$keyObj = new Zotero_Key;
+				$keyObj->id = $keyID;
+				$keys[] = $keyObj;
+			}
+		}
+		return $keys;
+	}
+	
+	
 	public static function authenticate($key) {
 		$keyObj = self::getByKey($key);
 		if (!$keyObj) {
