@@ -47,6 +47,12 @@ class Zotero_NotifierObserver {
 	
 	
 	public static function notify($event, $type, $ids, $extraData) {
+		if (!isset(Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS)) {
+			error_log('WARNING: Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS not set '
+				. '-- skipping stream notifications');
+			return;
+		}
+		
 		if ($type == "library") {
 			switch ($event) {
 			case "modify":
