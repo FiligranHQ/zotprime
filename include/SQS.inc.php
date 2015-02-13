@@ -30,8 +30,11 @@ class Z_SQS {
 	public static function send($queueURL, $message) {
 		self::load();
 		Z_Core::debug("Sending SQS message to $queueURL", 4);
-		$response = self::$sqs->send_message($queueURL, $message);
-		return !!self::processResponse($response);
+		$response = self::$sqs->sendMessage([
+			'QueueUrl' => $queueURL,
+			'MessageBody' => $message
+		]);
+		return $response;
 	}
 	
 	
@@ -53,31 +56,38 @@ class Z_SQS {
 			);
 		}
 		
-		$response = self::$sqs->send_message_batch($queueURL, $entries);
-		return !!self::processResponse($response);
+		$response = self::$sqs->sendMessageBatch([
+			'QueueUrl' => $queueURL,
+			'Entries' => $entries
+		]);
+		return $response;
 	}
 	
 	
-	public static function receive($queueURL, $opt=array()) {
+	public static function receive($queueURL) {
 		self::load();
-		$response = self::$sqs->receive_message($queueURL, $opt);
-		$response = self::processResponse($response);
-		if (!$response) {
-			return false;
-		}
-		return $response->body;
+		$response = self::$sqs->receiveMessage([
+			'QueueUrl' => $queueURL
+		]);
+		return $response;
 	}
 	
 	
 	public static function delete($queueURL, $receiptHandle) {
-		$response = self::$sqs->delete_message($queueURL, $receiptHandle);
-		return !!self::processResponse($response);
+		$response = self::$sqs->deleteMessage([
+			'QueueUrl' => $queueURL,
+			'ReceiptHandle' => $receiptHandle
+		]);
+		return $response;
 	}
 	
 	
 	public static function deleteBatch($queueURL, $batchEntries) {
 		Z_Core::debug("Deleting " . sizeOf($batchEntries) . " messages from $queueURL", 4);
-		$response = self::$sqs->delete_message_batch($queueURL, $batchEntries);
+		$response = self::$sqs->deleteMessageBatch([
+			'QueueUrl' => $queueURL,
+			'Entries' => $batchEntries
+		]);
 		$response = self::processResponse($response);
 		if (!$response) {
 			return false;
@@ -90,19 +100,9 @@ class Z_SQS {
 	}
 	
 	
-	private static function processResponse($response) {
-		if (!$response->isOK()) {
-			error_log($response->status . " error from SQS:\n" . $response->body->asXML());
-			return false;
-		}
-		return $response;
-	}
-	
-	
 	private static function load() {
 		if (!self::$sqs) {
-			require_once 'AWS-SDK/sdk.class.php';
-			self::$sqs = new AmazonSQS();
+			self::$sqs = Z_Core::$AWS->get('sqs');
 		}
 	}
 }
