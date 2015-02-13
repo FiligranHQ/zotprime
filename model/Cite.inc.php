@@ -449,7 +449,7 @@ class Zotero_Cite {
 			
 			if ($code != 200) {
 				error_log($code . " from citation server -- trying another "
-					. "[INPUT: '$json'] [URL: '$url'] [RESPONSE: '$response']");
+					. "[URL: '$url'] [INPUT: '$json'] [RESPONSE: '$response']");
 			}
 			
 			if ($code == 404) {
