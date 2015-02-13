@@ -98,7 +98,7 @@ class Zotero_DB {
 			throw new Exception("Shard $shardID is down", Z_ERROR_SHARD_UNAVAILABLE);
 		}
 		else if ($shardInfo['state'] == 'readonly') {
-			if ($forWriting) {
+			if ($forWriting && get_called_class() != 'Zotero_Admin_DB') {
 				throw new Exception("Cannot write to read-only shard $shardID", Z_ERROR_SHARD_READ_ONLY);
 			}
 		}
