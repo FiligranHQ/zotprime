@@ -74,7 +74,7 @@ class TranslationTests extends APITests {
 		$val = array_values($results)[0];
 		
 		$this->assertEquals(0, strpos($key, 'http'));
-		$this->assertEquals('Zotero: A Guide for Librarians, Researchers and Educators', $val);
+		$this->assertEquals('How to Manage References with Zotero', $val);
 		
 		// Can't test posting on v1, because generated token isn't returned
 	}

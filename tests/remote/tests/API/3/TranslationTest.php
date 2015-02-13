@@ -95,7 +95,7 @@ class TranslationTests extends APITests {
 	
 	
 	public function testWebTranslationMultiple() {
-		$title = 'Zotero: A Guide for Librarians, Researchers and Educators';
+		$title = 'How to Manage References with Zotero';
 		
 		$response = API::userPost(
 			self::$config['userID'],
