@@ -2546,14 +2546,17 @@ class Zotero_Item {
 		
 		if ($this->noteText !== '' && $htmlspecialchars) {
 			$noteHash = $this->getNoteHash();
-			if (!$noteHash) {
-				throw new Exception("Note hash is empty");
+			if ($noteHash) {
+				$cacheKey = "htmlspecialcharsNote_$noteHash";
+				$note = Z_Core::$MC->get($cacheKey);
+				if ($note === false) {
+					$note = htmlspecialchars($this->noteText);
+					Z_Core::$MC->set($cacheKey, $note);
+				}
 			}
-			$cacheKey = "htmlspecialcharsNote_$noteHash";
-			$note = Z_Core::$MC->get($cacheKey);
-			if ($note === false) {
+			else {
+				error_log("WARNING: Note hash is empty");
 				$note = htmlspecialchars($this->noteText);
-				Z_Core::$MC->set($cacheKey, $note);
 			}
 			return $note;
 		}
