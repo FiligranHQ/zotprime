@@ -874,6 +874,7 @@ class SyncController extends Controller {
 				preg_match("/Note '(.+)' too long(?: for item '(.+)\/(.+)')?/s", $msg, $matches);
 				if ($matches) {
 					$name = $matches[1];
+					$libraryID = false;
 					if (isset($matches[2])) {
 						$libraryID = (int) $matches[2];
 						$itemKey = $matches[3];
@@ -886,16 +887,16 @@ class SyncController extends Controller {
 							$libraryName = false;
 						}
 					}
-					$this->error(400, "ERROR_PROCESSING_UPLOAD_DATA",
+					$this->error(400, "NOTE_TOO_LONG",
 						"The note '" . mb_substr($name, 0, 50) . "…' in "
 						. ($libraryName === false
 							? "your library "
 							: "the group '$libraryName' ")
 						. "is too long to sync to zotero.org.\n\n"
-						. "Search for the excerpt above or copy and paste "
-						. "'$itemKey' into the Zotero search bar. "
 						. "Shorten the note, or delete it and empty the Zotero "
-						. "trash, and then try syncing again."
+						. "trash, and then try syncing again.",
+						[],
+						$libraryID ? ["item" => $libraryID . "/" . $itemKey] : []
 					);
 				}
 				break;
