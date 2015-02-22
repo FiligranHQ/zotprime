@@ -469,7 +469,7 @@ class ParamsTests extends APITests {
 		$parsedLinks = [];
 		foreach  ($links as $link) {
 			list($uri, $rel) = explode('; ', trim($link));
-			$this->assertRegExp('/^<https:\/\/[^ ]+>$/', $uri);
+			$this->assertRegExp('/^<https?:\/\/[^ ]+>$/', $uri);
 			$this->assertRegExp('/^rel="[a-z]+"$/', $rel);
 			$uri = substr($uri, 1, -1);
 			$rel = substr($rel, strlen('rel="'), -1);
