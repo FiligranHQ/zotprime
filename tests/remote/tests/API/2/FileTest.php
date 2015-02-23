@@ -204,7 +204,7 @@ class FileTests extends APITests {
 		$json = json_decode($response->getBody());
 		$this->assertNotNull($json);
 		
-		self::$toDelete[] = "$hash/$filename";
+		self::$toDelete[] = "$hash";
 		
 		// Upload to S3
 		$response = HTTP::post(
@@ -327,7 +327,7 @@ class FileTests extends APITests {
 		$json = json_decode($response->getBody());
 		$this->assertNotNull($json);
 		
-		self::$toDelete[] = "$hash/$filename";
+		self::$toDelete[] = "$hash";
 		
 		// Generate form-data -- taken from S3::getUploadPostData()
 		$boundary = "---------------------------" . md5(uniqid());
@@ -581,7 +581,7 @@ class FileTests extends APITests {
 			$patch = file_get_contents($patchFilename);
 			$this->assertNotEquals("", $patch);
 			
-			self::$toDelete[] = "$newHash/test_$newHash";
+			self::$toDelete[] = "$newHash";
 			
 			// Upload patch file
 			$response = API::userPatch(
@@ -679,6 +679,7 @@ class FileTests extends APITests {
 		
 		// Upload to old-style location
 		self::$toDelete[] = "$hash/$filename";
+		self::$toDelete[] = "$hash";
 		$s3Client = Z_Tests::$AWS->get('s3');
 		$s3Client->putObject([
 			'Bucket' => self::$config['s3Bucket'],
@@ -877,7 +878,7 @@ class FileTests extends APITests {
 		$this->assertContentType("application/xml", $response);
 		$xml = new SimpleXMLElement($response->getBody());
 		
-		self::$toDelete[] = "$hash/$filename";
+		self::$toDelete[] = "$hash";
 		
 		$boundary = "---------------------------" . rand();
 		$postData = "";
@@ -1125,7 +1126,7 @@ class FileTests extends APITests {
 		$this->assertContentType("application/xml", $response);
 		$xml = new SimpleXMLElement($response->getBody());
 		
-		self::$toDelete[] = "$hash/c/$filename";
+		self::$toDelete[] = "$hash";
 		
 		$boundary = "---------------------------" . rand();
 		$postData = "";

@@ -75,6 +75,7 @@ class GroupTests extends APITests {
 			switch ($key) {
 			case 'id':
 			case 'version':
+			case 'members':
 				continue;
 			
 			case 'name':
@@ -171,6 +172,7 @@ class GroupTests extends APITests {
 		foreach ($json as $key => $val) {
 			switch ($key) {
 			case 'id':
+			case 'members':
 				continue;
 			
 			case 'name':
