@@ -216,9 +216,8 @@ class Zotero_Tags extends Zotero_DataObjects {
 		
 		$ids = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		
+		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 		if ($ids) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
-			
 			$tags = array();
 			foreach ($ids as $id) {
 				$tags[] = Zotero_Tags::get($libraryID, $id);

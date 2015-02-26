@@ -595,9 +595,8 @@ class Zotero_Items extends Zotero_DataObjects {
 			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
 		}
 		
+		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
 		if ($rows) {
-			$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
-			
 			if ($params['format'] == 'keys') {
 				$results['results'] = $rows;
 			}
