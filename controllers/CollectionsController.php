@@ -197,7 +197,12 @@ class CollectionsController extends ApiController {
 							}
 							$uri .= "?" . $queryString;
 							
-							$this->queryParams = Zotero_API::parseQueryParams($queryString, $this->action, true);
+							$this->queryParams = Zotero_API::parseQueryParams(
+								$queryString,
+								$this->action,
+								true,
+								$this->apiVersion
+							);
 							
 							$title = "Collections";
 							$results = Zotero_Collections::search($this->objectLibraryID, false, $this->queryParams);

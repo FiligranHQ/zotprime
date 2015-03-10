@@ -38,7 +38,7 @@ class Zotero_API {
 	
 	
 	private static $defaultParams = [
-		'v' => 1,
+		'v' => 3,
 		
 		'format' => [
 			'v' => [

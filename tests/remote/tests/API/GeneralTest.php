@@ -48,7 +48,7 @@ class GeneralTests extends APITests {
 	public function testAPIVersionHeader() {
 		$minVersion = 1;
 		$maxVersion = 3;
-		$defaultVersion = 1;
+		$defaultVersion = 3;
 		
 		for ($i = $minVersion; $i <= $maxVersion; $i++) {
 			$response = API::userGet(

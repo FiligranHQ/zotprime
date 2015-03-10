@@ -40,35 +40,6 @@ class GeneralTests extends APITests {
 		API::userClear(self::$config['userID']);
 	}
 	
-	public function testAPIVersion() {
-		$minVersion = 1;
-		$maxVersion = 2;
-		$defaultVersion = 1;
-		
-		for ($i = $minVersion; $i <= $maxVersion; $i++) {
-			API::useAPIVersion($i);
-			$response = API::userGet(
-				self::$config['userID'],
-				"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
-			);
-			if ($i == 1) {
-				$this->assertEquals(1, $response->getHeader("Zotero-API-Version"));
-			}
-			else {
-				$this->assertEquals($i, $response->getHeader("Zotero-API-Version"));
-			}
-		}
-		
-		// Default
-		API::useAPIVersion(false);
-		$response = API::userGet(
-			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'] . "&format=keys&limit=1"
-		);
-		$this->assertEquals($defaultVersion, $response->getHeader("Zotero-API-Version"));
-	}
-	
-	
 	public function testZoteroWriteToken() {
 		$json = API::getItemTemplate("book");
 		
