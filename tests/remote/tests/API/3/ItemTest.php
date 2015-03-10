@@ -594,7 +594,7 @@ class ItemTests extends APITests {
 		);
 		$this->assert204($response);
 		$json = API::getItem($key, $this, 'json');
-		$this->assertEquals($version, $data['versionNumber']);
+		$this->assertEquals($version, $json['data']['versionNumber']);
 	}
 	
 	
