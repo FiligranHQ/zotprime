@@ -62,7 +62,7 @@ class TranslationTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode([
-				"url" => "http://www.amazon.com/s/field-keywords=zotero"
+				"url" => "http://www.amazon.com/s/field-keywords=zotero+guide+librarians"
 			]),
 			array("Content-Type: application/json")
 		);
@@ -74,7 +74,7 @@ class TranslationTests extends APITests {
 		$val = array_values($results)[0];
 		
 		$this->assertEquals(0, strpos($key, 'http'));
-		$this->assertEquals('How to Manage References with Zotero', $val);
+		$this->assertEquals('Zotero: A Guide for Librarians, Researchers and Educators', $val);
 		
 		// Can't test posting on v1, because generated token isn't returned
 	}

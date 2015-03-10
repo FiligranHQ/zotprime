@@ -95,13 +95,13 @@ class TranslationTests extends APITests {
 	
 	
 	public function testWebTranslationMultiple() {
-		$title = 'How to Manage References with Zotero';
+		$title = 'Zotero: A Guide for Librarians, Researchers and Educators';
 		
 		$response = API::userPost(
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode([
-				"url" => "http://www.amazon.com/s/field-keywords=zotero"
+				"url" => "http://www.amazon.com/s/field-keywords=zotero+guide+librarians"
 			]),
 			array("Content-Type: application/json")
 		);
@@ -122,7 +122,7 @@ class TranslationTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode([
-				"url" => "http://www.amazon.com/s/field-keywords=zotero",
+				"url" => "http://www.amazon.com/s/field-keywords=zotero+guide+librarians",
 				"items" => $items
 			]),
 			array("Content-Type: application/json")
@@ -138,7 +138,7 @@ class TranslationTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode([
-				"url" => "http://www.amazon.com/s/field-keywords=zotero",
+				"url" => "http://www.amazon.com/s/field-keywords=zotero+guide+librarians",
 				"token" => $json->token,
 				"items" => $items2
 			]),
@@ -150,7 +150,7 @@ class TranslationTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode([
-				"url" => "http://www.amazon.com/s/field-keywords=zotero",
+				"url" => "http://www.amazon.com/s/field-keywords=zotero+guide+librarians",
 				"token" => $json->token,
 				"items" => $items
 			]),
@@ -171,7 +171,7 @@ class TranslationTests extends APITests {
 			self::$config['userID'],
 			"items?key=" . self::$config['apiKey'],
 			json_encode([
-				"url" => "http://www.amazon.com/s/field-keywords=zotero",
+				"url" => "http://www.amazon.com/s/field-keywords=zotero+guide+librarians",
 				"token" => md5(uniqid())
 			]),
 			["Content-Type: application/json"]
