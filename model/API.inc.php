@@ -160,6 +160,11 @@ class Zotero_API {
 			}
 			$queryParams['v'] = $apiVersion;
 		}
+		// v1 documentation specifies 'version' query parameter
+		else if (isset($queryParams['version']) && $queryParams['version'] == 1 && !isset($queryParams['v'])) {
+			$queryParams['v'] = 1;
+			unset($queryParams['version']);
+		}
 		
 		// If format=json, override version to 3
 		if (!isset($queryParams['v']) && isset($queryParams['format']) && $queryParams['format'] == 'json') {
