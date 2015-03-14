@@ -25,12 +25,13 @@
 */
 
 require_once 'include/http.inc.php';
+require_once 'include/bootstrap.inc.php';
 require_once '../../model/Utilities.inc.php';
 
 class Sync {
 	private static $config;
 	
-	private static function loadConfig() {
+	public static function loadConfig() {
 		if (self::$config) {
 			return;
 		}
@@ -169,8 +170,6 @@ class Sync {
 	// Sync operations
 	//
 	public static function login($credentials=false) {
-		self::loadConfig();
-		
 		if (!$credentials) {
 			$credentials['username'] = self::$config['username'];
 			$credentials['password'] = self::$config['password'];
@@ -284,8 +283,6 @@ class Sync {
 	
 	
 	public static function logout($sessionID) {
-		self::loadConfig();
-		
 		$url = self::$config['syncURLPrefix'] . "logout";
 		$response = HTTP::post(
 			$url,
@@ -347,8 +344,6 @@ class Sync {
 	
 	
 	private static function req($sessionID, $path, $params=array(), $gzip=false, $allowError=false) {
-		self::loadConfig();
-		
 		$url = self::$config['syncURLPrefix'] . $path;
 		
 		$params = array_merge(
@@ -386,5 +381,6 @@ class Sync {
 			throw new Exception("Invalid session id");
 		}
 	}
-
 }
+
+Sync::loadConfig();

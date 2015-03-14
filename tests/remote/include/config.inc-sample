@@ -1,0 +1,32 @@
+; 0 => off, 1 => HTTP requests, 2 => HTTP request/response bodies
+verbose = 0
+syncURLPrefix = ""
+apiURLPrefix = ""
+rootUsername = ""
+rootPassword = ""
+awsRegion = "us-east-1"
+s3Bucket = ""
+; Leave credentials empty to use IAM role
+awsAccessKey = ""
+awsSecretKey = ""
+syncVersion = 9
+
+[user1]
+userID = 0
+libraryID = 0
+username = "phpunit"
+password = ""
+apiKey = ""
+; Should have libraryEditing='members'
+ownedPrivateGroupID = 0
+ownedPrivateGroupLibraryID = 0
+ownedPrivateGroupName = "Private Test Group"
+
+; Should be in user 1's private group
+[user2]
+userID2 = 0
+username2 = "phpunit2"
+password2 = ""
+; User 1 should not be a member
+ownedPrivateGroupID2 = 0
+ownedPrivateGroupLibraryID2 = 0

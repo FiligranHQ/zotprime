@@ -24,8 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include/bootstrap.inc.php';
-require_once 'include/http.inc.php';
+require_once __DIR__ . '/http.inc.php';
 
 class API3 {
 	private static $config;
@@ -33,7 +32,7 @@ class API3 {
 	private static $apiVersion = false;
 	private static $apiKey = false;
 	
-	private static function loadConfig() {
+	public static function loadConfig() {
 		require 'include/config.inc.php';
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
@@ -52,6 +51,49 @@ class API3 {
 	}
 	
 	
+	public static function createGroup($fields) {
+		$xml = new \SimpleXMLElement('<group/>');
+		$xml['owner'] = $fields['owner'];
+		$xml['name'] = "Test Group " . uniqid();
+		$xml['type'] = $fields['type'];
+		$xml['libraryEditing'] = isset($fields['libraryEditing'])
+			? $fields['libraryEditing']
+			: 'members';
+		$xml['libraryReading'] = isset($fields['libraryReading'])
+			? $fields['libraryReading']
+			: 'members';
+		$xml['fileEditing'] = isset($fields['fileEditing'])
+			? $fields['fileEditing']
+			: 'none';
+		$xml['description'] = "";
+		$xml['url'] = "";
+		$xml['hasImage'] = false;
+		
+		$response = self::superPost(
+			"groups",
+			$xml->asXML()
+		);
+		if ($response->getStatus() != 201) {
+			echo $response->getBody();
+			throw new Exception("Unexpected response code " . $response->getStatus());
+		}
+		$url = $response->getHeader('Location');
+		preg_match('/[0-9]+$/', $url, $matches);
+		return (int) $matches[0];
+	}
+	
+	
+	public static function deleteGroup($groupID) {
+		$response = self::superDelete(
+			"groups/$groupID"
+		);
+		if ($response->getStatus() != 204) {
+			echo $response->getBody();
+			throw new Exception("Unexpected response code " . $response->getStatus());
+		}
+	}
+	
+	
 	//
 	// Item modification methods
 	//
@@ -62,8 +104,6 @@ class API3 {
 	
 	
 	public function createItem($itemType, $data=array(), $context=null, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		$json = self::getItemTemplate($itemType);
 		
 		if ($data) {
@@ -107,8 +147,6 @@ class API3 {
 	
 	
 	public function groupCreateItem($groupID, $itemType, $data=[], $context=null, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=$itemType");
 		$json = json_decode($response->getBody());
 		
@@ -129,8 +167,6 @@ class API3 {
 	
 	
 	public function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -152,8 +188,6 @@ class API3 {
 	
 	
 	public function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -175,8 +209,6 @@ class API3 {
 	
 	
 	public function createNoteItem($text="", $parentKey=false, $context=false, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
 		$json->note = $text;
@@ -195,8 +227,6 @@ class API3 {
 	
 	
 	public function createCollection($name, $data=array(), $context=null, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		if (is_array($data)) {
 			$parent = isset($data['parentCollection']) ? $data['parentCollection'] : false;
 			$relations = isset($data['relations']) ? $data['relations'] : new stdClass;
@@ -226,8 +256,6 @@ class API3 {
 	
 	
 	public function createSearch($name, $conditions=array(), $context=null, $returnFormat='responseJSON') {
-		self::loadConfig();
-		
 		if ($conditions == 'default') {
 			$conditions = array(
 				array(
@@ -349,7 +377,6 @@ class API3 {
 	// HTTP methods
 	//
 	public static function get($url, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -384,7 +411,6 @@ class API3 {
 	}
 	
 	public static function post($url, $data, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -417,7 +443,6 @@ class API3 {
 	}
 	
 	public static function put($url, $data, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -450,7 +475,6 @@ class API3 {
 	}
 	
 	public static function patch($url, $data, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -467,7 +491,6 @@ class API3 {
 	}
 	
 	public static function head($url, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -484,7 +507,6 @@ class API3 {
 	}
 	
 	public static function delete($url, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -517,7 +539,6 @@ class API3 {
 	
 	
 	public static function userClear($userID) {
-		self::loadConfig();
 		$response = self::userPost(
 			$userID,
 			"clear",
@@ -535,7 +556,6 @@ class API3 {
 	}
 	
 	public static function groupClear($groupID) {
-		self::loadConfig();
 		$response = self::groupPost(
 			$groupID,
 			"clear",
@@ -624,8 +644,6 @@ class API3 {
 	
 	
 	public static function setKeyOption($userID, $key, $option, $val) {
-		self::loadConfig();
-		
 		$response = self::get(
 			"users/$userID/keys/$key",
 			array(),
@@ -850,3 +868,5 @@ class API3 {
 		throw new Exception("Invalid result format '$returnFormat'");
 	}
 }
+
+API3::loadConfig();

@@ -25,8 +25,8 @@
 */
 
 namespace APIv2;
-use API2 as API, Exception, SimpleXMLElement;
 require_once 'tests/API/APITests.inc.php';
+use API2 as API, Exception, SimpleXMLElement;
 require_once 'include/api2.inc.php';
 
 //
@@ -45,12 +45,12 @@ class APITests extends \APITests {
 		}
 		self::$nsZAPI = 'http://zotero.org/ns/api';
 		
+		API::useAPIVersion(2);
+		
 		// Enable note access
 		API::setKeyOption(
 			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
 		);
-		
-		API::useAPIVersion(2);
 	}
 	
 	

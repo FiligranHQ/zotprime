@@ -24,8 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include/bootstrap.inc.php';
-require_once 'include/http.inc.php';
+require_once __DIR__ . '/http.inc.php';
 
 use \API2 as API;
 
@@ -34,7 +33,7 @@ class API2 {
 	private static $nsZAPI;
 	private static $apiVersion = false;
 	
-	private static function loadConfig() {
+	public static function loadConfig() {
 		require 'include/config.inc.php';
 		foreach ($config as $k => $v) {
 			self::$config[$k] = $v;
@@ -58,8 +57,6 @@ class API2 {
 	
 	
 	public function createItem($itemType, $data=array(), $context=null, $responseFormat='atom') {
-		self::loadConfig();
-		
 		$json = self::getItemTemplate($itemType);
 		
 		if ($data) {
@@ -107,8 +104,6 @@ class API2 {
 	
 	
 	public function groupCreateItem($groupID, $itemType, $context=null, $responseFormat='atom') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=$itemType");
 		$json = json_decode($response->getBody());
 		
@@ -149,8 +144,6 @@ class API2 {
 	
 	
 	public function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -205,8 +198,6 @@ class API2 {
 	
 	
 	public function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -259,8 +250,6 @@ class API2 {
 	
 	
 	public function createNoteItem($text="", $parentKey=false, $context=false, $responseFormat='atom') {
-		self::loadConfig();
-		
 		$response = self::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
 		$json->note = $text;
@@ -311,8 +300,6 @@ class API2 {
 	
 	
 	public function createCollection($name, $data=array(), $context=null, $responseFormat='atom') {
-		self::loadConfig();
-		
 		if (is_array($data)) {
 			$parent = isset($data['parentCollection']) ? $data['parentCollection'] : false;
 			$relations = isset($data['relations']) ? $data['relations'] : new stdClass;
@@ -344,8 +331,6 @@ class API2 {
 	
 	
 	public function createSearch($name, $conditions=array(), $context=null, $responseFormat='atom') {
-		self::loadConfig();
-		
 		if ($conditions == 'default') {
 			$conditions = array(
 				array(
@@ -437,7 +422,6 @@ class API2 {
 	// HTTP methods
 	//
 	public static function get($url, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -458,7 +442,6 @@ class API2 {
 	}
 	
 	public static function post($url, $data, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -476,7 +459,6 @@ class API2 {
 	}
 	
 	public static function put($url, $data, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -494,7 +476,6 @@ class API2 {
 	}
 	
 	public static function patch($url, $data, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -508,7 +489,6 @@ class API2 {
 	}
 	
 	public static function head($url, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -522,7 +502,6 @@ class API2 {
 	}
 	
 	public static function delete($url, $headers=array(), $auth=false) {
-		self::loadConfig();
 		$url = self::$config['apiURLPrefix'] . $url;
 		if (self::$apiVersion) {
 			$headers[] = "Zotero-API-Version: " . self::$apiVersion;
@@ -541,7 +520,6 @@ class API2 {
 	
 	
 	public static function userClear($userID) {
-		self::loadConfig();
 		$response = self::userPost(
 			$userID,
 			"clear",
@@ -559,7 +537,6 @@ class API2 {
 	}
 	
 	public static function groupClear($groupID) {
-		self::loadConfig();
 		$response = self::groupPost(
 			$groupID,
 			"clear",
@@ -647,7 +624,6 @@ class API2 {
 	
 	
 	public static function setKeyOption($userID, $key, $option, $val) {
-		self::loadConfig();
 		$response = self::get(
 			"users/$userID/keys/$key",
 			array(),
@@ -798,3 +774,5 @@ class API2 {
 		throw new Exception("Invalid response format '$responseFormat'");
 	}
 }
+
+API2::loadConfig();

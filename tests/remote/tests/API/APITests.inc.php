@@ -24,6 +24,8 @@
     ***** END LICENSE BLOCK *****
 */
 
+require_once 'include/bootstrap.inc.php';
+
 //
 // Helper functions
 //

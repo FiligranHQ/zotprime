@@ -41,13 +41,15 @@ class PermissionsTest extends APITests {
 		$response = API::get("users/" . self::$config['userID'] . "/groups?content=json");
 		$this->assert200($response);
 		
-		// There should be only one public group
-		$this->assertTotalResults(1, $response);
+		$this->assertTotalResults(self::$config['numPublicGroups'], $response);
 		
-		// Make sure it's the right group
+		// Make sure they're the right groups
 		$xml = API::getXMLFromResponse($response);
-		$groupID = (int) array_shift($xml->xpath('//atom:entry/zapi:groupID'));
-		$this->assertEquals(self::$config['ownedPublicGroupID'], $groupID);
+		$groupIDs = array_map(function ($id) {
+			return (int) $id;
+		}, $xml->xpath('//atom:entry/zapi:groupID'));
+		$this->assertContains(self::$config['ownedPublicGroupID'], $groupIDs);
+		$this->assertContains(self::$config['ownedPublicNoAnonymousGroupID'], $groupIDs);
 	}
 	
 	
@@ -58,8 +60,8 @@ class PermissionsTest extends APITests {
 		);
 		$this->assert200($response);
 		
-		$this->assertNumResults(2, $response);
-		$this->assertTotalResults(2, $response);
+		$this->assertNumResults(self::$config['numOwnedGroups'], $response);
+		$this->assertTotalResults(self::$config['numOwnedGroups'], $response);
 	}
 	
 	

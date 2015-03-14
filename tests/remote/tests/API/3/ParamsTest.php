@@ -266,7 +266,7 @@ class ParamsTests extends APITests {
 		case 'group':
 			// Change if the config changes
 			$limit = 1;
-			$totalResults = 2;
+			$totalResults = self::$config['numOwnedGroups'];
 			$formats = array_filter($formats, function ($val) { return !in_array($val, ['keys']); });
 			break;
 		}

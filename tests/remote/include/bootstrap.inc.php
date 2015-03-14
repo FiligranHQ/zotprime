@@ -28,3 +28,5 @@ else {
 }
 Z_Tests::$AWS = \Aws\Common\Aws::factory($awsConfig);
 unset($awsConfig);
+
+require 'groups.inc.php';

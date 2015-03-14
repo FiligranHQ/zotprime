@@ -25,8 +25,8 @@
 */
 
 namespace APIv1;
-use \API2 as API, \Exception, \SimpleXMLElement;
 require_once 'tests/API/APITests.inc.php';
+use \API2 as API, \Exception, \SimpleXMLElement;
 require_once 'include/api2.inc.php';
 
 //

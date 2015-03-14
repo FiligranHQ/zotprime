@@ -30,6 +30,8 @@ require_once 'APITests.inc.php';
 require_once 'include/api3.inc.php';
 
 class PermissionsTest extends APITests {
+	private static $publicGroupID;
+	
 	public function tearDown() {
 		API::setKeyOption(
 			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
@@ -42,12 +44,15 @@ class PermissionsTest extends APITests {
 		$response = API::get("users/" . self::$config['userID'] . "/groups");
 		$this->assert200($response);
 		
-		// There should be only one public group
-		$this->assertTotalResults(1, $response);
+		$this->assertTotalResults(self::$config['numPublicGroups'], $response);
 		
-		// Make sure it's the right group
+		// Make sure they're the right groups
 		$json = API::getJSONFromResponse($response);
-		$this->assertEquals(self::$config['ownedPublicGroupID'], $json[0]['id']);
+		$groupIDs = array_map(function ($data) {
+			return $data['id'];
+		}, $json);
+		$this->assertContains(self::$config['ownedPublicGroupID'], $groupIDs);
+		$this->assertContains(self::$config['ownedPublicNoAnonymousGroupID'], $groupIDs);
 	}
 	
 	
@@ -56,13 +61,15 @@ class PermissionsTest extends APITests {
 		$response = API::get("users/" . self::$config['userID'] . "/groups?content=json");
 		$this->assert200($response);
 		
-		// There should be only one public group
-		$this->assertTotalResults(1, $response);
+		$this->assertTotalResults(self::$config['numPublicGroups'], $response);
 		
-		// Make sure it's the right group
+		// Make sure they're the right groups
 		$xml = API::getXMLFromResponse($response);
-		$groupID = (int) array_shift($xml->xpath('//atom:entry/zapi:groupID'));
-		$this->assertEquals(self::$config['ownedPublicGroupID'], $groupID);
+		$groupIDs = array_map(function ($id) {
+			return (int) $id;
+		}, $xml->xpath('//atom:entry/zapi:groupID'));
+		$this->assertContains(self::$config['ownedPublicGroupID'], $groupIDs);
+		$this->assertContains(self::$config['ownedPublicNoAnonymousGroupID'], $groupIDs);
 	}
 	
 	
@@ -73,8 +80,38 @@ class PermissionsTest extends APITests {
 		);
 		$this->assert200($response);
 		
-		$this->assertNumResults(2, $response);
-		$this->assertTotalResults(2, $response);
+		$this->assertNumResults(self::$config['numOwnedGroups'], $response);
+		$this->assertTotalResults(self::$config['numOwnedGroups'], $response);
+	}
+	
+	
+	public function testGroupLibraryReading() {
+		$groupID = self::$config['ownedPublicNoAnonymousGroupID'];
+		API::groupClear($groupID);
+		
+		$json = API::groupCreateItem(
+			$groupID,
+			'book',
+			[
+				'title' => "Test"
+			],
+			$this
+		);
+		
+		try {
+			API::useAPIKey(self::$config['apiKey']);
+			$response = API::groupGet($groupID, "items");
+			$this->assert200($response);
+			$this->assertNumResults(1, $response);
+			
+			// An anonymous request should fail, because libraryReading is members
+			API::useAPIKey(false);
+			$response = API::groupGet($groupID, "items");
+			$this->assert403($response);
+		}
+		finally {
+			API::groupClear($groupID);
+		}
 	}
 	
 	

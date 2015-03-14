@@ -203,7 +203,7 @@ class Zotero_Groups {
 			// Remove groups that can't be accessed
 			if ($permissions) {
 				for ($i=$batchStartPos; $i<sizeOf($groups); $i++) {
-					if (!$permissions->canAccess($groups[$i]->libraryID)) {
+					if (!$permissions->canAccess($groups[$i]->libraryID, 'view')) {
 						array_splice($groups, $i, 1);
 						$i--;
 						$totalResults--;

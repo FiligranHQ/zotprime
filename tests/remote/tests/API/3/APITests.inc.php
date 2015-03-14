@@ -25,8 +25,8 @@
 */
 
 namespace APIv3;
-use API3 as API, \Exception, \SimpleXMLElement;
 require_once 'tests/API/APITests.inc.php';
+use API3 as API, \Exception, \SimpleXMLElement;
 require_once 'include/api3.inc.php';
 
 //

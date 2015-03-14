@@ -91,14 +91,17 @@ class Zotero_Permissions {
 		}
 		
 		switch ($permission) {
-			case 'library':
-				return $privacy['publishLibrary'];
-			
-			case 'notes':
-				return $privacy['publishNotes'];
-			
-			default:
-				return false;
+		case 'view':
+			return $privacy['view'];
+		
+		case 'library':
+			return $privacy['library'];
+		
+		case 'notes':
+			return $privacy['notes'];
+		
+		default:
+			return false;
 		}
 	}
 	
@@ -190,13 +193,13 @@ class Zotero_Permissions {
 			
 			switch ($userID) {
 				case 1:
-					$privacy['publishLibrary'] = true;
-					$privacy['publishNotes'] = true;
+					$privacy['library'] = true;
+					$privacy['notes'] = true;
 					break;
 					
 				case 2:
-					$privacy['publishLibrary'] = false;
-					$privacy['publishNotes'] = false;
+					$privacy['library'] = false;
+					$privacy['notes'] = false;
 					break;
 				
 				default:
@@ -217,8 +220,8 @@ class Zotero_Permissions {
 		}
 		
 		$privacy = array(
-			'publishLibrary' => false,
-			'publishNotes' => false
+			'library' => false,
+			'notes' => false
 		);
 		foreach ($rows as $row) {
 			$privacy[substr($row['metaKey'], 8)] = (bool) (int) $row['metaValue'];
@@ -240,12 +243,14 @@ class Zotero_Permissions {
 		}
 		$privacy = array();
 		if ($group->isPublic()) {
-			$privacy['publishLibrary'] = true;
-			$privacy['publishNotes'] = true;
+			$privacy['view'] = true;
+			$privacy['library'] = $group->libraryReading == 'all';
+			$privacy['notes'] = $group->libraryReading == 'all';
 		}
 		else {
-			$privacy['publishLibrary'] = false;
-			$privacy['publishNotes'] = false;
+			$privacy['view'] = false;
+			$privacy['library'] = false;
+			$privacy['notes'] = false;
 		}
 		
 		$this->groupPrivacy[$groupID] = $privacy;
