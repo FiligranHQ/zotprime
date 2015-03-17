@@ -70,6 +70,21 @@ class APITests extends PHPUnit_Framework_TestCase {
 	}
 	
 	
+	protected function assertCompression($response) {
+		$this->assertEquals('gzip', $response->getHeader('Content-Encoding'));
+	}
+	
+	
+	protected function assertNoCompression($response) {
+		$this->assertNull($response->getHeader('Content-Encoding'));
+	}
+	
+	
+	protected function assertContentLength($length, $response) {
+		$this->assertEquals($length, $response->getHeader('Content-Length'));
+	}
+	
+	
 	protected function assertISO8601Date($date) {
 		$this->assertTrue(\Zotero_Date::isISO8601($date));
 	}

@@ -185,4 +185,33 @@ class GeneralTests extends APITests {
 		$this->assertEquals('', $response->getBody());
 		$this->assertEquals('*', $response->getHeader('Access-Control-Allow-Origin'));
 	}
+	
+	
+	public function test200Compression() {
+		$response = API::get("itemTypes");
+		$this->assertHTTPStatus(200, $response);
+		$this->assertCompression($response);
+	}
+	
+	
+	public function test404Compression() {
+		$response = API::get("invalidurl");
+		$this->assertHTTPStatus(404, $response);
+		$this->assertCompression($response);
+	}
+	
+	
+	public function test204NoCompression() {
+		$json = API::createItem("book", [], null, 'jsonData');
+		$response = API::userDelete(
+			self::$config['userID'],
+			"items/{$json['key']}",
+			[
+				"If-Unmodified-Since-Version: {$json['version']}"
+			]
+		);
+		$this->assertHTTPStatus(204, $response);
+		$this->assertNoCompression($response);
+		$this->assertContentLength(0, $response);
+	}
 }

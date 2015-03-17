@@ -6,9 +6,6 @@ SetEnvIf X-Forwarded-For "192.168.1.|" !ACCESS_CONTROL
 order deny,allow
 deny from env=ACCESS_CONTROL
 
-php_flag zlib.output_compression On
-php_value zlib.output_compression_level 5
-
 php_value include_path "../include"
 php_value auto_prepend_file "header.inc.php"
 php_value auto_append_file "footer.inc.php"
