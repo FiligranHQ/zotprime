@@ -210,7 +210,7 @@ class Zotero_Permissions {
 			return $privacy;
 		}
 		
-		$sql = "SELECT metaKey, metaValue FROM users_meta WHERE userID=? AND metaKey LIKE 'privacy_%'";
+		$sql = "SELECT metaKey, metaValue FROM users_meta WHERE userID=? AND metaKey LIKE 'privacy_publish%'";
 		try {
 			$rows = Zotero_WWW_DB_2::query($sql, $userID);
 		}
@@ -224,7 +224,7 @@ class Zotero_Permissions {
 			'notes' => false
 		);
 		foreach ($rows as $row) {
-			$privacy[substr($row['metaKey'], 8)] = (bool) (int) $row['metaValue'];
+			$privacy[strtolower(substr($row['metaKey'], 15))] = (bool) (int) $row['metaValue'];
 		}
 		$this->userPrivacy[$userID] = $privacy;
 		
