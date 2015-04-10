@@ -50,11 +50,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		if ($params['format'] == 'keys') {
 			$sql .= "`key`";
 		}
-		else if ($params['format'] == 'versions') {
-			$sql .= "`key`, version";
-		}
 		else {
-			$sql .= "collectionID";
+			$sql .= "`key`, version";
 		}
 		$sql .= " FROM collections WHERE libraryID=? ";
 		$sqlParams = array($libraryID);
@@ -129,12 +126,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$sqlParams[] = $params['limit'];
 		}
 		
-		if ($params['format'] == 'versions') {
-			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
-		}
-		// keys and ids
-		else {
+		if ($params['format'] == 'keys') {
 			$rows = Zotero_DB::columnQuery($sql, $sqlParams, $shardID);
+		}
+		// Keys and versions
+		else {
+			$rows = Zotero_DB::query($sql, $sqlParams, $shardID);
 		}
 		
 		$results['total'] = Zotero_DB::valueQuery("SELECT FOUND_ROWS()", false, $shardID);
@@ -148,9 +145,11 @@ class Zotero_Collections extends Zotero_DataObjects {
 				}
 			}
 			else {
-				$collections = array();
-				foreach ($rows as $id) {
-					$collections[] = self::get($libraryID, $id);
+				$collections = [];
+				foreach ($rows as $row) {
+					$obj = self::getByLibraryAndKey($libraryID, $row['key']);
+					$obj->setAvailableVersion($row['version']);
+					$collections[] = $obj;
 				}
 				$results['results'] = $collections;
 			}

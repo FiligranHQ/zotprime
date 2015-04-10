@@ -24,17 +24,13 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Collection {
-	private $_id;
-	private $_libraryID;
-	private $_key;
+class Zotero_Collection extends Zotero_DataObject {
+	
 	private $_name;
-	private $_parent = false;
+	private $_parent;
 	private $_dateAdded;
 	private $_dateModified;
-	private $_version;
 	
-	private $loaded;
 	private $changed;
 	
 	private $childCollectionsLoaded;
@@ -52,6 +48,15 @@ class Zotero_Collection {
 	
 	
 	public function __get($field) {
+		$val = parent::__get($field);
+		if (!is_null($val)) {
+			return $val;
+		}
+		
+		if (isset($this->{'_' . $field})) {
+			return $this->{'_' . $field};
+		}
+		
 		if (($this->_id || $this->_key) && !$this->loaded) {
 			$this->load(true);
 		}
@@ -99,13 +104,17 @@ class Zotero_Collection {
 		}
 		
 		switch ($field) {
-			case 'parent':
-				$this->setParent($value);
-				return;
+		case 'version':
+			$value = (int) $value;
+			break;
 			
-			case 'parentKey':
-				$this->setParentKey($value);
-				return;
+		case 'parent':
+			$this->setParent($value);
+			return;
+		
+		case 'parentKey':
+			$this->setParentKey($value);
+			return;
 		}
 		
 		$this->checkValue($field, $value);
@@ -316,6 +325,16 @@ class Zotero_Collection {
 		Zotero_DB::commit();
 	}
 	*/
+	
+	
+	public function numCollections() {
+		if ($this->childCollectionsLoaded) {
+			return sizeOf($this->childCollections);
+		}
+		$sql = "SELECT COUNT(*) FROM collections WHERE parentCollectionID=?";
+		$num = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
+		return $num;
+	}
 	
 	
 	public function numItems($includeDeleted=false) {
@@ -837,11 +856,25 @@ class Zotero_Collection {
 	}
 	
 	
-	public function toResponseJSON($requestParams=[], Zotero_Permissions $permissions, $sharedData=null) {
+	public function toResponseJSON($requestParams=[]) {
 		$t = microtime(true);
 		
-		if (!$this->loaded) {
-			$this->load();
+		// Child collections and items can't be cached (easily)
+		$numCollections = $this->numCollections();
+		$numItems = $this->numItems();
+		
+		if (!$requestParams['uncached']) {
+			$cacheKey = $this->getCacheKey($requestParams);
+			$cached = Z_Core::$MC->get($cacheKey);
+			if ($cached) {
+				Z_Core::debug("Using cached JSON for $this->libraryKey");
+				$cached['meta']->numCollections = $numCollections;
+				$cached['meta']->numItems = $numItems;
+				
+				StatsD::timing("api.collections.toResponseJSON.cached", (microtime(true) - $t) * 1000);
+				StatsD::increment("memcached.collections.toResponseJSON.hit");
+				return $cached;
+			}
 		}
 		
 		$json = [
@@ -873,8 +906,8 @@ class Zotero_Collection {
 		
 		// 'meta'
 		$json['meta'] = new stdClass;
-		$json['meta']->numCollections = sizeOf($this->getChildCollections());
-		$json['meta']->numItems = $this->numItems();
+		$json['meta']->numCollections = $numCollections;
+		$json['meta']->numItems = $numItems;
 		
 		// 'include'
 		$include = $requestParams['include'];
@@ -883,6 +916,13 @@ class Zotero_Collection {
 			if ($type == 'data') {
 				$json[$type] = $this->toJSON($requestParams);
 			}
+		}
+		
+		if (!$requestParams['uncached']) {
+			Z_Core::$MC->set($cacheKey, $json);
+			
+			StatsD::timing("api.collections.toResponseJSON.uncached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.collections.toResponseJSON.miss");
 		}
 		
 		return $json;
@@ -922,7 +962,7 @@ class Zotero_Collection {
 		$id = $this->_id;
 		$key = $this->_key;
 		
-		Z_Core::debug("Loading data for collection " . ($id ? $id : $key));
+		Z_Core::debug("Loading data for collection $libraryID/" . ($id ? $id : $key));
 		
 		if (!$libraryID) {
 			throw new Exception("Library ID not set");
@@ -932,64 +972,26 @@ class Zotero_Collection {
 			throw new Exception("ID or key not set");
 		}
 		
-		// Cache collection data for the entire library
-		if (true) {
-			if ($id) {
-				Z_Core::debug("Loading data for collection $libraryID/$id");
-				$row = Zotero_Collections::getPrimaryDataByID($libraryID, $id);
-			}
-			else {
-				Z_Core::debug("Loading data for collection $libraryID/$key");
-				$row = Zotero_Collections::getPrimaryDataByKey($libraryID, $key);
-			}
-			
-			$this->loaded = true;
-			
-			if (!$row) {
-				return;
-			}
-			
-			if ($row['libraryID'] != $libraryID) {
-				throw new Exception("libraryID {$row['libraryID']} != $this->libraryID");
-			}
-			
-			foreach ($row as $key=>$val) {
-				$field = '_' . $key;
-				$this->$field = $val;
-			}
+		if ($id) {
+			$row = Zotero_Collections::getPrimaryDataByID($libraryID, $id);
 		}
-		// Load collection row individually
 		else {
-			// Use cached check for existence if possible
-			if ($libraryID && $key) {
-				if (!Zotero_Collections::existsByLibraryAndKey($libraryID, $key)) {
-					$this->loaded = true;
-					return;
-				}
-			}
-			
-			$sql = Zotero_Collections::getPrimaryDataSQL();
-			if ($id) {
-				$sql .= "collectionID=?";
-				$params = $id;
-			}
-			else {
-				$sql .= "libraryID=? AND `key`=?";
-				$params = array($libraryID, $key);
-			}
-			
-			$data = Zotero_DB::rowQuery($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
-			
-			$this->loaded = true;
-			
-			if (!$data) {
-				return;
-			}
-			
-			foreach ($data as $key=>$val) {
-				$field = '_' . $key;
-				$this->$field = $val;
-			}
+			$row = Zotero_Collections::getPrimaryDataByKey($libraryID, $key);
+		}
+		
+		$this->loaded = true;
+		
+		if (!$row) {
+			return;
+		}
+		
+		if ($row['libraryID'] != $libraryID) {
+			throw new Exception("libraryID {$row['libraryID']} != $this->libraryID");
+		}
+		
+		foreach ($row as $key=>$val) {
+			$field = '_' . $key;
+			$this->$field = $val;
 		}
 	}
 	
@@ -1065,6 +1067,18 @@ class Zotero_Collection {
 				}
 				break;
 		}
+	}
+	
+	
+	private function getCacheKey($requestParams) {
+		$cacheKey = implode("\n", [
+			$this->libraryID,
+			$this->key,
+			$this->version,
+			implode(',', $requestParams['include']),
+			$requestParams['v']
+		]);
+		return md5($cacheKey);
 	}
 	
 	

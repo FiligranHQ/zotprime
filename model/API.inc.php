@@ -132,7 +132,8 @@ class Zotero_API {
 		],
 		
 		// For internal use only
-		'emptyFirst' => false
+		'emptyFirst' => false,
+		'uncached' => false
 	];
 	
 	
@@ -210,14 +211,14 @@ class Zotero_API {
 			unset($queryParams['newertime']);
 		}
 		
-		foreach (self::resolveDefaultParams($action, self::$defaultParams, $queryParams) as $key => $val) {
+		foreach (self::resolveDefaultParams($action, self::$defaultParams, $queryParams) as $key => $value) {
 			// Don't overwrite field if already set (either above or derived from another field)
 			if (!empty($finalParams[$key])) {
 				continue;
 			}
 			
 			// Fill defaults
-			$finalParams[$key] = $val;
+			$finalParams[$key] = $value;
 			
 			// Ignore private parameters in the URL
 			if (in_array($key, self::getPrivateParams($key)) && isset($queryParams[$key])) {
@@ -228,6 +229,9 @@ class Zotero_API {
 			if (!isset($queryParams[$key])) {
 				continue;
 			}
+			
+			// Use query parameter as value
+			$value = $queryParams[$key];
 			
 			if (isset($finalParams['format'])) {
 				$format = $finalParams['format'];
@@ -255,27 +259,27 @@ class Zotero_API {
 			
 			switch ($key) {
 			case 'v':
-				if (!in_array($val, self::$validAPIVersions)) {
-					throw new Exception("Invalid API version '$val'", Z_ERROR_INVALID_INPUT);
+				if (!in_array($value, self::$validAPIVersions)) {
+					throw new Exception("Invalid API version '$value'", Z_ERROR_INVALID_INPUT);
 				}
 				break;
 			
 			case 'format':
-				if (!self::isValidFormatForAction($action, $val, $singleObject)) {
-					throw new Exception("Invalid 'format' value '$val'", Z_ERROR_INVALID_INPUT);
+				if (!self::isValidFormatForAction($action, $value, $singleObject)) {
+					throw new Exception("Invalid 'format' value '$value'", Z_ERROR_INVALID_INPUT);
 				}
 				break;
 			
 			case 'since':
 			case 'sincetime':
-				if (!is_numeric($queryParams[$key])) {
+				if (!is_numeric($value)) {
 					throw new Exception("Invalid value for '$key' parameter", Z_ERROR_INVALID_INPUT);
 				}
 				break;
 			
 			case 'start':
-				$finalParams[$key] = (int) $queryParams[$key];
-				continue 2;
+				$value = (int) $value;
+				break;
 			
 			case 'limit':
 				// Maximum limit depends on 'format'
@@ -288,26 +292,26 @@ class Zotero_API {
 						&& (in_array($format, Zotero_Translate::$exportFormats) || $format == 'csljson')
 						&& !$singleObject
 						&& empty($queryParams['itemKey'])) {
-					if (empty($queryParams['limit'])) {
+					if (empty($value)) {
 						throw new Exception("'limit' is required for format=$format", Z_ERROR_INVALID_INPUT);
 					}
 					// Also enforce maximum limit
 					// TODO: Do this for all formats?
-					else if ($queryParams['limit'] > $limitMax) {
+					else if ($value > $limitMax) {
 						throw new Exception("'limit' cannot be greater than $limitMax for format=$format", Z_ERROR_INVALID_INPUT);
 					}
 				}
 				
 				// If there's a maximum, enforce it
-				if ($limitMax && (int) $queryParams['limit'] > $limitMax) {
-					$queryParams['limit'] = $limitMax;
+				if ($limitMax && (int) $value > $limitMax) {
+					$value = $limitMax;
 				}
 				// Use default if 0 or invalid
-				else if ((int) $queryParams['limit'] == 0) {
+				else if ((int) $value == 0) {
 					continue 2;
 				}
-				$finalParams['limit'] = (int) $queryParams['limit'];
-				continue 2;
+				$value = (int) $value;
+				break;
 			
 			case 'include':
 			case 'content':
@@ -317,14 +321,14 @@ class Zotero_API {
 				else if ($key == 'include' && $format != 'json') {
 					throw new Exception("'include' is valid only for format=json", Z_ERROR_INVALID_INPUT);
 				}
-				$queryParams[$key] = array_values(array_unique(explode(',', $queryParams[$key])));
-				sort($queryParams[$key]);
-				foreach ($queryParams[$key] as $value) {
-					switch ($value) {
+				$value = array_values(array_unique(explode(',', $value)));
+				sort($value);
+				foreach ($value as $includeType) {
+					switch ($includeType) {
 						case 'none':
-							if (sizeOf($queryParams[$key]) > 1) {
+							if (sizeOf($value) > 1) {
 								throw new Exception(
-									"$key=$value is not valid in multi-format responses",
+									"$key=$includeType is not valid in multi-format responses",
 									Z_ERROR_INVALID_INPUT
 								);
 							}
@@ -338,36 +342,36 @@ class Zotero_API {
 						
 						case 'json':
 							if ($format != 'atom') {
-								throw new Exception("$key=$value is valid only for format=atom", Z_ERROR_INVALID_INPUT);
+								throw new Exception("$key=$includeType is valid only for format=atom", Z_ERROR_INVALID_INPUT);
 							}
 							break;
 						
 						case 'data':
 							if ($format != 'json') {
-								throw new Exception("$key=$value is valid only for format=json", Z_ERROR_INVALID_INPUT);
+								throw new Exception("$key=$includeType is valid only for format=json", Z_ERROR_INVALID_INPUT);
 							}
 							break;
 						
 						default:
-							if (in_array($value, Zotero_Translate::$exportFormats)) {
+							if (in_array($includeType, Zotero_Translate::$exportFormats)) {
 								break;
 							}
-							throw new Exception("Invalid '$key' value '$value'", Z_ERROR_INVALID_INPUT);
+							throw new Exception("Invalid '$key' value '$includeType'", Z_ERROR_INVALID_INPUT);
 					}
 				}
 				break;
 			
 			case 'sort':
 				// If direction, move to 'direction' and use default 'sort' value
-				if (in_array($queryParams[$key], array('asc', 'desc'))) {
-					$finalParams['direction'] = $queryParams['direction'] = $queryParams[$key];
+				if (in_array($value, array('asc', 'desc'))) {
+					$finalParams['direction'] = $queryParams['direction'] = $value;
 					continue 2;
 				}
 				
 				// Whether to sort empty values first
-				$finalParams['emptyFirst'] = self::getSortEmptyFirst($queryParams[$key]);
+				$finalParams['emptyFirst'] = self::getSortEmptyFirst($value);
 				
-				switch ($queryParams[$key]) {
+				switch ($value) {
 					// Valid fields to sort by
 					//
 					// Allow all fields available in client
@@ -395,11 +399,11 @@ class Zotero_API {
 					case 'itemKeyList':
 					case 'searchKeyList':
 						
-						switch ($queryParams[$key]) {
+						switch ($value) {
 							// numItems is valid only for tags requests
 							case 'numItems':
 								if ($action != 'tags') {
-									throw new Exception("Invalid 'order' value '" . $queryParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+									throw new Exception("Invalid 'order' value '$value'", Z_ERROR_INVALID_INPUT);
 								}
 								break;
 							
@@ -432,24 +436,24 @@ class Zotero_API {
 						}
 						
 						if (!isset($queryParams['direction'])) {
-							$finalParams['direction'] = self::getDefaultDirection($queryParams[$key]);
+							$finalParams['direction'] = self::getDefaultDirection($value);
 						}
 						break;
 					
 					default:
-						throw new Exception("Invalid 'sort' value '" . $queryParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+						throw new Exception("Invalid 'sort' value '$value'", Z_ERROR_INVALID_INPUT);
 				}
 				break;
 			
 			case 'direction':
-				if (!in_array($queryParams[$key], array('asc', 'desc'))) {
-					throw new Exception("Invalid '$key' value '" . $queryParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+				if (!in_array($value, array('asc', 'desc'))) {
+					throw new Exception("Invalid '$key' value '$value'", Z_ERROR_INVALID_INPUT);
 				}
 				break;
 			
 			case 'qmode':
-				if (!in_array($queryParams[$key], array('titleCreatorYear', 'everything'))) {
-					throw new Exception("Invalid '$key' value '" . $queryParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+				if (!in_array($value, array('titleCreatorYear', 'everything'))) {
+					throw new Exception("Invalid '$key' value '$value'", Z_ERROR_INVALID_INPUT);
 				}
 				break;
 			
@@ -457,22 +461,26 @@ class Zotero_API {
 			case 'itemKey':
 			case 'searchKey':
 				// Allow leading/trailing commas
-				$objectKeys = trim($queryParams[$key], ",");
+				$objectKeys = trim($value, ",");
 				$objectKeys = explode(",", $objectKeys);
 				// Make sure all keys are plausible
 				foreach ($objectKeys as $objectKey) {
 					if (!Zotero_ID::isValidKey($objectKey)) {
-						throw new Exception("Invalid '$key' value '" . $queryParams[$key] . "'", Z_ERROR_INVALID_INPUT);
+						throw new Exception("Invalid '$key' value '$value'", Z_ERROR_INVALID_INPUT);
 					}
 				}
-				$queryParams[$key] = $objectKeys;
+				$value = $objectKeys;
 				
 				// Force limit if explicit object keys are used
 				$finalParams['limit'] = self::MAX_OBJECT_KEYS;
 				break;
+			
+			case 'uncached':
+				$value = !!$value;
+				break;
 			}
 			
-			$finalParams[$key] = $queryParams[$key];
+			$finalParams[$key] = $value;
 		}
 		
 		return $finalParams;
@@ -788,7 +796,11 @@ class Zotero_API {
 	
 	
 	private static function getPrivateParams() {
-		return ['emptyFirst'];
+		$params = ['emptyFirst'];
+		if (!Z_CONFIG::$TESTING_SITE) {
+			$params[] = 'uncached';
+		}
+		return $params;
 	}
 	
 	
