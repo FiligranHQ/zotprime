@@ -58,7 +58,6 @@ class Z_MemcachedClientLocal {
 				Memcached::OPT_SERIALIZER => Memcached::SERIALIZER_IGBINARY,
 				Memcached::OPT_NO_BLOCK => true,
 				Memcached::OPT_TCP_NODELAY => true,
-				Memcached::OPT_REMOVE_FAILED_SERVERS => true,
 				Memcached::OPT_RETRY_TIMEOUT => 10
 			]);
 			
@@ -108,6 +107,10 @@ class Z_MemcachedClientLocal {
 		}
 		else {
 			$results = $this->client->get($keys);
+		}
+		if ($this->client->getResultCode() != Memcached::RES_SUCCESS
+				&& $this->client->getResultCode() != Memcached::RES_NOTFOUND) {
+			error_log("Memcached error: " . $this->client->getResultMessage());
 		}
 		
 		$this->requestTime += microtime(true) - $t;
