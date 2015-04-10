@@ -39,7 +39,7 @@ class Zotero_Permissions {
 	
 	
 	public function canAccess($libraryID, $permission='library') {
-		if ($this->super) {
+		if ($this->super || $libraryID === 0) {
 			return true;
 		}
 		
@@ -64,6 +64,9 @@ class Zotero_Permissions {
 				$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
 				$privacy = $this->getUserPrivacy($userID);
 				break;
+			
+			case 'publications':
+				return true;
 			
 			case 'group':
 				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
@@ -114,6 +117,10 @@ class Zotero_Permissions {
 			return true;
 		}
 		
+		if ($libraryID === 0) {
+			return false;
+		}
+		
 		if (!$libraryID) {
 			throw new Exception('libraryID not provided');
 		}
@@ -126,6 +133,11 @@ class Zotero_Permissions {
 		switch ($libraryType) {
 			case 'user':
 				return false;
+			
+			// Write permissions match key's write access to user library
+			case 'publications':
+				$userLibraryID = Zotero_Users::getLibraryIDFromUserID($this->userID);
+				return $this->canWrite($userLibraryID);
 			
 			case 'group':
 				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);

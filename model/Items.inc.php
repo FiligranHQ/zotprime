@@ -116,6 +116,11 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		$results = array('results' => array(), 'total' => 0);
 		
+		// Default empty library
+		if ($libraryID === 0) {
+			return $results;
+		}
+		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$includeNotes = true;
@@ -2402,6 +2407,11 @@ class Zotero_Items extends Zotero_DataObjects {
 					
 					break;
 			}
+		}
+		
+		// Publications libraries have additional restrictions
+		if (Zotero_Libraries::getType($libraryID) == 'publications') {
+			Zotero_Publications::validateJSONItem($json);
 		}
 	}
 	

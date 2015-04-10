@@ -55,6 +55,7 @@ class ItemsController extends ApiController {
 		$itemIDs = array();
 		$itemKeys = array();
 		$results = array();
+		$title = "";
 		
 		//
 		// Single item
@@ -72,7 +73,7 @@ class ItemsController extends ApiController {
 				$this->allowMethods(array('HEAD', 'GET', 'PUT', 'PATCH', 'DELETE'));
 			}
 			
-			if (!Zotero_ID::isValidKey($this->objectKey)) {
+			if (!$this->objectLibraryID || !Zotero_ID::isValidKey($this->objectKey)) {
 				$this->e404();
 			}
 			
@@ -318,7 +319,6 @@ class ItemsController extends ApiController {
 							$this->e404("Tag not found");
 						}
 						
-						$title = '';
 						foreach ($tagIDs as $tagID) {
 							$tag = new Zotero_Tag;
 							$tag->libraryID = $this->objectLibraryID;
@@ -612,49 +612,59 @@ class ItemsController extends ApiController {
 				);
 			}
 			
-			$options = [
-				'action' => $this->action,
-				'uri' => $this->uri,
-				'results' => $results,
-				'requestParams' => $this->queryParams,
-				'permissions' => $this->permissions,
-				'head' => $this->method == 'HEAD'
-			];
-			switch ($this->queryParams['format']) {
-				case 'atom':
-					$this->responseXML = Zotero_API::multiResponse(array_merge($options, [
-						'title' => $this->getFeedNamePrefix($this->objectLibraryID) . $title
-					]));
-					break;
-				
-				case 'bib':
-					if ($this->method == 'HEAD') {
-						break;
-					}
-					if (isset($results['results'])) {
-						echo Zotero_Cite::getBibliographyFromCitationServer($results['results'], $this->queryParams);
-					}
-					break;
-				
-				case 'csljson':
-				case 'json':
-				case 'keys':
-				case 'versions':
-				case 'writereport':
-					Zotero_API::multiResponse($options);
-					break;
-				
-				default:
-					if ($this->method == 'HEAD') {
-						break;
-					}
-					$export = Zotero_Translate::doExport($results['results'], $this->queryParams['format']);
-					header("Content-Type: " . $export['mimeType']);
-					echo $export['body'];
-			}
+			$this->generateMultiResponse($results, $title);
 		}
 		
 		$this->end();
+	}
+	
+	
+	private function generateMultiResponse($results, $title='') {
+		$options = [
+			'action' => $this->action,
+			'uri' => $this->uri,
+			'results' => $results,
+			'requestParams' => $this->queryParams,
+			'permissions' => $this->permissions,
+			'head' => $this->method == 'HEAD'
+		];
+		switch ($this->queryParams['format']) {
+			case 'atom':
+				$this->responseXML = Zotero_API::multiResponse(
+					array_merge(
+						$options,
+						[
+							'title' => $this->getFeedNamePrefix($this->objectLibraryID) . $title
+						]
+					)
+				);
+				break;
+			
+			case 'bib':
+				if ($this->method == 'HEAD') {
+					break;
+				}
+				if (isset($results['results'])) {
+					echo Zotero_Cite::getBibliographyFromCitationServer($results['results'], $this->queryParams);
+				}
+				break;
+			
+			case 'csljson':
+			case 'json':
+			case 'keys':
+			case 'versions':
+			case 'writereport':
+				Zotero_API::multiResponse($options);
+				break;
+			
+			default:
+				if ($this->method == 'HEAD') {
+					break;
+				}
+				$export = Zotero_Translate::doExport($results['results'], $this->queryParams['format']);
+				header("Content-Type: " . $export['mimeType']);
+				echo $export['body'];
+		}
 	}
 	
 	

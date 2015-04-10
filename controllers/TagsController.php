@@ -129,6 +129,12 @@ class TagsController extends ApiController {
 			$results = Zotero_Tags::search($this->objectLibraryID, $this->queryParams);
 		}
 		
+		$this->generateMultiResponse($results, $title, $fixedValues);
+		$this->end();
+	}
+	
+	
+	private function generateMultiResponse($results, $title, $fixedValues) {
 		$options = [
 			'action' => $this->action,
 			'uri' => $this->uri,
@@ -152,7 +158,5 @@ class TagsController extends ApiController {
 		default:
 			throw new Exception("Unexpected format '" . $this->queryParams['format'] . "'");
 		}
-		
-		$this->end();
 	}
 }

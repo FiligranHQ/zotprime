@@ -60,11 +60,18 @@ class Zotero_Libraries {
 			case 'user':
 				$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
 				return Zotero_Users::getUsername($userID);
-				
+			
+			case 'publications':
+				$userID = Zotero_Users::getUserIDFromLibraryID($libraryID);
+				return Zotero_Users::getUsername($userID) . "’s Publications";
+			
 			case 'group':
 				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 				$group = Zotero_Groups::get($groupID);
 				return $group->name;
+			
+			default:
+				throw new Exception("Invalid library type '$libraryType'");
 		}
 	}
 	
@@ -78,8 +85,14 @@ class Zotero_Libraries {
 			case 'user':
 				return Zotero_Users::getUserIDFromLibraryID($libraryID);
 			
+			case 'publications':
+				throw new Exception("Cannot get library type id of publications library");
+			
 			case 'group':
 				return Zotero_Groups::getGroupIDFromLibraryID($libraryID);
+			
+			default:
+				throw new Exception("Invalid library type '$libraryType'");
 		}
 	}
 	
@@ -113,16 +126,7 @@ class Zotero_Libraries {
 	
 	
 	public static function getOwner($libraryID) {
-		$type = self::getType($libraryID);
-		switch ($type) {
-			case 'user':
-				return Zotero_Users::getUserIDFromLibraryID($libraryID);
-				
-			case 'group':
-				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
-				$group = Zotero_Groups::get($groupID);
-				return $group->ownerUserID;
-		}
+		return Zotero_Users::getUserIDFromLibraryID($libraryID);
 	}
 	
 	
@@ -229,6 +233,9 @@ class Zotero_Libraries {
 	 * Get library version from the database
 	 */
 	public static function getVersion($libraryID) {
+		// Default empty library
+		if ($libraryID === 0) return 0;
+		
 		$sql = "SELECT version FROM shardLibraries WHERE libraryID=?";
 		$version = Zotero_DB::valueQuery(
 			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
@@ -324,11 +331,8 @@ class Zotero_Libraries {
 		$libraryType = Zotero_Libraries::getType($libraryID);
 		switch ($libraryType) {
 			case 'user':
-				$userLibraryID = Zotero_Users::getLibraryIDFromUserID($userID);
-				if ($libraryID != $userLibraryID) {
-					return false;
-				}
-				return true;
+			case 'publications':
+				return $userID == Zotero_Users::getUserIDFromLibraryID($libraryID);
 			
 			case 'group':
 				$groupID = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
@@ -369,10 +373,24 @@ class Zotero_Libraries {
 			$json = [
 				'type' => $libraryType,
 				'id' => $objectUserID,
-				'name' => Zotero_Users::getUsername($objectUserID),
+				'name' => self::getName($libraryID),
 				'links' => [
 					'alternate' => [
 						'href' => Zotero_URI::getUserURI($objectUserID, true),
+						'type' => 'text/html'
+					]
+				]
+			];
+		}
+		else if ($libraryType == 'publications') {
+			$objectUserID = Zotero_Users::getUserIDFromLibraryID($libraryID);
+			$json = [
+				'type' => $libraryType,
+				'id' => $objectUserID,
+				'name' => self::getName($libraryID),
+				'links' => [
+					'alternate' => [
+						'href' => Zotero_URI::getUserURI($objectUserID, true) . "/publications",
 						'type' => 'text/html'
 					]
 				]
@@ -384,7 +402,7 @@ class Zotero_Libraries {
 			$json = [
 				'type' => $libraryType,
 				'id' => $objectGroupID,
-				'name' => $group->name,
+				'name' => self::getName($libraryID),
 				'links' => [
 					'alternate' => [
 						'href' => Zotero_URI::getGroupURI($group, true),
@@ -392,6 +410,9 @@ class Zotero_Libraries {
 					]
 				]
 			];
+		}
+		else {
+			throw new Exception("Invalid library type '$libraryType'");
 		}
 		
 		return $json;

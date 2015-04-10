@@ -181,15 +181,13 @@ CREATE TABLE `keys` (
 
 CREATE TABLE `libraries` (
   `libraryID` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `libraryType` enum('user','group') NOT NULL,
+  `libraryType` enum('user','group','publications') NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `version` int(10) unsigned NOT NULL DEFAULT '0',
   `shardID` smallint(5) unsigned NOT NULL,
   PRIMARY KEY (`libraryID`),
-  KEY `libraryType` (`libraryType`),
   KEY `shardID` (`shardID`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
-
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE `processorDaemons` (
@@ -450,6 +448,15 @@ CREATE TABLE `users` (
 
 
 
+CREATE TABLE `userPublications` (
+  `userID` int(10) unsigned NOT NULL,
+  `libraryID` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`userID`),
+  UNIQUE KEY `libraryID` (`libraryID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
 ALTER TABLE `baseFieldMappings`
   ADD CONSTRAINT `baseFieldMappings_ibfk_1` FOREIGN KEY (`itemTypeID`) REFERENCES `itemTypes` (`itemTypeID`),
   ADD CONSTRAINT `baseFieldMappings_ibfk_2` FOREIGN KEY (`baseFieldID`) REFERENCES `fields` (`fieldID`),
@@ -518,6 +525,10 @@ ALTER TABLE `syncUploadQueueLocks`
 
 ALTER TABLE `syncUploadQueuePostWriteLog`
   ADD CONSTRAINT `syncUploadQueuePostWriteLog_ibfk_1` FOREIGN KEY (`syncUploadQueueID`) REFERENCES `syncUploadQueue` (`syncUploadQueueID`) ON DELETE CASCADE;
+
+ALTER TABLE `userPublications`
+  ADD CONSTRAINT `userPublications_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `userPublications_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `users`
   ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE;

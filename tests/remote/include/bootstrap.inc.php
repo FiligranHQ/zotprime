@@ -29,4 +29,24 @@ else {
 Z_Tests::$AWS = \Aws\Common\Aws::factory($awsConfig);
 unset($awsConfig);
 
+// Wipe data and create API key
+require 'http.inc.php';
+$response = HTTP::post(
+	$config['apiURLPrefix'] . "test/setup?u=" . $config['userID'],
+	" ",
+	[],
+	[
+		"username" => $config['rootUsername'],
+		"password" => $config['rootPassword']
+	]
+);
+$json = json_decode($response->getBody());
+if (!$json) {
+	echo $response->getBody();
+	throw new Exception("Invalid test setup response");
+}
+$config['apiKey'] = $json->apiKey;
+\Zotero\Tests\Config::update($config);
+
+// Set up groups
 require 'groups.inc.php';

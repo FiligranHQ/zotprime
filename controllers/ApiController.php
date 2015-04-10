@@ -362,6 +362,34 @@ class ApiController extends Controller {
 		);
 		
 		$this->apiVersion = $version = $this->queryParams['v'];
+		
+		// For publications URLs (e.g., /users/:userID/publications/items), swap in
+		// objectLibraryID of user's publications library
+		if (!empty($extra['publications'])) {
+			if ($this->apiVersion < 3) {
+				$this->e404();
+			}
+			$userLibraryID = $this->objectLibraryID;
+			$this->objectLibraryID = Zotero_Users::getLibraryIDFromUserID(
+				$this->objectUserID, 'publications'
+			);
+			// If one doesn't exist, for write requests create a library and the key
+			// has write permission to the user library. For read requests, just
+			// return a 404.
+			if (!$this->objectLibraryID) {
+				if ($this->isWriteMethod()) {
+					if (!$this->permissions->canAccess($userLibraryID)
+							|| !$this->permissions->canWrite($userLibraryID)) {
+						$this->e403();
+					}
+					$this->objectLibraryID = Zotero_Publications::add($this->objectUserID);
+				}
+				else {
+					$this->objectLibraryID = 0;
+				}
+			}
+		}
+		
 		header("Zotero-API-Version: " . $version);
 		StatsD::increment("api.request.version.v" . $version, 0.25);
 	}
@@ -414,6 +442,8 @@ class ApiController extends Controller {
 			$this->e404();
 		}
 		
+		$this->allowMethods(['POST']);
+		
 		if (empty($_GET['u'])) {
 			throw new Exception("User not provided (e.g., ?u=1)");
 		}
@@ -428,11 +458,43 @@ class ApiController extends Controller {
 		if ($keys) {
 			throw new Exception("Keys still exist");
 		}
+		// Create new key
+		$keyObj = new Zotero_Key;
+		$keyObj->userID = $userID;
+		$keyObj->name = "Tests Key";
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
+		$keyObj->setPermission($libraryID, 'library', true);
+		$keyObj->setPermission($libraryID, 'notes', true);
+		$keyObj->setPermission($libraryID, 'write', true);
+		$keyObj->setPermission(0, 'group', true);
+		$keyObj->setPermission(0, 'write', true);
+		$keyObj->save();
+		$key = $keyObj->key;
+		
+		Zotero_DB::beginTransaction();
 		
 		// Clear data
 		Zotero_Users::clearAllData($userID);
 		
-		$this->responseXML = new SimpleXMLElement("<ok/>");
+		// Delete publications library, so we can test auto-creating it
+		$publicationsLibraryID = Zotero_Users::getLibraryIDFromUserID($userID, 'publications');
+		if ($publicationsLibraryID) {
+			// Delete user publications shard library
+			$sql = "DELETE FROM shardLibraries WHERE libraryID=?";
+			Zotero_DB::query($sql, $publicationsLibraryID, Zotero_Shards::getByUserID($userID));
+			
+			// Delete user publications library
+			$sql = "DELETE FROM libraries WHERE libraryID=?";
+			Zotero_DB::query($sql, $publicationsLibraryID);
+			
+			Z_Core::$MC->delete('userPublicationsLibraryID_' . $userID);
+			Z_Core::$MC->delete('libraryUserID_' . $publicationsLibraryID);
+		}
+		Zotero_DB::commit();
+		
+		echo json_encode([
+			"apiKey" => $key
+		]);
 		$this->end();
 	}
 	
@@ -763,7 +825,7 @@ class ApiController extends Controller {
 				throw new Exception("Unsupported response code " . $this->responseCode);
 		}
 		
-		if ($this->libraryVersion) {
+		if (isset($this->libraryVersion)) {
 			if ($this->apiVersion >= 2) {
 				header("Last-Modified-Version: " . $this->libraryVersion);
 			}

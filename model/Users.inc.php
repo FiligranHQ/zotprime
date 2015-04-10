@@ -32,28 +32,54 @@ class Zotero_Users {
 	private static $userLibraryIDs = [];
 	private static $libraryUserIDs = [];
 	
-	public static function getLibraryIDFromUserID($userID) {
-		if (isset(self::$userLibraryIDs[$userID])) {
-			return self::$userLibraryIDs[$userID];
+	
+	/**
+	 * Get the id of the library of the given type associated with the given user
+	 *
+	 * @param int $userID
+	 * @param string [$libraryType='user']
+	 * @throws Exception with code Z_ERROR_USER_NOT_FOUND if user library missing
+	 * @return int|false Library ID, or false if library not found (except user library,
+	 *     which throws)
+	 */
+	public static function getLibraryIDFromUserID($userID, $libraryType='user') {
+		if (isset(self::$userLibraryIDs[$libraryType][$userID])) {
+			return self::$userLibraryIDs[$libraryType][$userID];
 		}
-		$cacheKey = 'userLibraryID_' . $userID;
+		$cacheKey = 'user' . ucwords($libraryType) . 'LibraryID_' . $userID;
 		$libraryID = Z_Core::$MC->get($cacheKey);
 		if ($libraryID) {
-			self::$userLibraryIDs[$libraryID] = $libraryID;
+			self::$userLibraryIDs[$libraryType][$libraryID] = $libraryID;
 			return $libraryID;
 		}
-		$sql = "SELECT libraryID FROM users WHERE userID=?";
+		switch ($libraryType) {
+		case 'user':
+			$sql = "SELECT libraryID FROM users WHERE userID=?";
+			break;
+		
+		case 'publications':
+			$sql = "SELECT libraryID FROM userPublications WHERE userID=?";
+			break;
+		
+		case 'group':
+			throw new Exception("Can't get single group libraryID from userID");
+		}
+			
 		$libraryID = Zotero_DB::valueQuery($sql, $userID);
 		if (!$libraryID) {
-			throw new Exception("User $userID does not exist", Z_ERROR_USER_NOT_FOUND);
+			if ($libraryType == 'publications') {
+				return false;
+			}
+			throw new Exception(ucwords($libraryType) . " library not found for user $userID",
+				Z_ERROR_USER_NOT_FOUND);
 		}
-		self::$userLibraryIDs[$userID] = $libraryID;
+		self::$userLibraryIDs[$libraryType][$userID] = $libraryID;
 		Z_Core::$MC->set($cacheKey, $libraryID);
 		return $libraryID;
 	}
 	
 	
-	public static function getUserIDFromLibraryID($libraryID) {
+	public static function getUserIDFromLibraryID($libraryID, $libraryType=null) {
 		if (isset(self::$libraryUserIDs[$libraryID])) {
 			return self::$libraryUserIDs[$libraryID];
 		}
@@ -63,10 +89,35 @@ class Zotero_Users {
 			self::$libraryUserIDs[$libraryID] = $userID;
 			return $userID;
 		}
-		$sql = "SELECT userID FROM users WHERE libraryID=?";
+		
+		if ($libraryType == null) {
+			$libraryType = Zotero_Libraries::getType($libraryID);
+		}
+		
+		switch ($libraryType) {
+		case 'user':
+			$sql = "SELECT userID FROM users WHERE libraryID=?";
+			break;
+		
+		case 'publications':
+			$sql = "SELECT userID FROM userPublications WHERE libraryID=?";
+			break;
+		
+		case 'group':
+			$sql = "SELECT userID FROM groupUsers JOIN groups USING (groupID) "
+				. "WHERE libraryID=? AND role='owner'";
+			break;
+		}
+		
 		$userID = Zotero_DB::valueQuery($sql, $libraryID);
 		if (!$userID) {
-			throw new Exception("User with libraryID $libraryID does not exist");
+			if (!Zotero_Libraries::exists($libraryID)) {
+				throw new Exception("Library $libraryID does not exist");
+			}
+			// Wrong library type passed
+			error_log("Wrong library type passed for library $libraryID "
+				. "in Zotero_Users::getUserIDFromLibraryID()");
+			return self::getUserIDFromLibraryID($libraryID);
 		}
 		self::$libraryUserIDs[$libraryID] = $userID;
 		Z_Core::$MC->set($cacheKey, $userID);
@@ -431,6 +482,11 @@ class Zotero_Users {
 		
 		Zotero_DB::beginTransaction();
 		
+		$libraryID = self::getLibraryIDFromUserID($userID, 'publications');
+		if ($libraryID) {
+			Zotero_Libraries::clearAllData($libraryID);
+		}
+		
 		$libraryID = self::getLibraryIDFromUserID($userID);
 		Zotero_Libraries::clearAllData($libraryID);
 		
@@ -480,6 +536,14 @@ class Zotero_Users {
 		
 		// Remove all data
 		Zotero_Users::clearAllData($userID);
+		
+		// Remove user publications library
+		$libraryID = self::getLibraryIDFromUserID($userID, 'publications');
+		if ($libraryID) {
+			$shardID = Zotero_Shards::getByLibraryID($libraryID);
+			Zotero_DB::query("DELETE FROM shardLibraries WHERE libraryID=?", $libraryID, $shardID);
+			Zotero_DB::query("DELETE FROM libraries WHERE libraryID=?", $libraryID);
+		}
 		
 		// Remove user/library rows
 		$libraryID = self::getLibraryIDFromUserID($userID);

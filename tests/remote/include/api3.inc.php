@@ -99,6 +99,11 @@ class API3 {
 	//
 	public function getItemTemplate($itemType) {
 		$response = self::get("items/new?itemType=$itemType");
+		if ($response->getStatus() != 200) {
+			var_dump($response->getStatus());
+			var_dump($response->getBody());
+			throw new Exception("Invalid response from template request");
+		}
 		return json_decode($response->getBody());
 	}
 	

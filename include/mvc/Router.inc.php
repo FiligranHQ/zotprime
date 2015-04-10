@@ -81,6 +81,11 @@ class Router {
 				continue;
 			}
 			
+			if (Z_ENV_TESTING_SITE && !empty($_GET['showroute'])) {
+				var_dump($path);
+				var_dump($route['params']);
+				exit;
+			}
 			return $route['params'];
 		}
 		

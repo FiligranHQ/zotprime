@@ -110,6 +110,9 @@ class Zotero_Tags extends Zotero_DataObjects {
 	 * Returns array of all tagIDs for this tag (of all types)
 	 */
 	public static function getIDs($libraryID, $name, $caseInsensitive=false) {
+		// Default empty library
+		if ($libraryID === 0) return [];
+		
 		$sql = "SELECT tagID FROM tags WHERE libraryID=? AND name";
 		if ($caseInsensitive) {
 			$sql .= " COLLATE utf8_general_ci ";
@@ -125,6 +128,11 @@ class Zotero_Tags extends Zotero_DataObjects {
 	
 	public static function search($libraryID, $params) {
 		$results = array('results' => array(), 'total' => 0);
+		
+		// Default empty library
+		if ($libraryID === 0) {
+			return $results;
+		}
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		

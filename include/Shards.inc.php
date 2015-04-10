@@ -71,7 +71,7 @@ class Zotero_Shards {
 	
 	
 	public static function getByLibraryID($libraryID) {
-		if (!$libraryID) {
+		if (is_null($libraryID)) {
 			throw new Exception('$libraryID not provided');
 		}
 		

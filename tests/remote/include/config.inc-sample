@@ -16,7 +16,6 @@ userID = 0
 libraryID = 0
 username = "phpunit"
 password = ""
-apiKey = ""
 ; Should have libraryEditing='members'
 ownedPrivateGroupID = 0
 ownedPrivateGroupLibraryID = 0

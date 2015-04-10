@@ -18,24 +18,30 @@ else {
 	$router->map('/groups/i:scopeObjectID/users/i:objectID', array('controller' => 'Groups', 'action' => 'groupUsers'));
 	
 	// Top-level objects
+	$router->map('/users/i:objectUserID/publications/items/top', ['controller' => 'Items', 'extra' => ['subset' => 'top', 'publications' => true]]);
 	$router->map('/users/i:objectUserID/:controller/top', array('extra' => array('subset' => 'top')));
 	$router->map('/groups/i:objectGroupID/:controller/top', array('extra' => array('subset' => 'top')));
 	
 	// Attachment files
 	$router->map('/users/i:objectUserID/laststoragesync', array('controller' => 'Storage', 'action' => 'laststoragesync', 'extra' => array('auth' => true)));
+	$router->map('/users/i:objectUserID/publications/laststoragesync', ['controller' => 'Storage', 'action' => 'laststoragesync', 'extra' => ['auth' => true, 'publications' => true]]);
 	$router->map('/groups/i:objectGroupID/laststoragesync', array('controller' => 'Storage', 'action' => 'laststoragesync', 'extra' => array('auth' => true)));
 	$router->map('/users/i:objectUserID/storageadmin', array('controller' => 'Storage', 'action' => 'storageadmin'));
 	$router->map('/storagepurge', array('controller' => 'Storage', 'action' => 'storagepurge'));
 	$router->map('/users/i:objectUserID/removestoragefiles', array('controller' => 'Storage', 'action' => 'removestoragefiles', 'extra' => array('allowHTTP' => true)));
 	$router->map('/users/i:objectUserID/items/:objectKey/file', array('controller' => 'Items', 'extra' => array('allowHTTP' => true, 'file' => true)));
 	$router->map('/users/i:objectUserID/items/:objectKey/file/view', array('controller' => 'Items', 'extra' => array('allowHTTP' => true, 'file' => true, 'view' => true)));
+	$router->map('/users/i:objectUserID/publications/items/:objectKey/file', ['controller' => 'Items', 'extra' => ['allowHTTP' => true, 'file' => true, 'publications' => true]]);
+	$router->map('/users/i:objectUserID/publications/items/:objectKey/file/view', ['controller' => 'Items', 'extra' => ['allowHTTP' => true, 'file' => true, 'view' => true, 'publications' => true]]);
 	$router->map('/groups/i:objectGroupID/items/:objectKey/file', array('controller' => 'Items', 'extra' => array('allowHTTP' => true, 'file' => true)));
 	$router->map('/groups/i:objectGroupID/items/:objectKey/file/view', array('controller' => 'Items', 'extra' => array('allowHTTP' => true, 'file' => true, 'view' => true)));
 	
 	// Full-text content
 	$router->map('/users/i:objectUserID/items/:objectKey/fulltext', array('controller' => 'FullText', 'action' => 'itemContent'));
+	$router->map('/users/i:objectUserID/publications/items/:objectKey/fulltext', ['controller' => 'FullText', 'action' => 'itemContent', 'extra' => ['publications' => true]]);
 	$router->map('/groups/i:objectGroupID/items/:objectKey/fulltext', array('controller' => 'FullText', 'action' => 'itemContent'));
 	$router->map('/users/i:objectUserID/fulltext', array('controller' => 'FullText', 'action' => 'fulltext'));
+	$router->map('/users/i:objectUserID/publications/fulltext', ['controller' => 'FullText', 'action' => 'fulltext', 'extra' => ['publications' => true]]);
 	$router->map('/groups/i:objectGroupID/fulltext', array('controller' => 'FullText', 'action' => 'fulltext'));
 	
 	// All deleted items
@@ -53,9 +59,11 @@ else {
 	$router->map('/users/i:objectUserID/tags/:scopeObjectName/items/:objectName/:subset', array('controller' => 'Items', 'extra' => array('scopeObject' => 'tags')));
 	$router->map('/groups/i:objectGroupID/tags/:scopeObjectName/items/:objectName/:subset', array('controller' => 'Items', 'extra' => array('scopeObject' => 'tags')));
 	$router->map('/users/i:objectUserID/tags/:objectName/:subset', array('controller' => 'Tags'));
+	$router->map('/users/i:objectUserID/publications/tags/:objectName/:subset', ['controller' => 'Tags', 'extra' => ['publications' => true]]);
 	$router->map('/groups/i:objectGroupID/tags/:objectName/:subset', array('controller' => 'Tags'));
 	
 	// Tags within something else
+	$router->map('/users/i:objectUserID/publications/items/:scopeObjectKey/tags/:objectKey/:subset', ['controller' => 'Tags', 'extra' => ['publications']]);
 	$router->map('/users/i:objectUserID/:scopeObject/:scopeObjectKey/tags/:objectKey/:subset', array('controller' => 'Tags'));
 	$router->map('/groups/i:objectGroupID/:scopeObject/:scopeObjectKey/tags/:objectKey/:subset', array('controller' => 'Tags'));
 	
@@ -77,9 +85,11 @@ else {
 	
 	// Clear (for testing)
 	$router->map('/users/i:objectUserID/clear', array('controller' => 'Api', 'action' => 'clear'));
+	$router->map('/users/i:objectUserID/publications/clear', ['controller' => 'Api', 'action' => 'clear', 'extra' => ['publications' => true]]);
 	$router->map('/groups/i:objectGroupID/clear', array('controller' => 'Api', 'action' => 'clear'));
 	
 	// Other top-level URLs, with an optional key and subset
+	$router->map('/users/i:objectUserID/publications/items/:objectKey/:subset', ['controller' => 'Items', 'extra' => ['publications' => true]]); // Just items for now
 	$router->map('/users/i:objectUserID/:controller/:objectKey/:subset');
 	$router->map('/groups/i:objectGroupID/:controller/:objectKey/:subset');
 	
@@ -93,11 +103,4 @@ else {
 	$router->map('/test/setup', array('controller' => 'Api', 'action' => 'testSetup'));
 }
 
-$match = $router->match($_SERVER['REQUEST_URI']);
-
-if (Z_ENV_TESTING_SITE && !empty($_GET['showroute'])) {
-	var_dump($match);
-	exit;
-}
-
-return $match;
+return $router->match($_SERVER['REQUEST_URI']);

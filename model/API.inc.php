@@ -819,9 +819,16 @@ class Zotero_API {
 				$id = Zotero_Users::getUserIDFromLibraryID($libraryID);
 				return self::getBaseURI() . "users/$id";
 			
+			case 'publications':
+				$id = Zotero_Users::getUserIDFromLibraryID($libraryID);
+				return self::getBaseURI() . "users/$id/publications";
+			
 			case 'group':
 				$id = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 				return self::getBaseURI() . "groups/$id";
+			
+			default:
+				throw new Exception("Invalid library type '$libraryType'");
 		}
 	}
 	

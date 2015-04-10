@@ -156,6 +156,12 @@ class APITests extends \APITests {
 	}
 	
 	
+	protected function assertTotalResults($num, $response) {
+		$this->assertTrue(is_numeric($response->getHeader('Total-Results')));
+		$this->assertEquals($num, (int) $response->getHeader('Total-Results'));
+	}
+	
+	
 	protected function assertNumResults($num, $response) {
 		$contentType = $response->getHeader('Content-Type');
 		if ($contentType == 'application/json') {
@@ -176,19 +182,28 @@ class APITests extends \APITests {
 		}
 	}
 	
-	protected function assertTotalResults($num, $response) {
-		$this->assertEquals($num, (int) $response->getHeader('Total-Results'));
+	
+	protected function assertNoResults($response) {
+		$this->assertTotalResults(0, $response);
+		
+		$contentType = $response->getHeader('Content-Type');
+		if ($contentType == 'application/json') {
+			$json = API::getJSONFromResponse($response);
+			$this->assertEquals(0, count($json));
+		}
+		else if ($contentType == 'application/atom+xml') {
+			$xml = new SimpleXMLElement($response->getBody());
+			$zapiNodes = $xml->children(self::$nsZAPI);
+			$this->assertEquals(0, count($xml->entry));
+		}
+		else {
+			throw new Exception("Unknown content type '$contentType'");
+		}
 	}
 	
 	
-	protected function assertNoResults($res) {
-		$xml = $res->getBody();
-		$xml = new SimpleXMLElement($xml);
-		
-		$zapiNodes = $xml->children(self::$nsZAPI);
-		$this->assertEquals(1, count($zapiNodes->totalResults));
-		$this->assertEquals(0, (int) $zapiNodes->totalResults);
-		$this->assertEquals(0, count($xml->entry));
+	protected function assertLastModifiedVersion($expected, $response) {
+		$this->assertEquals($expected, $response->getHeader('Last-Modified-Version'));
 	}
 	
 	
