@@ -120,6 +120,9 @@ class SyncTests extends PHPUnit_Framework_TestCase {
 		
 		$xml1 = Sync::updated(self::$sessionID);
 		$xml2 = Sync::updated(self::$sessionID);
-		$this->assertEquals($xml1->asXML(), $xml2->asXML());
+		$this->assertEquals(
+			preg_replace('/timestamp="\d+"/', 'timestamp="--"', $xml1->asXML()),
+			preg_replace('/timestamp="\d+"/', 'timestamp="--"', $xml2->asXML())
+		);
 	}
 }
