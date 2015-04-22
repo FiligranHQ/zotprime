@@ -123,7 +123,6 @@ class PublicationsTests extends APITests {
 		// Create item
 		API::useAPIKey(self::$config['apiKey']);
 		$json = API::getItemTemplate("book");
-		$json->rights = "CC-BY-4.0";
 		$response = API::userPost(
 			self::$config['userID'],
 			"publications/items",
@@ -161,7 +160,6 @@ class PublicationsTests extends APITests {
 	public function testTrashedItem() {
 		API::useAPIKey(self::$config['apiKey']);
 		$json = API::getItemTemplate("book");
-		$json->rights = "CC0";
 		$json->deleted = true;
 		$response = API::userPost(
 			self::$config['userID'],
@@ -178,7 +176,6 @@ class PublicationsTests extends APITests {
 		// Attachment
 		API::useAPIKey(self::$config['apiKey']);
 		$json = API::getItemTemplate("attachment&linkMode=imported_file");
-		$json->rights = "CC0";
 		$response = API::userPost(
 			self::$config['userID'],
 			"publications/items",
@@ -189,7 +186,6 @@ class PublicationsTests extends APITests {
 		// Note
 		API::useAPIKey(self::$config['apiKey']);
 		$json = API::getItemTemplate("note");
-		$json->rights = "CC0";
 		$response = API::userPost(
 			self::$config['userID'],
 			"publications/items",
@@ -198,11 +194,10 @@ class PublicationsTests extends APITests {
 		$this->assert400ForObject($response, $msg, 0);
 	}
 	
-	
-	public function testRights() {
-		$msgStart = "'rights' must be one of the following:";
+	public function testLinkedFileAttachment() {
+		$msg = "Linked-file attachments cannot be added to publications libraries";
 		
-		// Empty string
+		// Create top-level item
 		API::useAPIKey(self::$config['apiKey']);
 		$json = API::getItemTemplate("book");
 		$response = API::userPost(
@@ -210,35 +205,19 @@ class PublicationsTests extends APITests {
 			"publications/items",
 			json_encode([$json])
 		);
-		$this->assert400ForObject($response);
+		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
-		$this->assertStringStartsWith($msgStart, $json['failed'][0]['message']);
+		$itemKey = $json['success'][0];
 		
-		// Invalid string
+		$json = API::getItemTemplate("attachment&linkMode=linked_file");
+		$json->parentItem = $itemKey;
 		API::useAPIKey(self::$config['apiKey']);
-		$json = API::getItemTemplate("book");
-		$json->rights = "Foo";
 		$response = API::userPost(
 			self::$config['userID'],
 			"publications/items",
-			json_encode([$json])
+			json_encode([$json]),
+			array("Content-Type: application/json")
 		);
-		$this->assert400ForObject($response);
-		$json = API::getJSONFromResponse($response);
-		$this->assertStringStartsWith($msgStart, $json['failed'][0]['message']);
-		
-		// Valid values
-		$rights = ['All Rights Reserved', 'CC-BY-4.0'];
-		foreach ($rights as $r) {
-			API::useAPIKey(self::$config['apiKey']);
-			$json = API::getItemTemplate("book");
-			$json->rights = $r;
-			$response = API::userPost(
-				self::$config['userID'],
-				"publications/items",
-				json_encode([$json])
-			);
-			$this->assert200ForObject($response);
-		}
+		$this->assert400ForObject($response, $msg, 0);
 	}
 }

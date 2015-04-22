@@ -25,6 +25,7 @@
 */
 
 class Zotero_Publications {
+	// Currently unused
 	private static $rights = [
 		'CC-BY-4.0',
 		'CC-BY-ND-4.0',
@@ -32,8 +33,7 @@ class Zotero_Publications {
 		'CC-BY-SA-4.0',
 		'CC-BY-NC-4.0',
 		'CC-BY-NC-ND-4.0',
-		'CC0',
-		'All Rights Reserved'
+		'CC0'
 	];
 	
 	public static function add($userID) {
@@ -67,10 +67,9 @@ class Zotero_Publications {
 				Z_ERROR_INVALID_INPUT);
 		}
 		
-		// Predefined rights values
-		if (empty($json->rights) || !in_array($json->rights, self::$rights)) {
-			throw new Exception("'rights' must be one of the following: '"
-				. implode("', '", self::$rights) . "'", Z_ERROR_INVALID_INPUT);
+		if ($json->itemType == 'attachment' && $json->linkMode == 'linked_file') {
+			throw new Exception("Linked-file attachments cannot be added to publications libraries",
+				Z_ERROR_INVALID_INPUT);
 		}
 	}
 }
