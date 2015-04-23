@@ -70,8 +70,10 @@ class Zotero_NotifierObserver {
 			$entries = [];
 			foreach ($ids as $id) {
 				$libraryID = $id;
-				$topic = '/' . Zotero_Libraries::getType($libraryID) . "s/"
-					. Zotero_Libraries::getLibraryTypeID($libraryID);
+				// Convert 'http://zotero.org/users/...' to '/users/...'
+				$topic = str_replace(
+					Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
+				);
 				$message = [
 					"event" => $event,
 					"topic" => $topic
@@ -106,8 +108,10 @@ class Zotero_NotifierObserver {
 			$entries = [];
 			foreach ($ids as $id) {
 				list($apiKey, $libraryID) = explode("-", $id);
-				$topic = '/' . Zotero_Libraries::getType($libraryID) . "s/"
-					. Zotero_Libraries::getLibraryTypeID($libraryID);
+				// Convert 'http://zotero.org/users/...' to '/users/...'
+				$topic = str_replace(
+					Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
+				);
 				$message = [
 					"event" => $event,
 					"apiKey" => $apiKey,

@@ -94,7 +94,6 @@ class PublicationsTests extends APITests {
 	}
 	
 	
-	
 	public function testNoCollectionsSupport() {
 		$response = API::get("users/" . self::$config['userID'] . "/publications/collections");
 		$this->assert404($response);
@@ -129,6 +128,16 @@ class PublicationsTests extends APITests {
 			json_encode([$json])
 		);
 		$this->assert200ForObject($response);
+		
+		// Test notifications (which we do here instead of in NotificationsTest.php because
+		// we want to test library creation above (though we could delete the publications
+		// library explicitly first))
+		$this->assertCountNotifications(1, $response);
+		$this->assertHasNotification([
+			'event' => 'topicUpdated',
+			'topic' => '/users/' . self::$config['userID'] . '/publications'
+		], $response);
+		
 		$json = API::getJSONFromResponse($response);
 		$itemKey = $json['success'][0];
 		
