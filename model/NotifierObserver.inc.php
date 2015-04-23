@@ -70,10 +70,19 @@ class Zotero_NotifierObserver {
 			$entries = [];
 			foreach ($ids as $id) {
 				$libraryID = $id;
-				// Convert 'http://zotero.org/users/...' to '/users/...'
-				$topic = str_replace(
-					Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
-				);
+				// For most libraries, get topic from URI
+				if ($event != 'topicDeleted') {
+					// Convert 'http://zotero.org/users/...' to '/users/...'
+					$topic = str_replace(
+						Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
+					);
+				}
+				// For deleted libraries (groups), the URI-based method fails,
+				// so just build from parts
+				else {
+					$topic = '/' . Zotero_Libraries::getType($libraryID) . "s/"
+					. Zotero_Libraries::getLibraryTypeID($libraryID);
+				}
 				$message = [
 					"event" => $event,
 					"topic" => $topic
@@ -108,7 +117,7 @@ class Zotero_NotifierObserver {
 			$entries = [];
 			foreach ($ids as $id) {
 				list($apiKey, $libraryID) = explode("-", $id);
-				// Convert 'http://zotero.org/users/...' to '/users/...'
+				// Get topic from URI
 				$topic = str_replace(
 					Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
 				);
