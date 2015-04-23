@@ -47,10 +47,12 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		API::groupClear(self::$config['ownedPrivateGroupID']);
 		API::groupClear(self::$config['ownedPublicGroupID']);
 		self::$sessionID = Sync::login();
+		Sync::useZoteroVersion();
 	}
 	
 	
 	public function tearDown() {
+		Sync::useZoteroVersion();
 		Sync::logout(self::$sessionID);
 		self::$sessionID = null;
 	}
@@ -68,6 +70,39 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 			. 'dateAdded="2009-03-07 04:53:20" '
 			. 'dateModified="2009-03-07 04:54:09" '
 			. 'key="AAAAAAAA"><note>' . $content . '</note></item></items></data>';
+		
+		// Create too-long note with content within HTML tags
+		$content = "<p><!-- $content --></p>";
+		
+		//
+		// < 4.0.27
+		//
+		Sync::useZoteroVersion("4.0.26.4");
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
+		$this->assertRegExp('/^The note \'.+\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
+		
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" itemType="note" '
+			. 'dateAdded="2009-03-07 04:53:20" '
+			. 'dateModified="2009-03-07 04:54:09" '
+			. 'key="AAAAAAAA"><note>' . htmlentities($content) . '</note></item></items></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
+		$this->assertRegExp('/^The note \'<p><!-- 12345678901234567890[0-9]+…\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
+		
+		//
+		// >=4.0.27
+		//
+		Sync::useZoteroVersion();
 		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
 		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
 		
@@ -75,9 +110,6 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("NOTE_TOO_LONG", $xml->error["code"]);
 		$this->assertRegExp('/^The note \'.+\' in your library is too long /', (string) $xml->error);
 		$this->assertRegExp('/\/AAAAAAAA$/', (string) $xml->item);
-		
-		// Create too-long note with content within HTML tags
-		$content = "<p><!-- $content --></p>";
 		
 		$data = '<data version="9"><items><item libraryID="'
 			. self::$config['libraryID'] . '" itemType="note" '
@@ -91,6 +123,7 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals("NOTE_TOO_LONG", $xml->error["code"]);
 		$this->assertRegExp('/^The note \'<p><!-- 12345678901234567890[0-9]+…\' in your library is too long /', (string) $xml->error);
 		$this->assertRegExp('/\/AAAAAAAA$/', (string) $xml->item);
+		
 		
 		// Create note under the length limit
 		$xml = Sync::updated(self::$sessionID);
@@ -120,6 +153,23 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 			. 'dateAdded="2009-03-07 04:53:20" '
 			. 'dateModified="2009-03-07 04:54:09" '
 			. 'key="AAAAAAAA"><note>' . $content . '</note></item></items></data>';
+		
+		//
+		// < 4.0.27
+		//
+		Sync::useZoteroVersion("4.0.26.4");
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
+		$this->assertRegExp('/^The note \'.+\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
+		
+		//
+		// >=4.0.27
+		//
+		Sync::useZoteroVersion();
 		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
 		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
 		
@@ -142,6 +192,23 @@ class SyncNoteTests extends PHPUnit_Framework_TestCase {
 			. 'dateAdded="2009-03-07 04:53:20" '
 			. 'dateModified="2009-03-07 04:54:09" '
 			. 'key="AAAAAAAA"><note>' . $content . '</note></item></items></data>';
+		
+		//
+		// < 4.0.27
+		//
+		Sync::useZoteroVersion("4.0.26.4");
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("ERROR_PROCESSING_UPLOAD_DATA", $xml->error["code"]);
+		$this->assertRegExp('/^The note \'.+\' in your library is too long /', (string) $xml->error);
+		$this->assertRegExp('/ copy and paste \'AAAAAAAA\' into /', (string) $xml->error);
+		
+		//
+		// >=4.0.27
+		//
+		Sync::useZoteroVersion();
 		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
 		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
 		

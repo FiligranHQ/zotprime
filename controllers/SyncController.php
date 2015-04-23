@@ -887,17 +887,40 @@ class SyncController extends Controller {
 							$libraryName = false;
 						}
 					}
-					$this->error(400, "NOTE_TOO_LONG",
-						"The note '" . mb_substr($name, 0, 50) . "…' in "
-						. ($libraryName === false
-							? "your library "
-							: "the group '$libraryName' ")
-						. "is too long to sync to zotero.org.\n\n"
-						. "Shorten the note, or delete it and empty the Zotero "
-						. "trash, and then try syncing again.",
-						[],
-						$libraryID ? ["item" => $libraryID . "/" . $itemKey] : []
-					);
+					else {
+						$itemKey = '';
+					}
+					$showNoteKey = false;
+					if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+						require_once('../model/ToolkitVersionComparator.inc.php');
+						$showNoteKey = ToolkitVersionComparator::compare($_SERVER['HTTP_X_ZOTERO_VERSION'], "4.0.27") < 0;
+					}
+					if ($showNoteKey) {
+						$this->error(400, "ERROR_PROCESSING_UPLOAD_DATA",
+							"The note '" . mb_substr($name, 0, 50) . "…' in "
+							. ($libraryName === false
+								? "your library "
+								: "the group '$libraryName' ")
+							. "is too long to sync to zotero.org.\n\n"
+							. "Search for the excerpt above or copy and paste "
+							. "'$itemKey' into the Zotero search bar. "
+							. "Shorten the note, or delete it and empty the Zotero "
+							. "trash, and then try syncing again."
+						);
+					}
+					else {
+						$this->error(400, "NOTE_TOO_LONG",
+							"The note '" . mb_substr($name, 0, 50) . "…' in "
+							. ($libraryName === false
+								? "your library "
+								: "the group '$libraryName' ")
+							. "is too long to sync to zotero.org.\n\n"
+							. "Shorten the note, or delete it and empty the Zotero "
+							. "trash, and then try syncing again.",
+							[],
+							$libraryID ? ["item" => $libraryID . "/" . $itemKey] : []
+						);
+					}
 				}
 				break;
 			

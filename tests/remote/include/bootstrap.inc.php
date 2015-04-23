@@ -30,7 +30,7 @@ Z_Tests::$AWS = \Aws\Common\Aws::factory($awsConfig);
 unset($awsConfig);
 
 // Wipe data and create API key
-require 'http.inc.php';
+require_once 'http.inc.php';
 $response = HTTP::post(
 	$config['apiURLPrefix'] . "test/setup?u=" . $config['userID'],
 	" ",

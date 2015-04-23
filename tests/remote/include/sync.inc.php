@@ -24,7 +24,6 @@
     ***** END LICENSE BLOCK *****
 */
 
-require_once 'include/http.inc.php';
 require_once 'include/bootstrap.inc.php';
 require_once '../../model/Utilities.inc.php';
 
@@ -41,6 +40,16 @@ class Sync {
 		}
 		
 		date_default_timezone_set('UTC');
+	}
+	
+	
+	public static function useZoteroVersion($version=false) {
+		if ($version) {
+			self::$config['zoteroVersion'] = $version;
+		}
+		else {
+			self::$config['zoteroVersion'] = null;
+		}
 	}
 	
 	
@@ -360,14 +369,19 @@ class Sync {
 				$data .= $key . "=" . urlencode($val) . "&";
 			}
 			$data = gzdeflate(substr($data, 0, -1));
-			$headers = array(
+			$headers = [
 				"Content-Type: application/octet-stream",
 				"Content-Encoding: gzip"
-			);
+			];
 		}
 		else {
 			$data = $params;
-			$headers = array();
+			$headers = [];
+			
+		}
+		
+		if (!empty(self::$config['zoteroVersion'])) {
+			$headers[] = "X-Zotero-Version: " . self::$config['zoteroVersion'];
 		}
 		
 		$response = HTTP::post($url, $data, $headers);
