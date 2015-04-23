@@ -194,6 +194,10 @@ class Z_MemcachedClientLocal {
 		}
 		$t = microtime(true);
 		$retVal = $this->client->delete($key);
+		// Delete from queue too, in case this was set within the current transaction
+		if ($this->queuing && isset($this->queueValues[$key])) {
+			unset($this->queueValues[$key]);
+		}
 		$this->requestTime += microtime(true) - $t;
 		return $retVal;
 	}
@@ -261,6 +265,10 @@ class Z_MemcachedClientLocal {
 			
 			$op = $arr['op'];
 			$key = $arr['key'];
+			// Skip deleted values
+			if (!isset($this->queueValues[$key])) {
+				continue;
+			}
 			$val = $this->queueValues[$key];
 			$exp = $arr['exp'];
 			

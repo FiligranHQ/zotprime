@@ -32,6 +32,10 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		Z_Core::$MC->delete("testFoo");
 		Z_Core::$MC->delete("testFoo2");
 		Z_Core::$MC->delete("testFoo3");
+		Z_Core::$MC->delete("testDeleted");
+		
+		// Used below
+		Z_Core::$MC->set("testDeleted1", "foo1");
 		
 		Z_Core::$MC->begin();
 		Z_Core::$MC->set("testFoo", "bar");
@@ -52,16 +56,26 @@ class MemcacheTests extends PHPUnit_Framework_TestCase {
 		$arr = array("testFoo" => "bar2", "testFoo2" => "bar4", "testFoo3" => "bar6");
 		$this->assertEquals(Z_Core::$MC->get(array("testFoo", "testFoo2", "testFoo3")), $arr);
 		
+		// Gets for a deleted key within the transaction should return false,
+		// whether the key was set before or during the transaction
+		Z_Core::$MC->set("testDeleted2", "foo2");
+		Z_Core::$MC->delete("testDeleted1");
+		$this->assertFalse(Z_Core::$MC->get("testDeleted1"));
+		Z_Core::$MC->delete("testDeleted2");
+		$this->assertFalse(Z_Core::$MC->get("testDeleted2"));
+		
 		Z_Core::$MC->commit();
 		
 		$this->assertEquals(Z_Core::$MC->get("testFoo"), "bar2");
 		$this->assertEquals(Z_Core::$MC->get("testFoo2"), "bar4");
 		$this->assertEquals(Z_Core::$MC->get("testFoo3"), "bar6");
+		$this->assertFalse(Z_Core::$MC->get("testDeleted"));
 		
 		// Clean up
 		Z_Core::$MC->delete("testFoo");
 		Z_Core::$MC->delete("testFoo2");
 		Z_Core::$MC->delete("testFoo3");
+		Z_Core::$MC->delete("testDeleted");
 	}
 	
 	public function testUnicode() {
