@@ -46,7 +46,7 @@ class Zotero_Group {
 	
 	
 	public function __get($field) {
-		if ($this->erased) {
+		if ($this->erased && $field != 'erased') {
 			throw new Exception("Cannot access field '$field' of deleted group $this->id");
 		}
 		
