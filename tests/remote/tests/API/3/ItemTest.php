@@ -505,7 +505,7 @@ class ItemTests extends APITests {
 	//
 	// PATCH
 	//
-	public function testModifyItemPartial() {
+	public function testPatchItem() {
 		$itemData = array(
 			"title" => "Test"
 		);
@@ -573,6 +573,25 @@ class ItemTests extends APITests {
 			"collections" => array()
 		);
 		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+	}
+	
+	
+	public function testPatchMissingItem() {
+		$json = [
+			'key' => 'H75FJ25K',
+			'version' => 123,
+			'title' => 'Test'
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		// This should be a 412 due to the version property, not a 400 due to the missing
+		// itemType, which wouldn't be an error if the item existed (since POST follows PATCH
+		// behavior).
+		$this->assert412ForObject($response, "Item doesn't exist (expected version 123; use 0 instead)");
 	}
 	
 	

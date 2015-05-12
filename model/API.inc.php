@@ -1210,6 +1210,11 @@ class Zotero_API {
 					. "(expected {$json->$versionProp}, found {$object->version})"
 					, 412);
 			}
+			// If a version is specified, the object has to exist
+			else if ($json->$versionProp > 0 && !$object->version) {
+				throw new HTTPException(ucwords($objectType)
+					. " doesn't exist (expected version {$json->$versionProp}; use 0 instead)", 412);
+			}
 		}
 		else {
 			if ($requireVersion == 1 && isset($json->$keyProp)) {

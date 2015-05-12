@@ -1746,6 +1746,9 @@ class Zotero_Items extends Zotero_DataObjects {
 			unset($json->version);
 		}
 		
+		Zotero_API::checkJSONObjectVersion(
+			$item, $json, $requestParams, $requireVersion
+		);
 		self::validateJSONItem(
 			$json,
 			$item->libraryID,
@@ -1753,9 +1756,6 @@ class Zotero_Items extends Zotero_DataObjects {
 			$parentItem || ($exists ? !!$item->getSourceKey() : false),
 			$requestParams,
 			$partialUpdate
-		);
-		Zotero_API::checkJSONObjectVersion(
-			$item, $json, $requestParams, $requireVersion
 		);
 		
 		$changed = false;
