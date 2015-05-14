@@ -334,13 +334,12 @@ class Zotero_Collections extends Zotero_DataObjects {
 	                                      $json,
 	                                      $requestParams,
 	                                      $userID,
-	                                      $requireVersion=0) {
+	                                      $requireVersion=0,
+	                                      $partialUpdate=false) {
 		$json = Zotero_API::extractEditableJSON($json);
-		Zotero_API::processJSONObjectKey($collection, $json, $requestParams);
-		self::validateJSONCollection($json, $requestParams);
-		Zotero_API::checkJSONObjectVersion(
-			$collection, $json, $requestParams, $requireVersion
-		);
+		$exists = Zotero_API::processJSONObjectKey($collection, $json, $requestParams);
+		Zotero_API::checkJSONObjectVersion($collection, $json, $requestParams, $requireVersion);
+		self::validateJSONCollection($json, $requestParams, $partialUpdate && $exists);
 		
 		$changed = false;
 		
@@ -352,7 +351,9 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$transactionStarted = false;
 		}
 		
-		$collection->name = $json->name;
+		if (isset($json->name)) {
+			$collection->name = $json->name;
+		}
 		
 		if ($requestParams['v'] >= 2 && isset($json->parentCollection)) {
 			$collection->parentKey = $json->parentCollection;
@@ -360,7 +361,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 		else if ($requestParams['v'] < 2 && isset($json->parent)) {
 			$collection->parentKey = $json->parent;
 		}
-		else {
+		else if (!$partialUpdate) {
 			$collection->parent = false;
 		}
 		
@@ -370,7 +371,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 			if (isset($json->relations)) {
 				$changed = $collection->setRelations($json->relations, $userID) || $changed;
 			}
-			else {
+			else if (!$partialUpdate) {
 				$changed = $collection->setRelations(new stdClass(), $userID) || $changed;
 			}
 		}
@@ -383,12 +384,17 @@ class Zotero_Collections extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONCollection($json, $requestParams) {
+	private static function validateJSONCollection($json, $requestParams, $partialUpdate=false) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}
 		
-		$requiredProps = array('name');
+		if ($partialUpdate) {
+			$requiredProps = [];
+		}
+		else {
+			$requiredProps = ['name'];
+		}
 		
 		foreach ($requiredProps as $prop) {
 			if (!isset($json->$prop)) {

@@ -1746,16 +1746,14 @@ class Zotero_Items extends Zotero_DataObjects {
 			unset($json->version);
 		}
 		
-		Zotero_API::checkJSONObjectVersion(
-			$item, $json, $requestParams, $requireVersion
-		);
+		Zotero_API::checkJSONObjectVersion($item, $json, $requestParams, $requireVersion);
 		self::validateJSONItem(
 			$json,
 			$item->libraryID,
 			$exists ? $item : null,
 			$parentItem || ($exists ? !!$item->getSourceKey() : false),
 			$requestParams,
-			$partialUpdate
+			$partialUpdate && $exists
 		);
 		
 		$changed = false;
@@ -2007,7 +2005,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$apiVersion = $requestParams['v'];
 		
 		if ($partialUpdate) {
-			$requiredProps = array();
+			$requiredProps = [];
 		}
 		else if (isset($json->itemType) && $json->itemType == "attachment") {
 			$requiredProps = array('linkMode', 'tags');

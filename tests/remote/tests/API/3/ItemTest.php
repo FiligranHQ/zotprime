@@ -576,6 +576,78 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testPatchItems() {
+		$itemData = [
+			"title" => "Test"
+		];
+		$json = API::createItem("book", $itemData, $this, 'jsonData');
+		$itemKey = $json['key'];
+		$itemVersion = $json['version'];
+		
+		$patch = function ($context, $config, $itemKey, $itemVersion, &$itemData, $newData) {
+			foreach ($newData as $field => $val) {
+				$itemData[$field] = $val;
+			}
+			$newData['key'] = $itemKey;
+			$newData['version'] = $itemVersion;
+			$response = API::userPost(
+				$config['userID'],
+				"items",
+				json_encode([$newData]),
+				[
+					"Content-Type: application/json"
+				]
+			);
+			$context->assert200ForObject($response);
+			$json = API::getItem($itemKey, $this, 'json')['data'];
+			
+			foreach ($itemData as $field => $val) {
+				$context->assertEquals($val, $json[$field]);
+			}
+			$headerVersion = $response->getHeader("Last-Modified-Version");
+			$context->assertGreaterThan($itemVersion, $headerVersion);
+			$context->assertEquals($json['version'], $headerVersion);
+			
+			return $headerVersion;
+		};
+		
+		$newData = [
+			"date" => "2013"
+		];
+		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+		
+		$newData = [
+			"title" => ""
+		];
+		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+		
+		$newData = [
+			"tags" => [
+				[
+					"tag" => "Foo"
+				]
+			]
+		];
+		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+		
+		$newData = [
+			"tags" => []
+		];
+		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+		
+		$key = API::createCollection('Test', false, $this, 'key');
+		$newData = [
+			"collections" => [$key]
+		];
+		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+		
+		$newData = [
+			"collections" => []
+		];
+		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
+	}
+	
+	
 	public function testPatchMissingItem() {
 		$json = [
 			'key' => 'H75FJ25K',

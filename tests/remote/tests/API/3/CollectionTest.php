@@ -107,28 +107,30 @@ class CollectionTests extends APITests {
 	
 	
 	public function testEditMultipleCollections() {
-		$key1 = API::createCollection("Test 1", false, $this, 'key');
-		$data = API::createCollection("Test 2", false, $this, 'jsonData');
-		$key2 = $data['key'];
+		$collection1Data = API::createCollection("Test 1", false, $this, 'jsonData');
+		$collection2Name = "Test 2";
+		$collection2Data = API::createCollection($collection2Name, false, $this, 'jsonData');
 		
-		$newName1 = "Test 1 Modified";
-		$newName2 = "Test 2 Modified";
+		$collection1NewName = "Test 1 Modified";
+		$collection2NewParentKey = API::createCollection("Test 3", false, $this, 'key');
+		
 		$response = API::userPost(
 			self::$config['userID'],
 			"collections",
 			json_encode([
 				[
-					'key' => $key1,
-					'name' => $newName1
+					'key' => $collection1Data['key'],
+					'version' => $collection1Data['version'],
+					'name' => $collection1NewName
 				],
 				[
-					'key' => $key2,
-					'name' => $newName2
+					'key' => $collection2Data['key'],
+					'version' => $collection2Data['version'],
+					'parentCollection' => $collection2NewParentKey
 				]
 			]),
 			[
-				"Content-Type: application/json",
-				"If-Unmodified-Since-Version: " . $data['version']
+				"Content-Type: application/json"
 			]
 		);
 		$this->assert200($response);
@@ -138,10 +140,11 @@ class CollectionTests extends APITests {
 		$response = API::getCollectionResponse($json['success']);
 		$this->assertTotalResults(2, $response);
 		$json = API::getJSONFromResponse($response);
-		$this->assertEquals($newName1, $json[0]['data']['name']);
+		// POST follows PATCH behavior, so unspecified values shouldn't change
+		$this->assertEquals($collection1NewName, $json[0]['data']['name']);
 		$this->assertFalse($json[0]['data']['parentCollection']);
-		$this->assertEquals($newName2, $json[1]['data']['name']);
-		$this->assertFalse($json[1]['data']['parentCollection']);
+		$this->assertEquals($collection2Name, $json[1]['data']['name']);
+		$this->assertEquals($collection2NewParentKey, $json[1]['data']['parentCollection']);
 	}
 	
 	

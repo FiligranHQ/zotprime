@@ -516,17 +516,17 @@ class Zotero_DataObjects {
 				$obj->libraryID = $libraryID;
 				if ($type == 'item') {
 					$changed = static::updateFromJSON(
-						$obj, $jsonObject, $parent, $requestParams, $userID, $requireVersion
+						$obj, $jsonObject, $parent, $requestParams, $userID, $requireVersion, true
 					);
 				}
 				else if ($type == 'collection') {
 					$changed = static::updateFromJSON(
-						$obj, $jsonObject, $requestParams, $userID, $requireVersion
+						$obj, $jsonObject, $requestParams, $userID, $requireVersion, true
 					);
 				}
 				else {
 					$changed = static::updateFromJSON(
-						$obj, $jsonObject, $requestParams, $requireVersion
+						$obj, $jsonObject, $requestParams, $requireVersion, true
 					);
 				}
 				Zotero_DB::commit();

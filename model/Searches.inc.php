@@ -228,40 +228,48 @@ class Zotero_Searches extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Search $search,
 	                                      $json,
 	                                      $requestParams,
-	                                      $requireVersion=0) {
+	                                      $requireVersion=0,
+	                                      $partialUpdate=false) {
 		$json = Zotero_API::extractEditableJSON($json);
-		Zotero_API::processJSONObjectKey($search, $json, $requestParams);
-		self::validateJSONSearch($json, $requestParams);
-		Zotero_API::checkJSONObjectVersion(
-			$search, $json, $requestParams, $requireVersion
-		);
+		$exists = Zotero_API::processJSONObjectKey($search, $json, $requestParams);
+		Zotero_API::checkJSONObjectVersion($search, $json, $requestParams, $requireVersion);
+		self::validateJSONSearch($json, $requestParams, $partialUpdate && $exists);
 		
-		$search->name = $json->name;
-		
-		$conditions = array();
-		foreach ($json->conditions as $condition) {
-			$newCondition = get_object_vars($condition);
-			// Parse 'mode' (e.g., '/regexp') out of condition name
-			if (preg_match('/(.+)\/(.+)/', $newCondition['condition'], $matches)) {
-				$newCondition['condition'] = $matches[1];
-				$newCondition['mode'] = $matches[2];
-			}
-			else {
-				$newCondition['mode'] = "";
-			}
-			$conditions[] = $newCondition;
+		if (isset($json->name)) {
+			$search->name = $json->name;
 		}
-		$search->updateConditions($conditions);
+		
+		if (isset($json->conditions)) {
+			$conditions = [];
+			foreach ($json->conditions as $condition) {
+				$newCondition = get_object_vars($condition);
+				// Parse 'mode' (e.g., '/regexp') out of condition name
+				if (preg_match('/(.+)\/(.+)/', $newCondition['condition'], $matches)) {
+					$newCondition['condition'] = $matches[1];
+					$newCondition['mode'] = $matches[2];
+				}
+				else {
+					$newCondition['mode'] = "";
+				}
+				$conditions[] = $newCondition;
+			}
+			$search->updateConditions($conditions);
+		}
 		return !!$search->save();
 	}
 	
 	
-	private static function validateJSONSearch($json) {
+	private static function validateJSONSearch($json, $requestParams, $partialUpdate=false) {
 		if (!is_object($json)) {
 			throw new Exception('$json must be a decoded JSON object');
 		}
 		
-		$requiredProps = array('name', 'conditions');
+		if ($partialUpdate) {
+			$requiredProps = [];
+		}
+		else {
+			$requiredProps = ['name', 'conditions'];
+		}
 		foreach ($requiredProps as $prop) {
 			if (!isset($json->$prop)) {
 				throw new Exception("'$prop' property not provided", Z_ERROR_INVALID_INPUT);
@@ -297,58 +305,57 @@ class Zotero_Searches extends Zotero_DataObjects {
 					if (empty($val)) {
 						throw new Exception("'conditions' cannot be empty", Z_ERROR_INVALID_INPUT);
 					}
+					
+					foreach ($val as $condition) {
+						$requiredProps = ['condition', 'operator', 'value'];
+						foreach ($requiredProps as $prop) {
+							if (!isset($condition->$prop)) {
+								throw new Exception("'$prop' property not provided for search condition", Z_ERROR_INVALID_INPUT);
+							}
+						}
+						
+						foreach ($condition as $conditionKey => $conditionVal) {
+							if (!is_string($conditionVal)) {
+								throw new Exception("'$conditionKey' must be a string", Z_ERROR_INVALID_INPUT);
+							}
+							
+							switch ($conditionKey) {
+							case 'condition':
+								if ($conditionVal === "") {
+									throw new Exception("Search condition cannot be empty", Z_ERROR_INVALID_INPUT);
+								}
+								$maxLen = 50;
+								if (strlen($conditionVal) > $maxLen) {
+									throw new Exception("Search condition cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
+								}
+								break;
+								
+							case 'operator':
+								if ($conditionVal === "") {
+									throw new Exception("Search operator cannot be empty", Z_ERROR_INVALID_INPUT);
+								}
+								$maxLen = 25;
+								if (strlen($conditionVal) > $maxLen) {
+									throw new Exception("Search operator cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
+								}
+								break;
+								
+							case 'value':
+								$maxLen = 255;
+								if (strlen($conditionVal) > $maxLen) {
+									throw new Exception("Search operator cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
+								}
+								break;
+								
+							default:
+								throw new Exception("Invalid property '$conditionKey' for search condition", Z_ERROR_INVALID_INPUT);
+							}
+						}
+					}
 					break;
 				
 				default:
 					throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
-			}
-		}
-		
-		// Search conditions
-		foreach ($json->conditions as $condition) {
-			$requiredProps = array('condition', 'operator', 'value');
-			foreach ($requiredProps as $prop) {
-				if (!isset($condition->$prop)) {
-					throw new Exception("'$prop' property not provided for search condition", Z_ERROR_INVALID_INPUT);
-				}
-			}
-			
-			foreach ($condition as $key => $val) {
-				if (!is_string($val)) {
-					throw new Exception("'$key' must be a string", Z_ERROR_INVALID_INPUT);
-				}
-				
-				switch ($key) {
-					case 'condition':
-						if ($val === "") {
-							throw new Exception("Search condition cannot be empty", Z_ERROR_INVALID_INPUT);
-						}
-						$maxLen = 50;
-						if (strlen($val) > $maxLen) {
-							throw new Exception("Search condition cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
-						}
-						break;
-						
-					case 'operator':
-						if ($val === "") {
-							throw new Exception("Search operator cannot be empty", Z_ERROR_INVALID_INPUT);
-						}
-						$maxLen = 25;
-						if (strlen($val) > $maxLen) {
-							throw new Exception("Search operator cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
-						}
-						break;
-					
-					case 'value':
-						$maxLen = 255;
-						if (strlen($val) > $maxLen) {
-							throw new Exception("Search operator cannot be longer than $maxLen characters", Z_ERROR_INVALID_INPUT);
-						}
-						break;
-					
-					default:
-						throw new Exception("Invalid property '$key' for search condition", Z_ERROR_INVALID_INPUT);
-				}
 			}
 		}
 	}

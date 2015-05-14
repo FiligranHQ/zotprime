@@ -112,6 +112,69 @@ class SearchTests extends APITests {
 	}
 	
 	
+	public function testEditMultipleSearches() {
+		$search1Name = "Test 1";
+		$search1Conditions = [
+			[
+				"condition" => "title",
+				"operator" => "contains",
+				"value" => "test"
+			]
+		];
+		$search1Data = API::createSearch($search1Name, $search1Conditions, $this, 'jsonData');
+		$search1NewName = "Test 1 Modified";
+		
+		$search2Name = "Test 2";
+		$search2Conditions = [
+			[
+				"condition" => "title",
+				"operator" => "is",
+				"value" => "test2"
+			]
+		];
+		$search2Data = API::createSearch($search2Name, $search2Conditions, $this, 'jsonData');
+		$search2NewConditions = [
+			[
+				"condition" => "title",
+				"operator" => "isNot",
+				"value" => "test1"
+			]
+		];
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"searches",
+			json_encode([
+				[
+					'key' => $search1Data['key'],
+					'version' => $search1Data['version'],
+					'name' => $search1NewName
+				],
+				[
+					'key' => $search2Data['key'],
+					'version' => $search2Data['version'],
+					'conditions' => $search2NewConditions
+				]
+			]),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['success']);
+		
+		$response = API::getSearchResponse($json['success']);
+		$this->assertTotalResults(2, $response);
+		$json = API::getJSONFromResponse($response);
+		// POST follows PATCH behavior, so unspecified values shouldn't change
+		$this->assertEquals($search1NewName, $json[0]['data']['name']);
+		$this->assertEquals($search1Conditions, $json[0]['data']['conditions']);
+		$this->assertEquals($search2Name, $json[1]['data']['name']);
+		$this->assertEquals($search2NewConditions, $json[1]['data']['conditions']);
+	}
+	
+	
 	public function testNewSearchNoName() {
 		$json = API::createSearch(
 			"",
