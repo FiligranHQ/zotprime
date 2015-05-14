@@ -2260,12 +2260,18 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'note':
-					switch ($json->itemType) {
+					switch (isset($json->itemType) ? $json->itemType : null) {
 						case 'note':
 						case 'attachment':
 							break;
 						
 						default:
+							if ($partialUpdate) {
+								$existingItemType = Zotero_ItemTypes::getName($item->itemTypeID);
+								if (in_array($existingItemType, ['note', 'attachment'])) {
+									break;
+								}
+							}
 							throw new Exception("'note' property is valid only for note and attachment items", Z_ERROR_INVALID_INPUT);
 					}
 					break;

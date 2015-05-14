@@ -576,6 +576,54 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testPatchNote() {
+		$text = "<p>Test</p>";
+		$newText = "<p>Test 2</p>";
+		$json = API::createNoteItem($text, false, $this, 'jsonData');
+		$itemKey = $json['key'];
+		$itemVersion = $json['version'];
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey",
+			json_encode([
+				"note" => $newText
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $itemVersion"
+			]
+		);
+		$this->assert204($response);
+		$json = API::getItem($itemKey, $this, 'json')['data'];
+		
+		$this->assertEquals($newText, $json['note']);
+		$headerVersion = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan($itemVersion, $headerVersion);
+		$this->assertEquals($json['version'], $headerVersion);
+	}
+	
+	
+	public function testPatchNoteOnBookError() {
+		$json = API::createItem("book", [], $this, 'jsonData');
+		$itemKey = $json['key'];
+		$itemVersion = $json['version'];
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey",
+			json_encode([
+				"note" => "Test"
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $itemVersion"
+			]
+		);
+		$this->assert400($response, "'note' property is valid only for note and attachment items");
+	}
+	
+	
 	public function testPatchItems() {
 		$itemData = [
 			"title" => "Test"
