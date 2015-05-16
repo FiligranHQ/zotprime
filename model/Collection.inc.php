@@ -397,27 +397,30 @@ class Zotero_Collection extends Zotero_DataObject {
 		
 		if ($removed) {
 			$sql = "DELETE FROM collectionItems WHERE collectionID=? AND itemID IN (";
-			$q = array();
-			$params = array($this->id);
-			foreach ($removed as $itemID) {
-				$q[] = '?';
-				$params[] = $itemID;
+			while ($chunk = array_splice($removed, 0, 500)) {
+				array_unshift($chunk, $this->id);
+				Zotero_DB::query(
+					$sql . implode(', ', array_fill(0, sizeOf($chunk) - 1, '?')) . ")",
+					$chunk,
+					$shardID
+				);
 			}
-			$sql .= implode(',', $q) . ")";
-			Zotero_DB::query($sql, $params, $shardID);
 		}
 		
 		if ($new) {
-			$sql = "INSERT INTO collectionItems (collectionID, itemID) VALUES";
-			$q = array();
-			$params = array();
-			foreach ($new as $itemID) {
-				$q[] = '(?,?)';
-				$params = array_merge($params,
-					array($this->id, $itemID));
+			$sql = "INSERT INTO collectionItems (collectionID, itemID) VALUES ";
+			while ($chunk = array_splice($new, 0, 250)) {
+				Zotero_DB::query(
+					$sql . implode(',', array_fill(0, sizeOf($chunk), '(?,?)')),
+					call_user_func_array(
+						'array_merge',
+						array_map(function ($itemID) {
+							return [$this->id, $itemID];
+						}, $chunk)
+					),
+					$shardID
+				);
 			}
-			$sql .= implode(',', $q);
-			Zotero_DB::query($sql, $params, $shardID);
 		}
 		
 		$this->items = array_values(array_unique($itemIDs));
