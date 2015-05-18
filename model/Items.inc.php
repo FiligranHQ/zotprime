@@ -2052,7 +2052,7 @@ class Zotero_Items extends Zotero_DataObjects {
 					if ($apiVersion < 2) {
 						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
-					if (!Zotero_ID::isValidKey($val)) {
+					if (!Zotero_ID::isValidKey($val) && $val !== false) {
 						throw new Exception("'$key' must be a valid item key", Z_ERROR_INVALID_INPUT);
 					}
 					break;

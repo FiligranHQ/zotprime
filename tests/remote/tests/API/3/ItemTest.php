@@ -1799,16 +1799,6 @@ class ItemTests extends APITests {
 		// Remove the parent, making the child a standalone attachment
 		unset($json['parentItem']);
 		
-		// The parent item version should have been updated when a child
-		// was added, so this should fail
-		$response = API::userPut(
-			self::$config['userID'],
-			"items/$childKey",
-			json_encode($json),
-			array("If-Unmodified-Since-Version: " . $parentVersion)
-		);
-		$this->assert412($response);
-		
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/$childKey",
@@ -1849,6 +1839,21 @@ class ItemTests extends APITests {
 		
 		$json = API::getItem($childKey, $this, 'json')['data'];
 		$this->assertArrayHasKey('parentItem', $json);
+		$childVersion = $json['version'];
+		
+		// But it should be removed with parentItem: false
+		$json = [
+			'parentItem' => false
+		];
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$childKey",
+			json_encode($json),
+			["If-Unmodified-Since-Version: " . $childVersion]
+		);
+		$this->assert204($response);
+		$json = API::getItem($childKey, $this, 'json')['data'];
+		$this->assertArrayNotHasKey('parentItem', $json);
 	}
 	
 	
