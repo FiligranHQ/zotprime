@@ -2032,6 +2032,14 @@ class Zotero_Items extends Zotero_DataObjects {
 			}
 		}
 		
+		// For partial updates where item type isn't provided, use the existing item type
+		if (!isset($json->itemType) && $partialUpdate) {
+			$itemType = Zotero_ItemTypes::getName($item->itemTypeID);
+		}
+		else {
+			$itemType = $json->itemType;
+		}
+		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
 				// Handled by Zotero_API::checkJSONObjectVersion()
@@ -2210,11 +2218,11 @@ class Zotero_Items extends Zotero_DataObjects {
 									if (!$creatorTypeID) {
 										throw new Exception("'$v' is not a valid creator type", Z_ERROR_INVALID_INPUT);
 									}
-									$itemTypeID = Zotero_ItemTypes::getID($json->itemType);
+									$itemTypeID = Zotero_ItemTypes::getID($itemType);
 									if (!Zotero_CreatorTypes::isValidForItemType($creatorTypeID, $itemTypeID)) {
 										// Allow 'author' in all item types, but reject other invalid creator types
 										if ($creatorTypeID != Zotero_CreatorTypes::getID('author')) {
-											throw new Exception("'$v' is not a valid creator type for item type '" . $json->itemType . "'", Z_ERROR_INVALID_INPUT);
+											throw new Exception("'$v' is not a valid creator type for item type '$itemType'", Z_ERROR_INVALID_INPUT);
 										}
 									}
 									break;
@@ -2260,18 +2268,12 @@ class Zotero_Items extends Zotero_DataObjects {
 					break;
 				
 				case 'note':
-					switch (isset($json->itemType) ? $json->itemType : null) {
+					switch ($itemType) {
 						case 'note':
 						case 'attachment':
 							break;
 						
 						default:
-							if ($partialUpdate) {
-								$existingItemType = Zotero_ItemTypes::getName($item->itemTypeID);
-								if (in_array($existingItemType, ['note', 'attachment'])) {
-									break;
-								}
-							}
 							throw new Exception("'note' property is valid only for note and attachment items", Z_ERROR_INVALID_INPUT);
 					}
 					break;
@@ -2326,7 +2328,7 @@ class Zotero_Items extends Zotero_DataObjects {
 				case 'filename':
 				case 'md5':
 				case 'mtime':
-					if ($json->itemType != 'attachment') {
+					if ($itemType != 'attachment') {
 						throw new Exception("'$key' is valid only for attachment items", Z_ERROR_INVALID_INPUT);
 					}
 					
