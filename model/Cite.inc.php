@@ -402,7 +402,7 @@ class Zotero_Cite {
 		foreach ($queryParams as $param => $value) {
 			switch ($param) {
 			case 'style':
-				if (!is_string($value) || !preg_match('/^[a-zA-Z0-9\-]+$/', $value)) {
+				if (!is_string($value) || !preg_match('/^(https?|[a-zA-Z0-9\-]+$)/', $value)) {
 					throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
 				}
 				$url .= "&" . $param . "=" . urlencode($value);
@@ -447,13 +447,17 @@ class Zotero_Cite {
 			
 			$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 			
-			if ($code != 200) {
-				error_log($code . " from citation server -- trying another "
-					. "[URL: '$url'] [INPUT: '$json'] [RESPONSE: '$response']");
+			if ($code == 400) {
+				throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
 			}
 			
 			if ($code == 404) {
-				throw new Exception("Invalid style", Z_ERROR_CITESERVER_INVALID_STYLE);
+				throw new Exception("Style not found", Z_ERROR_CITESERVER_INVALID_STYLE);
+			}
+			
+			if ($code != 200) {
+				error_log($code . " from citation server -- trying another "
+					. "[URL: '$url'] [INPUT: '$json'] [RESPONSE: '$response']");
 			}
 			
 			// If no response, try another server
