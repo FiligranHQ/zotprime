@@ -631,7 +631,8 @@ class ApiController extends Controller {
 		
 		$libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
 		if ($libraryVersion > $version) {
-			$this->e412("Library has been modified since specified version");
+			$this->e412("Library has been modified since specified version "
+				. "(expected $version, found $libraryVersion)");
 		}
 		return true;
 	}
