@@ -58,6 +58,15 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function testNonExistentLibraryItemsWithKey() {
+		API::useAPIKey(self::$config['apiKey']);
+		$response = API::get("users/" . self::$config['userID'] . "/publications/items");
+		$this->assert200($response);
+		$this->assertNoResults($response);
+		$this->assertLastModifiedVersion(0, $response);
+	}
+	
+	
 	public function testNonExistentLibraryItemsAtom() {
 		$response = API::get("users/" . self::$config['userID'] . "/publications/items?format=atom");
 		$this->assert200($response);
