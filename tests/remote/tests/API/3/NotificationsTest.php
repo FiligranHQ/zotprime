@@ -154,6 +154,14 @@ class NotificationsTests extends APITests {
 	
 	
 	/**
+	 * Make a group public, which should trigger topicAdded
+	 */
+	
+	/**
+	 * Show public groups in topic list for single-key requests
+	 */
+	
+	/**
 	 * Revoke access for a group from an API key
 	 */
 	public function testKeyRemoveLibraryNotification() {
