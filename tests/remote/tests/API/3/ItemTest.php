@@ -1773,6 +1773,15 @@ class ItemTests extends APITests {
 		$keys = [$json[0]['key'], $json[1]['key']];
 		$this->assertContains($key1, $keys);
 		$this->assertContains($key2, $keys);
+		
+		// ?itemKey should show the deleted item on /all
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/all?itemKey=" . $key2
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(1, $json);
+		$this->assertEquals($key2, $json[0]['key']);
 	}
 	
 	
@@ -1801,6 +1810,14 @@ class ItemTests extends APITests {
 		$json = API::getJSONFromResponse($response);
 		$this->assertCount(1, $json);
 		$this->assertEquals($key1, $json[0]['key']);
+		
+		// Including with ?itemKey
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?itemKey=" . $key2
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(0, $json);
 	}
 	
 	
