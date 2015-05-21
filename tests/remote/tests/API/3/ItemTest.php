@@ -1755,11 +1755,31 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testAll() {
+		API::userClear(self::$config['userID']);
+		
+		$key1 = API::createItem("book", false, $this, 'key');
+		$key2 = API::createItem("book", [
+			"deleted" => 1
+		], $this, 'key');
+		
+		// Both items should show up in /all
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/all"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json);
+		$keys = [$json[0]['key'], $json[1]['key']];
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
+	}
+	
+	
 	public function testTrash() {
 		API::userClear(self::$config['userID']);
 		
 		$key1 = API::createItem("book", false, $this, 'key');
-		
 		$key2 = API::createItem("book", [
 			"deleted" => 1
 		], $this, 'key');

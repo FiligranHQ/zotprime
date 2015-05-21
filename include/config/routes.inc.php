@@ -44,7 +44,11 @@ else {
 	$router->map('/users/i:objectUserID/publications/fulltext', ['controller' => 'FullText', 'action' => 'fulltext', 'extra' => ['publications' => true]]);
 	$router->map('/groups/i:objectGroupID/fulltext', array('controller' => 'FullText', 'action' => 'fulltext'));
 	
-	// All deleted items
+	// All items, including trashed items
+	$router->map('/users/i:objectUserID/items/all', array('controller' => 'Items', 'extra' => array('subset' => 'all')));
+	$router->map('/groups/i:objectGroupID/items/all', array('controller' => 'Items', 'extra' => array('subset' => 'all')));
+	
+	// All trashed items
 	$router->map('/users/i:objectUserID/items/trash', array('controller' => 'Items', 'extra' => array('subset' => 'trash')));
 	$router->map('/groups/i:objectGroupID/items/trash', array('controller' => 'Items', 'extra' => array('subset' => 'trash')));
 	

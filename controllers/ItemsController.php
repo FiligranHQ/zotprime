@@ -351,6 +351,23 @@ class ItemsController extends ApiController {
 						$this->permissions
 					);
 				}
+				else if ($this->subset == 'all') {
+					if ($this->apiVersion < 3) {
+						$this->e404();
+					}
+					
+					$this->allowMethods(['GET']);
+					
+					$title = "All Items";
+					$includeTrashed = true;
+					$results = Zotero_Items::search(
+						$this->objectLibraryID,
+						true,
+						$this->queryParams,
+						$includeTrashed,
+						$this->permissions
+					);
+				}
 				// Deleted items
 				else if ($this->subset == 'trash') {
 					$this->allowMethods(array('GET'));
