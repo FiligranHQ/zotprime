@@ -362,7 +362,7 @@ class ItemsController extends ApiController {
 					$includeTrashed = true;
 					$results = Zotero_Items::search(
 						$this->objectLibraryID,
-						true,
+						false,
 						$this->queryParams,
 						$includeTrashed,
 						$this->permissions

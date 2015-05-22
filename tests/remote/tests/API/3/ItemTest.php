@@ -1762,26 +1762,30 @@ class ItemTests extends APITests {
 		$key2 = API::createItem("book", [
 			"deleted" => 1
 		], $this, 'key');
+		$key3 = API::createNoteItem("", $key1, $this, 'key');
 		
-		// Both items should show up in /all
+		// All three items should show up in /all
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/all"
 		);
 		$json = API::getJSONFromResponse($response);
-		$this->assertCount(2, $json);
-		$keys = [$json[0]['key'], $json[1]['key']];
+		$this->assertCount(3, $json);
+		$keys = [$json[0]['key'], $json[1]['key'], $json[2]['key']];
 		$this->assertContains($key1, $keys);
 		$this->assertContains($key2, $keys);
+		$this->assertContains($key3, $keys);
 		
 		// ?itemKey should show the deleted item on /all
 		$response = API::userGet(
 			self::$config['userID'],
-			"items/all?itemKey=" . $key2
+			"items/all?itemKey=$key2,$key3"
 		);
 		$json = API::getJSONFromResponse($response);
-		$this->assertCount(1, $json);
-		$this->assertEquals($key2, $json[0]['key']);
+		$this->assertCount(2, $json);
+		$keys = [$json[0]['key'], $json[1]['key']];
+		$this->assertContains($key2, $keys);
+		$this->assertContains($key3, $keys);
 	}
 	
 	
