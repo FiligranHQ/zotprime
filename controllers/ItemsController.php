@@ -238,7 +238,7 @@ class ItemsController extends ApiController {
 			
 			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 			
-			$includeTrashed = false;
+			$includeTrashed = $this->queryParams['includeTrashed'];
 			
 			if ($this->scopeObject) {
 				$this->allowMethods(array('GET', 'POST'));
@@ -346,23 +346,6 @@ class ItemsController extends ApiController {
 					$results = Zotero_Items::search(
 						$this->objectLibraryID,
 						true,
-						$this->queryParams,
-						$includeTrashed,
-						$this->permissions
-					);
-				}
-				else if ($this->subset == 'all') {
-					if ($this->apiVersion < 3) {
-						$this->e404();
-					}
-					
-					$this->allowMethods(['GET']);
-					
-					$title = "All Items";
-					$includeTrashed = true;
-					$results = Zotero_Items::search(
-						$this->objectLibraryID,
-						false,
 						$this->queryParams,
 						$includeTrashed,
 						$this->permissions

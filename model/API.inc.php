@@ -79,6 +79,7 @@ class Zotero_API {
 		'fq' => '',
 		'q' => '',
 		'qmode' => 'titleCreatorYear',
+		'includeTrashed' => 0,
 		'itemType' => '',
 		'itemKey' => [],
 		'collectionKey' => [],
@@ -475,6 +476,7 @@ class Zotero_API {
 				$finalParams['limit'] = self::MAX_OBJECT_KEYS;
 				break;
 			
+			case 'includeTrashed':
 			case 'uncached':
 				$value = !!$value;
 				break;

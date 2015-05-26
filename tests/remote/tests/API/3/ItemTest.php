@@ -1755,7 +1755,7 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testAll() {
+	public function testIncludeTrashed() {
 		API::userClear(self::$config['userID']);
 		
 		$key1 = API::createItem("book", false, $this, 'key');
@@ -1764,10 +1764,10 @@ class ItemTests extends APITests {
 		], $this, 'key');
 		$key3 = API::createNoteItem("", $key1, $this, 'key');
 		
-		// All three items should show up in /all
+		// All three items should show up with includeTrashed=1
 		$response = API::userGet(
 			self::$config['userID'],
-			"items/all"
+			"items?includeTrashed=1"
 		);
 		$json = API::getJSONFromResponse($response);
 		$this->assertCount(3, $json);
@@ -1776,16 +1776,27 @@ class ItemTests extends APITests {
 		$this->assertContains($key2, $keys);
 		$this->assertContains($key3, $keys);
 		
-		// ?itemKey should show the deleted item on /all
+		// ?itemKey should show the deleted item
 		$response = API::userGet(
 			self::$config['userID'],
-			"items/all?itemKey=$key2,$key3"
+			"items?itemKey=$key2,$key3&includeTrashed=1"
 		);
 		$json = API::getJSONFromResponse($response);
 		$this->assertCount(2, $json);
 		$keys = [$json[0]['key'], $json[1]['key']];
 		$this->assertContains($key2, $keys);
 		$this->assertContains($key3, $keys);
+		
+		// /top should show the deleted item
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?includeTrashed=1"
+		);
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json);
+		$keys = [$json[0]['key'], $json[1]['key']];
+		$this->assertContains($key1, $keys);
+		$this->assertContains($key2, $keys);
 	}
 	
 	
