@@ -396,8 +396,9 @@ class Zotero_Collection extends Zotero_DataObject {
 		$new = array_diff($itemIDs, $current);
 		
 		if ($removed) {
+			$arr = $removed;
 			$sql = "DELETE FROM collectionItems WHERE collectionID=? AND itemID IN (";
-			while ($chunk = array_splice($removed, 0, 500)) {
+			while ($chunk = array_splice($arr, 0, 500)) {
 				array_unshift($chunk, $this->id);
 				Zotero_DB::query(
 					$sql . implode(', ', array_fill(0, sizeOf($chunk) - 1, '?')) . ")",
@@ -408,8 +409,9 @@ class Zotero_Collection extends Zotero_DataObject {
 		}
 		
 		if ($new) {
+			$arr = $new;
 			$sql = "INSERT INTO collectionItems (collectionID, itemID) VALUES ";
-			while ($chunk = array_splice($new, 0, 250)) {
+			while ($chunk = array_splice($arr, 0, 250)) {
 				Zotero_DB::query(
 					$sql . implode(',', array_fill(0, sizeOf($chunk), '(?,?)')),
 					call_user_func_array(
