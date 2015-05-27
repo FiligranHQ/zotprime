@@ -549,12 +549,6 @@ class ItemsController extends ApiController {
 				}
 			}
 			
-			if ($this->queryParams['format'] == 'bib') {
-				if (($itemIDs ? sizeOf($itemIDs) : (!empty($results) ? $results['total'] : 0)) > Zotero_API::MAX_BIBLIOGRAPHY_ITEMS) {
-					$this->e413("Cannot generate bibliography with more than " . Zotero_API::MAX_BIBLIOGRAPHY_ITEMS . " items");
-				}
-			}
-			
 			if ($itemIDs || $itemKeys) {
 				if ($itemIDs) {
 					$this->queryParams['itemIDs'] = $itemIDs;
@@ -569,6 +563,13 @@ class ItemsController extends ApiController {
 					$includeTrashed,
 					$this->permissions
 				);
+			}
+			
+			if ($this->queryParams['format'] == 'bib') {
+				$maxBibItems = Zotero_API::MAX_BIBLIOGRAPHY_ITEMS;
+				if ($results['total'] > $maxBibItems) {
+					$this->e413("Cannot generate bibliography with more than $maxBibItems items");
+				}
 			}
 			
 			$this->generateMultiResponse($results, $title);
