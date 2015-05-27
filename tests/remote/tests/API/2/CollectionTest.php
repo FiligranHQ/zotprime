@@ -285,13 +285,15 @@ class CollectionTests extends APITests {
 		$json['collections'] = array($collectionKey);
 		$json['relations'] = new stdClass;
 		
+		$libraryVersion = API::getLibraryVersion();
+		
 		$response = API::userPut(
 			self::$config['userID'],
 			"items/{$data['key']}?key=" . self::$config['apiKey'],
 			json_encode($json),
-			array(
+			[
 				"Content-Type: application/json"
-			)
+			]
 		);
 		$this->assert400($response);
 		$this->assertEquals("Child items cannot be assigned to collections", $response->getBody());

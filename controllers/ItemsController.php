@@ -78,7 +78,46 @@ class ItemsController extends ApiController {
 			}
 			
 			$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
-			if (!$item) {
+			if ($item) {
+				// If no access to the note, don't show that it exists
+				if ($item->isNote() && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
+					$this->e404();
+				}
+				
+				// Make sure URL libraryID matches item libraryID
+				if ($this->objectLibraryID != $item->libraryID) {
+					$this->e404("Item does not exist");
+				}
+				
+				// File access mode
+				if ($this->fileMode) {
+					$this->_handleFileRequest($item);
+				}
+				
+				if ($this->scopeObject) {
+					switch ($this->scopeObject) {
+						// Remove item from collection
+					case 'collections':
+						$this->allowMethods(array('DELETE'));
+						
+						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
+						if (!$collection) {
+							$this->e404("Collection not found");
+						}
+						
+						if (!$collection->hasItem($item->id)) {
+							$this->e404("Item not found in collection");
+						}
+						
+						$collection->removeItem($item->id);
+						$this->e204();
+						
+					default:
+						$this->e400();
+					}
+				}
+			}
+			else {
 				// Possibly temporary workaround to block unnecessary full syncs
 				if ($this->fileMode && $this->method == 'POST') {
 					// If > 2 requests for missing file, trigger a full sync via 404
@@ -98,100 +137,20 @@ class ItemsController extends ApiController {
 					}
 					$this->e500("A file sync error occurred. Please sync again.");
 				}
-				
-				$this->e404("Item does not exist");
-			}
-			
-			// If no access to the note, don't show that it exists
-			if ($item->isNote() && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
-				$this->e404();
-			}
-			
-			// Make sure URL libraryID matches item libraryID
-			if ($this->objectLibraryID != $item->libraryID) {
-				$this->e404("Item does not exist");
-			}
-			
-			// File access mode
-			if ($this->fileMode) {
-				$this->_handleFileRequest($item);
-			}
-			
-			
-			if ($this->scopeObject) {
-				switch ($this->scopeObject) {
-					// Remove item from collection
-					case 'collections':
-						$this->allowMethods(array('DELETE'));
-						
-						$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->scopeObjectKey);
-						if (!$collection) {
-							$this->e404("Collection not found");
-						}
-						
-						if (!$collection->hasItem($item->id)) {
-							$this->e404("Item not found in collection");
-						}
-						
-						$collection->removeItem($item->id);
-						$this->e204();
-					
-					default:
-						$this->e400();
-				}
 			}
 			
 			if ($this->isWriteMethod()) {
-				$objectTimestampChecked =
-					$this->checkObjectIfUnmodifiedSinceVersion(
-						$item, $this->method == 'DELETE'
-				);
+				$item = $this->handleObjectWrite('item', $item ? $item : null);
 				
-				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-				
-				// Update item
-				if ($this->method == 'PUT' || $this->method == 'PATCH') {
-					if ($this->apiVersion < 2) {
-						$this->allowMethods(array('PUT'));
-					}
-					
-					$changed = Zotero_Items::updateFromJSON(
-						$item,
-						$this->jsonDecode($this->body),
-						null,
-						$this->queryParams,
-						$this->userID,
-						$objectTimestampChecked ? 0 : 2,
-						$this->method == 'PATCH'
-					);
-					
-					// If not updated, return the original library version
-					if (!$changed) {
-						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
-							$this->objectLibraryID
-						);
-					}
-					
-					if ($cacheKey = $this->getWriteTokenCacheKey()) {
-						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
-					}
-					
-					if ($this->apiVersion < 2) {
-						$this->queryParams['format'] = 'atom';
-						$this->queryParams['content'] = array('json');
-					}
+				if ($this->apiVersion < 2
+						&& ($this->method == 'PUT' || $this->method == 'PATCH')) {
+					$this->queryParams['format'] = 'atom';
+					$this->queryParams['content'] = ['json'];
 				}
-				// Delete item
-				else if ($this->method == 'DELETE') {
-					Zotero_Items::delete($this->objectLibraryID, $this->objectKey);
-				}
-				else {
-					throw new Exception("Unexpected method $this->method");
-				}
-				
-				if ($this->apiVersion >= 2 || $this->method == 'DELETE') {
-					$this->e204();
-				}
+			}
+			
+			if (!$item) {
+				$this->e404("Item does not exist");
 			}
 			
 			$this->libraryVersion = $item->version;

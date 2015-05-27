@@ -1737,7 +1737,6 @@ class Zotero_Items extends Zotero_DataObjects {
 	                                      $requireVersion=0,
 	                                      $partialUpdate=false) {
 		$json = Zotero_API::extractEditableJSON($json);
-		
 		$exists = Zotero_API::processJSONObjectKey($item, $json, $requestParams);
 		
 		// computerProgram used 'version' instead of 'versionNumber' before v3
@@ -1991,8 +1990,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	}
 	
 	
-	private static function validateJSONItem($json, $libraryID, $item=null, $isChild, $requestParams, $partialUpdate=false) {
-		$isNew = !$item;
+	private static function validateJSONItem($json, $libraryID, Zotero_Item $item=null, $isChild, $requestParams, $partialUpdate=false) {
+		$isNew = !$item || !$item->version;
 		
 		if (!is_object($json)) {
 			throw new Exception("Invalid item object (found " . gettype($json) . " '" . $json . "')", Z_ERROR_INVALID_INPUT);

@@ -94,6 +94,61 @@ class API3 {
 	}
 	
 	
+	public function createUnsavedDataObject($objectType) {
+		switch ($objectType) {
+		case 'collection':
+			$json = [
+				"name" => "Test"
+			];
+			break;
+		
+		case 'item':
+			// Convert to array
+			$json = json_decode(json_encode(self::getItemTemplate("book")), true);
+			break;
+		
+		case 'search':
+			$json = [
+				"name" => "Test",
+				"conditions" => [
+					[
+						"condition" => "title",
+						"operator" => "contains",
+						"value" => "test"
+					]
+				]
+			];
+			break;
+		}
+		return $json;
+	}
+	
+	
+	public function createDataObject($objectType, $format) {
+		switch ($objectType) {
+		case 'collection':
+			return self::createCollection("Test", [], $this, $format);
+		
+		case 'item':
+			return self::createItem("book", [], $this, $format);
+		
+		case 'search':
+			return self::createSearch(
+				"Test",
+				[
+					[
+						"condition" => "title",
+						"operator" => "contains",
+						"value" => "test"
+					]
+				],
+				$this,
+				$format
+			);
+		}
+	}
+	
+	
 	//
 	// Item modification methods
 	//

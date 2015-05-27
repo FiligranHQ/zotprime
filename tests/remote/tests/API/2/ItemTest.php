@@ -1271,6 +1271,9 @@ class ItemTests extends APITests {
 		// Remove the parent, making the child a standalone attachment
 		unset($json['parentItem']);
 		
+		// Remove version property, to test header
+		unset($json['itemVersion']);
+		
 		// The parent item version should have been updated when a child
 		// was added, so this should fail
 		$response = API::userPut(

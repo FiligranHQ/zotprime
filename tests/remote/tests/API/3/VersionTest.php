@@ -436,6 +436,416 @@ class VersionTests extends APITests {
 	}
 	
 	
+	//
+	// PATCH (single object)
+	//
+	
+	// PATCH to a missing object without a version is a 404
+	public function testPatchMissingObjectWithoutVersion() {
+		$this->_testPatchMissingObjectWithoutVersion('collection');
+		$this->_testPatchMissingObjectWithoutVersion('item');
+		$this->_testPatchMissingObjectWithoutVersion('search');
+	}
+	
+	private function _testPatchMissingObjectWithoutVersion($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/TPMBJWNV",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert404($response);
+	}
+	
+	
+	// PATCH to an existing object without a version is a 428 Precondition Required
+	public function testPatchExistingObjectWithoutVersion() {
+		//$this->_testPatchExistingObjectWithoutVersion('collection');
+		//$this->_testPatchExistingObjectWithoutVersion('item');
+		$this->_testPatchExistingObjectWithoutVersion('search');
+	}
+	
+	private function _testPatchExistingObjectWithoutVersion($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/$key",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert428($response);
+	}
+	
+	
+	// PATCH to a missing object with version header > 0 is a 404
+	public function testPatchMissingObjectWithVersionHeader() {
+		$this->_testPatchMissingObjectWithVersionHeader('collection');
+		$this->_testPatchMissingObjectWithVersionHeader('item');
+		$this->_testPatchMissingObjectWithVersionHeader('search');
+	}
+	
+	private function _testPatchMissingObjectWithVersionHeader($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/TPMBJWVH",
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: 123"
+			]
+		);
+		$this->assert404($response);
+	}
+	
+	
+	// PATCH to a missing object with version property > 0 is a 404
+	public function testPatchMissingObjectWithVersionProperty() {
+		$this->_testPatchMissingObjectWithVersionProperty('collection');
+		$this->_testPatchMissingObjectWithVersionProperty('item');
+		$this->_testPatchMissingObjectWithVersionProperty('search');
+	}
+	
+	private function _testPatchMissingObjectWithVersionProperty($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		$json['version'] = 123;
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/TPMBJWVP",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert404($response);
+	}
+	
+	
+	// PATCH to a missing object with version 0 header is a 204
+	public function testPatchMissingObjectWithVersion0Header() {
+		$this->_testPatchMissingObjectWithVersion0Header('collection');
+		$this->_testPatchMissingObjectWithVersion0Header('item');
+		$this->_testPatchMissingObjectWithVersion0Header('search');
+	}
+	
+	private function _testPatchMissingObjectWithVersion0Header($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/TPMBWVZH",
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: 0"
+			]
+		);
+		$this->assert204($response);
+	}
+	
+	
+	// PATCH to a missing object with version 0 property is a 204
+	public function testPatchMissingObjectWithVersion0Property() {
+		$this->_testPatchMissingObjectWithVersion0Property('collection');
+		$this->_testPatchMissingObjectWithVersion0Property('item');
+		$this->_testPatchMissingObjectWithVersion0Property('search');
+	}
+	
+	private function _testPatchMissingObjectWithVersion0Property($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		$json['version'] = 0;
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/TPMBWVZP",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert204($response);
+	}
+	
+	
+	// PATCH to an existing object with version header 0 is 412
+	public function testPatchExistingObjectWithVersion0Header() {
+		$this->_testPatchExistingObjectWithVersion0Header('collection');
+		$this->_testPatchExistingObjectWithVersion0Header('item');
+		$this->_testPatchExistingObjectWithVersion0Header('search');
+	}
+	
+	private function _testPatchExistingObjectWithVersion0Header($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/$key",
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: 0"
+			]
+		);
+		$this->assert412($response);
+	}
+	
+	
+	// PATCH to an existing object with version property 0 is 412
+	public function testPatchExistingObjectWithVersion0Property() {
+		$this->_testPatchExistingObjectWithVersion0Property('collection');
+		$this->_testPatchExistingObjectWithVersion0Property('item');
+		$this->_testPatchExistingObjectWithVersion0Property('search');
+	}
+	
+	private function _testPatchExistingObjectWithVersion0Property($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		$json['version'] = 0;
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/$key",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert412($response);
+	}
+	
+	
+	// PATCH to an existing object with version header < current version is 412
+	public function testPatchExistingObjectWithOldVersionHeader() {
+		$this->_testPatchExistingObjectWithOldVersionHeader('collection');
+		$this->_testPatchExistingObjectWithOldVersionHeader('item');
+		$this->_testPatchExistingObjectWithOldVersionHeader('search');
+	}
+	
+	private function _testPatchExistingObjectWithOldVersionHeader($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/$key",
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: 1"
+			]
+		);
+		$this->assert412($response);
+	}
+	
+	
+	// PATCH to an existing object with version property < current version is 412
+	public function testPatchExistingObjectWithOldVersionProperty() {
+		$this->_testPatchExistingObjectWithOldVersionProperty('collection');
+		$this->_testPatchExistingObjectWithOldVersionProperty('item');
+		$this->_testPatchExistingObjectWithOldVersionProperty('search');
+	}
+	
+	private function _testPatchExistingObjectWithOldVersionProperty($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		$json['version'] = 1;
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"$objectTypePlural/$key",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert412($response);
+	}
+	
+	
+	//
+	// PATCH (multiple objects)
+	//
+	
+	// POST to a missing object with a version property of 0 is a 204 for that object
+	public function testPatchMissingObjectsWithVersion0Property() {
+		$this->_testPatchMissingObjectsWithVersion0Property('collection');
+		$this->_testPatchMissingObjectsWithVersion0Property('item');
+		$this->_testPatchMissingObjectsWithVersion0Property('search');
+	}
+	
+	private function _testPatchMissingObjectsWithVersion0Property($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		$json['key'] = 'TPMSWVZP';
+		$json['version'] = 0;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert200ForObject($response);
+	}
+	
+	
+	// POST to a missing object with version > 0 is a 404 for that object
+	public function testPatchMissingObjectsWithVersion() {
+		$this->_testPatchMissingObjectsWithVersion('collection');
+		$this->_testPatchMissingObjectsWithVersion('item');
+		$this->_testPatchMissingObjectsWithVersion('search');
+	}
+	
+	private function _testPatchMissingObjectsWithVersion($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		$json['key'] = 'TPMBJSWV';
+		$json['version'] = 123;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert404ForObject($response, ucwords($objectType)
+			. " doesn't exist (expected version 123; use 0 instead)");
+	}
+	
+	// POST to an existing object with a version prop of 0 is a 412 for that object
+	public function testPatchExistingObjectsWithVersion0Property() {
+		$this->_testPatchExistingObjectsWithVersion0Property('collection');
+		$this->_testPatchExistingObjectsWithVersion0Property('item');
+		$this->_testPatchExistingObjectsWithVersion0Property('search');
+	}
+	
+	private function _testPatchExistingObjectsWithVersion0Property($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		$json['key'] = $key;
+		$json['version'] = 0;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert412ForObject($response);
+	}
+	
+	
+	// POST to an existing object without a version prop but with a header is a 428 for that object
+	public function testPatchExistingObjectsWithoutVersionWithHeader() {
+		$this->_testPatchExistingObjectsWithoutVersionWithHeader('collection');
+		$this->_testPatchExistingObjectsWithoutVersionWithHeader('item');
+		$this->_testPatchExistingObjectsWithoutVersionWithHeader('search');
+	}
+	
+	private function _testPatchExistingObjectsWithoutVersionWithHeader($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$existing = API::createDataObject($objectType, 'json');
+		$key = $existing['key'];
+		$libraryVersion = $existing['version'];
+		$json = API::createUnsavedDataObject($objectType);
+		$json['key'] = $key;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert428ForObject($response);
+	}
+	
+	
+	// POST to an existing object without a version prop and without a header is a 428 for that object
+	public function testPatchExistingObjectsWithoutVersionWithoutHeader() {
+		$this->_testPatchExistingObjectsWithoutVersionWithoutHeader('collection');
+		$this->_testPatchExistingObjectsWithoutVersionWithoutHeader('item');
+		$this->_testPatchExistingObjectsWithoutVersionWithoutHeader('search');
+	}
+	
+	private function _testPatchExistingObjectsWithoutVersionWithoutHeader($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		$json['key'] = $key;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert428ForObject($response);
+	}
+	
+	
+	// POST to an existing object with a version prop < current version is a 412 for that object
+	public function testPatchExistingObjectsWithOldVersion0Property() {
+		$this->_testPatchExistingObjectsWithOldVersionProperty('collection');
+		$this->_testPatchExistingObjectsWithOldVersionProperty('item');
+		$this->_testPatchExistingObjectsWithOldVersionProperty('search');
+	}
+	
+	private function _testPatchExistingObjectsWithOldVersionProperty($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$key = API::createDataObject($objectType, 'key');
+		$json = API::createUnsavedDataObject($objectType);
+		$json['key'] = $key;
+		$json['version'] = 1;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"$objectTypePlural",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert412ForObject($response);
+	}
+	
+	
+	
 	private function _testMultiObject304NotModified($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		

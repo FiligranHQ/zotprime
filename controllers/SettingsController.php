@@ -69,23 +69,24 @@ class SettingsController extends ApiController {
 				}
 			}
 			
-			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				$objectTimestampChecked =
-					$this->checkObjectIfUnmodifiedSinceVersion(
-						$setting, $this->method == 'DELETE'
+			if ($this->isWriteMethod()) {
+				if (!empty($this->body)) {
+					$json = $this->jsonDecode($this->body);
+				}
+				$objectVersionValidated = $this->checkSingleObjectWriteVersion(
+					'setting', $setting, $json
 				);
 				
 				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 				
 				// Update setting
 				if ($this->method == 'PUT') {
-					$obj = $this->jsonDecode($this->body);
 					$changed = Zotero_Settings::updateFromJSON(
 						$setting,
-						$obj,
+						$json,
 						$this->queryParams,
 						$this->userID,
-						$objectTimestampChecked ? 0 : 2
+						$objectVersionValidated ? 0 : 2
 					);
 					
 					// If not updated, return the original library version

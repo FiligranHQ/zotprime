@@ -503,7 +503,7 @@ class ItemTests extends APITests {
 	
 	
 	//
-	// PATCH
+	// PATCH (single item)
 	//
 	public function testPatchItem() {
 		$itemData = array(
@@ -575,7 +575,6 @@ class ItemTests extends APITests {
 		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
 	}
 	
-	
 	public function testPatchNote() {
 		$text = "<p>Test</p>";
 		$newText = "<p>Test 2</p>";
@@ -603,7 +602,6 @@ class ItemTests extends APITests {
 		$this->assertEquals($json['version'], $headerVersion);
 	}
 	
-	
 	public function testPatchNoteOnBookError() {
 		$json = API::createItem("book", [], $this, 'jsonData');
 		$itemKey = $json['key'];
@@ -623,7 +621,9 @@ class ItemTests extends APITests {
 		$this->assert400($response, "'note' property is valid only for note and attachment items");
 	}
 	
-	
+	//
+	// PATCH (multiple items)
+	//
 	public function testPatchItems() {
 		$itemData = [
 			"title" => "Test"
@@ -694,26 +694,6 @@ class ItemTests extends APITests {
 		];
 		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
 	}
-	
-	
-	public function testPatchMissingItem() {
-		$json = [
-			'key' => 'H75FJ25K',
-			'version' => 123,
-			'title' => 'Test'
-		];
-		$response = API::userPost(
-			self::$config['userID'],
-			"items",
-			json_encode([$json]),
-			array("Content-Type: application/json")
-		);
-		// This should be a 412 due to the version property, not a 400 due to the missing
-		// itemType, which wouldn't be an error if the item existed (since POST follows PATCH
-		// behavior).
-		$this->assert412ForObject($response, "Item doesn't exist (expected version 123; use 0 instead)");
-	}
-	
 	
 	public function testNewComputerProgramItem() {
 		$data = API::createItem("computerProgram", false, $this, 'jsonData');

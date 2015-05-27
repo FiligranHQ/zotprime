@@ -166,6 +166,14 @@ class Zotero_Utilities {
 	}
 	
 	
+	public static function getObjectTypePlural($objectType) {
+		if ($objectType == 'search') {
+			return $objectType . "es";
+		}
+		return $objectType . "s";
+	}
+	
+	
 	/**
 	 * Much faster implementation of array_diff, but limited to
 	 * comparing two arrays of integers or strings

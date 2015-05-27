@@ -55,51 +55,19 @@ class SearchesController extends ApiController {
 		
 		// Single search
 		if ($this->singleObject) {
-			$this->allowMethods(['HEAD', 'GET', 'PUT', 'DELETE']);
+			$this->allowMethods(['HEAD', 'GET', 'PUT', 'PATCH', 'DELETE']);
 			
 			$search = Zotero_Searches::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
-			if (!$search) {
-				$this->e404("Search not found");
+			error_log("SEARCH");
+			error_log(json_encode($search));
+			
+			if ($this->isWriteMethod()) {
+				$search = $this->handleObjectWrite('search', $search ? $search : null);
+				$this->e204();
 			}
 			
-			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				$objectTimestampChecked =
-					$this->checkObjectIfUnmodifiedSinceVersion(
-						$search, $this->method == 'DELETE'
-				);
-				
-				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-				
-				// Update search
-				if ($this->method == 'PUT') {
-					$obj = $this->jsonDecode($this->body);
-					$changed = Zotero_Searches::updateFromJSON(
-						$search,
-						$obj,
-						$this->queryParams,
-						$objectTimestampChecked ? 0 : 2
-					);
-					
-					// If not updated, return the original library version
-					if (!$changed) {
-						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
-							$this->objectLibraryID
-						);
-					}
-					
-					if ($cacheKey = $this->getWriteTokenCacheKey()) {
-						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
-					}
-				}
-				// Delete search
-				else if ($this->method == 'DELETE') {
-					Zotero_Searches::delete($this->objectLibraryID, $this->objectKey);
-				}
-				else {
-					throw new Exception("Unexpected method $this->method");
-				}
-				
-				$this->e204();
+			if (!$search) {
+				$this->e404("Search not found");
 			}
 			
 			$this->libraryVersion = $search->version;

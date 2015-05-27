@@ -228,6 +228,7 @@ class Zotero_Searches extends Zotero_DataObjects {
 	public static function updateFromJSON(Zotero_Search $search,
 	                                      $json,
 	                                      $requestParams,
+	                                      $userID,
 	                                      $requireVersion=0,
 	                                      $partialUpdate=false) {
 		$json = Zotero_API::extractEditableJSON($json);

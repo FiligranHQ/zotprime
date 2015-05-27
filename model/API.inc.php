@@ -1071,7 +1071,7 @@ class Zotero_API {
 	
 	
 	/**
-	 * Trim full repsonse JSON to editable JSON
+	 * Trim full response JSON to editable JSON
 	 */
 	public static function extractEditableJSON($json) {
 		if (isset($json->data)) {
@@ -1193,9 +1193,9 @@ class Zotero_API {
 					"'$versionProp' must be an integer", Z_ERROR_INVALID_INPUT
 				);
 			}
-			if (!isset($json->$keyProp) && $objectType != 'setting') {
+			if (!isset($json->$keyProp) && $objectType != 'setting' && !$object->key) {
 				throw new Exception(
-					"'$versionProp' is valid only with '$keyProp' property",
+					"'$versionProp' is valid only if $objectType key is provided",
 					Z_ERROR_INVALID_INPUT
 				);
 			}
@@ -1215,7 +1215,7 @@ class Zotero_API {
 			// If a version is specified, the object has to exist
 			else if ($json->$versionProp > 0 && !$object->version) {
 				throw new HTTPException(ucwords($objectType)
-					. " doesn't exist (expected version {$json->$versionProp}; use 0 instead)", 412);
+					. " doesn't exist (expected version {$json->$versionProp}; use 0 instead)", 404);
 			}
 		}
 		else {

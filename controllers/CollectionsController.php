@@ -53,62 +53,23 @@ class CollectionsController extends ApiController {
 		
 		// Single collection
 		if ($this->singleObject) {
-			$this->allowMethods(['HEAD', 'GET', 'PUT', 'DELETE']);
+			$this->allowMethods(['HEAD', 'GET', 'PUT', 'PATCH', 'DELETE']);
 			
 			if (!Zotero_ID::isValidKey($this->objectKey)) {
 				$this->e404();
 			}
 			
 			$collection = Zotero_Collections::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
-			if (!$collection) {
-				$this->e404("Collection not found");
+			
+			if ($this->isWriteMethod()) {
+				$collection = $this->handleObjectWrite(
+					'collection', $collection ? $collection : null
+				);
+				$this->queryParams['content'] = ['json'];
 			}
 			
-			if ($this->method == 'PUT' || $this->method == 'DELETE') {
-				$objectTimestampChecked =
-					$this->checkObjectIfUnmodifiedSinceVersion(
-						$collection, $this->method == 'DELETE'
-				);
-				
-				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-				
-				// Update collection
-				if ($this->method == 'PUT') {
-					$obj = $this->jsonDecode($this->body);
-					$changed = Zotero_Collections::updateFromJSON(
-						$collection,
-						$obj,
-						$this->queryParams,
-						$this->userID,
-						$objectTimestampChecked ? 0 : 2
-					);
-					
-					// If not updated, return the original library version
-					if (!$changed) {
-						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
-							$this->objectLibraryID
-						);
-					}
-					
-					if ($cacheKey = $this->getWriteTokenCacheKey()) {
-						Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
-					}
-				}
-				
-				// Delete collection
-				else if ($this->method == 'DELETE') {
-					Zotero_Collections::delete($this->objectLibraryID, $this->objectKey);
-				}
-				else {
-					throw new Exception("Unexpected method $this->method");
-				}
-				
-				if ($this->apiVersion >= 2 || $this->method == 'DELETE') {
-					$this->e204();
-				}
-				else {
-					$this->queryParams['content'] = array('json');
-				}
+			if (!$collection) {
+				$this->e404("Collection not found");
 			}
 			
 			$this->libraryVersion = $collection->version;

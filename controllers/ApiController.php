@@ -542,13 +542,101 @@ class ApiController extends Controller {
 	}
 	
 	
+	protected function handleObjectWrite($objectType, $obj=null) {
+		if (!is_object($obj) && !is_null($obj)) {
+			throw new Exception('$obj must be a data object or null');
+		}
+		
+		$objectTypePlural = Zotero_Utilities::getObjectTypePlural($objectType);
+		$objectsClassName = "Zotero_" . ucwords($objectTypePlural);
+		
+		$json = !empty($this->body) ? $this->jsonDecode($this->body) : false;
+		$objectVersionValidated = $this->checkSingleObjectWriteVersion($objectType, $obj, $json);
+		
+		$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+		
+		// Update item
+		if ($this->method == 'PUT' || $this->method == 'PATCH') {
+			if ($this->apiVersion < 2) {
+				$this->allowMethods(['PUT']);
+			}
+			
+			if (!$obj) {
+				$className = "Zotero_" . ucwords($objectType);
+				$obj = new $className;
+				$obj->libraryID = $this->objectLibraryID;
+				$obj->key = $this->objectKey;
+			}
+			if ($objectType == 'item') {
+				$changed = Zotero_Items::updateFromJSON(
+					$obj,
+					$json,
+					null,
+					$this->queryParams,
+					$this->userID,
+					$objectVersionValidated ? 0 : 2,
+					$this->method == 'PATCH'
+				);
+			}
+			else {
+				$changed = $objectsClassName::updateFromJSON(
+					$obj,
+					$json,
+					$this->queryParams,
+					$this->userID,
+					$objectVersionValidated ? 0 : 2,
+					$this->method == 'PATCH'
+				);
+			}
+			
+			// If not updated, return the original library version
+			if (!$changed) {
+				$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
+					$this->objectLibraryID
+				);
+			}
+			
+			if ($cacheKey = $this->getWriteTokenCacheKey()) {
+				Z_Core::$MC->set($cacheKey, true, $this->writeTokenCacheTime);
+			}
+		}
+		// Delete item
+		else if ($this->method == 'DELETE') {
+			$objectsClassName::delete($this->objectLibraryID, $this->objectKey);
+		}
+		else {
+			throw new Exception("Unexpected method $this->method");
+		}
+		
+		if ($this->apiVersion >= 2 || $this->method == 'DELETE') {
+			$this->e204();
+		}
+		
+		return $obj;
+	}
+	
+	
+	
 	/**
-	 * For single-object requests for some actions, require
-	 * If-Unmodified-Since-Version (or the deprecated If-Match)
-	 * and make sure the object hasn't been modified
+	 * For single-object requests for some actions, require If-Unmodified-Since-Version, the
+	 * deprecated If-Match, or a JSON version property, and make sure the object hasn't been
+	 * modified
+	 *
+	 * @param {String} $objectType
+	 * @param {Zotero_DataObject}
+	 * @return {Boolean} - True if the object has been cleared for writing, or false if the JSON
+	 *    version property still needs to pass
 	 */
-	protected function checkObjectIfUnmodifiedSinceVersion($object, $required=false) {
-		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+	protected function checkSingleObjectWriteVersion($objectType, $obj=null, $json=false) {
+		if (!is_object($obj) && !is_null($obj)) {
+			throw new Exception('$obj must be a data object or null');
+		}
+		
+		// In versions below 3, no writes to missing objects
+		if (!$obj && $this->apiVersion < 3) {
+			$this->e404(ucwords($objectType) . " not found");
+		}
+		
 		if (!in_array($objectType, array('item', 'collection', 'search', 'setting'))) {
 			throw new Exception("Invalid object type");
 		}
@@ -560,8 +648,8 @@ class ApiController extends Controller {
 		// If-Match (deprecated)
 		if ($this->apiVersion < 2) {
 			if (empty($_SERVER['HTTP_IF_MATCH'])) {
-				if ($required) {
-					$this->e428("If-Match must be provided for write requests");
+				if ($this->method == 'DELETE') {
+					$this->e428("If-Match must be provided for delete requests");
 				}
 				else {
 					return false;
@@ -572,32 +660,76 @@ class ApiController extends Controller {
 				$this->e400("Invalid ETag in If-Match header");
 			}
 			
-			if ($object->etag != $matches[1]) {
+			if ($obj->etag != $matches[1]) {
 				$this->e412("ETag does not match current version of $objectType");
 			}
+			
+			return true;
 		}
-		// If-Unmodified-Since-Version
+		
+		// Get version from If-Unmodified-Since-Version header
+		$headerVersion = isset($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])
+			? $_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'] : false;
+		
+		// Get version from JSON 'version' property
+		if ($json) {
+			$json = Zotero_API::extractEditableJSON($json);
+			
+			if ($this->apiVersion >= 3) {
+				$versionProp = 'version';
+			}
+			else {
+				$versionProp = $objectType == 'setting' ? 'version' : $objectType . "Version";
+			}
+			$propVersion = isset($json->$versionProp) ? $json->$versionProp : false;
+		}
 		else {
-			if (!isset($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
-				if ($required) {
-					$this->e428("If-Unmodified-Since-Version must be provided for write requests");
-				}
-				else {
-					return false;
-				}
+			$propVersion = false;
+		}
+		
+		if ($this->method == 'DELETE' && $headerVersion === false) {
+			$this->e428("If-Unmodified-Since-Version must be provided for delete requests");
+		}
+		
+		if ($headerVersion !== false) {
+			if (!is_numeric($headerVersion)) {
+				$this->e400("Invalid If-Unmodified-Since-Version value '$headerVersion'");
 			}
-			$version = $_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'];
-			
-			if (!is_numeric($version)) {
-				$this->e400("Invalid If-Unmodified-Since-Version value");
+			$headerVersion = (int) $headerVersion;
+		}
+		if ($propVersion !== false) {
+			if (!is_numeric($propVersion)) {
+				$this->e400("Invalid JSON 'version' property value '$propVersion'");
 			}
-			
-			if ($object->version != $version) {
-				$this->libraryVersion = $object->version;
-				$this->e412(ucwords($objectType)
-					. " has been modified since specified version "
-					. "(expected $version, found " . $object->version . ")");
+			$propVersion = (int) $propVersion;
+		}
+		
+		// If both header and property given, they have to match
+		if ($headerVersion !== false && $propVersion !== false && $headerVersion !== $propVersion) {
+			$this->e400("If-Unmodified-Since-Version value does not match JSON '$versionProp' property "
+				. "($headerVersion != $propVersion)");
+		}
+		
+		$version = $headerVersion !== false ? $headerVersion : $propVersion;
+		
+		// If object doesn't exist, version has to be 0
+		if (!$obj) {
+			if ($version !== 0) {
+				$this->e404(ucwords($objectType) . " doesn't exist (to create, use version 0)");
 			}
+			return true;
+		}
+		
+		if ($version === false) {
+			throw new HTTPException("Either If-Unmodified-Since-Version or object version "
+				. "property must be provided for key-based writes", 428
+			);
+		}
+		
+		if ($obj->version !== $version) {
+			$this->libraryVersion = $obj->version;
+			$this->e412(ucwords($objectType) . " has been modified since specified version "
+				. "(expected $version, found " . $obj->version . ")");
 		}
 		return true;
 	}

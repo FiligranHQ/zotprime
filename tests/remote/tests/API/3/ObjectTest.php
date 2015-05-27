@@ -46,6 +46,30 @@ class ObjectTests extends APITests {
 		$this->_testMultiObjectGet('search');
 	}
 	
+	public function testCreateByPut() {
+		$this->_testCreateByPut('collection');
+		$this->_testCreateByPut('item');
+		$this->_testCreateByPut('search');
+	}
+	
+	private function _testCreateByPut($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		$json = API::createUnsavedDataObject($objectType);
+		require_once '../../model/ID.inc.php';
+		$key = \Zotero_ID::getKey();
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$key",
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: 0"
+			]
+		);
+		$this->assert204($response);
+	}
+	
+	
 	public function testSingleObjectDelete() {
 		$this->_testSingleObjectDelete('collection');
 		$this->_testSingleObjectDelete('item');
