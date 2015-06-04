@@ -292,6 +292,88 @@ class ParamsTests extends APITests {
 			}
 			$this->assertEquals($lastStart, $links['last']['params']['start']);
 			$this->assertEquals($limit, $links['last']['params']['limit']);
+			
+			// TODO: Test with more groups
+			if ($objectType == 'group') continue;
+			
+			// Start at 1
+			$start = 1;
+			$response = API::userGet(
+				self::$config['userID'],
+				"$objectTypePlural?start=$start&limit=$limit&format=$format"
+			);
+			$this->assert200($response);
+			$this->assertNumResults($limit, $response);
+			$this->assertTotalResults($totalResults, $response);
+			$links = $this->parseLinkHeader($response->getHeader('Link'));
+			$this->assertArrayHasKey('first', $links);
+			$this->assertArrayNotHasKey('start', $links['first']['params']);
+			$this->assertEquals($limit, $links['first']['params']['limit']);
+			$this->assertArrayHasKey('prev', $links);
+			$this->assertArrayNotHasKey('start', $links['prev']['params']);
+			$this->assertEquals($limit, $links['prev']['params']['limit']);
+			$this->assertArrayHasKey('next', $links);
+			$this->assertEquals($start + $limit, $links['next']['params']['start']);
+			$this->assertEquals($limit, $links['next']['params']['limit']);
+			$this->assertArrayHasKey('last', $links);
+			$lastStart = $totalResults - ($totalResults % $limit);
+			if ($lastStart == $totalResults) {
+				$lastStart -= $limit;
+			}
+			$this->assertEquals($lastStart, $links['last']['params']['start']);
+			$this->assertEquals($limit, $links['last']['params']['limit']);
+			
+			// Start at 2
+			$start = 2;
+			$response = API::userGet(
+				self::$config['userID'],
+				"$objectTypePlural?start=$start&limit=$limit&format=$format"
+			);
+			$this->assert200($response);
+			$this->assertNumResults($limit, $response);
+			$this->assertTotalResults($totalResults, $response);
+			$links = $this->parseLinkHeader($response->getHeader('Link'));
+			$this->assertArrayHasKey('first', $links);
+			$this->assertArrayNotHasKey('start', $links['first']['params']);
+			$this->assertEquals($limit, $links['first']['params']['limit']);
+			$this->assertArrayHasKey('prev', $links);
+			$this->assertArrayNotHasKey('start', $links['prev']['params']);
+			$this->assertEquals($limit, $links['prev']['params']['limit']);
+			$this->assertArrayHasKey('next', $links);
+			$this->assertEquals($start + $limit, $links['next']['params']['start']);
+			$this->assertEquals($limit, $links['next']['params']['limit']);
+			$this->assertArrayHasKey('last', $links);
+			$lastStart = $totalResults - ($totalResults % $limit);
+			if ($lastStart == $totalResults) {
+				$lastStart -= $limit;
+			}
+			$this->assertEquals($lastStart, $links['last']['params']['start']);
+			$this->assertEquals($limit, $links['last']['params']['limit']);
+			
+			// Start at 3
+			$start = 3;
+			$response = API::userGet(
+				self::$config['userID'],
+				"$objectTypePlural?start=$start&limit=$limit&format=$format"
+			);
+			$this->assert200($response);
+			$this->assertNumResults($limit, $response);
+			$this->assertTotalResults($totalResults, $response);
+			$links = $this->parseLinkHeader($response->getHeader('Link'));
+			$this->assertArrayHasKey('first', $links);
+			$this->assertArrayNotHasKey('start', $links['first']['params']);
+			$this->assertEquals($limit, $links['first']['params']['limit']);
+			$this->assertArrayHasKey('prev', $links);
+			$this->assertEquals(max(0, $start - $limit), $links['prev']['params']['start']);
+			$this->assertEquals($limit, $links['prev']['params']['limit']);
+			$this->assertArrayNotHasKey('next', $links);
+			$this->assertArrayHasKey('last', $links);
+			$lastStart = $totalResults - ($totalResults % $limit);
+			if ($lastStart == $totalResults) {
+				$lastStart -= $limit;
+			}
+			$this->assertEquals($lastStart, $links['last']['params']['start']);
+			$this->assertEquals($limit, $links['last']['params']['limit']);
 		}
 	}
 	

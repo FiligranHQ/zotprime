@@ -583,6 +583,19 @@ class Zotero_API {
 			$links['first'] .= Zotero_API::buildQueryString($apiVersion, $action, $p, $excludeParams);
 		}
 		
+		// 'prev'
+		if ($queryParams['start']) {
+			$p = $nonDefaultParams;
+			$prevStart = $queryParams['start'] - $queryParams['limit'];
+			if ($prevStart <= 0) {
+				unset($p['start']);
+			}
+			else {
+				$p['start'] = $prevStart;
+			}
+			$links['prev'] = $baseURI . Zotero_API::buildQueryString($apiVersion, $action, $p, $excludeParams);
+		}
+		
 		// 'last'
 		if (!$queryParams['start'] && $queryParams['limit'] >= $totalResults) {
 			$links['last'] = $links['self'];
@@ -960,7 +973,7 @@ class Zotero_API {
 			$parts[] = '<' . $links['first'] . '>; rel="first"';
 		}
 		if (isset($links['prev'])) {
-			$parts[] = '<' . $links['prev'] . '>; rel="previous"';
+			$parts[] = '<' . $links['prev'] . '>; rel="prev"';
 		}
 		if (isset($links['next'])) {
 			$parts[] = '<' . $links['next'] . '>; rel="next"';
