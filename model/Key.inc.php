@@ -443,6 +443,7 @@ class Zotero_Key {
 		$json = [];
 		$json['key'] = $this->key;
 		$json['userID'] = $this->userID;
+		$json['username'] = Zotero_Users::getUsername($this->userID);
 		$json['name'] = $this->name;
 		
 		if ($this->permissions) {
