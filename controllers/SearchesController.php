@@ -58,8 +58,6 @@ class SearchesController extends ApiController {
 			$this->allowMethods(['HEAD', 'GET', 'PUT', 'PATCH', 'DELETE']);
 			
 			$search = Zotero_Searches::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
-			error_log("SEARCH");
-			error_log(json_encode($search));
 			
 			if ($this->isWriteMethod()) {
 				$search = $this->handleObjectWrite('search', $search ? $search : null);
