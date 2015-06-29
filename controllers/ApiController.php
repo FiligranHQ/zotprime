@@ -748,7 +748,7 @@ class ApiController extends Controller {
 			continue;
 		}
 		
-		if (empty($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
+		if (!isset($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {
 			if ($required) {
 				$this->e428("If-Unmodified-Since-Version not provided");
 			}

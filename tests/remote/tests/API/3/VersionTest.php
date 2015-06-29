@@ -697,6 +697,30 @@ class VersionTests extends APITests {
 	// PATCH (multiple objects)
 	//
 	
+	// POST with a version 0 header to an existing library is a 412
+	public function testPostExistingLibraryWithVersion0Header() {
+		$this->_testPostExistingLibraryWithVersion0Header('collection');
+		$this->_testPostExistingLibraryWithVersion0Header('item');
+		$this->_testPostExistingLibraryWithVersion0Header('search');
+	}
+	
+	private function _testPostExistingLibraryWithVersion0Header($objectType) {
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$json = API::createUnsavedDataObject($objectType);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			$objectTypePlural,
+			json_encode([$json]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: 0"
+			]
+		);
+		$this->assert412($response);
+	}
+	
 	// POST to a missing object with a version property of 0 is a 204 for that object
 	public function testPatchMissingObjectsWithVersion0Property() {
 		$this->_testPatchMissingObjectsWithVersion0Property('collection');
