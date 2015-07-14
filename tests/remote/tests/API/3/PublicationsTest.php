@@ -58,6 +58,28 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function testNonExistentLibraryItemsWithVersionHeader() {
+		$response = API::get(
+			"users/" . self::$config['userID'] . "/publications/items",
+			[
+				"If-Modified-Since-Version: 0"
+			]
+		);
+		$this->assert304($response);
+	}
+	
+	
+	public function testNonExistentLibrarySettingsWithVersionHeader() {
+		$response = API::get(
+			"users/" . self::$config['userID'] . "/publications/settings",
+			[
+				"If-Modified-Since-Version: 0"
+			]
+		);
+		$this->assert304($response);
+	}
+	
+	
 	public function testNonExistentLibraryItemsWithKey() {
 		API::useAPIKey(self::$config['apiKey']);
 		$response = API::get("users/" . self::$config['userID'] . "/publications/items");

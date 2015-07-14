@@ -40,6 +40,11 @@ class Zotero_Settings extends Zotero_DataObjects {
 	);
 	
 	public static function search($libraryID, $params) {
+		// Default empty library
+		if ($libraryID === 0) {
+			return [];
+		}
+		
 		$sql = "SELECT name FROM settings WHERE libraryID=?";
 		$params = array($libraryID);
 		

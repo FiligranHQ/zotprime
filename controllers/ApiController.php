@@ -305,6 +305,44 @@ class ApiController extends Controller {
 			$this->objectLibraryID = Zotero_Groups::getLibraryIDFromGroupID($this->objectGroupID);
 		}
 		
+		$apiVersion = !empty($_SERVER['HTTP_ZOTERO_API_VERSION'])
+			? (int) $_SERVER['HTTP_ZOTERO_API_VERSION']
+			: false;
+		// Serve v1 to ZotPad 1.x, at Mikko's request
+		if (!$apiVersion && !empty($_SERVER['HTTP_USER_AGENT'])
+				&& strpos($_SERVER['HTTP_USER_AGENT'], 'ZotPad 1') === 0) {
+			$apiVersion = 1;
+		}
+		
+		// For publications URLs (e.g., /users/:userID/publications/items), swap in
+		// objectLibraryID of user's publications library
+		if (!empty($extra['publications'])) {
+			// Query parameters not yet parsed, so check version parameter
+			if ($apiVersion < 3
+					|| (!empty($_REQUEST['v']) && $_REQUEST['v'] < 3)
+					|| (!empty($_REQUEST['version']) && $_REQUEST['version'] == 1)) {
+				$this->e404();
+			}
+			$userLibraryID = $this->objectLibraryID;
+			$this->objectLibraryID = Zotero_Users::getLibraryIDFromUserID(
+				$this->objectUserID, 'publications'
+			);
+			// If one doesn't exist, for write requests create a library if the key
+			// has write permission to the user library. For read requests, just
+			// return a 404.
+			if (!$this->objectLibraryID) {
+				if ($this->isWriteMethod()) {
+					if (!$this->permissions->canAccess($userLibraryID)
+							|| !$this->permissions->canWrite($userLibraryID)) {
+						$this->e403();
+					}
+					$this->objectLibraryID = Zotero_Publications::add($this->objectUserID);
+				}
+				else {
+					$this->objectLibraryID = 0;
+				}
+			}
+		}
 		
 		// Return 409 if target library is locked
 		switch ($this->method) {
@@ -344,15 +382,6 @@ class ApiController extends Controller {
 			$atomAccepted = in_array('application/atom+xml', $accept);
 		}
 		
-		$apiVersion = !empty($_SERVER['HTTP_ZOTERO_API_VERSION'])
-				? (int) $_SERVER['HTTP_ZOTERO_API_VERSION']
-				: false;
-		// Serve v1 to ZotPad 1.x, at Mikko's request
-		if (!$apiVersion && !empty($_SERVER['HTTP_USER_AGENT'])
-				&& strpos($_SERVER['HTTP_USER_AGENT'], 'ZotPad 1') === 0) {
-			$apiVersion = 1;
-		}
-		
 		$this->queryParams = Zotero_API::parseQueryParams(
 			$_SERVER['QUERY_STRING'],
 			$this->action,
@@ -362,33 +391,6 @@ class ApiController extends Controller {
 		);
 		
 		$this->apiVersion = $version = $this->queryParams['v'];
-		
-		// For publications URLs (e.g., /users/:userID/publications/items), swap in
-		// objectLibraryID of user's publications library
-		if (!empty($extra['publications'])) {
-			if ($this->apiVersion < 3) {
-				$this->e404();
-			}
-			$userLibraryID = $this->objectLibraryID;
-			$this->objectLibraryID = Zotero_Users::getLibraryIDFromUserID(
-				$this->objectUserID, 'publications'
-			);
-			// If one doesn't exist, for write requests create a library and the key
-			// has write permission to the user library. For read requests, just
-			// return a 404.
-			if (!$this->objectLibraryID) {
-				if ($this->isWriteMethod()) {
-					if (!$this->permissions->canAccess($userLibraryID)
-							|| !$this->permissions->canWrite($userLibraryID)) {
-						$this->e403();
-					}
-					$this->objectLibraryID = Zotero_Publications::add($this->objectUserID);
-				}
-				else {
-					$this->objectLibraryID = 0;
-				}
-			}
-		}
 		
 		header("Zotero-API-Version: " . $version);
 		StatsD::increment("api.request.version.v" . $version, 0.25);
@@ -779,7 +781,7 @@ class ApiController extends Controller {
 				&& in_array(
 					$action, ["items", "collections", "searches", "settings", "tags"]
 				)
-				&& !empty($_SERVER['HTTP_IF_MODIFIED_SINCE_VERSION'])
+				&& isset($_SERVER['HTTP_IF_MODIFIED_SINCE_VERSION'])
 				&& !$this->isWriteMethod()
 				&& $this->permissions->canAccess($this->objectLibraryID)
 				&& Zotero_Libraries::getVersion($this->objectLibraryID)
