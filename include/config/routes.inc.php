@@ -80,6 +80,7 @@ else {
 	$router->map('/users/i:objectUserID/keys/:objectName', array('controller' => 'Keys'));
 	
 	// User/library settings
+	$router->map('/users/i:objectUserID/publications/settings/:objectKey', ['controller' => 'settings', 'extra' => ['publications' => true]]);
 	$router->map('/users/i:objectUserID/settings/:objectKey', array('controller' => 'settings'));
 	$router->map('/groups/i:objectGroupID/settings/:objectKey', array('controller' => 'settings'));
 	
@@ -90,6 +91,7 @@ else {
 	
 	// Other top-level URLs, with an optional key and subset
 	$router->map('/users/i:objectUserID/publications/items/:objectKey/:subset', ['controller' => 'Items', 'extra' => ['publications' => true]]); // Just items for now
+	$router->map('/users/i:objectUserID/publications/deleted', ['controller' => 'Deleted', 'extra' => ['publications' => true]]);
 	$router->map('/users/i:objectUserID/:controller/:objectKey/:subset');
 	$router->map('/groups/i:objectGroupID/:controller/:objectKey/:subset');
 	
