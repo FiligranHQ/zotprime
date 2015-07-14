@@ -777,7 +777,7 @@ class ApiController extends Controller {
 	protected function checkLibraryIfModifiedSinceVersion($action) {
 		if (!$this->singleObject
 				&& in_array(
-					$action, array("items", "collections", "searches", "tags")
+					$action, ["items", "collections", "searches", "settings", "tags"]
 				)
 				&& !empty($_SERVER['HTTP_IF_MODIFIED_SINCE_VERSION'])
 				&& !$this->isWriteMethod()

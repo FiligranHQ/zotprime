@@ -63,6 +63,7 @@ class VersionTests extends APITests {
 		$this->_testMultiObject304NotModified('collection');
 		$this->_testMultiObject304NotModified('item');
 		$this->_testMultiObject304NotModified('search');
+		$this->_testMultiObject304NotModified('setting');
 		$this->_testMultiObject304NotModified('tag');
 	}
 	
