@@ -93,9 +93,9 @@ class ApiController extends Controller {
 		}
 		
 		register_shutdown_function(array($this, 'checkDBTransactionState'));
-		register_shutdown_function(array($this, 'addHeaders'));
 		register_shutdown_function(array($this, 'logTotalRequestTime'));
 		register_shutdown_function(array($this, 'checkForFatalError'));
+		register_shutdown_function(array($this, 'addHeaders'));
 		$this->method = $_SERVER['REQUEST_METHOD'];
 		
 		if (!in_array($this->method, array('HEAD', 'OPTIONS', 'GET', 'PUT', 'POST', 'DELETE', 'PATCH'))) {
@@ -549,7 +549,7 @@ class ApiController extends Controller {
 			throw new Exception('$obj must be a data object or null');
 		}
 		
-		$objectTypePlural = Zotero_Utilities::getObjectTypePlural($objectType);
+		$objectTypePlural = \Zotero\DataObjectUtilities::getObjectTypePlural($objectType);
 		$objectsClassName = "Zotero_" . ucwords($objectTypePlural);
 		
 		$json = !empty($this->body) ? $this->jsonDecode($this->body) : false;
@@ -1005,6 +1005,7 @@ class ApiController extends Controller {
 		}
 		
 		$this->logRequestTime();
+		self::addHeaders();
 		echo ob_get_clean();
 		exit;
 	}
@@ -1124,6 +1125,7 @@ class ApiController extends Controller {
 		foreach ($this->headers as $header => $value) {
 			header("$header: $value");
 		}
+		$this->headers = [];
 	}
 	
 	public function checkForFatalError() {

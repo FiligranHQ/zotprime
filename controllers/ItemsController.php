@@ -352,9 +352,10 @@ class ItemsController extends ApiController {
 						$obj = $this->jsonDecode($this->body);
 						$results = Zotero_Items::updateMultipleFromJSON(
 							$obj,
-							$this->objectLibraryID,
 							$this->queryParams,
+							$this->objectLibraryID,
 							$this->userID,
+							$this->permissions,
 							$libraryTimestampChecked ? 0 : 1,
 							$item
 						);
@@ -415,10 +416,11 @@ class ItemsController extends ApiController {
 							
 							$results = Zotero_Items::addFromURL(
 								$obj,
+								$this->queryParams,
 								$this->objectLibraryID,
 								$this->userID,
-								$token,
-								$this->queryParams
+								$this->permissions,
+								$token
 							);
 							
 							if ($this->apiVersion == 1) {
@@ -486,9 +488,10 @@ class ItemsController extends ApiController {
 							
 							$results = Zotero_Items::updateMultipleFromJSON(
 								$obj,
-								$this->objectLibraryID,
 								$this->queryParams,
+								$this->objectLibraryID,
 								$this->userID,
+								$this->permissions,
 								$libraryTimestampChecked ? 0 : 1,
 								null
 							);

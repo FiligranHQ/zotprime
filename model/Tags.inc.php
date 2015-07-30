@@ -24,7 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Tags extends Zotero_DataObjects {
+class Zotero_Tags extends Zotero_ClassicDataObjects {
 	public static $maxLength = 255;
 	
 	protected static $ZDO_object = 'tag';

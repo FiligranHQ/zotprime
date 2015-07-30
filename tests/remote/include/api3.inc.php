@@ -669,6 +669,11 @@ class API3 {
 		return array_shift($json['success']);
 	}
 	
+	public static function getSuccessfulKeysFromResponse($response) {
+		$json = self::getJSONFromResponse($response);
+		return array_map(function ($o) { return $o['key']; }, $json['successful']);
+	}
+	
 	
 	public static function parseDataFromAtomEntry($entryXML) {
 		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));

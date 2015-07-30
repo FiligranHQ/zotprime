@@ -158,22 +158,6 @@ class Zotero_Utilities {
 	}
 	
 	
-	public static function getObjectTypeFromObject($object) {
-		if (!preg_match("/(Item|Collection|Search|Setting)$/", get_class($object), $matches)) {
-			throw new Exception("Invalid object type");
-		}
-		return strtolower($matches[0]);
-	}
-	
-	
-	public static function getObjectTypePlural($objectType) {
-		if ($objectType == 'search') {
-			return $objectType . "es";
-		}
-		return $objectType . "s";
-	}
-	
-	
 	/**
 	 * Much faster implementation of array_diff, but limited to
 	 * comparing two arrays of integers or strings

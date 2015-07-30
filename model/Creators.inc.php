@@ -24,7 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Creators extends Zotero_DataObjects {
+class Zotero_Creators extends Zotero_ClassicDataObjects {
 	public static $creatorSummarySortLength = 50;
 	
 	protected static $ZDO_object = 'creator';

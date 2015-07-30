@@ -61,20 +61,37 @@ class ItemTests extends APITests {
 		$data[] = $json2;
 		$json3 = clone $json;
 		$json3->title = "C";
+		$json3->numPages = 200;
 		$data[] = $json3;
 		
 		$response = API::postItems($data);
 		$this->assert200($response);
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		$json = API::getJSONFromResponse($response);
+		$this->assertCount(3, $json['successful']);
+		// Deprecated
+		$this->assertCount(3, $json['success']);
 		
+		// Check data in write response
+		for ($i = 0; $i < 3; $i++) {
+			$this->assertEquals($json['successful'][$i]['key'], $json['successful'][$i]['data']['key']);
+			$this->assertEquals($libraryVersion, $json['successful'][$i]['version']);
+			$this->assertEquals($libraryVersion, $json['successful'][$i]['data']['version']);
+			$this->assertEquals($data[$i]->title, $json['successful'][$i]['data']['title']);
+		}
+		//$this->assertArrayNotHasKey('numPages', $json['successful'][0]['data']);
+		//$this->assertArrayNotHasKey('numPages', $json['successful'][1]['data']);
+		$this->assertEquals($data[2]->numPages, $json['successful'][2]['data']['numPages']);
+		
+		// Check in separate request, to be safe
 		$json = API::getItem($json['success'], $this, 'json');
-		
 		$itemJSON = array_shift($json);
 		$this->assertEquals("A", $itemJSON['data']['title']);
 		$itemJSON = array_shift($json);
 		$this->assertEquals("B", $itemJSON['data']['title']);
 		$itemJSON = array_shift($json);
 		$this->assertEquals("C", $itemJSON['data']['title']);
+		$this->assertEquals(200, $itemJSON['data']['numPages']);
 	}
 	
 	

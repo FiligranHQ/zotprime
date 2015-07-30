@@ -486,10 +486,10 @@ class Zotero_Libraries {
 			}
 		}
 		
-		foreach (Zotero_DataObjects::$objectTypes as $type=>$arr) {
+		/*foreach (Zotero_DataObjects::$objectTypes as $type=>$arr) {
 			$className = "Zotero_" . $arr['plural'];
 			call_user_func(array($className, "clearPrimaryDataCache"), $libraryID);
-		}
+		}*/
 	}
 }
 ?>

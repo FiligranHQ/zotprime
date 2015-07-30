@@ -98,6 +98,12 @@ class APITests extends \APITests {
 			}
 			
 			if ($code == 200) {
+				$this->assertArrayHasKey('successful', $json);
+				if (!isset($json['successful'][$index])) {
+					var_dump($json);
+					throw new Exception("Index $index not found in 'successful' object");
+				}
+				// Deprecated
 				$this->assertArrayHasKey('success', $json);
 				if (!isset($json['success'][$index])) {
 					var_dump($json);

@@ -24,7 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Settings extends Zotero_DataObjects {
+class Zotero_Settings extends Zotero_ClassicDataObjects {
 	public static $MAX_VALUE_LENGTH = 1000;
 	
 	protected static $ZDO_object = 'setting';
@@ -190,7 +190,7 @@ class Zotero_Settings extends Zotero_DataObjects {
 	}
 	
 	
-	public static function updateMultipleFromJSON($json, $libraryID, $requestParams, $userID, $requireVersion, $parent=null) {
+	public static function updateMultipleFromJSON($json, $requestParams, $libraryID, $userID, $requireVersion, $parent=null) {
 		self::validateMultiObjectJSON($json, $requestParams);
 		
 		Zotero_DB::beginTransaction();

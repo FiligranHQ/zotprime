@@ -1158,7 +1158,7 @@ class Zotero_Sync {
 			// there are any new groups (in which case we need all their data)
 			$hasData = $updatedLibraryIDs || $joinedGroups;
 			if ($hasData) {
-				foreach (Zotero_DataObjects::$objectTypes as $syncObject) {
+				foreach (Zotero_DataObjects::$classicObjectTypes as $syncObject) {
 					$Name = $syncObject['singular']; // 'Item'
 					$Names = $syncObject['plural']; // 'Items'
 					$name = strtolower($Name); // 'item'
@@ -1295,7 +1295,7 @@ class Zotero_Sync {
 				
 				// Add deleted data objects
 				if ($deletedKeys) {
-					foreach (Zotero_DataObjects::$objectTypes as $syncObject) {
+					foreach (Zotero_DataObjects::$classicObjectTypes as $syncObject) {
 						$Name = $syncObject['singular']; // 'Item'
 						$Names = $syncObject['plural']; // 'Items'
 						$name = strtolower($Name); // 'item'
@@ -1831,7 +1831,6 @@ class Zotero_Sync {
 		for ($i=0, $len=sizeOf($collections); $i<$len; $i++) {
 			$toSave[$collections[$i]->key] = true;
 		}
-		
 		for ($i=0; $i<sizeOf($collections); $i++) {
 			$collection = $collections[$i];
 			$key = $collection->key;
@@ -2044,11 +2043,11 @@ class Zotero_Sync {
 		}
 		
 		$deletedIDs = array();
-		foreach (Zotero_DataObjects::$objectTypes as $syncObject) {
+		foreach (Zotero_DataObjects::$classicObjectTypes as $syncObject) {
 			$deletedIDs[strtolower($syncObject['plural'])] = array();
 		}
 		foreach ($rows as $row) {
-			$type = strtolower(Zotero_DataObjects::$objectTypes[$row['objectType']]['plural']);
+			$type = strtolower(Zotero_DataObjects::$classicObjectTypes[$row['objectType']]['plural']);
 			$deletedIDs[$type][] = array(
 				'libraryID' => $row['libraryID'],
 				'key' => $row['key']

@@ -43,27 +43,65 @@ class SearchTests extends APITests {
 	
 	public function testNewSearch() {
 		$name = "Test Search";
-		$conditions = array(
-			array(
+		$conditions = [
+			[
 				"condition" => "title",
 				"operator" => "contains",
 				"value" => "test"
-			),
-			array(
+			],
+			[
 				"condition" => "noChildren",
 				"operator" => "false",
 				"value" => ""
-			),
-			array(
+			],
+			[
 				"condition" => "fulltextContent/regexp",
 				"operator" => "contains",
 				"value" => "/test/"
-			)
+			]
+		];
+		
+		// DEBUG: Should fail with no version?
+		$response = API::userPost(
+			self::$config['userID'],
+			"searches",
+			json_encode([[
+				"name" => $name,
+				"conditions" => $conditions
+			]]),
+			["Content-Type: application/json"]
 		);
+		$this->assert200($response);
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(1, $json['successful']);
+		// Deprecated
+		$this->assertCount(1, $json['success']);
 		
-		$data = API::createSearch($name, $conditions, $this, 'jsonData');
+		// Check data in write response
+		$data = $json['successful'][0]['data'];
+		$this->assertEquals($json['successful'][0]['key'], $data['key']);
+		$this->assertEquals($libraryVersion, $data['version']);
+		$this->assertEquals($libraryVersion, $data['version']);
+		$this->assertEquals($name, $data['name']);
+		$this->assertInternalType('array', $data['conditions']);
+		$this->assertCount(sizeOf($conditions), $data['conditions']);
+		foreach ($conditions as $i => $condition) {
+			foreach ($condition as $key => $val) {
+				$this->assertEquals($val, $data['conditions'][$i][$key]);
+			}
+		}
 		
-		$this->assertEquals($name, (string) $data['name']);
+		
+		// Check in separate request, to be safe
+		$keys = array_map(function ($o) {
+			return $o['key'];
+		}, $json['successful']);
+		$response = API::getSearchResponse($keys);
+		$this->assertTotalResults(1, $response);
+		$json = API::getJSONFromResponse($response);
+		$data = $json[0]['data'];
+		$this->assertEquals($name, $data['name']);
 		$this->assertInternalType('array', $data['conditions']);
 		$this->assertCount(sizeOf($conditions), $data['conditions']);
 		foreach ($conditions as $i => $condition) {
@@ -161,10 +199,29 @@ class SearchTests extends APITests {
 			]
 		);
 		$this->assert200($response);
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['successful']);
+		// Deprecated
 		$this->assertCount(2, $json['success']);
 		
-		$response = API::getSearchResponse($json['success']);
+		// Check data in write response
+		$this->assertEquals($json['successful'][0]['key'], $json['successful'][0]['data']['key']);
+		$this->assertEquals($json['successful'][1]['key'], $json['successful'][1]['data']['key']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['data']['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['data']['version']);
+		$this->assertEquals($search1NewName, $json['successful'][0]['data']['name']);
+		$this->assertEquals($search2Name, $json['successful'][1]['data']['name']);
+		$this->assertEquals($search1Conditions, $json['successful'][0]['data']['conditions']);
+		$this->assertEquals($search2NewConditions, $json['successful'][1]['data']['conditions']);
+		
+		// Check in separate request, to be safe
+		$keys = array_map(function ($o) {
+			return $o['key'];
+		}, $json['successful']);
+		$response = API::getSearchResponse($keys);
 		$this->assertTotalResults(2, $response);
 		$json = API::getJSONFromResponse($response);
 		// POST follows PATCH behavior, so unspecified values shouldn't change

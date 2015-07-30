@@ -24,72 +24,15 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Search {
-	private $id;
-	private $libraryID;
-	private $key;
-	private $name;
-	private $dateAdded;
-	private $dateModified;
-	private $version;
+class Zotero_Search extends Zotero_DataObject {
+	protected $objectType = 'search';
+	protected $dataTypesExtended = ['conditions'];
+	
+	protected $_name;
+	protected $_dateAdded;
+	protected $_dateModified;
 	
 	private $conditions = array();
-	
-	private $loaded;
-	private $changed;
-	
-	
-	public function __construct() {
-		$numArgs = func_num_args();
-		if ($numArgs) {
-			throw new Exception("Constructor doesn't take any parameters");
-		}
-	}
-	
-	
-	public function __get($field) {
-		if (($this->id || $this->key) && !$this->loaded) {
-			$this->load(true);
-		}
-		
-		if (!property_exists('Zotero_Search', $field)) {
-			throw new Exception("Zotero_Search property '$field' doesn't exist");
-		}
-		
-		return $this->$field;
-	}
-	
-	
-	public function __set($field, $value) {
-		switch ($field) {
-			case 'id':
-			case 'libraryID':
-			case 'key':
-				if ($this->loaded) {
-					throw new Exception("Cannot set $field after search is already loaded");
-				}
-				$this->checkValue($field, $value);
-				$this->$field = $value;
-				return;
-		}
-		
-		if ($this->id || $this->key) {
-			if (!$this->loaded) {
-				$this->load(true);
-			}
-		}
-		else {
-			$this->loaded = true;
-		}
-		
-		$this->checkValue($field, $value);
-		
-		if ($this->$field != $value) {
-			//Z_Core::debug("Search field '$field' has changed from '{$this->$field}' to '$value'");
-			$this->changed = true;
-			$this->$field = $value;
-		}
-	}
 	
 	
 	/**
@@ -119,12 +62,12 @@ class Zotero_Search {
 		
 		Zotero_Searches::editCheck($this, $userID);
 		
-		if (!$this->changed) {
+		if (!$this->hasChanged()) {
 			Z_Core::debug("Search $this->id has not changed");
 			return false;
 		}
 		
-		if (!isset($this->name) || $this->name === '') {
+		if (!isset($this->_name) || $this->_name === '') {
 			throw new Exception("Name not provided for saved search");
 		}
 		
@@ -132,33 +75,28 @@ class Zotero_Search {
 		
 		Zotero_DB::beginTransaction();
 		
-		$isNew = !$this->id || !$this->exists();
+		$env = [];
+		$isNew = $env['isNew'] = !$this->_id || !$this->exists();
 		
 		try {
-			$searchID = $this->id ? $this->id : Zotero_ID::get('savedSearches');
+			$searchID = $env['id'] = $this->_id ? $this->_id : Zotero_ID::get('savedSearches');
 			
-			Z_Core::debug("Saving search $this->id");
-			
-			if (!$isNew) {
-				$sql = "DELETE FROM savedSearchConditions WHERE searchID=?";
-				Zotero_DB::query($sql, $searchID, $shardID);
-			}
-			
-			$key = $this->key ? $this->key : Zotero_ID::getKey();
+			Z_Core::debug("Saving search $this->_id");
+			$key = $env['key'] = $this->_key ? $this->_key : Zotero_ID::getKey();
 			
 			$fields = "searchName=?, libraryID=?, `key`=?, dateAdded=?, dateModified=?,
 						serverDateModified=?, version=?";
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$params = array(
-				$this->name,
-				$this->libraryID,
+				$this->_name,
+				$this->_libraryID,
 				$key,
-				$this->dateAdded ? $this->dateAdded : $timestamp,
-				$this->dateModified ? $this->dateModified : $timestamp,
+				$this->_dateAdded ? $this->_dateAdded : $timestamp,
+				$this->_dateModified ? $this->_dateModified : $timestamp,
 				$timestamp,
-				Zotero_Libraries::getUpdatedVersion($this->libraryID)
+				Zotero_Libraries::getUpdatedVersion($this->_libraryID)
 			);
-			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+			$shardID = Zotero_Shards::getByLibraryID($this->_libraryID);
 			
 			if ($isNew) {
 				$sql = "INSERT INTO savedSearches SET searchID=?, $fields";
@@ -167,7 +105,7 @@ class Zotero_Search {
 				
 				// Remove from delete log if it's there
 				$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='search' AND `key`=?";
-				Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+				Zotero_DB::query($sql, array($this->_libraryID, $key), $shardID);
 			}
 			else {
 				$sql = "UPDATE savedSearches SET $fields WHERE searchID=?";
@@ -175,29 +113,36 @@ class Zotero_Search {
 				Zotero_DB::queryFromStatement($stmt, array_merge($params, array($searchID)));
 			}
 			
-			foreach ($this->conditions as $searchConditionID => $condition) {
-				$sql = "INSERT INTO savedSearchConditions (searchID,
-						searchConditionID, `condition`, mode, operator,
-						value, required) VALUES (?,?,?,?,?,?,?)";
-				$sqlParams = array(
-					$searchID,
-					// Index search conditions from 1
-					$searchConditionID + 1,
-					$condition['condition'],
-					$condition['mode'] ? $condition['mode'] : '',
-					$condition['operator'] ? $condition['operator'] : '',
-					$condition['value'] ? $condition['value'] : '',
-					!empty($condition['required']) ? 1 : 0
-				);
-				try {
-					Zotero_DB::query($sql, $sqlParams, $shardID);
+			if (!empty($this->changed['conditions'])) {
+				if (!$isNew) {
+					$sql = "DELETE FROM savedSearchConditions WHERE searchID=?";
+					Zotero_DB::query($sql, $searchID, $shardID);
 				}
-				catch (Exception $e) {
-					$msg = $e->getMessage();
-					if (strpos($msg, "Data too long for column 'value'") !== false) {
-						throw new Exception("=Value '" . mb_substr($condition['value'], 0, 75) . "…' too long in saved search '" . $this->name . "'");
+				
+				foreach ($this->conditions as $searchConditionID => $condition) {
+					$sql = "INSERT INTO savedSearchConditions (searchID,
+							searchConditionID, `condition`, mode, operator,
+							value, required) VALUES (?,?,?,?,?,?,?)";
+					$sqlParams = [
+						$searchID,
+						// Index search conditions from 1
+						$searchConditionID + 1,
+						$condition['condition'],
+						$condition['mode'] ? $condition['mode'] : '',
+						$condition['operator'] ? $condition['operator'] : '',
+						$condition['value'] ? $condition['value'] : '',
+						!empty($condition['required']) ? 1 : 0
+					];
+					try {
+						Zotero_DB::query($sql, $sqlParams, $shardID);
 					}
-					throw ($e);
+					catch (Exception $e) {
+						$msg = $e->getMessage();
+						if (strpos($msg, "Data too long for column 'value'") !== false) {
+							throw new Exception("=Value '" . mb_substr($condition['value'], 0, 75) . "…' too long in saved search '" . $this->name . "'");
+						}
+						throw ($e);
+					}
 				}
 			}
 			
@@ -208,21 +153,16 @@ class Zotero_Search {
 			throw ($e);
 		}
 		
-		if (!$this->id) {
-			$this->id = $searchID;
-		}
-		if (!$this->key) {
-			$this->key = $key;
-		}
+		$this->finalizeSave($env);
 		
-		return $this->id;
+		return $isNew ? $this->_id : true;
 	}
 	
 	
 	public function updateConditions($conditions) {
-		if ($this->id && !$this->loaded) {
-			$this->load();
-		}
+		$this->loadPrimaryData();
+		$this->loadConditions();
+		
 		for ($i = 1, $len = sizeOf($conditions); $i <= $len; $i++) {
 			// Compare existing values to new values
 			if (isset($this->conditions[$i])) {
@@ -233,9 +173,9 @@ class Zotero_Search {
 					continue;
 				}
 			}
-			$this->changed = true;
+			$this->changed['conditions'] = true;
 		}
-		if ($this->changed || sizeOf($this->conditions) > $conditions) {
+		if (!empty($this->changed['conditions']) || sizeOf($this->conditions) > $conditions) {
 			$this->conditions = $conditions;
 		}
 		else {
@@ -249,9 +189,8 @@ class Zotero_Search {
 	  * for the given searchConditionID
 	  */
 	public function getSearchCondition($searchConditionID) {
-		if ($this->id && !$this->loaded) {
-			$this->load();
-		}
+		$this->loadPrimaryData();
+		$this->loadConditions();
 		
 		return isset($this->conditions[$searchConditionID])
 			? $this->conditions[$searchConditionID] : false;
@@ -263,9 +202,8 @@ class Zotero_Search {
 	  * used in the search, indexed by searchConditionID
 	  */
 	public function getSearchConditions() {
-		if ($this->id && !$this->loaded) {
-			$this->load();
-		}
+		$this->loadPrimaryData();
+		$this->loadConditions();
 		
 		return $this->conditions;
 	}
@@ -274,9 +212,7 @@ class Zotero_Search {
 	public function toResponseJSON($requestParams=[], Zotero_Permissions $permissions) {
 		$t = microtime(true);
 		
-		if (!$this->loaded) {
-			$this->load();
-		}
+		$this->loadPrimaryData();
 		
 		$json = [
 			'key' => $this->key,
@@ -310,9 +246,8 @@ class Zotero_Search {
 	
 	
 	public function toJSON(array $requestParams=[]) {
-		if (!$this->loaded) {
-			$this->load();
-		}
+		$this->loadPrimaryData();
+		$this->loadConditions();
 		
 		if ($requestParams['v'] >= 3) {
 			$arr['key'] = $this->key;
@@ -345,9 +280,8 @@ class Zotero_Search {
 	 * @return SimpleXMLElement
 	 */
 	public function toAtom($queryParams) {
-		if (!$this->loaded) {
-			$this->load();
-		}
+		$this->loadPrimaryData();
+		$this->loadConditions();
 		
 		// TEMP: multi-format support
 		if (!empty($queryParams['content'])) {
@@ -393,63 +327,31 @@ class Zotero_Search {
 	}
 	
 	
-	private function load() {
-		$libraryID = $this->libraryID;
-		$id = $this->id;
-		$key = $this->key;
-		
-		Z_Core::debug("Loading data for search " . ($id ? $id : $key));
-		
-		if (!$libraryID) {
-			throw new Exception("Library ID not set");
-		}
-		
-		if (!$id && !$key) {
-			throw new Exception("ID or key not set");
-		}
-		
-		$shardID = Zotero_Shards::getByLibraryID($libraryID);
-		
-		$sql = "SELECT searchID AS id, searchName AS name, dateAdded,
-				dateModified, libraryID, `key`, version
-				FROM savedSearches WHERE ";
-		if ($id) {
-			$sql .= "searchID=?";
-			$params = $id;
-		}
-		else {
-			$sql .= "libraryID=? AND `key`=?";
-			$params = array($libraryID, $key);
-		}
-		$sql .= " GROUP BY searchID";
-		$data = Zotero_DB::rowQuery($sql, $params, $shardID);
-		
-		$this->loaded = true;
-		
-		if (!$data) {
-			return;
-		}
-		
-		foreach ($data as $key => $val) {
-			$this->$key = $val;
-		}
+	protected function loadConditions($reload = false) {
+		if (!$this->identified) return;
+		if ($this->loaded['conditions'] && !$reload) return;
 		
 		$sql = "SELECT * FROM savedSearchConditions
 				WHERE searchID=? ORDER BY searchConditionID";
-		$conditions = Zotero_DB::query($sql, $this->id, $shardID);
+		$conditions = Zotero_DB::query(
+			$sql, $this->_id, Zotero_Shards::getByLibraryID($this->_libraryID)
+		);
 		
+		$this->conditions = [];
 		foreach ($conditions as $condition) {
-			
 			$searchConditionID = $condition['searchConditionID'];
-			$this->conditions[$searchConditionID] = array(
+			$this->conditions[$searchConditionID] = [
 				'id' => $searchConditionID,
 				'condition' => $condition['condition'],
 				'mode' => $condition['mode'],
 				'operator' => $condition['operator'],
 				'value' => $condition['value'],
 				'required' => $condition['required']
-			);
+			];
 		}
+		
+		$this->loaded['conditions'] = true;
+		$this->clearChanged('conditions');
 	}
 	
 	

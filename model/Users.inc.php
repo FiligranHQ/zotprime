@@ -346,9 +346,15 @@ class Zotero_Users {
 			$sql = '';
 			$params = array();
 			
-			foreach (Zotero_DataObjects::$objectTypes as $type) {
+			foreach (Zotero_DataObjects::$classicObjectTypes as $type) {
 				$className = 'Zotero_' . $type['plural'];
-				$table = call_user_func(array($className, 'field'), 'table');
+				// ClassicDataObjects
+				if (method_exists($className, "field")) {
+					$table = call_user_func([$className, 'field'], 'table');
+				}
+				else {
+					$table = $className::$table;
+				}
 				if ($table == 'relations') {
 					$field = 'serverDateModified';
 				}

@@ -24,7 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Relations extends Zotero_DataObjects {
+class Zotero_Relations extends Zotero_ClassicDataObjects {
 	protected static $ZDO_object = 'relation';
 	
 	protected static $primaryFields = array(

@@ -595,7 +595,7 @@ class ObjectTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assert200ForObject($response, false, 0);
-		$objectKey = $json['success'][0];
+		$objectKey = $json['successful'][0]['key'];
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -688,7 +688,7 @@ class ObjectTests extends APITests {
 		$this->assert200ForObject($response, false, 0);
 		$this->assert400ForObject($response, false, 1);
 		$this->assert200ForObject($response, false, 2);
-		$json = API::getJSONFromResponse($response);
+		$successKeys = API::getSuccessfulKeysFromResponse($response);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -697,7 +697,7 @@ class ObjectTests extends APITests {
 		$this->assert200($response);
 		$keys = explode("\n", trim($response->getBody()));
 		$this->assertCount(2, $keys);
-		foreach ($json['success'] as $key) {
+		foreach ($successKeys as $key) {
 			$this->assertContains($key, $keys);
 		}
 	}
@@ -747,7 +747,7 @@ class ObjectTests extends APITests {
 		$this->assertUnchangedForObject($response, 0);
 		$this->assert400ForObject($response, false, 1);
 		$this->assert200ForObject($response, false, 2);
-		$json = API::getJSONFromResponse($response);
+		$successKeys = API::getSuccessfulKeysFromResponse($response);
 		
 		$response = API::userGet(
 			self::$config['userID'],
@@ -756,7 +756,7 @@ class ObjectTests extends APITests {
 		$this->assert200($response);
 		$keys = explode("\n", trim($response->getBody()));
 		$this->assertCount(2, $keys);
-		foreach ($json['success'] as $key) {
+		foreach ($successKeys as $key) {
 			$this->assertContains($key, $keys);
 		}
 	}

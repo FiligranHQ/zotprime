@@ -70,6 +70,10 @@ class Zotero_ItemTypes {
 	);
 	
 	public static function getID($typeOrTypeID) {
+		if (!$typeOrTypeID) {
+			throw new Exception("An item type id or name must be provided");
+		}
+		
 		if (isset(self::$typeIDs[$typeOrTypeID])) {
 			return self::$typeIDs[$typeOrTypeID];
 		}
@@ -94,6 +98,10 @@ class Zotero_ItemTypes {
 	
 	
 	public static function getName($typeOrTypeID) {
+		if (!$typeOrTypeID) {
+			throw new Exception("An item type id or name must be provided");
+		}
+		
 		if (isset(self::$typeNames[$typeOrTypeID])) {
 			return self::$typeNames[$typeOrTypeID];
 		}

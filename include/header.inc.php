@@ -52,6 +52,13 @@ function zotero_autoload($className) {
 		return;
 	}
 	
+	// Get \Zotero-namespaced files from model directory
+	if (strpos($className, 'Zotero\\') === 0) {
+		$parts = explode('\\', $className);
+		require Z_ENV_BASE_PATH . 'model/' . end($parts) . '.inc.php';
+		return;
+	}
+	
 	// Get everything else from include path
 	
 	switch ($className) {

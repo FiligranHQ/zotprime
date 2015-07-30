@@ -863,6 +863,23 @@ class Zotero_API {
 	}
 	
 	
+	public static function getObjectURI($obj) {
+		switch (get_class($obj)) {
+		case 'Zotero_Collection':
+			return self::getCollectionURI($obj);
+		
+		case 'Zotero_Item':
+			return self::getItemURI($obj);
+		
+		case 'Zotero_Search':
+			return self::getSearchURI($obj);
+		
+		default:
+			throw new Exception("Unexpected object type '" . get_class($obj) . "'");
+		}
+	}
+	
+	
 	public static function getCollectionURI(Zotero_Collection $collection) {
 		return self::getLibraryURI($collection->libraryID) . "/collections/$collection->key";
 	}
@@ -1102,7 +1119,7 @@ class Zotero_API {
 	 * @return boolean  True if the object exists, false if not
 	 */
 	public static function processJSONObjectKey($object, $json, $requestParams) {
-		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		$objectType = \Zotero\DataObjectUtilities::getTypeFromObject($object);
 		if (!in_array($objectType, array('item', 'collection', 'search'))) {
 			throw new Exception("Invalid object type");
 		}
@@ -1158,7 +1175,7 @@ class Zotero_API {
 	 *                            always require
 	 */
 	public static function checkJSONObjectVersion($object, $json, $requestParams, $requireVersion) {
-		$objectType = Zotero_Utilities::getObjectTypeFromObject($object);
+		$objectType = \Zotero\DataObjectUtilities::getTypeFromObject($object);
 		if (!in_array($objectType, array('item', 'collection', 'search', 'setting'))) {
 			throw new Exception("Invalid object type");
 		}

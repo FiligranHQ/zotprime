@@ -24,20 +24,20 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Searches extends Zotero_DataObjects {
-	protected static $ZDO_object = 'search';
-	protected static $ZDO_objects = 'searches';
-	protected static $ZDO_table = 'savedSearches';
+class Zotero_Searches {
+	use Zotero_DataObjects;
 	
-	protected static $primaryFields = array(
-		'id' => 'searchID',
-		'libraryID' => '',
-		'key' => '',
-		'dateAdded' => '',
-		'dateModified' => '',
-		'version' => ''
-	);
-
+	private static $objectType = 'search';
+	private static $_table = 'savedSearches';
+	private static $primaryDataSQLParts = [
+		'id' => 'O.searchID',
+		'name' => 'O.searchName',
+		'libraryID' => 'O.libraryID',
+		'key' => 'O.key',
+		'dateAdded' => 'O.dateAdded',
+		'dateModified' => 'O.dateModified',
+		'version' => 'O.version'
+	];
 	
 	
 	public static function search($libraryID, $params) {
@@ -361,4 +361,5 @@ class Zotero_Searches extends Zotero_DataObjects {
 		}
 	}
 }
-?>
+
+Zotero_Searches::init();

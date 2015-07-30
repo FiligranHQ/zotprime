@@ -25,6 +25,7 @@
 */
 
 use API2 as API;
+require_once 'include/bootstrap.inc.php';
 require_once 'include/api2.inc.php';
 require_once 'include/sync.inc.php';
 

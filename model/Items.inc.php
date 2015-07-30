@@ -24,72 +24,22 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Items extends Zotero_DataObjects {
-	protected static $ZDO_object = 'item';
+class Zotero_Items {
+	use Zotero_DataObjects;
 	
-	public static $primaryFields = array(
-		'id' => 'itemID',
-		'libraryID' => '',
-		'key' => '',
-		'itemTypeID' => '',
-		'dateAdded' => '',
-		'dateModified' => '',
-		'serverDateModified' => '',
-		'version' => ''
-	);
+	private static $objectType = 'item';
+	private static $primaryDataSQLParts = [
+		'id' => 'O.itemID',
+		'libraryID' => 'O.libraryID',
+		'key' => 'O.key',
+		'itemTypeID' => 'O.itemTypeID',
+		'dateAdded' => 'O.dateAdded',
+		'dateModified' => 'O.dateModified',
+		'serverDateModified' => 'O.serverDateModified',
+		'version' => 'O.version'
+	];
+	
 	public static $maxDataValueLength = 65535;
-	
-	private static $itemsByID = array();
-	
-	
-	public static function get($libraryID, $itemIDs, $skipCheck=false) {
-		$numArgs = func_num_args();
-		if ($numArgs != 2) {
-			throw new Exception('Zotero_Items::get() takes two parameters');
-		}
-		
-		if (!$itemIDs) {
-			throw new Exception('$itemIDs cannot be null');
-		}
-		
-		if (is_scalar($itemIDs)) {
-			$single = true;
-			$itemIDs = array($itemIDs);
-		}
-		else {
-			$single = false;
-		}
-		
-		$toLoad = array();
-		
-		foreach ($itemIDs as $itemID) {
-			if (!isset(self::$itemsByID[$itemID])) {
-				array_push($toLoad, $itemID);
-			}
-		}
-		
-		if ($toLoad) {
-			self::loadItems($libraryID, $toLoad);
-		}
-		
-		$loaded = array();
-		
-		// Make sure items exist
-		foreach ($itemIDs as $itemID) {
-			if (!isset(self::$itemsByID[$itemID])) {
-				Z_Core::debug("Item $itemID doesn't exist");
-				continue;
-			}
-			$loaded[] = self::$itemsByID[$itemID];
-		}
-		
-		if ($single) {
-			return !empty($loaded) ? $loaded[0] : false;
-		}
-		
-		return $loaded;
-	}
-	
 	
 	/**
 	 *
@@ -623,20 +573,11 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * Store item in internal id-based cache
 	 */
 	public static function cache(Zotero_Item $item) {
-		if (isset(self::$itemsByID[$item->id])) {
+		if (isset(self::$objectCache[$item->id])) {
 			Z_Core::debug("Item $item->id is already cached");
 		}
 		
 		self::$itemsByID[$item->id] = $item;
-	}
-	
-	
-	public static function reload($libraryID, $itemIDs) {
-		if (is_scalar($itemIDs)) {
-			$itemIDs = array($itemIDs);
-		}
-		
-		self::loadItems($libraryID, $itemIDs);
 	}
 	
 	
@@ -947,7 +888,7 @@ class Zotero_Items extends Zotero_DataObjects {
 		$xml = new SimpleXMLElement('<item/>');
 		
 		// Primary fields
-		foreach (array_keys(Zotero_Items::$primaryFields) as $field) {
+		foreach (self::$primaryFields as $field) {
 			switch ($field) {
 				case 'id':
 				case 'serverDateModified':
@@ -1627,7 +1568,8 @@ class Zotero_Items extends Zotero_DataObjects {
 	 * Returns an array of keys of added items (like updateMultipleFromJSON) or an object
 	 * with a 'select' property containing an array of titles for multi-item results
 	 */
-	public static function addFromURL($json, $libraryID, $userID, $translationToken, $requestParams) {
+	public static function addFromURL($json, $requestParams, $libraryID, $userID,
+			Zotero_Permissions $permissions, $translationToken) {
 		if (!$translationToken) {
 			throw new Exception("Translation token not provided");
 		}
@@ -1720,9 +1662,10 @@ class Zotero_Items extends Zotero_DataObjects {
 		
 		return self::updateMultipleFromJSON(
 			$response,
-			$libraryID,
 			$requestParams,
+			$libraryID,
 			$userID,
+			$permissions,
 			false,
 			null
 		);
@@ -2485,21 +2428,21 @@ class Zotero_Items extends Zotero_DataObjects {
 				$loadedItemIDs[] = $itemID;
 				
 				// Item isn't loaded -- create new object and stuff in array
-				if (!isset(self::$itemsByID[$itemID])) {
+				if (!isset(self::$objectCache[$itemID])) {
 					$item = new Zotero_Item;
 					$item->loadFromRow($row, true);
-					self::$itemsByID[$itemID] = $item;
+					self::$objectCache[$itemID] = $item;
 				}
 				// Existing item -- reload in place
 				else {
-					self::$itemsByID[$itemID]->loadFromRow($row, true);
+					self::$objectCache[$itemID]->loadFromRow($row, true);
 				}
 			}
 		}
 		
 		if (!$itemIDs) {
 			// If loading all items, remove old items that no longer exist
-			$ids = array_keys(self::$itemsByID);
+			$ids = array_keys(self::$objectCache);
 			foreach ($ids as $id) {
 				if (!in_array($id, $loadedItemIDs)) {
 					throw new Exception("Unimplemented");
@@ -2517,4 +2460,5 @@ class Zotero_Items extends Zotero_DataObjects {
 		return mb_strcut(preg_replace('/^[[({\-"\'“‘ ]+(.*)[\])}\-"\'”’ ]*?$/Uu', '$1', $title), 0, Zotero_Notes::$MAX_TITLE_LENGTH);
 	}
 }
-?>
+
+Zotero_Items::init();

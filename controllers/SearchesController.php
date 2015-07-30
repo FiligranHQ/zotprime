@@ -102,9 +102,10 @@ class SearchesController extends ApiController {
 				$obj = $this->jsonDecode($this->body);
 				$results = Zotero_Searches::updateMultipleFromJSON(
 					$obj,
-					$this->objectLibraryID,
 					$this->queryParams,
+					$this->objectLibraryID,
 					$this->userID,
+					$this->permissions,
 					$libraryTimestampChecked ? 0 : 1,
 					null
 				);

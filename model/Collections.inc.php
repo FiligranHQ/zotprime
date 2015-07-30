@@ -24,22 +24,24 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_Collections extends Zotero_DataObjects {
+class Zotero_Collections {
+	use Zotero_DataObjects;
+	
+	private static $objectType = 'collection';
+	private static $primaryDataSQLParts = [
+		'id' => 'O.collectionID',
+		'name' => 'O.collectionName',
+		'libraryID' => 'O.libraryID',
+		'key' => 'O.key',
+		'version' => 'O.version',
+		'dateAdded' => 'O.dateAdded',
+		'dateModified' => 'O.dateModified',
+		'parentID' => 'O.parentCollectionID',
+		'parentKey' => 'CP.key'
+	];
+	private static $_primaryDataSQLFrom = 'FROM collections O LEFT JOIN collections CP ON (O.parentCollectionID=CP.collectionID)';
+	
 	public static $maxLength = 255;
-	
-	protected static $ZDO_object = 'collection';
-	
-	protected static $primaryFields = array(
-		'id' => 'collectionID',
-		'libraryID' => '',
-		'key' => '',
-		'name' => 'collectionName',
-		'dateAdded' => '',
-		'dateModified' => '',
-		'parent' => 'parentCollectionID',
-		'version' => ''
-	);
-	
 	
 	public static function search($libraryID, $onlyTopLevel=false, $params) {
 		$results = array('results' => array(), 'total' => 0);
@@ -186,7 +188,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$col->parentKey = $parentKey;
 		}
 		else {
-			$col->parent = false;
+			$col->parentKey = false;
 		}
 		$col->dateAdded = $xml->getAttribute('dateAdded');
 		$col->dateModified = $xml->getAttribute('dateModified');
@@ -210,8 +212,8 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$xml['name'] = $collection->name;
 		$xml['dateAdded'] = $collection->dateAdded;
 		$xml['dateModified'] = $collection->dateModified;
-		if ($collection->parent) {
-			$parentCol = self::get($collection->libraryID, $collection->parent);
+		if ($collection->parentID) {
+			$parentCol = self::get($collection->libraryID, $collection->parentID);
 			$xml['parent'] = $parentCol->key;
 		}
 		
@@ -274,9 +276,9 @@ class Zotero_Collections extends Zotero_DataObjects {
 		$link['type'] = "application/atom+xml";
 		$link['href'] = Zotero_API::getCollectionURI($collection);
 		
-		$parent = $collection->parent;
-		if ($parent) {
-			$parentCol = self::get($collection->libraryID, $parent);
+		$parentID = $collection->parentID;
+		if ($parentID) {
+			$parentCol = self::get($collection->libraryID, $parentID);
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
@@ -362,7 +364,7 @@ class Zotero_Collections extends Zotero_DataObjects {
 			$collection->parentKey = $json->parent;
 		}
 		else if (!$partialUpdate) {
-			$collection->parent = false;
+			$collection->parentKey = false;
 		}
 		
 		$changed = $collection->save() || $changed;
@@ -381,6 +383,34 @@ class Zotero_Collections extends Zotero_DataObjects {
 		}
 		
 		return $changed;
+	}
+	
+	
+	public static function registerChildCollection($collectionID, $childCollectionID) {
+		if (self::$objectCache[$collectionID]) {
+			self::$objectCache[$collectionID]->registerChildCollection($childCollectionID);
+		}
+	}
+	
+	
+	public static function unregisterChildCollection($collectionID, $childCollectionID) {
+		if (self::$objectCache[$collectionID]) {
+			self::$objectCache[$collectionID]->unregisterChildCollection($childCollectionID);
+		}
+	}
+	
+	
+	public static function registerChildItem($collectionID, $itemID) {
+		if (self::$objectCache[$collectionID]) {
+			self::$objectCache[$collectionID]->registerChildItem($itemID);
+		}
+	}
+	
+	
+	public static function unregisterChildItem($collectionID, $itemID) {
+		if (self::$objectCache[$collectionID]) {
+			self::$objectCache[$collectionID]->unregisterChildItem($itemID);
+		}
 	}
 	
 	
@@ -474,4 +504,5 @@ class Zotero_Collections extends Zotero_DataObjects {
 		}
 	}
 }
-?>
+
+Zotero_Collections::init();

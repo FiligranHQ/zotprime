@@ -25,104 +25,26 @@
 */
 
 class Zotero_Collection extends Zotero_DataObject {
+	protected $objectType = 'collection';
+	protected $dataTypesExtended = ['childCollections', 'childItems', 'relations'];
 	
-	private $_name;
-	private $_parent;
-	private $_dateAdded;
-	private $_dateModified;
+	protected $_name;
+	protected $_dateAdded;
+	protected $_dateModified;
 	
-	private $changed;
+	private $_hasChildCollections;
+	private $childCollections = [];
 	
-	private $childCollectionsLoaded;
-	private $childCollections = array();
-	
-	private $itemsLoaded;
-	private $items = array();
-	
-	public function __construct() {
-		$numArgs = func_num_args();
-		if ($numArgs) {
-			throw new Exception("Constructor doesn't take any parameters");
-		}
-	}
-	
+	private $_hasChildItems;
+	private $childItems = [];
 	
 	public function __get($field) {
-		$val = parent::__get($field);
-		if (!is_null($val)) {
-			return $val;
-		}
-		
-		if (isset($this->{'_' . $field})) {
-			return $this->{'_' . $field};
-		}
-		
-		if (($this->_id || $this->_key) && !$this->loaded) {
-			$this->load(true);
-		}
-		
 		switch ($field) {
-			case 'parent':
-				return $this->getParent();
-			
-			case 'parentKey':
-				return $this->getParentKey();
-				
-			case 'etag':
-				return $this->getETag();
-		}
+		case 'etag':
+			return $this->getETag();
 		
-		if (!property_exists('Zotero_Collection', '_' . $field)) {
-			throw new Exception("Zotero_Collection property '$field' doesn't exist");
-		}
-		$field = '_' . $field;
-		return $this->$field;
-	}
-	
-	
-	public function __set($field, $value) {
-		switch ($field) {
-			case 'id':
-			case 'libraryID':
-			case 'key':
-				if ($this->loaded) {
-					trigger_error("Cannot set $field after collection is already loaded", E_USER_ERROR);
-				}
-				$this->checkValue($field, $value);
-				$field = '_' . $field;
-				$this->$field = $value;
-				return;
-		}
-		
-		if ($this->id || $this->key) {
-			if (!$this->loaded) {
-				$this->load(true);
-			}
-		}
-		else {
-			$this->loaded = true;
-		}
-		
-		switch ($field) {
-		case 'version':
-			$value = (int) $value;
-			break;
-			
-		case 'parent':
-			$this->setParent($value);
-			return;
-		
-		case 'parentKey':
-			$this->setParentKey($value);
-			return;
-		}
-		
-		$this->checkValue($field, $value);
-		
-		$field = '_' . $field;
-		if ($this->$field != $value) {
-			$this->changed = true;
-			$this->$field = $value;
+		default:
+			return parent::__get($field);
 		}
 	}
 	
@@ -149,19 +71,22 @@ class Zotero_Collection extends Zotero_DataObject {
 		
 		Zotero_Collections::editCheck($this, $userID);
 		
-		if (!$this->changed) {
+		if (!$this->hasChanged()) {
 			Z_Core::debug("Collection $this->id has not changed");
 			return false;
 		}
 		
+		$env = [];
+		$isNew = $env['isNew'] = !$this->id;
+		
 		Zotero_DB::beginTransaction();
 		
 		try {
-			$collectionID = $this->id ? $this->id : Zotero_ID::get('collections');
+			$collectionID = $env['id'] = $this->_id = $this->id ? $this->id : Zotero_ID::get('collections');
 			
 			Z_Core::debug("Saving collection $this->id");
 			
-			$key = $this->key ? $this->key : Zotero_ID::getKey();
+			$key = $env['key'] = $this->_key = $this->key ? $this->key : Zotero_ID::getKey();
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
 			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
@@ -169,28 +94,27 @@ class Zotero_Collection extends Zotero_DataObject {
 			$version = Zotero_Libraries::getUpdatedVersion($this->libraryID);
 			
 			// Verify parent
-			if ($this->_parent) {
-				if (is_int($this->_parent)) {
-					$newParentCollection = Zotero_Collections::get($this->libraryID, $this->_parent);
-				}
-				else {
-					$newParentCollection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $this->_parent);
-				}
+			if ($this->_parentKey) {
+				$newParentCollection = Zotero_Collections::getByLibraryAndKey(
+					$this->libraryID, $this->_parentKey
+				);
 				
 				if (!$newParentCollection) {
 					// TODO: clear caches
-					throw new Exception("Cannot set parent to invalid collection $this->_parent");
+					throw new Exception("Cannot set parent to invalid collection $this->_parentKey");
 				}
 				
-				if ($newParentCollection->id == $this->id) {
-					trigger_error("Cannot move collection $this->id into itself!", E_USER_ERROR);
-				}
-				
-				// If the designated parent collection is already within this
-				// collection (which shouldn't happen), move it to the root
-				if ($this->id && $this->hasDescendent('collection', $newParentCollection->id)) {
-					$newParentCollection->parent = null;
-					$newParentCollection->save();
+				if (!$isNew) {
+					if ($newParentCollection->id == $collectionID) {
+						trigger_error("Cannot move collection $this->id into itself!", E_USER_ERROR);
+					}
+					
+					// If the designated parent collection is already within this
+					// collection (which shouldn't happen), move it to the root
+					if (!$isNew && $this->hasDescendent('collection', $newParentCollection->id)) {
+						$newParentCollection->parent = null;
+						$newParentCollection->save();
+					}
 				}
 				
 				$parent = $newParentCollection->id;
@@ -217,13 +141,7 @@ class Zotero_Collection extends Zotero_DataObject {
 			
 			$sql = "INSERT INTO collections SET collectionID=?, $fields
 					ON DUPLICATE KEY UPDATE $fields";
-			$insertID = Zotero_DB::query($sql, $params, $shardID);
-			if (!$this->id) {
-				if (!$insertID) {
-					throw new Exception("Collection id not available after INSERT");
-				}
-				$collectionID = $insertID;
-			}
+			Zotero_DB::query($sql, $params, $shardID);
 			
 			// Remove from delete log if it's there
 			$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='collection' AND `key`=?";
@@ -231,32 +149,35 @@ class Zotero_Collection extends Zotero_DataObject {
 			
 			Zotero_DB::commit();
 			
-			Zotero_Collections::cachePrimaryData(
-				array(
-					'id' => $collectionID,
-					'libraryID' => $this->libraryID,
-					'key' => $key,
-					'name' => $this->name,
-					'dateAdded' => $dateAdded,
-					'dateModified' => $dateModified,
-					'parent' => $parent,
-					'version' => $version
-				)
-			);
+			if (!empty($this->changed['parentKey'])) {
+				$objectsClass = $this->objectsClass;
+				
+				// Add this item to the parent's cached item lists after commit,
+				// if the parent was loaded
+				if ($this->_parentKey) {
+					$parentCollectionID = $objectsClass::getIDFromLibraryAndKey(
+						$this->_libraryID, $this->_parentKey
+					);
+					$objectsClass::registerChildCollection($parentCollectionID, $collectionID);
+				}
+				// Remove this from the previous parent's cached collection lists
+				// if the parent was loaded
+				else if (!$isNew && !empty($this->previousData['parentKey'])) {
+					$parentCollectionID = $objectsClass::getIDFromLibraryAndKey(
+						$this->_libraryID, $this->previousData['parentKey']
+					);
+					$objectsClass::unregisterChildCollection($parentCollectionID, $collectionID);
+				}
+			}
 		}
 		catch (Exception $e) {
 			Zotero_DB::rollback();
 			throw ($e);
 		}
 		
-		if (!$this->_id) {
-			$this->_id = $collectionID;
-		}
-		if (!$this->_key) {
-			$this->_key = $key;
-		}
+		$this->finalizeSave($env);
 		
-		return $this->_id;
+		return $isNew ? $this->_id : true;
 	}
 	
 	
@@ -264,7 +185,7 @@ class Zotero_Collection extends Zotero_DataObject {
 	 * Update the collection's version without changing any data
 	 */
 	public function updateVersion($userID) {
-		$this->changed = true;
+		$this->changed['primaryData'] = true;
 		$this->save($userID);
 	}
 	
@@ -275,9 +196,7 @@ class Zotero_Collection extends Zotero_DataObject {
 	 * @return {Integer[]}	Array of collectionIDs
 	 */
 	public function getChildCollections() {
-		if (!$this->childCollectionsLoaded) {
-			$this->loadChildCollections();
-		}
+		$this->loadChildCollections();
 		return $this->childCollections;
 	}
 	
@@ -328,7 +247,7 @@ class Zotero_Collection extends Zotero_DataObject {
 	
 	
 	public function numCollections() {
-		if ($this->childCollectionsLoaded) {
+		if ($this->loaded['childCollections']) {
 			return sizeOf($this->childCollections);
 		}
 		$sql = "SELECT COUNT(*) FROM collections WHERE parentCollectionID=?";
@@ -356,9 +275,7 @@ class Zotero_Collection extends Zotero_DataObject {
 	 * @return {Integer[]}	Array of itemIDs
 	 */
 	public function getItems($includeChildItems=false) {
-		if (!$this->itemsLoaded) {
-			$this->loadItems();
-		}
+		$this->loadChildItems();
 		
 		if ($includeChildItems) {
 			$sql = "(SELECT INo.itemID FROM itemNotes INo "
@@ -374,11 +291,11 @@ class Zotero_Collection extends Zotero_DataObject {
 				$sql, array($this->id, $this->id), Zotero_Shards::getByLibraryID($this->libraryID)
 			);
 			if ($childItemIDs) {
-				return array_merge($this->items, $childItemIDs);
+				return array_merge($this->childItems, $childItemIDs);
 			}
 		}
 		
-		return $this->items;
+		return $this->childItems;
 	}
 	
 	
@@ -387,11 +304,9 @@ class Zotero_Collection extends Zotero_DataObject {
 		
 		Zotero_DB::beginTransaction();
 		
-		if (!$this->itemsLoaded) {
-			$this->loadItems();
-		}
+		$this->loadChildItems();
 		
-		$current = $this->items;
+		$current = $this->childItems;
 		$removed = array_diff($current, $itemIDs);
 		$new = array_diff($itemIDs, $current);
 		
@@ -425,7 +340,7 @@ class Zotero_Collection extends Zotero_DataObject {
 			}
 		}
 		
-		$this->items = array_values(array_unique($itemIDs));
+		$this->childItems = array_values(array_unique($itemIDs));
 		
 		//
 		// TODO: remove UPDATE statements below once classic syncing is removed
@@ -506,11 +421,8 @@ class Zotero_Collection extends Zotero_DataObject {
 	 * Check if an item belongs to the collection
 	 */
 	public function hasItem($itemID) {
-		if (!$this->itemsLoaded) {
-			$this->loadItems();
-		}
-		
-		return in_array($itemID, $this->items);
+		$this->loadChildItems();
+		return in_array($itemID, $this->childItems);
 	}
 	
 	
@@ -606,126 +518,6 @@ class Zotero_Collection extends Zotero_DataObject {
 		}
 		
 		return $toReturn;
-	}
-	
-	
-	private function getParent() {
-		if ($this->_parent !== false) {
-			if (!$this->_parent) {
-				return null;
-			}
-			if (is_int($this->_parent)) {
-				return $this->_parent;
-			}
-			$parentCollection = Zotero_Collections::getByLibraryAndKey($this->libraryID, $this->_parent);
-			if (!$parentCollection) {
-				throw new Exception("Source collection for keyed parent doesn't exist");
-			}
-			// Replace stored key with id
-			$this->_parent = $parentCollection->id;
-			return $parentCollection->id;
-		}
-		
-		if (!$this->id) {
-			return false;
-		}
-		
-		$sql = "SELECT parentCollectionID FROM collections WHERE collectionID=?";
-		$parentCollectionID = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
-		if (!$parentCollectionID) {
-			$parentCollectionID = null;
-		}
-		$this->_parent = $parentCollectionID;
-		return $parentCollectionID;
-	}
-	
-	
-	private function getParentKey() {
-		if ($this->_parent !== false) {
-			if (!$this->_parent) {
-				return null;
-			}
-			if (is_string($this->_parent)) {
-				return $this->_parent;
-			}
-			$parentCollection = Zotero_Collections::get($this->libraryID, $this->_parent);
-			return $parentCollection->key;
-		}
-		
-		if (!$this->id) {
-			return false;
-		}
-		
-		$sql = "SELECT B.`key` FROM collections A JOIN collections B
-				ON (A.parentCollectionID=B.collectionID) WHERE A.collectionID=?";
-		$key = Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
-		if (!$key) {
-			$key = null;
-		}
-		$this->_parent = $key;
-		return $key;
-	}
-	
-	
-	private function setParent($parentCollectionID) {
-		if ($this->id || $this->key) {
-			if (!$this->loaded) {
-				$this->load(true);
-			}
-		}
-		else {
-			$this->loaded = true;
-		}
-		
-		$oldParentCollectionID = $this->getParent();
-		if ($oldParentCollectionID == $parentCollectionID) {
-			Z_Core::debug("Parent collection has not changed for collection $this->id");
-			return false;
-		}
-		
-/*		if ($this->id && $this->exists() && !$this->previousData) {
-			$this->previousData = $this.serialize();
-		}
-*/		
-		$this->_parent = $parentCollectionID ? (int) $parentCollectionID : null;
-		$this->changed = true;
-		return true;
-	}
-	
-	
-	public function setParentKey($parentCollectionKey) {
-		if ($this->id || $this->key) {
-			if (!$this->loaded) {
-				$this->load(true);
-			}
-		}
-		else {
-			$this->loaded = true;
-		}
-		
-		$oldParentCollectionID = $this->getParent();
-		if ($oldParentCollectionID) {
-			$parentCollection = Zotero_Collections::get($this->libraryID, $oldParentCollectionID);
-			$oldParentCollectionKey = $parentCollection->key;
-			if (!$oldParentCollectionKey) {
-				throw new Exception("No key for parent collection $oldParentCollectionID"); 
-			}
-		}
-		else {
-			$oldParentCollectionKey = null;
-		}
-		if ($oldParentCollectionKey == $parentCollectionKey) {
-			Z_Core::debug('Source collection has not changed in Zotero_Collection::setParentKey()');
-			return false;
-		}
-		
-		/*if ($this->id && $this->exists() && !$this->previousData) {
-			$this->previousData = $this.serialize();
-		}*/
-		$this->_parent = $parentCollectionKey ? $parentCollectionKey : null;
-		$this->changed = true;
-		
-		return true;
 	}
 	
 	
@@ -900,9 +692,9 @@ class Zotero_Collection extends Zotero_DataObject {
 			]
 		];
 		
-		$parent = $this->parent;
-		if ($parent) {
-			$parentCol = Zotero_Collections::get($this->libraryID, $parent);
+		$parentID = $this->getParentID();
+		if ($parentID) {
+			$parentCol = Zotero_Collections::get($this->libraryID, $parentID);
 			$json['links']['up'] = [
 				'href' => Zotero_API::getCollectionURI($parentCol),
 				'type' => "application/atom+xml"
@@ -962,51 +754,10 @@ class Zotero_Collection extends Zotero_DataObject {
 	}
 	
 	
-	private function load() {
-		$libraryID = $this->_libraryID;
-		$id = $this->_id;
-		$key = $this->_key;
+	protected function loadChildCollections($reload = false) {
+		if ($this->loaded['childCollections'] && !$reload) return;
 		
-		Z_Core::debug("Loading data for collection $libraryID/" . ($id ? $id : $key));
-		
-		if (!$libraryID) {
-			throw new Exception("Library ID not set");
-		}
-		
-		if (!$id && !$key) {
-			throw new Exception("ID or key not set");
-		}
-		
-		if ($id) {
-			$row = Zotero_Collections::getPrimaryDataByID($libraryID, $id);
-		}
-		else {
-			$row = Zotero_Collections::getPrimaryDataByKey($libraryID, $key);
-		}
-		
-		$this->loaded = true;
-		
-		if (!$row) {
-			return;
-		}
-		
-		if ($row['libraryID'] != $libraryID) {
-			throw new Exception("libraryID {$row['libraryID']} != $this->libraryID");
-		}
-		
-		foreach ($row as $key=>$val) {
-			$field = '_' . $key;
-			$this->$field = $val;
-		}
-	}
-	
-	
-	private function loadChildCollections() {
 		Z_Core::debug("Loading subcollections for collection $this->id");
-		
-		if ($this->childCollectionsLoaded) {
-			trigger_error("Subcollections for collection $this->id already loaded", E_USER_ERROR);
-		}
 		
 		if (!$this->id) {
 			trigger_error('$this->id not set', E_USER_ERROR);
@@ -1015,17 +766,16 @@ class Zotero_Collection extends Zotero_DataObject {
 		$sql = "SELECT collectionID FROM collections WHERE parentCollectionID=?";
 		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
-		$this->childCollections = $ids ? $ids : array();
-		$this->childCollectionsLoaded = true;
+		$this->childCollections = $ids ? $ids : [];
+		$this->loaded['childCollections'] = true;
+		$this->clearChanged('childCollections');
 	}
 	
 	
-	private function loadItems() {
-		Z_Core::debug("Loading child items for collection $this->id");
+	protected function loadChildItems($reload = false) {
+		if ($this->loaded['childItems'] && !$reload) return;
 		
-		if ($this->itemsLoaded) {
-			trigger_error("Child items for collection $this->id already loaded", E_USER_ERROR);
-		}
+		Z_Core::debug("Loading child items for collection $this->id");
 		
 		if (!$this->id) {
 			trigger_error('$this->id not set', E_USER_ERROR);
@@ -1034,8 +784,70 @@ class Zotero_Collection extends Zotero_DataObject {
 		$sql = "SELECT itemID FROM collectionItems WHERE collectionID=?";
 		$ids = Zotero_DB::columnQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 		
-		$this->items = $ids ? $ids : array();
-		$this->itemsLoaded = true;
+		$this->childItems = $ids ? $ids : [];
+		
+		$this->loaded['childItems'] = true;
+		$this->clearChanged('childItems');
+	}
+	
+	
+	/**
+	 * Add a collection to the cached child collections list if loaded
+	 */
+	public function registerChildCollection($collectionID) {
+		if ($this->loaded['childCollections']) {
+			$collection = Zotero_Collections::get($this->libraryID, $collectionID);
+			if ($collection) {
+				$this->_hasChildCollections = true;
+				$this->childCollections[] = $collection;
+			}
+		}
+	}
+	
+	
+	/**
+	 * Remove a collection from the cached child collections list if loaded
+	 */
+	public function unregisterChildCollection($collectionID) {
+		if ($this->loaded['childCollections']) {
+			for ($i = 0; $i < sizeOf($this->childCollections); $i++) {
+				if ($this->childCollections[$i]->id == $collectionID) {
+					unset($this->childCollections[$i]);
+					break;
+				}
+			}
+			$this->_hasChildCollections = !!$this->childCollections;
+		}
+	}
+	
+	
+	/**
+	 * Add an item to the cached child items list if loaded
+	 */
+	public function registerChildItem($itemID) {
+		if ($this->loaded['childItems']) {
+			$item = Zotero_Items::get($this->libraryID, $itemID);
+			if ($item) {
+				$this->_hasChildItems = true;
+				$this->childItems[] = $item;
+			}
+		}
+	}
+	
+	
+	/**
+	 * Remove an item from the cached child items list if loaded
+	 */
+	public function unregisterChildItem($itemID) {
+		if ($this->loaded['childItems']) {
+			for ($i = 0; $i < sizeOf($this->childItems); $i++) {
+				if ($this->childItems[$i]->id == $itemID) {
+					unset($this->childItems[$i]);
+					break;
+				}
+			}
+			$this->_hasChildItems = !!$this->childItems;
+		}
 	}
 	
 	
@@ -1092,7 +904,7 @@ class Zotero_Collection extends Zotero_DataObject {
 			$this->load();
 		}
 		
-		return md5($this->name . "_" . $this->getParent());
+		return md5($this->name . "_" . $this->getParentID());
 	}
 	
 	

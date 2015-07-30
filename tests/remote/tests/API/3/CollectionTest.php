@@ -93,16 +93,90 @@ class CollectionTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		$this->assert200($response);
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['successful']);
+		// Deprecated
 		$this->assertCount(2, $json['success']);
 		
-		$response = API::getCollectionResponse($json['success']);
+		// Check data in write response
+		$this->assertEquals($json['successful'][0]['key'], $json['successful'][0]['data']['key']);
+		$this->assertEquals($json['successful'][1]['key'], $json['successful'][1]['data']['key']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['data']['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['data']['version']);
+		$this->assertEquals($name1, $json['successful'][0]['data']['name']);
+		$this->assertEquals($name2, $json['successful'][1]['data']['name']);
+		$this->assertFalse($json['successful'][0]['data']['parentCollection']);
+		$this->assertEquals($parent2, $json['successful'][1]['data']['parentCollection']);
+		
+		// Check in separate request, to be safe
+		$keys = array_map(function ($o) {
+			return $o['key'];
+		}, $json['successful']);
+		$response = API::getCollectionResponse($keys);
 		$this->assertTotalResults(2, $response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertEquals($name1, $json[0]['data']['name']);
 		$this->assertFalse($json[0]['data']['parentCollection']);
 		$this->assertEquals($name2, $json[1]['data']['name']);
 		$this->assertEquals($parent2, $json[1]['data']['parentCollection']);
+	}
+	
+	
+	public function testCreateKeyedCollections() {
+		require_once '../../model/ID.inc.php';
+		$key1 = \Zotero_ID::getKey();
+		$name1 = "Test Collection 2";
+		$name2 = "Test Subcollection";
+		
+		$json = [
+			[
+				'key' => $key1,
+				'version' => 0,
+				'name' => $name1
+			],
+			[
+				'name' => $name2,
+				'parentCollection' => $key1
+			]
+		];
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections",
+			json_encode($json),
+			["Content-Type: application/json"]
+		);
+		$this->assert200($response);
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['successful']);
+		
+		// Check data in write response
+		$this->assertEquals($json['successful'][0]['key'], $json['successful'][0]['data']['key']);
+		$this->assertEquals($json['successful'][1]['key'], $json['successful'][1]['data']['key']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['data']['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['data']['version']);
+		$this->assertEquals($name1, $json['successful'][0]['data']['name']);
+		$this->assertEquals($name2, $json['successful'][1]['data']['name']);
+		$this->assertFalse($json['successful'][0]['data']['parentCollection']);
+		$this->assertEquals($key1, $json['successful'][1]['data']['parentCollection']);
+		
+		// Check in separate request, to be safe
+		$keys = array_map(function ($o) {
+			return $o['key'];
+		}, $json['successful']);
+		$response = API::getCollectionResponse($keys);
+		$this->assertTotalResults(2, $response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($name1, $json[0]['data']['name']);
+		$this->assertFalse($json[0]['data']['parentCollection']);
+		$this->assertEquals($name2, $json[1]['data']['name']);
+		$this->assertEquals($key1, $json[1]['data']['parentCollection']);
 	}
 	
 	
@@ -134,10 +208,29 @@ class CollectionTests extends APITests {
 			]
 		);
 		$this->assert200($response);
+		$libraryVersion = $response->getHeader("Last-Modified-Version");
 		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['successful']);
+		// Deprecated
 		$this->assertCount(2, $json['success']);
 		
-		$response = API::getCollectionResponse($json['success']);
+		// Check data in write response
+		$this->assertEquals($json['successful'][0]['key'], $json['successful'][0]['data']['key']);
+		$this->assertEquals($json['successful'][1]['key'], $json['successful'][1]['data']['key']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][0]['data']['version']);
+		$this->assertEquals($libraryVersion, $json['successful'][1]['data']['version']);
+		$this->assertEquals($collection1NewName, $json['successful'][0]['data']['name']);
+		$this->assertEquals($collection2Name, $json['successful'][1]['data']['name']);
+		$this->assertFalse($json['successful'][0]['data']['parentCollection']);
+		$this->assertEquals($collection2NewParentKey, $json['successful'][1]['data']['parentCollection']);
+		
+		// Check in separate request, to be safe
+		$keys = array_map(function ($o) {
+			return $o['key'];
+		}, $json['successful']);
+		$response = API::getCollectionResponse($keys);
 		$this->assertTotalResults(2, $response);
 		$json = API::getJSONFromResponse($response);
 		// POST follows PATCH behavior, so unspecified values shouldn't change

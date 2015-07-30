@@ -24,99 +24,145 @@
     ***** END LICENSE BLOCK *****
 */
 
-class Zotero_DataObjects {
-	public static $objectTypes = array(
-		'creator' => array('singular'=>'Creator', 'plural'=>'Creators'),
-		'item' => array('singular'=>'Item', 'plural'=>'Items'),
-		'collection' => array('singular'=>'Collection', 'plural'=>'Collections'),
-		'search' => array('singular'=>'Search', 'plural'=>'Searches'),
-		'tag' => array('singular'=>'Tag', 'plural'=>'Tags'),
-		'relation' => array('singular'=>'Relation', 'plural'=>'Relations'),
-		'setting' => array('singular'=>'Setting', 'plural'=>'Settings')
-	);
+trait Zotero_DataObjects {
+	public static $objectTypes = [
+		'item' => ['singular'=>'Item', 'plural'=>'Items'],
+		'collection' => ['singular'=>'Collection', 'plural'=>'Collections'],
+		'search' => ['singular'=>'Search', 'plural'=>'Searches']
+	];
 	
-	protected static $ZDO_object = '';
-	protected static $ZDO_objects = '';
-	protected static $ZDO_Object = '';
-	protected static $ZDO_Objects = '';
-	protected static $ZDO_id = '';
-	protected static $ZDO_key = '';
-	protected static $ZDO_table = '';
-	protected static $ZDO_timestamp = '';
+	public static $classicObjectTypes = [
+		'creator' => ['singular'=>'Creator', 'plural'=>'Creators'],
+		'item' => ['singular'=>'Item', 'plural'=>'Items'],
+		'collection' => ['singular'=>'Collection', 'plural'=>'Collections'],
+		'search' => ['singular'=>'Search', 'plural'=>'Searches'],
+		'tag' => ['singular'=>'Tag', 'plural'=>'Tags'],
+		'relation' => ['singular'=>'Relation', 'plural'=>'Relations'],
+		'setting' => ['singular'=>'Setting', 'plural'=>'Settings']
+	];
+	
+	public static $idColumn;
+	public static $table;
+	public static $primaryFields;
+	
+	private static $ObjectType;
+	private static $objectTypePlural;
+	private static $ObjectTypePlural;
+	private static $ObjectClass;
+	
+	public static $primaryDataSQLFrom;
+	private static $primaryDataSQLWhere = 'WHERE 1';
 	
 	private static $cacheVersion = 3;
 	
-	private static $primaryDataByID = array();
-	private static $primaryDataByKey = array();
+	private static $objectCache = [];
+	private static $objectIDs = [];
+	private static $loadedLibraries = [];
 	
-	public static function field($field) {
-		if (empty(static::$ZDO_object)) {
-			trigger_error("Object name not provided", E_USER_ERROR);
+	
+	public static function init() {
+		if (!self::$objectType) {
+			throw new Exception('self::$objectType must be set before calling Zotero_DataObjects initializer');
 		}
 		
-		switch ($field) {
-			case 'object':
-				return static::$ZDO_object;
-			
-			case 'objects':
-				return static::$ZDO_objects
-					? static::$ZDO_objects : static::$ZDO_object . 's';
-			
-			case 'Object':
-				return ucwords(static::field('object'));
-			
-			case 'Objects':
-				return ucwords(static::field('objects'));
-			
-			case 'id':
-				return static::$ZDO_id ? static::$ZDO_id : static::$ZDO_object . 'ID';
-			
-			case 'key':
-				return static::$ZDO_key ? static::$ZDO_key : 'key';
-			
-			case 'table':
-				return static::$ZDO_table ? static::$ZDO_table : static::field('objects');
-			
-			case 'timestamp':
-				return static::$ZDO_timestamp ? static::$ZDO_timestamp : 'serverDateModified';
-		}
+		self::$ObjectType = ucwords(self::$objectType);
+		self::$objectTypePlural = \Zotero\DataObjectUtilities::getObjectTypePlural(self::$objectType);
+		self::$ObjectTypePlural = ucwords(self::$objectTypePlural);
+		self::$idColumn = self::$objectType . "ID";
+		self::$table = isset(self::$_table) ? self::$_table : self::$objectTypePlural;
+		self::$ObjectClass = "Zotero_" . self::$objectType;
+		self::$primaryFields = array_keys(self::$primaryDataSQLParts);
+		self::$primaryDataSQLFrom = " "
+			. (isset(self::$_primaryDataSQLFrom) ? self::$_primaryDataSQLFrom : "FROM " . self::$table . " O")
+			. " " . self::$primaryDataSQLWhere;
 	}
 	
 	
-	public static function get($libraryID, $id, $skipCheck=false) {
-		$type = static::field('object');
-		$table = static::field('table');
-		$idField = static::field('id');
+	protected static function getPrimaryDataSQL() {
+		$parts = [];
+		foreach (self::$primaryDataSQLParts as $key => $val) {
+			$parts[] = "$val AS `$key`";
+		}
+		return "SELECT " . implode(', ', $parts) . " " . self::$primaryDataSQLFrom;
+	}
+	
+	
+	public static function getPrimaryDataSQLPart($part) {
+		$sql = self::$primaryDataSQLParts[$part];
+		if (!isset($sql)) {
+			throw new Exception("Invalid primary data SQL part '$part'");
+		}
+		return $sql;
+	}
+	
+	
+	public static function isPrimaryField($field) {
+		return in_array($field, self::$primaryFields);
+	}
+	
+	
+	/**
+	 * Retrieves (and loads, if necessary) one or more items
+	 *
+	 * @param {Integer} libraryID
+	 * @param {Array|Integer} ids  An individual object id or an array of object ids
+	 * @param {Object} [options]
+	 * @param {Boolean} [options.noCache=false] - Don't add object to cache after loading
+	 * @return {Zotero.DataObject|Zotero.DataObject[]} - Either a data object, if a scalar id was
+	 *    passed, or an array of data objects, if an array of ids was passed
+	 */
+	public static function get($libraryID, $ids, array $options = []) {
+		$toLoad = [];
+		$toReturn = [];
 		
-		if (!$libraryID) {
-			throw new Exception("Library ID not set");
+		if (!$ids) {
+			throw new Exception("No arguments provided to " . self::$ObjectTypePlural . ".get()");
 		}
 		
-		if (!$id) {
-			throw new Exception("ID not set");
+		if (is_array($ids)) {
+			$singleObject = false;
+		}
+		else {
+			$singleObject = true;
+			$ids = [$ids];
 		}
 		
-		if (!$skipCheck) {
-			$sql = "SELECT COUNT(*) FROM $table WHERE $idField=?";
-			$result = Zotero_DB::valueQuery(
-				$sql, $id, Zotero_Shards::getByLibraryID($libraryID)
-			);
-			if (!$result) {
-				return false;
+		foreach ($ids as $id) {
+			// Check if already loaded
+			if (isset(self::$objectCache[$id])) {
+				$toReturn[] = self::$objectCache[$id];
+			}
+			else {
+				$toLoad[] = $id;
 			}
 		}
 		
-		$className = "Zotero_" . ucwords($type);
-		$obj = new $className;
-		$obj->libraryID = $libraryID;
-		$obj->id = $id;
-		return $obj;
+		// New object to load
+		if ($toLoad) {
+			$loaded = self::load($libraryID, $toLoad, $options);
+			for ($i = 0; $i < sizeOf($toLoad); $i++) {
+				$id = $toLoad[$i];
+				$obj = isset($loaded[$id]) ? $loaded[$id] : false;
+				if (!$obj) {
+					Z_Core::debug(self::$ObjectType . " $id doesn't exist", 2);
+					continue;
+				}
+				$toReturn[] = $obj;
+			}
+		}
+		
+		// If single id, return the object directly
+		if ($singleObject) {
+			return $toReturn ? $toReturn[0] : false;
+		}
+		
+		return $toReturn;
 	}
 	
 	
 	public static function getByLibraryAndKey($libraryID, $key) {
-		$type = static::field('object');
-		$types = static::field('objects');
+		$type = self::$objectType;
+		$types = self::$objectTypePlural;
 		
 		$exists = self::existsByLibraryAndKey($libraryID, $key);
 		if (!$exists) {
@@ -124,31 +170,9 @@ class Zotero_DataObjects {
 		}
 		
 		switch ($type) {
-			case 'item':
-			case 'relation':
-				$className = "Zotero_" . ucwords($types);
-				return call_user_func(array($className, 'get'), $libraryID, self::$primaryDataByKey[$type][$libraryID][$key]['id']);
-			
-			// Pass skipCheck, since we've already checked for existence
-			case 'collection':
-			case 'creator':
-			case 'tag':
-				$className = "Zotero_" . ucwords($types);
-				return call_user_func(array($className, 'get'), $libraryID, self::$primaryDataByKey[$type][$libraryID][$key]['id'], true);
-			
-			case 'setting':
-				$className = "Zotero_" . ucwords($type);
-				$obj = new $className;
-				$obj->libraryID = $libraryID;
-				$obj->name = $key;
-				return $obj;
-			
 			default:
-				$className = "Zotero_" . ucwords($type);
-				$obj = new $className;
-				$obj->libraryID = $libraryID;
-				$obj->id = self::$primaryDataByKey[$type][$libraryID][$key]['id'];
-				return $obj;
+				$className = "Zotero_" . ucwords($types);
+				return call_user_func([$className, 'get'], $libraryID, self::$objectIDs[$libraryID][$key]);
 		}
 	}
 	
@@ -158,167 +182,244 @@ class Zotero_DataObjects {
 			throw new Exception("libraryID '$libraryID' must be a positive integer");
 		}
 		
-		$table = static::field('table');
-		$id = static::field('id');
-		$type = static::field('object');
+		$type = self::$objectType;
 		
-		if ($type == 'relation') {
-			if (!preg_match('/[a-f0-9]{32}/', $key)) {
-				throw new Exception("Invalid key '$key'");
-			}
-		}
-		else if ($type == 'setting') {
-			if (!preg_match('/[a-zA-Z0-9]{1,1000}/', $key)) {
-				throw new Exception("Invalid key '$key'");
-			}
-		}
-		else if (!preg_match('/[A-Z0-9]{8}/', $key)) {
+		if (!preg_match('/[A-Z0-9]{8}/', $key)) {
 			throw new Exception("Invalid key '$key'");
 		}
 		
-		return !!self::getPrimaryDataByKey($libraryID, $key);
+		return !!self::getIDFromLibraryAndKey($libraryID, $key);
 	}
 	
 	
-	public static function getPrimaryDataByID($libraryID, $id) {
-		$idCol = static::field('id');
-		$type = static::field('object');
-		
-		if (!is_numeric($id)) {
-			throw new Exception("Invalid id '$id'");
+	public static function getIDFromLibraryAndKey($libraryID, $key) {
+		if (isset(self::$objectIDs[$libraryID][$key])) {
+			return self::$objectIDs[$libraryID][$key];
 		}
 		
-		if (isset(self::$primaryDataByID[$type][$libraryID][$id])) {
-			return self::$primaryDataByID[$type][$libraryID][$id];
-		}
-		
-		$sql = self::getPrimaryDataSQL() . "libraryID=? AND $idCol=?";
-		$row = Zotero_DB::rowQuery(
-			$sql, array($libraryID, $id), Zotero_Shards::getByLibraryID($libraryID)
+		$sql = "SELECT " . self::$idColumn . " FROM " . self::$table
+			. " WHERE libraryID=? AND `key`=?";
+		$id = Zotero_DB::valueQuery(
+			$sql, [$libraryID, $key], Zotero_Shards::getByLibraryID($libraryID)
 		);
-		
-		self::cachePrimaryData($row, $libraryID, false, $id);
-		
-		return $row;
+		return self::$objectIDs[$libraryID][$key] = $id;
 	}
 	
 	
-	public static function getPrimaryDataByKey($libraryID, $key) {
-		$type = static::field('object');
-		$keyField = static::field('key');
-		
-		if (!is_numeric($libraryID)) {
-			throw new Exception("Invalid libraryID '$libraryID'");
+	/**
+	 * Reload loaded data of loaded objects
+	 *
+	 * @param {Array|Number} ids - An id or array of ids
+	 * @param {Array} [dataTypes] - Data types to reload (e.g., 'primaryData'), or all loaded
+	 *                              types if not provided
+	 * @param {Boolean} [reloadUnchanged=false] - Reload even data that hasn't changed internally.
+	 *                                            This should be set to true for data that was
+	 *                                            changed externally (e.g., globally renamed tags).
+	 */
+	public static function reload($ids, $dataTypes = null, $reloadUnchanged = false) {
+		if (is_scalar($ids)) {
+			$ids = [$ids];
 		}
-		if ($type == 'relation') {
-			if (!preg_match('/[a-f0-9]{32}/', $key)) {
-				throw new Exception("Invalid key '$key'");
+		
+		Z_Core::debug("Reloading " . ($dataTypes ? '[' . implode(', ', dataTypes) . '] for ' : '')
+			. self::$objectTypePlural . ' [' . implode(', ', $ids) . ']');
+		
+		foreach ($ids as $id) {
+			if (self::$objectCache[$id]) {
+				self::$objectCache[$id]->reload($dataTypes, $reloadUnchanged);
 			}
 		}
-		else if (!preg_match('/[A-Z0-9]{8}/', $key) && $type != 'setting') {
-			throw new Exception("Invalid key '$key'");
-		}
 		
-		if (isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
-			return self::$primaryDataByKey[$type][$libraryID][$key];
-		}
-		
-		$sql = self::getPrimaryDataSQL() . "libraryID=? AND `$keyField`=?";
-		$row = Zotero_DB::rowQuery(
-			$sql, array($libraryID, $key), Zotero_Shards::getByLibraryID($libraryID)
-		);
-		
-		self::cachePrimaryData($row, $libraryID, $key);
-		
-		return $row;
+		return true;
 	}
 	
 	
-	public static function cachePrimaryData($row, $libraryID=false, $key=false, $id=false) {
-		$type = static::field('object');
-		$keyField = static::field('key');
+	public static function registerObject($obj) {
+		$id = $obj->id;
+		$libraryID = $obj->libraryID;
+		$key = $obj->key;
 		
-		if (!$row && (!$libraryID || !($key || $id))) {
-			throw new Exception("libraryID and either key or id must be set if row is empty");
+		Z_Core::debug("Registering " . self::$objectType . " " . $id
+			. " as " . $libraryID . "/" . $key);
+		if (!isset(self::$objectIDs[$libraryID])) {
+			self::$objectIDs[$libraryID] = [];
+		}
+		self::$objectIDs[$libraryID][$key] = $id;
+		self::$objectCache[$id] = $obj;
+		$obj->inCache = true;
+	}
+	
+	
+	/**
+	 * Clear object from internal array
+	 *
+	 * @param {Integer[]} $ids - Object ids
+	 */
+	public static function unload($ids) {
+		if (is_scalar($ids)) {
+			$ids = [$ids];
 		}
 		
-		$libraryID = $row ? $row['libraryID'] : $libraryID;
+		foreach ($ids as $id) {
+			if (!isset(self::$objectCache[$id])) {
+				continue;
+			}
+			$obj = self::$objectCache[$id];
+			$key = $obj->key;
+			unset(self::$objectIDs[$obj->libraryID][$obj->key]);
+			unset(self::$objectCache[$id]);
+		}
+	}
+	
+	
+	public static function updateMultipleFromJSON($json, $requestParams, $libraryID, $userID,
+			Zotero_Permissions $permissions, $requireVersion, $parent=null) {
+		$type = self::$objectType;
+		$types = self::$objectTypePlural;
+		$keyProp = $type . "Key";
 		
-		if (!isset(self::$primaryDataByKey[$type][$libraryID])) {
-			self::$primaryDataByKey[$type][$libraryID] = array();
-			self::$primaryDataByID[$type][$libraryID] = array();
+		switch ($type) {
+		case 'collection':
+		case 'search':
+			if ($parent) {
+				throw new Exception('$parent is not valid for ' . $type);
+			}
+			break;
+		
+		case 'item':
+			break;
+		
+		default:
+			throw new Exception("Function not valid for $type");
 		}
 		
-		if ($row) {
-			$found = 0;
-			$expected = sizeOf(static::$primaryFields);
+		self::validateMultiObjectJSON($json, $requestParams);
+		
+		$results = new Zotero_Results($requestParams);
+		
+		if ($requestParams['v'] >= 2 && Zotero_DB::transactionInProgress()) {
+			throw new Exception(
+				"Transaction cannot be open when starting multi-object update"
+			);
+		}
+		
+		// If single collection object, stuff in array
+		if ($requestParams['v'] < 2 && $type == 'collection' && !isset($json->collections)) {
+			$json = [$json];
+		}
+		else if ($requestParams['v'] < 3) {
+			$json = $json->$types;
+		}
+		
+		$i = 0;
+		foreach ($json as $prop => $jsonObject) {
+			Zotero_DB::beginTransaction();
 			
-			foreach ($row as $field => $val) {
-				if (isset(static::$primaryFields[$field])) {
-					$found++;
+			try {
+				if (!is_object($jsonObject)) {
+					throw new Exception(
+						"Invalid value for index $prop in uploaded data; expected JSON $type object",
+						Z_ERROR_INVALID_INPUT
+					);
+				}
+				
+				$className = "Zotero_" . ucwords($type);
+				$obj = new $className;
+				$obj->libraryID = $libraryID;
+				if ($type == 'item') {
+					$changed = self::updateFromJSON(
+						$obj, $jsonObject, $parent, $requestParams, $userID, $requireVersion, true
+					);
 				}
 				else {
-					throw new Exception("Unknown $type primary data field '$field'");
+					$changed = self::updateFromJSON(
+						$obj, $jsonObject, $requestParams, $userID, $requireVersion, true
+					);
+				}
+				Zotero_DB::commit();
+				
+				if ($changed) {
+					$results->addSuccessful($i, $obj->toResponseJSON($requestParams, $permissions));
+				}
+				else {
+					$results->addUnchanged($i, $obj->key);
 				}
 			}
-			
-			if ($found != $expected) {
-				throw new Exception("$found $type primary data fields provided -- expected $expected");
+			catch (Exception $e) {
+				Zotero_DB::rollback();
+				
+				if ($requestParams['v'] < 2) {
+					throw ($e);
+				}
+				
+				// If object key given, include that
+				$resultKey = isset($jsonObject->$keyProp)
+					? $jsonObject->$keyProp : '';
+				
+				$results->addFailure($i, $resultKey, $e);
 			}
-			
-			self::$primaryDataByKey[$type][$libraryID][$row[$keyField]] = $row;
-			if (isset($row['id'])) {
-				self::$primaryDataByID[$type][$libraryID][$row['id']] =& self::$primaryDataByKey[$type][$libraryID][$row['key']];
-			}
+			$i++;
 		}
-		else if ($key) {
-			self::$primaryDataByKey[$type][$libraryID][$key] = false;
-		}
-		else if ($id) {
-			self::$primaryDataByID[$type][$libraryID][$id] = false;
-		}
-	}
-	
-	
-	public static function uncachePrimaryData($libraryID, $key) {
-		$type = static::field('object');
 		
-		if (isset(self::$primaryDataByKey[$type][$libraryID][$key])) {
-			if (isset(self::$primaryDataByKey[$type][$libraryID][$key]['id'])) {
-				$id = self::$primaryDataByKey[$type][$libraryID][$key]['id'];
-				unset(self::$primaryDataByID[$type][$libraryID][$id]);
+		return $results->generateReport();
+	}
+	
+	
+	protected static function validateMultiObjectJSON($json, $requestParams) {
+		$objectTypePlural = self::$objectTypePlural;
+		
+		if ($requestParams['v'] < 3) {
+			if (!is_object($json)) {
+				throw new Exception('Uploaded data must be a JSON object', Z_ERROR_INVALID_INPUT);
 			}
-			unset(self::$primaryDataByKey[$type][$libraryID][$key]);
-		}
-	}
-	
-	
-	// Used for unit tests
-	public static function clearPrimaryDataCache() {
-		self::$primaryDataByID = array();
-		self::$primaryDataByKey = array();
-	}
-	
-	
-	public static function getPrimaryDataSQL() {
-		$fields = array();
-		foreach (static::$primaryFields as $field => $dbField) {
-			if ($dbField) {
-				$fields[] = $dbField . " AS `" . $field . "`";
+			
+			// Multiple-object format
+			if (isset($json->$objectTypePlural)) {
+				if (!is_array($json->$objectTypePlural)) {
+					throw new Exception("'$objectTypePlural' must be an array", Z_ERROR_INVALID_INPUT);
+				}
+				foreach ($json as $key=>$val) {
+					if ($key != $objectTypePlural) {
+						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
+					}
+					$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
+					if (sizeOf($val) > Zotero_API::$$maxWriteKey) {
+						throw new Exception("Cannot add more than "
+							. Zotero_API::$$maxWriteKey
+							. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+					}
+				}
+			}
+			// Single-collection format (collections only)
+			else if ($requestParams['v'] < 2 && $objectTypePlural == 'collections') {
+				if (!isset($json->name)) {
+					throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
+				}
 			}
 			else {
-				$fields[] = "`" . $field . "`";
+				throw new Exception("'$objectTypePlural' must be provided", Z_ERROR_INVALID_INPUT);
 			}
+			
+			return;
 		}
-		return "SELECT " . implode(", ", $fields) . " FROM " . static::field('table') . " WHERE ";
+			
+		if (!is_array($json)) {
+			throw new Exception('Uploaded data must be a JSON array', Z_ERROR_INVALID_INPUT);
+		}
+		$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
+		if (sizeOf($json) > Zotero_API::$$maxWriteKey) {
+			throw new Exception("Cannot add more than "
+				. Zotero_API::$$maxWriteKey
+				. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+		}
 	}
 	
 	
 	public static function countUpdated($userID, $timestamp, $deletedCheckLimit=false) {
-		$table = static::field('table');
-		$id = static::field('id');
-		$type = static::field('object');
-		$types = static::field('objects');
+		$table = self::$table;
+		$id = self::$idColumn;
+		$type = self::$objectType;
+		$types = self::$objectTypePlural;
 		
 		// First, see what libraries we actually need to check
 		
@@ -356,11 +457,11 @@ class Zotero_DataObjects {
 	 * @return	array|int
 	 */
 	public static function getUpdated($userID, $timestamp, $updatedLibraryIDs, $countOnly=false) {
-		$table = static::field('table');
-		$id = static::field('id');
-		$type = static::field('object');
-		$types = static::field('objects');
-		$timestampCol = static::field('timestamp');
+		$table = self::$table;
+		$id = self::$idColumn;
+		$type = self::$objectType;
+		$types = self::$objectTypePlural;
+		$timestampCol = "serverDateModified";
 		
 		// All joined groups have to be checked
 		$joinedGroupIDs = Zotero_Groups::getJoined($userID, $timestamp);
@@ -437,7 +538,7 @@ class Zotero_DataObjects {
 	
 	
 	public static function getDeleteLogKeys($libraryID, $version, $versionIsTimestamp=false) {
-		$type = static::field('object');
+		$type = self::$objectType;
 		
 		// TEMP: until classic syncing is deprecated and the objectType
 		// 'tagName' is changed to 'tag'
@@ -461,165 +562,33 @@ class Zotero_DataObjects {
 	}
 	
 	
-	public static function updateMultipleFromJSON($json, $libraryID, $requestParams, $userID, $requireVersion, $parent=null) {
-		$type = static::field('object');
-		$types = static::field('objects');
-		$keyProp = $type . "Key";
-		
-		switch ($type) {
-		case 'collection':
-		case 'search':
-			if ($parent) {
-				throw new Exception('$parent is not valid for ' . $type);
-			}
-			break;
-		
-		case 'item':
-			break;
-		
-		default:
-			throw new Exception("Function not valid for $type");
+	public static function editCheck($obj, $userID=false) {
+		if (!$userID) {
+			return true;
 		}
 		
-		static::validateMultiObjectJSON($json, $requestParams);
-		
-		$results = new Zotero_Results;
-		
-		if ($requestParams['v'] >= 2 && Zotero_DB::transactionInProgress()) {
-			throw new Exception(
-				"Transaction cannot be open when starting multi-object update"
-			);
-		}
-		
-		// If single collection object, stuff in array
-		if ($requestParams['v'] < 2 && $type == 'collection' && !isset($json->collections)) {
-			$json = [$json];
-		}
-		else if ($requestParams['v'] < 3) {
-			$json = $json->$types;
-		}
-		
-		$i = 0;
-		foreach ($json as $prop => $jsonObject) {
-			Zotero_DB::beginTransaction();
-			
-			try {
-				if (!is_object($jsonObject)) {
-					throw new Exception(
-						"Invalid value for index $prop in uploaded data; expected JSON $type object",
-						Z_ERROR_INVALID_INPUT
-					);
-				}
-				
-				$className = "Zotero_" . ucwords($type);
-				$obj = new $className;
-				$obj->libraryID = $libraryID;
-				if ($type == 'item') {
-					$changed = static::updateFromJSON(
-						$obj, $jsonObject, $parent, $requestParams, $userID, $requireVersion, true
-					);
-				}
-				else {
-					$changed = static::updateFromJSON(
-						$obj, $jsonObject, $requestParams, $userID, $requireVersion, true
-					);
-				}
-				Zotero_DB::commit();
-				
-				if ($changed) {
-					$results->addSuccess($i, $obj->key);
-				}
-				else {
-					$results->addUnchanged($i, $obj->key);
-				}
-			}
-			catch (Exception $e) {
-				Zotero_DB::rollback();
-				
-				if ($requestParams['v'] < 2) {
-					throw ($e);
-				}
-				
-				// If object key given, include that
-				$resultKey = isset($jsonObject->$keyProp)
-					? $jsonObject->$keyProp : '';
-				
-				$results->addFailure($i, $resultKey, $e);
-			}
-			$i++;
-		}
-		
-		return $results->generateReport();
-	}
-	
-	
-	protected static function validateMultiObjectJSON($json, $requestParams) {
-		$objectTypePlural = static::field('objects');
-		
-		if ($requestParams['v'] < 3) {
-			if (!is_object($json)) {
-				throw new Exception('Uploaded data must be a JSON object', Z_ERROR_INVALID_INPUT);
-			}
-			
-			// Multiple-object format
-			if (isset($json->$objectTypePlural)) {
-				if (!is_array($json->$objectTypePlural)) {
-					throw new Exception("'$objectTypePlural' must be an array", Z_ERROR_INVALID_INPUT);
-				}
-				foreach ($json as $key=>$val) {
-					if ($key != $objectTypePlural) {
-						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
-					}
-					$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
-					if (sizeOf($val) > Zotero_API::$$maxWriteKey) {
-						throw new Exception("Cannot add more than "
-							. Zotero_API::$$maxWriteKey
-							. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
-					}
-				}
-			}
-			// Single-collection format (collections only)
-			else if ($requestParams['v'] < 2 && $objectTypePlural == 'collections') {
-				if (!isset($json->name)) {
-					throw new Exception("'collections' or 'name' must be provided", Z_ERROR_INVALID_INPUT);
-				}
-			}
-			else {
-				throw new Exception("'$objectTypePlural' must be provided", Z_ERROR_INVALID_INPUT);
-			}
-			
-			return;
-		}
-			
-		if (!is_array($json)) {
-			throw new Exception('Uploaded data must be a JSON array', Z_ERROR_INVALID_INPUT);
-		}
-		$maxWriteKey = "maxWrite" . ucwords($objectTypePlural);
-		if (sizeOf($json) > Zotero_API::$$maxWriteKey) {
-			throw new Exception("Cannot add more than "
-				. Zotero_API::$$maxWriteKey
-				. " $objectTypePlural at a time", Z_ERROR_UPLOAD_TOO_LARGE);
+		if (!Zotero_Libraries::userCanEdit($obj->libraryID, $userID, $obj)) {
+			throw new Exception("Cannot edit " . self::$objectType
+				. " in library $obj->libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
 		}
 	}
 	
 	
 	public static function delete($libraryID, $key) {
-		$table = static::field('table');
-		$id = static::field('id');
-		$type = static::field('object');
-		$types = static::field('objects');
-		$keyField = static::field('key');
+		$table = self::$table;
+		$type = self::$objectType;
+		$types = self::$objectTypePlural;
 		
 		if (!$key) {
 			throw new Exception("Invalid key $key");
 		}
 		
 		// Get object (and trigger caching)
-		$obj = static::getByLibraryAndKey($libraryID, $key);
+		$obj = self::getByLibraryAndKey($libraryID, $key);
 		if (!$obj) {
 			return;
 		}
-		static::editCheck($obj);
+		self::editCheck($obj);
 		
 		Z_Core::debug("Deleting $type $libraryID/$key", 4);
 		
@@ -634,7 +603,7 @@ class Zotero_DataObjects {
 				if ($children) {
 					$children = Zotero_Items::get($libraryID, $children);
 					foreach ($children as $child) {
-						static::delete($child->libraryID, $child->key);
+						self::delete($child->libraryID, $child->key);
 					}
 				}
 			}
@@ -654,10 +623,10 @@ class Zotero_DataObjects {
 			Zotero_FullText::deleteItemContent($obj);
 		}
 		
-		$sql = "DELETE FROM $table WHERE libraryID=? AND `$keyField`=?";
+		$sql = "DELETE FROM $table WHERE libraryID=? AND `key`=?";
 		$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
 		
-		static::uncachePrimaryData($libraryID, $key);
+		self::unload($obj->id);
 		
 		if ($deleted) {
 			$sql = "INSERT INTO syncDeleteLogKeys
@@ -699,7 +668,7 @@ class Zotero_DataObjects {
 			$key = (string) $obj['key'];
 			
 			if ($userID && !Zotero_Libraries::userCanEdit($libraryID, $userID)) {
-				throw new Exception("Cannot edit " . static::field('object')
+				throw new Exception("Cannot edit " . self::$objectType
 					. " in library $libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
 			}
 			
@@ -713,24 +682,69 @@ class Zotero_DataObjects {
 					continue;
 				}
 			}
-			static::delete($libraryID, $key);
+			self::delete($libraryID, $key);
 		}
 		
 		foreach ($parents as $obj) {
-			static::delete($obj['libraryID'], $obj['key']);
+			self::delete($obj['libraryID'], $obj['key']);
 		}
 	}
 	
 	
-	
-	public static function editCheck($obj, $userID=false) {
-		if (!$userID) {
-			return true;
+	private static function load($libraryID, $ids = [], array $options = []) {
+		$loaded = [];
+		
+		if (!$libraryID) {
+			throw new Exception("libraryID must be provided");
 		}
 		
-		if (!Zotero_Libraries::userCanEdit($obj->libraryID, $userID, $obj)) {
-			throw new Exception("Cannot edit " . static::field('object')
-				. " in library $obj->libraryID", Z_ERROR_LIBRARY_ACCESS_DENIED);
+		if ($libraryID !== false && !empty(self::$loadedLibraries[$libraryID])) {
+			return $loaded;
 		}
+		
+		$sql = self::getPrimaryDataSQL() . ' AND O.libraryID=?';
+		$params = [$libraryID];
+		if ($ids) {
+			$sql .= ' AND O.' . self::$idColumn . ' IN (' . implode(',', $ids) . ')';
+		}
+		
+		$t = microtime();
+		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		foreach ($rows as $row) {
+			$id = $row['id'];
+			
+			// Existing object -- reload in place
+			if (isset(self::$objectCache[$id])) {
+				self::$objectCache[$id]->loadFromRow($row, true);
+				$obj = self::$objectCache[$id];
+			}
+			// Object doesn't exist -- create new object and stuff in cache
+			else {
+				$class = "Zotero_" . self::$ObjectType;
+				$obj = new $class;
+				$obj->loadFromRow($row, true);
+				if (!$options || !$options->noCache) {
+					self::registerObject($obj);
+				}
+			}
+			$loaded[$id] = $obj;
+		}
+		Z_Core::debug("Loaded " . self::$objectTypePlural . " in " . (microtime() - $t) . "ms");
+		
+		if (!$ids) {
+			self::$loadedLibraries[$libraryID] = true;
+			
+			// If loading all objects, remove cached objects that no longer exist
+			foreach (self::$objectCache as $obj) {
+				if ($libraryID !== false && obj.libraryID !== libraryID) {
+					continue;
+				}
+				if (empty($loaded[$obj->id])) {
+					self::unload($obj->id);
+				}
+			}
+		}
+		
+		return $loaded;
 	}
 }

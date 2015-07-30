@@ -24,12 +24,23 @@
     ***** END LICENSE BLOCK *****
 */
 class Zotero_Results {
-	private $success = array();
-	private $unchanged = array();
-	private $failed = array();
+	private $requestParams;
+	private $successful = [];
+	private $success = []; // Deprecated
+	private $unchanged = [];
+	private $failed = [];
 	
-	public function addSuccess($index, $key) {
-		$this->success[$index] = $key;
+	public function __construct(array $requestParams) {
+		$this->requestParams = $requestParams;
+	}
+	
+	
+	public function addSuccessful($index, $obj) {
+		if ($this->requestParams['v'] >= 3) {
+			$this->successful[$index] = $obj;
+		}
+		// Deprecated
+		$this->success[$index] = $obj['key'];
 	}
 	
 	
@@ -53,11 +64,25 @@ class Zotero_Results {
 	
 	
 	public function generateReport() {
-		$report = array(
-			'success' => new stdClass(),
-			'unchanged' => new stdClass(),
-			'failed' => new stdClass()
-		);
+		if ($this->requestParams['v'] >= 3) {
+			$report = [
+				'successful' => new stdClass(),
+				'success' => new stdClass(),
+				'unchanged' => new stdClass(),
+				'failed' => new stdClass()
+			];
+		}
+		else {
+			$report = [
+				'success' => new stdClass(),
+				'unchanged' => new stdClass(),
+				'failed' => new stdClass()
+			];
+		}
+		foreach ($this->successful as $index => $key) {
+			$report['successful']->$index = $key;
+		}
+		// Deprecated
 		foreach ($this->success as $index => $key) {
 			$report['success']->$index = $key;
 		}

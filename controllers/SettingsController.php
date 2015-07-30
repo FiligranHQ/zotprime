@@ -127,9 +127,10 @@ class SettingsController extends ApiController {
 				$obj = $this->jsonDecode($this->body);
 				$changed = Zotero_Settings::updateMultipleFromJSON(
 					$obj,
-					$this->objectLibraryID,
 					$this->queryParams,
+					$this->objectLibraryID,
 					$this->userID,
+					$this->permissions,
 					$libraryTimestampChecked ? 0 : 1,
 					null
 				);
