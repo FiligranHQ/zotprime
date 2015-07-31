@@ -65,38 +65,38 @@ class Zotero_Collection extends Zotero_DataObject {
 	
 	
 	public function save($userID=false) {
-		if (!$this->libraryID) {
+		if (!$this->_libraryID) {
 			trigger_error("Library ID must be set before saving", E_USER_ERROR);
 		}
 		
 		Zotero_Collections::editCheck($this, $userID);
 		
 		if (!$this->hasChanged()) {
-			Z_Core::debug("Collection $this->id has not changed");
+			Z_Core::debug("Collection $this->_id has not changed");
 			return false;
 		}
 		
 		$env = [];
-		$isNew = $env['isNew'] = !$this->id;
+		$isNew = $env['isNew'] = !$this->_id;
 		
 		Zotero_DB::beginTransaction();
 		
 		try {
-			$collectionID = $env['id'] = $this->_id = $this->id ? $this->id : Zotero_ID::get('collections');
+			$collectionID = $env['id'] = $this->_id = $this->_id ? $this->_id : Zotero_ID::get('collections');
 			
-			Z_Core::debug("Saving collection $this->id");
+			Z_Core::debug("Saving collection $this->_id");
 			
-			$key = $env['key'] = $this->_key = $this->key ? $this->key : Zotero_ID::getKey();
+			$key = $env['key'] = $this->_key = $this->_key ? $this->_key : Zotero_ID::getKey();
 			
 			$timestamp = Zotero_DB::getTransactionTimestamp();
-			$dateAdded = $this->dateAdded ? $this->dateAdded : $timestamp;
-			$dateModified = $this->dateModified ? $this->dateModified : $timestamp;
-			$version = Zotero_Libraries::getUpdatedVersion($this->libraryID);
+			$dateAdded = $this->_dateAdded ? $this->_dateAdded : $timestamp;
+			$dateModified = $this->_dateModified ? $this->_dateModified : $timestamp;
+			$version = Zotero_Libraries::getUpdatedVersion($this->_libraryID);
 			
 			// Verify parent
 			if ($this->_parentKey) {
 				$newParentCollection = Zotero_Collections::getByLibraryAndKey(
-					$this->libraryID, $this->_parentKey
+					$this->_libraryID, $this->_parentKey
 				);
 				
 				if (!$newParentCollection) {
@@ -106,7 +106,7 @@ class Zotero_Collection extends Zotero_DataObject {
 				
 				if (!$isNew) {
 					if ($newParentCollection->id == $collectionID) {
-						trigger_error("Cannot move collection $this->id into itself!", E_USER_ERROR);
+						trigger_error("Cannot move collection $this->_id into itself!", E_USER_ERROR);
 					}
 					
 					// If the designated parent collection is already within this
@@ -126,9 +126,9 @@ class Zotero_Collection extends Zotero_DataObject {
 			$fields = "collectionName=?, parentCollectionID=?, libraryID=?, `key`=?,
 						dateAdded=?, dateModified=?, serverDateModified=?, version=?";
 			$params = array(
-				$this->name,
+				$this->_name,
 				$parent,
-				$this->libraryID,
+				$this->_libraryID,
 				$key,
 				$dateAdded,
 				$dateModified,
@@ -137,7 +137,7 @@ class Zotero_Collection extends Zotero_DataObject {
 			);
 			
 			$params = array_merge(array($collectionID), $params, $params);
-			$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+			$shardID = Zotero_Shards::getByLibraryID($this->_libraryID);
 			
 			$sql = "INSERT INTO collections SET collectionID=?, $fields
 					ON DUPLICATE KEY UPDATE $fields";
@@ -145,7 +145,7 @@ class Zotero_Collection extends Zotero_DataObject {
 			
 			// Remove from delete log if it's there
 			$sql = "DELETE FROM syncDeleteLogKeys WHERE libraryID=? AND objectType='collection' AND `key`=?";
-			Zotero_DB::query($sql, array($this->libraryID, $key), $shardID);
+			Zotero_DB::query($sql, array($this->_libraryID, $key), $shardID);
 			
 			Zotero_DB::commit();
 			

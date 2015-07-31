@@ -56,14 +56,14 @@ class Zotero_Search extends Zotero_DataObject {
 	 * For new searches, setName() must be called before saving
 	 */
 	public function save($userID=false) {
-		if (!$this->libraryID) {
+		if (!$this->_libraryID) {
 			throw new Exception("Library ID must be set before saving");
 		}
 		
 		Zotero_Searches::editCheck($this, $userID);
 		
 		if (!$this->hasChanged()) {
-			Z_Core::debug("Search $this->id has not changed");
+			Z_Core::debug("Search $this->_id has not changed");
 			return false;
 		}
 		
@@ -71,7 +71,7 @@ class Zotero_Search extends Zotero_DataObject {
 			throw new Exception("Name not provided for saved search");
 		}
 		
-		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		$shardID = Zotero_Shards::getByLibraryID($this->_libraryID);
 		
 		Zotero_DB::beginTransaction();
 		
@@ -139,7 +139,7 @@ class Zotero_Search extends Zotero_DataObject {
 					catch (Exception $e) {
 						$msg = $e->getMessage();
 						if (strpos($msg, "Data too long for column 'value'") !== false) {
-							throw new Exception("=Value '" . mb_substr($condition['value'], 0, 75) . "…' too long in saved search '" . $this->name . "'");
+							throw new Exception("=Value '" . mb_substr($condition['value'], 0, 75) . "…' too long in saved search '" . $this->_name . "'");
 						}
 						throw ($e);
 					}
