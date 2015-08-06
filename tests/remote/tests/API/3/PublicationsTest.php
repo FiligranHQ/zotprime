@@ -97,6 +97,15 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function testNonExistentLibraryDeleted() {
+		$response = API::get("users/" . self::$config['userID'] . "/publications/deleted?since=0");
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertArrayHasKey('items', $json);
+		$this->assertLastModifiedVersion(0, $response);
+	}
+	
+	
 	public function testNonExistentLibraryTags() {
 		$response = API::get("users/" . self::$config['userID'] . "/publications/tags");
 		$this->assert200($response);

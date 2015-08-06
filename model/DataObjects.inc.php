@@ -538,6 +538,11 @@ trait Zotero_DataObjects {
 	
 	
 	public static function getDeleteLogKeys($libraryID, $version, $versionIsTimestamp=false) {
+		// Default empty library
+		if ($libraryID === 0) {
+			return [];
+		}
+		
 		$type = self::$objectType;
 		
 		// TEMP: until classic syncing is deprecated and the objectType
