@@ -152,12 +152,6 @@ if (file_exists(Z_ENV_BASE_PATH . 'include/config/custom.inc.php')) {
 // Composer autoloads
 require Z_ENV_BASE_PATH . 'vendor/autoload.php';
 
-require('HTMLPurifier/HTMLPurifier.standalone.php');
-$c = HTMLPurifier_Config::createDefault();
-$c->set('HTML.Doctype', 'XHTML 1.0 Strict');
-$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
-$HTMLPurifier = new HTMLPurifier($c);
-
 // Check if on testing port and set testing mode params if so
 if (Z_CONFIG::$TESTING_SITE) {
 	define('Z_ENV_TESTING_SITE', true);

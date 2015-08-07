@@ -83,7 +83,7 @@ class Zotero_Notes {
 	
 	
 	public static function sanitize($text) {
-		return $GLOBALS['HTMLPurifier']->purify($text);
+		return Z_Core::htmlPurify($text);
 	}
 	
 	

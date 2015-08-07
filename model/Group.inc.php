@@ -1118,7 +1118,7 @@ class Zotero_Group {
 		// Strip HTML from note titles
 		if ($item->isNote()) {
 			// Clean and strip HTML, giving us an HTML-encoded plaintext string
-			$title = strip_tags($GLOBALS['HTMLPurifier']->purify($title));
+			$title = strip_tags(Zotero_Notes::sanitize($title));
 			// Unencode plaintext string
 			$title = html_entity_decode($title);
 		}
