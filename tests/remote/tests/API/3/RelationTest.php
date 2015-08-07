@@ -67,6 +67,28 @@ class RelationTests extends APITests {
 	}
 	
 	
+	public function testPublicationsLibraryRelations() {
+		$relations = [
+			"owl:sameAs" => "http://zotero.org/users/1/publications/items/AAAAAAAA"
+		];
+		
+		$json = API::createItem("book", array(
+			"relations" => $relations
+		), $this, 'jsonData');
+		$this->assertCount(sizeOf($relations), $json['relations']);
+		foreach ($relations as $predicate => $object) {
+			if (is_string($object)) {
+				$this->assertEquals($object, $json['relations'][$predicate]);
+			}
+			else {
+				foreach ($object as $rel) {
+					$this->assertContains($rel, $json['relations'][$predicate]);
+				}
+			}
+		}
+	}
+	
+	
 	public function testRelatedItemRelations() {
 		$relations = [
 			"owl:sameAs" => "http://zotero.org/groups/1/items/AAAAAAAA",

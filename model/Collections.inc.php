@@ -492,7 +492,7 @@ class Zotero_Collections {
 							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
 						}
 						
-						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/collections\/[A-Z0-9]{8}$/', $object)) {
+						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/(publications\/)?collections\/[A-Z0-9]{8}$/', $object)) {
 							throw new Exception("'$key' values currently must be Zotero collection URIs", Z_ERROR_INVALID_INPUT);
 						}
 					}

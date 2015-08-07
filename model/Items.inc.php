@@ -2121,7 +2121,7 @@ class Zotero_Items {
 						
 						$arr = is_string($object) ? [$object] : $object;
 						foreach ($arr as $uri) {
-							if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/items\/[A-Z0-9]{8}$/', $uri)) {
+							if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/(publications\/)?items\/[A-Z0-9]{8}$/', $uri)) {
 								throw new Exception("'$key' values currently must be Zotero item URIs", Z_ERROR_INVALID_INPUT);
 							}
 						}
