@@ -318,7 +318,7 @@ class ApiController extends Controller {
 		// objectLibraryID of user's publications library
 		if (!empty($extra['publications'])) {
 			// Query parameters not yet parsed, so check version parameter
-			if ($apiVersion < 3
+			if (($apiVersion && $apiVersion < 3)
 					|| (!empty($_REQUEST['v']) && $_REQUEST['v'] < 3)
 					|| (!empty($_REQUEST['version']) && $_REQUEST['version'] == 1)) {
 				$this->e404();
