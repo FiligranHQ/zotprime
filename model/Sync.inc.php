@@ -865,7 +865,7 @@ class Zotero_Sync {
 			throw new Exception('$lastsync not provided');
 		}
 		
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		
 		$s3Key = $apiVersion . "/" . md5(
 			Zotero_Users::getUpdateKey($userID)
@@ -878,14 +878,21 @@ class Zotero_Sync {
 		
 		// Check S3 for file
 		try {
-			$result = $s3Client->getObject([
-				'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
-				'Key' => $s3Key
-			]);
-			$xmldata = (string) $result['Body'];
-		}
-		catch (Aws\S3\Exception\NoSuchKeyException $e) {
-			$xmldata = false;
+			try {
+				$result = $s3Client->getObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+					'Key' => $s3Key
+				]);
+				$xmldata = (string) $result['Body'];
+			}
+			catch (Aws\S3\Exception\S3Exception $e) {
+				if ($e->getAwsErrorCode() == 'NoSuchKey') {
+					$xmldata = false;
+				}
+				else {
+					throw $e;
+				}
+			}
 		}
 		catch (Exception $e) {
 			Z_Core::logError("Warning: '" . $e . "' getting cached download from S3");
@@ -915,7 +922,7 @@ class Zotero_Sync {
 	
 	
 	public static function cacheDownload($userID, $updateKey, $lastsync, $apiVersion, $xmldata, $cacheKeyExtra="") {
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		
 		$s3Key = $apiVersion . "/" . md5(
 			$updateKey . "_" . $lastsync

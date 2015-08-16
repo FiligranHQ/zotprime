@@ -53,7 +53,7 @@ class FileTests extends APITests {
 	public static function tearDownAfterClass() {
 		parent::tearDownAfterClass();
 		
-		$s3Client = Z_Tests::$AWS->get('s3');
+		$s3Client = Z_Tests::$AWS->createS3();
 		
 		foreach (self::$toDelete as $file) {
 			try {
@@ -62,8 +62,13 @@ class FileTests extends APITests {
 					'Key' => $file
 				]);
 			}
-			catch (Aws\S3\Exception\NoSuchKeyException $e) {
-				echo "\n$file not found on S3 to delete\n";
+			catch (\Aws\S3\Exception\S3Exception $e) {
+				if ($e->getAwsErrorCode() == 'NoSuchKey') {
+					echo "\n$file not found on S3 to delete\n";
+				}
+				else {
+					throw $e;
+				}
 			}
 		}
 	}
@@ -75,9 +80,11 @@ class FileTests extends APITests {
 	
 	
 	/**
+	 * Test errors getting file upload authorization via form data
+	 *
 	 * @depends testNewEmptyImportedFileAttachmentItem
 	 */
-	public function testAddFileAuthorizationErrors($parentKey) {
+	public function testAddFileFormDataAuthorizationErrors($parentKey) {
 		$fileContents = self::getRandomUnicodeString();
 		$hash = md5($fileContents);
 		$mtime = time() * 1000;
@@ -162,7 +169,7 @@ class FileTests extends APITests {
 	}
 	
 	
-	public function testAddFileFull() {
+	public function testAddFileFormDataFull() {
 		$parentKey = API::createItem("book", false, $this, 'key');
 		
 		$json = API::createAttachmentItem("imported_file", [], $parentKey, $this, 'json');
@@ -203,13 +210,26 @@ class FileTests extends APITests {
 		
 		self::$toDelete[] = "$hash";
 		
+		// Upload wrong contents to S3
+		$response = HTTP::post(
+			$json->url,
+			$json->prefix . $fileContents . "INVALID" . $json->suffix,
+			[
+				"Content-Type: " . $json->contentType
+			]
+		);
+		$this->assert400($response);
+		$this->assertContains(
+			"The Content-MD5 you specified did not match what we received.", $response->getBody()
+		);
+		
 		// Upload to S3
 		$response = HTTP::post(
 			$json->url,
 			$json->prefix . $fileContents . $json->suffix,
-			array(
+			[
 				"Content-Type: " . $json->contentType
-			)
+			]
 		);
 		$this->assert201($response);
 		
@@ -272,7 +292,7 @@ class FileTests extends APITests {
 	}
 	
 	
-	public function testAddFileFullParams() {
+	public function testAddFileFormDataFullParams() {
 		$json = API::createAttachmentItem("imported_file", [], false, $this, 'jsonData');
 		$attachmentKey = $json['key'];
 		
@@ -384,7 +404,7 @@ class FileTests extends APITests {
 	
 	
 	/**
-	 * @depends testAddFileFull
+	 * @depends testAddFileFormDataFull
 	 */
 	public function testAddFileExisting($addFileData) {
 		$key = $addFileData['key'];
@@ -665,7 +685,7 @@ class FileTests extends APITests {
 		// Upload to old-style location
 		self::$toDelete[] = "$hash/$filename";
 		self::$toDelete[] = "$hash";
-		$s3Client = Z_Tests::$AWS->get('s3');
+		$s3Client = Z_Tests::$AWS->createS3();
 		$s3Client->putObject([
 			'Bucket' => self::$config['s3Bucket'],
 			'Key' => $hash . '/' . $filename,
@@ -691,7 +711,11 @@ class FileTests extends APITests {
 		);
 		$this->assert302($response);
 		$location = $response->getHeader("Location");
-		$this->assertEquals(1, preg_match('"^https://[^/]+/([a-f0-9]{32})/' . $filename . '\?"', $location, $matches));
+		
+		$this->assertEquals(1, preg_match('"^https://'
+			// bucket.s3.amazonaws.com or s3.amazonaws.com/bucket
+			. '(?:[^/]+|.+' . self::$config['s3Bucket'] . ')'
+			. '/([a-f0-9]{32})/' . $filename . '\?"', $location, $matches));
 		$this->assertEquals($hash, $matches[1]);
 		
 		// Get upload authorization for the same file and filename on another item, which should
@@ -727,7 +751,10 @@ class FileTests extends APITests {
 		);
 		$this->assert302($response);
 		$location = $response->getHeader("Location");
-		$this->assertEquals(1, preg_match('"^https://[^/]+/([a-f0-9]{32})/' . $filename . '\?"', $location, $matches));
+		$this->assertEquals(1, preg_match('"^https://'
+			// bucket.s3.amazonaws.com or s3.amazonaws.com/bucket
+			. '(?:[^/]+|.+' . self::$config['s3Bucket'] . ')'
+			. '/([a-f0-9]{32})/' . $filename . '\?"', $location, $matches));
 		$this->assertEquals($hash, $matches[1]);
 		
 		// Get from S3
@@ -770,7 +797,10 @@ class FileTests extends APITests {
 		);
 		$this->assert302($response);
 		$location = $response->getHeader("Location");
-		$this->assertEquals(1, preg_match('"^https://[^/]+/([a-f0-9]{32})\?"', $location, $matches));
+		$this->assertEquals(1, preg_match('"^https://'
+			// bucket.s3.amazonaws.com or s3.amazonaws.com/bucket
+			. '(?:[^/]+|.+' . self::$config['s3Bucket'] . ')'
+			. '/([a-f0-9]{32})\?"', $location, $matches));
 		$this->assertEquals($hash, $matches[1]);
 		
 		// Get from S3

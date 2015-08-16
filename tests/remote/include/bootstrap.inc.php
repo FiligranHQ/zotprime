@@ -13,20 +13,17 @@ class Z_Tests {
 // Set up AWS service factory
 //
 $awsConfig = [
-	'region' => $config['awsRegion']
+	'region' => $config['awsRegion'],
+	'version' => 'latest'
 ];
-// IAM role authentication
-if (empty($config['awsAccessKey'])) {
-	$awsConfig['credentials.cache'] = new Guzzle\Cache\DoctrineCacheAdapter(
-		new Doctrine\Common\Cache\FilesystemCache('work/cache')
-	);
+//  Access key and secret (otherwise uses IAM role authentication)
+if (!empty($config['awsAccessKey'])) {
+	$awsConfig['credentials'] = [
+		'key' => $config['awsAccessKey'],
+		'secret' => $config['awsSecretKey']
+	];
 }
-// Access key and secret
-else {
-	$awsConfig['key'] = $config['awsAccessKey'];
-	$awsConfig['secret'] = $config['awsSecretKey'];
-}
-Z_Tests::$AWS = \Aws\Common\Aws::factory($awsConfig);
+Z_Tests::$AWS = new Aws\Sdk($awsConfig);
 unset($awsConfig);
 
 // Wipe data and create API key

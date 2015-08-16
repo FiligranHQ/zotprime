@@ -32,7 +32,7 @@ class Zotero_NotifierObserver {
 		
 		// Send notifications to SNS by default
 		self::$messageReceivers[] = function ($topic, $message) {
-			$sns = Z_Core::$AWS->get('Sns');
+			$sns = Z_Core::$AWS->createSns();
 			$sns->publish([
 				'TopicArn' => $topic,
 				'Message' => $message

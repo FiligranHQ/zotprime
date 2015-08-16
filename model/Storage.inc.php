@@ -28,6 +28,7 @@ class Zotero_Storage {
 	public static $defaultQuota = 300;
 	public static $uploadQueueLimit = 10;
 	public static $uploadQueueTimeout = 300;
+	private static $s3PresignedRequestTTL = 3600;
 	
 	public static function getDownloadDetails($item) {
 		// TODO: get attachment link mode value from somewhere
@@ -74,7 +75,7 @@ class Zotero_Storage {
 			$contentType .= "; charset=$charset";
 		}
 		
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		try {
 			$key = $info['hash'];
 			$s3Client->headObject([
@@ -82,25 +83,37 @@ class Zotero_Storage {
 				'Key' => $info['hash']
 			]);
 		}
-		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			// Try legacy key format, with zip flag and filename
-			try {
-				$key = self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'];
-				$s3Client->headObject([
-					'Bucket' => Z_CONFIG::$S3_BUCKET,
-					'Key' => $key
-				]);
+		catch (\Aws\S3\Exception\S3Exception $e) {
+			// Supposed to be NoSuchKey according to
+			// http://docs.aws.amazon.com/aws-sdk-php/v3/api/api-s3-2006-03-01.html#headobject,
+			// but returning NotFound
+			if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+				// Try legacy key format, with zip flag and filename
+				try {
+					$key = self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'];
+					$s3Client->headObject([
+						'Bucket' => Z_CONFIG::$S3_BUCKET,
+						'Key' => $key
+					]);
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
+					if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+						return false;
+					}
+					throw $e;
+				}
 			}
-			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-				return false;
+			else {
+				throw $e;
 			}
 		}
 		
-		return $s3Client->getCommand('GetObject', array(
+		$cmd = $s3Client->getCommand('GetObject', [
 			'Bucket' => Z_CONFIG::$S3_BUCKET,
 			'Key' => $key,
 			'ResponseContentType' => $contentType
-		))->createPresignedUrl("+$ttl seconds");
+		]);
+		return (string) $s3Client->createPresignedRequest($cmd, "+$ttl seconds")->getUri();
 	}
 	
 	
@@ -113,7 +126,7 @@ class Zotero_Storage {
 			throw new Exception("'$savePath' is not a directory");
 		}
 		
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		try {
 			return $s3Client->getObject([
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
@@ -121,18 +134,26 @@ class Zotero_Storage {
 				'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
 			]);
 		}
-		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			// Try legacy key format, with zip flag and filename
-			try {
-				return $s3Client->getObject([
-					'Bucket' => Z_CONFIG::$S3_BUCKET,
-					'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
-						. $localFileItemInfo['filename'],
-					'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
-				]);
+		catch (\Aws\S3\Exception\S3Exception $e) {
+			if ($e->getAwsErrorCode() == 'NoSuchKey') {
+				// Try legacy key format, with zip flag and filename
+				try {
+					return $s3Client->getObject([
+						'Bucket' => Z_CONFIG::$S3_BUCKET,
+						'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
+							. $localFileItemInfo['filename'],
+						'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
+					]);
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
+					if ($e->getAwsErrorCode() == 'NoSuchKey') {
+						return false;
+					}
+					throw $e;
+				}
 			}
-			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-				return false;
+			else {
+				throw $e;
 			}
 		}
 	}
@@ -158,7 +179,7 @@ class Zotero_Storage {
 			throw new Exception("File '$file' does not exist");
 		}
 		
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		$s3Client->putObject([
 			'SourceFile' => $file,
 			'Bucket' => Z_CONFIG::$S3_BUCKET,
@@ -364,7 +385,7 @@ class Zotero_Storage {
 			throw new Exception("File $storageFileID not found");
 		}
 		
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		try {
 			$s3Client->headObject([
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
@@ -372,19 +393,29 @@ class Zotero_Storage {
 			]);
 		}
 		// If file doesn't already exist named with just hash, copy it over
-		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			try {
-				$s3Client->copyObject([
-					'Bucket' => Z_CONFIG::$S3_BUCKET,
-					'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
-						. urlencode(self::getPathPrefix($localInfo['hash'], $localInfo['zip'])
-							. $localInfo['filename']),
-					'Key' => $localInfo['hash'],
-					'ACL' => 'private'
-				]);
+		catch (\Aws\S3\Exception\S3Exception $e) {
+			if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+				try {
+					$s3Client->copyObject([
+						'Bucket' => Z_CONFIG::$S3_BUCKET,
+						'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
+							. urlencode(self::getPathPrefix($localInfo['hash'], $localInfo['zip'])
+								. $localInfo['filename']),
+						'Key' => $localInfo['hash'],
+						'ACL' => 'private'
+					]);
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
+					if ($e->getAwsErrorCode() == 'NoSuchKey') {
+						return false;
+					}
+					else {
+						throw $e;
+					}
+				}
 			}
-			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-				return false;
+			else {
+				throw $e;
 			}
 		}
 		
@@ -413,23 +444,31 @@ class Zotero_Storage {
 	}
 	
 	public static function getRemoteFileInfo(Zotero_StorageFileInfo $info) {
-		$s3Client = Z_Core::$AWS->get('s3');
+		$s3Client = Z_Core::$AWS->createS3();
 		try {
 			$result = $s3Client->headObject([
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
 				'Key' => $info->hash
 			]);
 		}
-		catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-			// Try legacy key format, with zip flag and filename
-			try {
-				$result = $s3Client->headObject([
-					'Bucket' => Z_CONFIG::$S3_BUCKET,
-					'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
-				]);
+		catch (\Aws\S3\Exception\S3Exception $e) {
+			if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+				// Try legacy key format, with zip flag and filename
+				try {
+					$result = $s3Client->headObject([
+						'Bucket' => Z_CONFIG::$S3_BUCKET,
+						'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
+					]);
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
+					if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+						return false;
+					}
+					throw $e;
+				}
 			}
-			catch (\Aws\S3\Exception\NoSuchKeyException $e) {
-				return false;
+			else {
+				throw $e;
 			}
 		}
 		
@@ -528,107 +567,6 @@ class Zotero_Storage {
 	}
 	
 	
-	/*
-	
-	These are unused, since they don't restrict file size
-	
-	public static function getUploadURL($item, $md5, $filename, $fileSize, $zip, $ttl=300) {
-		if (strlen($md5) != 32) {
-			throw new Exception("Invalid MD5 hash '$md5'");
-		}
-		
-		if (!$item->isAttachment()) {
-			throw new Exception("Item $item->id is not an attachment");
-		}
-		$linkMode = $item->attachmentLinkMode;
-		switch ($linkMode) {
-			// TODO: get these constants from somewhere
-			case 0:
-			case 1:
-				break;
-			
-			default:
-				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
-		}
-		
-		$contentMD5 = '';
-		for ($i = 0; $i < strlen($md5); $i += 2) {
-			$contentMD5 .= chr(hexdec(substr($md5, $i, 2)));
-		}
-		$contentMD5 = base64_encode($contentMD5);
-		
-		if ($zip) {
-			$contentType = "application/octet-stream";
-		}
-		else {
-			$contentType = $item->attachmentMIMEType;
-		}
-		
-		$expires = time() + $ttl;
-		
-		$path = self::getPathPrefix($md5, $zip);
-		$resource = "/" . Z_CONFIG::$S3_BUCKET . "/$path/$filename";
-		
-		$stringToSign = "PUT\n$contentMD5\n$contentType\n$expires\n$resource";
-		$signature = urlencode(self::getHash($stringToSign));
-		
-		return self::getUploadBaseURL() . substr($path, 1) . $filename
-			. "?Signature=$signature&Expires=$expires&AWSAccessKey=" . Z_CONFIG::$AWS_ACCESS_KEY;
-	}
-	
-	
-	public static function getUploadParameters($item, $md5, $filename, $fileSize, $zip) {
-		$method = "PUT";
-		
-		if (strlen($md5) != 32) {
-			throw new Exception("Invalid MD5 hash '$md5'");
-		}
-		
-		$contentMD5 = '';
-		for($i = 0; $i < strlen($md5); $i += 2)
-			$contentMD5 .= chr(hexdec(substr($md5, $i, 2)));
-		$contentMD5 = base64_encode($contentMD5);
-		
-		if (!$item->isAttachment()) {
-			throw new Exception("Item $item->id is not an attachment");
-		}
-		$linkMode = $item->attachmentLinkMode;
-		switch ($linkMode) {
-			// TODO: get these constants from somewhere
-			case 0:
-			case 1:
-				break;
-			
-			default:
-				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
-		}
-		
-		$path = self::getPathPrefix($md5, $zip);
-		
-		if ($zip) {
-			$contentType = "application/octet-stream";
-		}
-		else {
-			$contentType = $item->attachmentMIMEType;
-		}
-		
-		$contentType = $item->attachmentMIMEType;
-		$date = gmdate('D, d M Y H:i:s \G\M\T');
-		$resource = "/" . Z_CONFIG::$S3_BUCKET . "/$path/$filename";
-		
-		$stringToSign = "$method\n$contentMD5\n$contentType\n$date\n$resource";
-		
-		$params = array(
-			"Content-Type" => $contentType,
-			"Content-MD5" => $contentMD5,
-			"Date" => $date,
-			"Authorization" => "AWS " . Z_CONFIG::$AWS_ACCESS_KEY . ":" . self::getHash($stringToSign)
-		);
-		
-		return $params;
-	}*/
-	
-	
 	public static function getUploadPOSTData($item, Zotero_StorageFileInfo $info) {
 		$params = self::generateUploadPOSTParams($item, $info);
 		$boundary = "---------------------------" . md5(uniqid());
@@ -656,7 +594,7 @@ class Zotero_Storage {
 	
 	public static function generateUploadPOSTParams($item, Zotero_StorageFileInfo $info, $useItemContentType=false) {
 		if (strlen($info->hash) != 32) {
-			throw new Exception("Invalid MD5 hash '{$info->md5}'");
+			throw new Exception("Invalid MD5 hash '{$info->hash}'");
 		}
 		
 		if (!$item->isAttachment()) {
@@ -682,26 +620,105 @@ class Zotero_Storage {
 		}
 		$contentMD5 = base64_encode($contentMD5);
 		
-		$s3Client = Z_Core::$AWS->get('s3');
-		$credentials = $s3Client->getCredentials();
-		$config = [
-			'acl' => 'private',
-			'key' => $info->hash,
-			'ttd' => time() + $lifetime,
-			'success_action_status' => $successStatus,
-			'Content-MD5' => $contentMD5
+		// SDKv3 doesn't support Sig4 signing in PostObject yet
+		// https://github.com/aws/aws-sdk-php/issues/586
+		/*
+		$formInputs = [];
+		$s3Client = Z_Core::$AWS->createS3();
+		$credentials = $s3Client->getCredentials()->wait();
+		$accessKey = $credentials->getAccessKeyId();
+		$securityToken = $credentials->getSecurityToken();
+		error_log("ACCESS KEY IS $accessKey");
+		error_log("ACCESS KEY IS $securityToken");
+		$region = $s3Client->getRegion();
+		$date = gmdate('Ymd\THis\Z');
+		$shortDate = gmdate('Ymd');
+		$policy = [
+			'expiration' => gmdate('c', time() + 3600),
+			'conditions' => [
+				'acl' => 'private',
+				'bucket' => Z_CONFIG::$S3_BUCKET,
+				'success_action_status' => $successStatus,
+				'key' => $info->hash,
+				'Content-MD5' => $contentMD5,
+				'x-amz-algorithm' => 'AWS4-HMAC-SHA256',
+				'x-amz-date' => $date,
+				'x-amz-credential' => "$accessKey/$shortDate/$region/s3/aws4_request",
+				'x-amz-security-token' => $securityToken
+			]
+			
 		];
-		// Add security token from IAM role
-		if ($token = $credentials->getSecurityToken()) {
-            $config['x-amz-security-token'] = $token;
-        }
-        $postObject = new Aws\S3\Model\PostObject(
+        $postObject = new Aws\S3\PostObject(
 			$s3Client,
 			Z_CONFIG::$S3_BUCKET,
-			$config
+			$formInputs,
+			$policy
 		);
-		$postObject->prepareData();
 		return $postObject->getFormInputs();
+		*/
+		
+		$s3Client = Z_Core::$AWS->createS3();
+		$credentials = $s3Client->getCredentials()->wait();
+		$accessKey = $credentials->getAccessKeyId();
+		$secretKey = $credentials->getSecretKey();
+		$securityToken = $credentials->getSecurityToken();
+		$region = $s3Client->getRegion();
+		$algorithm = "AWS4-HMAC-SHA256";
+		$service = "s3";
+		$date = gmdate('Ymd\THis\Z');
+		$shortDate = gmdate('Ymd');
+		$requestType = "aws4_request";
+		$successStatus = '201';
+		
+		$scope = [
+			$accessKey,
+			$shortDate,
+			$region,
+			$service,
+			$requestType
+		];
+		$credentials = implode('/', $scope);
+		
+		$policy = [
+			'expiration' => gmdate(
+				'Y-m-d\TG:i:s\Z', strtotime('+' . self::$s3PresignedRequestTTL . ' seconds')
+			),
+			'conditions' => [
+				['bucket' => Z_CONFIG::$S3_BUCKET],
+				['key' => $info->hash],
+				['acl' => 'private'],
+				['Content-MD5' => $contentMD5],
+				['success_action_status' => $successStatus],
+				['x-amz-credential' => $credentials],
+				['x-amz-algorithm' => $algorithm],
+				['x-amz-date' => $date],
+				['x-amz-security-token' => $securityToken]
+			]
+        ];
+        $base64Policy = base64_encode(json_encode($policy));
+        
+        // Signing Keys
+        $dateKey = hash_hmac('sha256', $shortDate, 'AWS4' . $secretKey, true);
+        $dateRegionKey = hash_hmac('sha256', $region, $dateKey, true);
+        $dateRegionServiceKey = hash_hmac('sha256', $service, $dateRegionKey, true);
+        $signingKey = hash_hmac('sha256', $requestType, $dateRegionServiceKey, true);
+        
+        // Signature
+        $signature = hash_hmac('sha256', $base64Policy, $signingKey);
+        
+        return [
+			"key" => $info->hash,
+			"acl"  => 'private',
+			'Content-MD5' => $contentMD5,
+			"success_action_status"  => $successStatus,
+			"policy"  => $base64Policy,
+			"x-amz-algorithm"  => $algorithm,
+			"x-amz-credential"  => $credentials,
+			"x-amz-date"  => $date,
+			"x-amz-signature" => $signature,
+			// Necessary for IAM/STS
+			"x-amz-security-token" => $securityToken
+        ];
 	}
 	
 	

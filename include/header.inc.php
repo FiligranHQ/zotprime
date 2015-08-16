@@ -211,20 +211,24 @@ Zotero_DB::addCallback("reset", array(Z_Core::$MC, "reset"));
 // Set up AWS service factory
 //
 $awsConfig = [
-	'region' => !empty(Z_CONFIG::$AWS_REGION) ? Z_CONFIG::$AWS_REGION : 'us-east-1'
+	'region' => !empty(Z_CONFIG::$AWS_REGION) ? Z_CONFIG::$AWS_REGION : 'us-east-1',
+	'version' => 'latest',
+	'signature' => 'v4'
 ];
 // IAM role authentication
 if (empty(Z_CONFIG::$AWS_ACCESS_KEY)) {
-	$awsConfig['credentials.cache'] = new Guzzle\Cache\DoctrineCacheAdapter(
+	/*$awsConfig['credentials.cache'] = new Guzzle\Cache\DoctrineCacheAdapter(
 		new Doctrine\Common\Cache\FilesystemCache(Z_ENV_BASE_PATH . 'tmp/cache')
-	);
+	);*/
 }
 // Access key and secret
 else {
-	$awsConfig['key'] = Z_CONFIG::$AWS_ACCESS_KEY;
-	$awsConfig['secret'] = Z_CONFIG::$AWS_SECRET_KEY;
+	$awsConfig['credentials'] = [
+		'key' => Z_CONFIG::$AWS_ACCESS_KEY,
+		'secret' => Z_CONFIG::$AWS_SECRET_KEY
+	];
 }
-Z_Core::$AWS = \Aws\Common\Aws::factory($awsConfig);
+Z_Core::$AWS = new Aws\Sdk($awsConfig);
 unset($awsConfig);
 
 // Elastica
