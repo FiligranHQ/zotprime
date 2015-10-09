@@ -806,7 +806,7 @@ class SyncController extends Controller {
 			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "\n";
 			}
-			$str .= $e;
+			$str .= $msg;
 			switch ($e->getCode()) {
 				// Don't log uploaded data for some errors
 				case Z_ERROR_TAG_TOO_LONG:

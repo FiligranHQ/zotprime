@@ -272,7 +272,7 @@ class ApiController extends Controller {
 					}
 					catch (Exception $e) {
 						if ($e->getCode() == Z_ERROR_USER_NOT_FOUND) {
-							$this->e404();
+							$this->e404("User $this->objectUserID not found");
 						}
 						throw ($e);
 					}
@@ -1043,33 +1043,35 @@ class ApiController extends Controller {
 	
 	protected function jsonDecode($json) {
 		$obj = json_decode($json);
-		
 		Zotero_Utilities::cleanStringRecursive($obj);
-		
-		switch(json_last_error()) {
-			case JSON_ERROR_DEPTH:
-				$error = 'Maximum stack depth exceeded';
-				break;
-				
-			case JSON_ERROR_CTRL_CHAR:
-				$error = 'Unexpected control character found';
-				break;
-			case JSON_ERROR_SYNTAX:
-				$error = 'Syntax error, malformed JSON';
-				break;
+		$this->checkJSONError();
+        return $obj;
+    }
+	
+    
+    protected function checkJSONError() {
+    	switch (json_last_error()) {
+		case JSON_ERROR_DEPTH:
+			$error = 'Maximum stack depth exceeded';
+			break;
 			
-			case JSON_ERROR_NONE:
-			default:
-				$error = '';
+		case JSON_ERROR_CTRL_CHAR:
+			$error = 'Unexpected control character found';
+			break;
+		case JSON_ERROR_SYNTAX:
+			$error = 'Syntax error, malformed JSON';
+			break;
+		
+		case JSON_ERROR_NONE:
+		default:
+			$error = '';
         }
         
         if (!empty($error)) {
             throw new Exception("JSON Error: $error", Z_ERROR_INVALID_INPUT);
         }
-        
-        return $obj;
     }
-	
+    
 	
 	public function handleException(Exception $e) {
 		$error = Zotero_Errors::parseException($e);

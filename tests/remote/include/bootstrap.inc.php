@@ -39,6 +39,7 @@ $response = HTTP::post(
 );
 $json = json_decode($response->getBody());
 if (!$json) {
+	echo $response->getStatus() . "\n\n";
 	echo $response->getBody();
 	throw new Exception("Invalid test setup response");
 }
