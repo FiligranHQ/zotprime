@@ -647,11 +647,11 @@ class ItemsController extends ApiController {
 			$this->e400("Item is not an attachment");
 		}
 		
-		// File info for client sync
+		// File info for 4.0 client sync
 		//
-		// Use of HEAD method is deprecated after 2.0.8/2.1b1 due to
+		// Use of HEAD method was discontinued after 2.0.8/2.1b1 due to
 		// compatibility problems with proxies and security software
-		if ($this->method == 'HEAD' || ($this->method == 'GET' && $this->fileMode == 'info')) {
+		if ($this->method == 'GET' && $this->fileMode == 'info') {
 			$info = Zotero_Storage::getLocalFileItemInfo($item);
 			if (!$info) {
 				$this->e404();
@@ -666,18 +666,20 @@ class ItemsController extends ApiController {
 			header("X-Zotero-Modification-Time: " . $info['mtime']);
 			header("X-Zotero-Compressed: " . ($info['zip'] ? 'Yes' : 'No'));
 			header_remove("X-Powered-By");
+			$this->end();
 		}
 		
 		// File viewing/download
 		//
 		// TEMP: allow POST for snapshot viewing until using session auth
 		else if ($this->method == 'GET') {
+			$info = Zotero_Storage::getLocalFileItemInfo($item);
+			if (!$info) {
+				$this->e404();
+			}
+			
 			// File viewing
 			if ($this->fileView) {
-				$info = Zotero_Storage::getLocalFileItemInfo($item);
-				if (!$info) {
-					$this->e404();
-				}
 				$url = Zotero_Attachments::getTemporaryURL($item, !empty($_GET['int']));
 				if (!$url) {
 					$this->e500();
@@ -691,6 +693,14 @@ class ItemsController extends ApiController {
 			if (!$url) {
 				$this->e404();
 			}
+			
+			// Provide some headers to let 5.0 client skip download
+			header("Zotero-File-Modification-Time", $info['mtime']);
+			header("Zotero-File-MD5", $info['hash']);
+			header("Zotero-File-Size", $info['size']);
+			header("Zotero-File-Compressed", $info['zip'] ? 'Yes' : 'No');
+			
+			StatsD::increment("storage.download", 1);
 			Zotero_Storage::logDownload(
 				$item,
 				// TODO: support anonymous download if necessary
@@ -731,7 +741,6 @@ class ItemsController extends ApiController {
 					}
 					
 					if (!$item->attachmentStorageHash) {
-						$info = Zotero_Storage::getLocalFileItemInfo($item);
 						$this->e412("ETag set but file does not exist");
 					}
 					
@@ -760,20 +769,46 @@ class ItemsController extends ApiController {
 				if (empty($_REQUEST['md5'])) {
 					$this->e400('MD5 hash not provided');
 				}
-				$info->hash = $_REQUEST['md5'];
-				if (!preg_match('/[abcdefg0-9]{32}/', $info->hash)) {
+				if (!preg_match('/[abcdefg0-9]{32}/', $_REQUEST['md5'])) {
 					$this->e400('Invalid MD5 hash');
+				}
+				if (!isset($_REQUEST['filename']) || $_REQUEST['filename'] === "") {
+					$this->e400('Filename not provided');
+				}
+				
+				// Multi-file upload
+				//
+				// For ZIP files, the filename and hash of the ZIP file are different from those
+				// of the main file. We use the former for S3, and we store the latter in the
+				// upload log to set the attachment metadata with them on file registration.
+				if (!empty($_REQUEST['zipMD5'])) {
+					if (!preg_match('/[abcdefg0-9]{32}/', $_REQUEST['zipMD5'])) {
+						$this->e400('Invalid ZIP MD5 hash');
+					}
+					if (empty($_REQUEST['zipFilename'])) {
+						$this->e400('ZIP filename not provided');
+					}
+					$info->zip = true;
+					$info->hash = $_REQUEST['zipMD5'];
+					$info->filename = $_REQUEST['zipFilename'];
+					$info->itemFilename = $_REQUEST['filename'];
+					$info->itemHash = $_REQUEST['md5'];
+				}
+				else if (!empty($_REQUEST['zipFilename'])) {
+					$this->e400('ZIP MD5 hash not provided');
+				}
+				// Single-file upload
+				else {
+					$info->zip = !empty($_REQUEST['zip']);
+					
+					$info->filename = $_REQUEST['filename'];
+					$info->hash = $_REQUEST['md5'];
 				}
 				
 				if (empty($_REQUEST['mtime'])) {
 					$this->e400('File modification time not provided');
 				}
 				$info->mtime = $_REQUEST['mtime'];
-				
-				if (!isset($_REQUEST['filename']) || $_REQUEST['filename'] === "") {
-					$this->e400('File name not provided');
-				}
-				$info->filename = $_REQUEST['filename'];
 				
 				if (!isset($_REQUEST['filesize'])) {
 					$this->e400('File size not provided');
@@ -794,8 +829,6 @@ class ItemsController extends ApiController {
 				}
 				
 				$contentTypeHeader = $info->contentType . (($info->contentType && $info->charset) ? "; charset=" . $info->charset : "");
-				
-				$info->zip = !empty($_REQUEST['zip']);
 				
 				// Reject file if it would put account over quota
 				if ($group) {
@@ -954,7 +987,9 @@ class ItemsController extends ApiController {
 						$this->e400("Remote file not found");
 					}
 					if ($remoteInfo->size != $info->size) {
-						error_log("Uploaded file size does not match ({$remoteInfo->size} != {$info->size}) for file {$info->hash}/{$info->filename}");
+						error_log("Uploaded file size does not match "
+							. "({$remoteInfo->size} != {$info->size}) "
+							. "for file {$info->hash}/{$info->filename}");
 					}
 				}
 				
@@ -1037,9 +1072,12 @@ class ItemsController extends ApiController {
 				header("HTTP/1.1 204 No Content");
 				exit;
 			}
+			
+			throw new Exception("Invalid request", Z_ERROR_INVALID_INPUT);
 		}
 		exit;
 	}
+	
 	
 	
 	/**

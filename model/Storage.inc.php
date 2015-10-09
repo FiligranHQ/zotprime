@@ -202,9 +202,10 @@ class Zotero_Storage {
 			return false;
 		}
 		
-		$sql = "INSERT INTO storageUploadQueue
-				(uploadKey, userID, hash, filename, zip, size, mtime, contentType, charset)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+		$sql = "INSERT INTO storageUploadQueue "
+			. "(uploadKey, userID, hash, filename, zip, itemHash, itemFilename, "
+			. "size, mtime, contentType, charset) "
+			. "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		Zotero_DB::query(
 			$sql,
 			array(
@@ -213,6 +214,8 @@ class Zotero_Storage {
 				$info->hash,
 				$info->filename,
 				$info->zip ? 1 : 0,
+				!empty($info->itemHash) ? $info->itemHash : "",
+				!empty($info->itemFilename) ? $info->itemFilename : "",
 				$info->size,
 				$info->mtime,
 				$info->contentType,
@@ -541,11 +544,11 @@ class Zotero_Storage {
 			Zotero_Shards::getByLibraryID($item->libraryID)
 		);
 		
-		// TODO: allow main filename to be passed for ZIP files?
-		if (!$info->zip) {
-			$item->attachmentFilename = $info->filename;
+		// 4.0 client doesn't set filename for ZIP files
+		if (!$info->zip || !empty($info->itemFilename)) {
+			$item->attachmentFilename = !empty($info->itemFilename) ? $info->itemFilename : $info->filename;
 		}
-		$item->attachmentStorageHash = $info->hash;
+		$item->attachmentStorageHash = !empty($info->itemHash) ? $info->itemHash : $info->hash;
 		$item->attachmentStorageModTime = $info->mtime;
 		// contentType and charset may not have been included in the
 		// upload authorization, in which case we shouldn't overwrite

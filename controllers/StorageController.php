@@ -35,15 +35,7 @@ class StorageController extends ApiController {
 	//
 	
 	public function laststoragesync() {
-		if (!$this->httpAuth && !$this->permissions->isSuper()) {
-			$this->e403();
-		}
-		
 		$this->allowMethods(array('GET', 'POST'));
-		
-		if ($this->method == 'POST') {
-			//Zotero_Users::setLastStorageSync($this->userID);
-		}
 		
 		// Deprecated after 3.0, which used auth=1
 		if ($this->apiVersion < 2 || !empty($_GET['auth'])) {
@@ -62,10 +54,6 @@ class StorageController extends ApiController {
 	
 	
 	public function removestoragefiles() {
-		if (!$this->permissions->isSuper() && !$this->httpAuth) {
-			$this->e403();
-		}
-		
 		$this->allowMethods(array('POST'));
 		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID) WHERE libraryID=?";
 		Zotero_DB::query($sql, $this->objectLibraryID, Zotero_Shards::getByLibraryID($this->objectLibraryID));

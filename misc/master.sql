@@ -301,6 +301,8 @@ CREATE TABLE `storageUploadQueue` (
   `hash` char(32) NOT NULL,
   `filename` varchar(1024) NOT NULL,
   `zip` tinyint(1) unsigned NOT NULL,
+  `itemHash` varchar(32) NOT NULL,
+  `itemFilename` varchar(1024) NOT NULL,
   `size` int(10) unsigned NOT NULL,
   `mtime` bigint(13) unsigned NOT NULL,
   `contentType` varchar(75) DEFAULT NULL,

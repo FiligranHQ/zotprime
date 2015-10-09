@@ -7,4 +7,10 @@ class Zotero_StorageFileInfo {
 	public $contentType;
 	public $charset;
 	public $zip = false;
+	public $itemHash;
+	public $itemFilename;
+	
+	public function toJSON() {
+		return json_encode(get_object_vars($this));
+	}
 }
