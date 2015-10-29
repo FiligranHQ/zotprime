@@ -88,7 +88,17 @@ class GeneralTests extends APITests {
 		$apiKey = self::$config['apiKey'];
 		API::useAPIKey(false);
 		
-		// Header
+		// Zotero-API-Key header
+		$response = API::userGet(
+			self::$config['userID'],
+			"items",
+			[
+				"Zotero-API-Key: $apiKey"
+			]
+		);
+		$this->assertHTTPStatus(200, $response);
+		
+		// Authorization header
 		$response = API::userGet(
 			self::$config['userID'],
 			"items",
@@ -105,12 +115,12 @@ class GeneralTests extends APITests {
 		);
 		$this->assertHTTPStatus(200, $response);
 		
-		// Header and query parameter
+		// Zotero-API-Key header and query parameter
 		$response = API::userGet(
 			self::$config['userID'],
 			"items?key=$apiKey",
 			[
-				"Authorization: Bearer $apiKey"
+				"Zotero-API-Key: $apiKey"
 			]
 		);
 		$this->assertHTTPStatus(200, $response);
@@ -122,22 +132,33 @@ class GeneralTests extends APITests {
 		);
 		$this->assertHTTPStatus(403, $response);
 		
-		// Header and empty key (which is still an error)
+		// Zotero-API-Key header and empty key (which is still an error)
 		$response = API::userGet(
 			self::$config['userID'],
 			"items?key=",
 			[
-				"Authorization: Bearer $apiKey"
+				"Zotero-API-Key: $apiKey"
 			]
 		);
 		$this->assertHTTPStatus(400, $response);
 		
-		// Header and key mismatch
+		// Zotero-API-Key header and incorrect Authorization key (which is ignored)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items",
+			[
+				"Zotero-API-Key: $apiKey",
+				"Authorization: Bearer invalidkey"
+			]
+		);
+		$this->assertHTTPStatus(200, $response);
+		
+		// Zotero-API-Key header and key mismatch
 		$response = API::userGet(
 			self::$config['userID'],
 			"items?key=invalidkey",
 			[
-				"Authorization: Bearer $apiKey"
+				"Zotero-API-Key: $apiKey"
 			]
 		);
 		$this->assertHTTPStatus(400, $response);
@@ -145,7 +166,7 @@ class GeneralTests extends APITests {
 		// Invalid Bearer format
 		$response = API::userGet(
 			self::$config['userID'],
-			"items?key=$apiKey",
+			"items",
 			[
 				"Authorization: Bearer key=$apiKey"
 			]

@@ -173,37 +173,39 @@ class ApiController extends Controller {
 		}
 		
 		if (!isset($this->userID)) {
+			$key = false;
+			// Allow Zotero-API-Key header
+			if (!empty($_SERVER['HTTP_ZOTERO_API_KEY'])) {
+				$key = $_SERVER['HTTP_ZOTERO_API_KEY'];
+			}
+			// Allow ?key=<apikey>
+			if (isset($_GET['key'])) {
+				if (!$key) {
+					$key = $_GET['key'];
+				}
+				else if ($_GET['key'] !== $key) {
+					$this->e400("Zotero-API-Key header and 'key' parameter differ");
+				}
+			}
+			// If neither of the above passed, allow "Authorization: Bearer <apikey>"
+			//
 			// Apache/mod_php doesn't seem to make Authorization available for auth schemes
 			// other than Basic/Digest, so use an Apache-specific method to get the header
-			if (function_exists('apache_request_headers')) {
+			if (!$key && function_exists('apache_request_headers')) {
 				$headers = apache_request_headers();
 				if (isset($headers['Authorization'])) {
 					// Look for "Authorization: Bearer" from OAuth 2.0, and ignore everything else
 					if (preg_match('/^bearer/i', $headers['Authorization'], $matches)) {
-						$authorization = $headers['Authorization'];
+						if (preg_match('/^bearer +([a-z0-9]+)$/i', $headers['Authorization'], $matches)) {
+							$key = $matches[1];
+						}
+						else {
+							$this->e400("Invalid Authorization header format");
+						}
 					}
 				}
 			}
-			if (isset($authorization) || isset($_GET['key'])) {
-				$key = false;
-				// Allow "Authorization: Bearer <apikey>"
-				if (isset($authorization)) {
-					if (preg_match('/bearer +([a-z0-9]+)/i', $authorization, $matches)) {
-						$key = $matches[1];
-					}
-					else {
-						$this->e400("Invalid Authorization header format");
-					}
-				}
-				// Allow ?key=<apikey>
-				if (isset($_GET['key'])) {
-					if ($key === false) {
-						$key = $_GET['key'];
-					}
-					else if ($_GET['key'] !== $key) {
-						$this->e400("Authorization header and 'key' parameter differ");
-					}
-				}
+			if ($key) {
 				$keyObj = Zotero_Keys::authenticate($key);
 				if (!$keyObj) {
 					$this->e403('Invalid key');
