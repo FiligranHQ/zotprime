@@ -1370,6 +1370,7 @@ class FileTests extends APITests {
 			]
 		);
 		$this->assert204($response);
+		$newVersion = $response->getHeader("Last-Modified-Version");
 		
 		// Verify attachment item metadata
 		$response = API::userGet(
@@ -1429,6 +1430,9 @@ class FileTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertArrayHasKey("exists", $json);
+		$version = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan($newVersion, $version);
+		$newVersion = $version;
 		
 		// File exists with different filename
 		$response = API::userPost(
@@ -1450,6 +1454,8 @@ class FileTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertArrayHasKey("exists", $json);
+		$version = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan($newVersion, $version);
 		
 		// Get attachment via classic sync
 		$sessionID = Sync::login();
@@ -1584,6 +1590,8 @@ class FileTests extends APITests {
 			]
 		);
 		$this->assert204($response);
+		$newVersion = $response->getHeader('Last-Modified-Version');
+		$this->assertGreaterThan($originalVersion, $newVersion);
 		
 		// Verify attachment item metadata
 		$response = API::userGet(
@@ -1591,7 +1599,6 @@ class FileTests extends APITests {
 			"items/$key"
 		);
 		$json = API::getJSONFromResponse($response)['data'];
-		
 		$this->assertEquals($hash, $json['md5']);
 		$this->assertEquals($mtime, $json['mtime']);
 		$this->assertEquals($filename, $json['filename']);
@@ -1626,6 +1633,8 @@ class FileTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertArrayHasKey("exists", $json);
+		$version = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan($newVersion, $version);
 		
 		// Get attachment via classic sync
 		$sessionID = Sync::login();

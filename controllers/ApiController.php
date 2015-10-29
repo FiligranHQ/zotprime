@@ -58,6 +58,7 @@ class ApiController extends Controller {
 	protected $httpAuth = false;
 	protected $cookieAuth = false;
 	protected $libraryVersion;
+	protected $libraryVersionOnFailure = false;
 	protected $headers = [];
 	
 	private $startTime = false;
@@ -844,7 +845,9 @@ class ApiController extends Controller {
 		// On 4xx or 5xx errors, rollback all open transactions
 		// and don't send Last-Modified-Version
 		if ($matches[1] == "4" || $matches[1] == "5") {
-			$this->libraryVersion = null;
+			if (!$this->libraryVersionOnFailure) {
+				$this->libraryVersion = null;
+			}
 			Zotero_DB::rollback(true);
 		}
 		

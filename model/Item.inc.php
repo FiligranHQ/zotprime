@@ -3521,7 +3521,11 @@ class Zotero_Item extends Zotero_DataObject {
 	
 	
 	public function toJSON($asArray=false, $requestParams=array(), $includeEmpty=false, $unformattedFields=false) {
-		if ($this->id || $this->key) {
+		if ($this->_id || $this->_key) {
+			if ($this->_version) {
+				// TODO: Check memcache and return if present
+			}
+			
 			if (!$this->loaded['primaryData']) {
 				$this->loadPrimaryData();
 			}

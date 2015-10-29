@@ -695,10 +695,10 @@ class ItemsController extends ApiController {
 			}
 			
 			// Provide some headers to let 5.0 client skip download
-			header("Zotero-File-Modification-Time", $info['mtime']);
-			header("Zotero-File-MD5", $info['hash']);
-			header("Zotero-File-Size", $info['size']);
-			header("Zotero-File-Compressed", $info['zip'] ? 'Yes' : 'No');
+			header("Zotero-File-Modification-Time: {$info['mtime']}");
+			header("Zotero-File-MD5: {$info['hash']}");
+			header("Zotero-File-Size: {$info['size']}");
+			header("Zotero-File-Compressed: " . ($info['zip'] ? 'Yes' : 'No'));
 			
 			StatsD::increment("storage.download", 1);
 			Zotero_Storage::logDownload(
@@ -745,6 +745,8 @@ class ItemsController extends ApiController {
 					}
 					
 					if ($item->attachmentStorageHash != $matches[1]) {
+						$this->libraryVersion = $item->version;
+						$this->libraryVersionOnFailure = true;
 						$this->e412("ETag does not match current version of file");
 					}
 				}
@@ -753,7 +755,9 @@ class ItemsController extends ApiController {
 						$this->e400("Invalid value for If-None-Match header");
 					}
 					
-					if ($item->attachmentStorageHash) {
+					if (Zotero_Storage::getLocalFileItemInfo($item)) {
+						$this->libraryVersion = $item->version;
+						$this->libraryVersionOnFailure = true;
 						$this->e412("If-None-Match: * set but file exists");
 					}
 				}
@@ -900,9 +904,10 @@ class ItemsController extends ApiController {
 					}
 					else {
 						header('Content-Type: application/json');
+						$this->libraryVersion = $item->version;
 						echo json_encode(array('exists' => 1));
 					}
-					exit;
+					$this->end();
 				}
 				
 				Zotero_DB::commit();
@@ -1017,6 +1022,7 @@ class ItemsController extends ApiController {
 				Zotero_DB::commit();
 				
 				header("HTTP/1.1 204 No Content");
+				header("Last-Modified-Version: " . $item->version);
 				exit;
 			}
 			
