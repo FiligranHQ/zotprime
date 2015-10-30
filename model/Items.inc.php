@@ -2278,7 +2278,10 @@ class Zotero_Items {
 						case 'filename':
 						case 'md5':
 						case 'mtime':
-							if (strpos($json->linkMode, 'imported_') !== 0) {
+							$lm = isset($json->linkMode)
+								? $json->linkMode
+								: Zotero_Attachments::linkModeNumberToName($item->attachmentLinkMode);
+							if (strpos(strtolower($lm), 'imported_') !== 0) {
 								throw new Exception("'$key' is valid only for imported attachment items", Z_ERROR_INVALID_INPUT);
 							}
 							break;

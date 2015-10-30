@@ -592,6 +592,39 @@ class ItemTests extends APITests {
 		$itemVersion = $patch($this, self::$config, $itemKey, $itemVersion, $itemData, $newData);
 	}
 	
+	public function testPatchAttachment() {
+		$json = API::createAttachmentItem("imported_file", [], false, $this, 'jsonData');
+		$itemKey = $json['key'];
+		$itemVersion = $json['version'];
+		
+		$filename = "test.pdf";
+		$mtime = 1234567890000;
+		$md5 = "390d914fdac33e307e5b0e1f3dba9da2";
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey",
+			json_encode([
+				"filename" => $filename,
+				"mtime" => $mtime,
+				"md5" => $md5,
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $itemVersion"
+			]
+		);
+		$this->assert204($response);
+		$json = API::getItem($itemKey, $this, 'json')['data'];
+		
+		$this->assertEquals($filename, $json['filename']);
+		$this->assertEquals($mtime, $json['mtime']);
+		$this->assertEquals($md5, $json['md5']);
+		$headerVersion = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan($itemVersion, $headerVersion);
+		$this->assertEquals($json['version'], $headerVersion);
+	}
+	
 	public function testPatchNote() {
 		$text = "<p>Test</p>";
 		$newText = "<p>Test 2</p>";
