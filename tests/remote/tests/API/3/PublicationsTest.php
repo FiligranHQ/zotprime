@@ -259,6 +259,7 @@ class PublicationsTests extends APITests {
 		$this->assert400ForObject($response, $msg, 0);
 	}
 	
+	
 	public function testLinkedFileAttachment() {
 		$msg = "Linked-file attachments cannot be added to publications libraries";
 		
@@ -284,5 +285,34 @@ class PublicationsTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		$this->assert400ForObject($response, $msg, 0);
+	}
+	
+	
+	public function testPatchItems() {
+		// Create top-level item
+		API::useAPIKey(self::$config['apiKey']);
+		$json = API::getItemTemplate("book");
+		$response = API::userPost(
+			self::$config['userID'],
+			"publications/items",
+			json_encode([$json])
+		);
+		
+		$this->assert200($response);
+		$key = API::getJSONFromResponse($response)['successful'][0]['key'];
+		$version = $response->getHeader("Last-Modified-Version");
+		
+		$json = [
+			"key" => $key,
+			"version" => $version,
+			"title" => "Test"
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"publications/items",
+			json_encode([$json]),
+			["Content-Type: application/json"]
+		);
+		$this->assert200ForObject($response);
 	}
 }

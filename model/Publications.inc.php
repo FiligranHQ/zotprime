@@ -62,14 +62,17 @@ class Zotero_Publications {
 		}
 		
 		// No top-level attachments or notes
-		if (($json->itemType == 'note' || $json->itemType == 'attachment') && empty($json->parentItem)) {
-			throw new Exception("Top-level notes and attachments cannot be added to publications libraries",
-				Z_ERROR_INVALID_INPUT);
-		}
-		
-		if ($json->itemType == 'attachment' && $json->linkMode == 'linked_file') {
-			throw new Exception("Linked-file attachments cannot be added to publications libraries",
-				Z_ERROR_INVALID_INPUT);
+		if (!empty($json->itemType)) {
+			if (($json->itemType == 'note' || $json->itemType == 'attachment')
+					&& empty($json->parentItem)) {
+				throw new Exception("Top-level notes and attachments cannot be added to publications libraries",
+					Z_ERROR_INVALID_INPUT);
+			}
+			
+			if ($json->itemType == 'attachment' && $json->linkMode == 'linked_file') {
+				throw new Exception("Linked-file attachments cannot be added to publications libraries",
+					Z_ERROR_INVALID_INPUT);
+			}
 		}
 	}
 }
