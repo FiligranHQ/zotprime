@@ -134,6 +134,22 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function testNonExistentLastStorageSync() {
+		API::useAPIKey(self::$config['apiKey']);
+		$response = API::userGet(
+			self::$config['userID'],
+			"publications/laststoragesync"
+		);
+		$this->assert404($response);
+	}
+	
+	
+	public function testNonExistentLastStorageSyncNoAuth() {
+		$response = API::userGet(self::$config['userID'], "publications/laststoragesync");
+		$this->assert401($response);
+	}
+	
+	
 	public function testNoCollectionsSupport() {
 		$response = API::get("users/" . self::$config['userID'] . "/publications/collections");
 		$this->assert404($response);

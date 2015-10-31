@@ -37,6 +37,11 @@ class StorageController extends ApiController {
 	public function laststoragesync() {
 		$this->allowMethods(array('GET', 'POST'));
 		
+		// Uninitialized publications library
+		if (!$this->objectLibraryID) {
+			$this->e404();
+		}
+		
 		// Deprecated after 3.0, which used auth=1
 		if ($this->apiVersion < 2 || !empty($_GET['auth'])) {
 			$lastSync = Zotero_Users::getLastStorageSync($this->objectUserID);
