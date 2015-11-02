@@ -183,6 +183,7 @@ class ItemsController extends ApiController {
 				
 				default:
 					$export = Zotero_Translate::doExport(array($item), $this->queryParams['format']);
+					$this->queryParams['format'] = null;
 					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];
 					break;
@@ -428,6 +429,7 @@ class ItemsController extends ApiController {
 							}
 							// Multiple choices
 							if ($results instanceof stdClass) {
+								$this->queryParams['format'] = null;
 								header("Content-Type: application/json");
 								if ($this->queryParams['v'] >= 2) {
 									echo Zotero_Utilities::formatJSON([
@@ -625,6 +627,7 @@ class ItemsController extends ApiController {
 					break;
 				}
 				$export = Zotero_Translate::doExport($results['results'], $this->queryParams['format']);
+				$this->queryParams['format'] = null;
 				header("Content-Type: " . $export['mimeType']);
 				echo $export['body'];
 		}
@@ -899,10 +902,12 @@ class ItemsController extends ApiController {
 					Zotero_DB::commit();
 					
 					if ($this->httpAuth) {
+						$this->queryParams['format'] = null;
 						header('Content-Type: application/xml');
 						echo "<exists/>";
 					}
 					else {
+						$this->queryParams['format'] = null;
 						header('Content-Type: application/json');
 						$this->libraryVersion = $item->version;
 						echo json_encode(array('exists' => 1));
@@ -929,6 +934,7 @@ class ItemsController extends ApiController {
 				if ($this->httpAuth) {
 					$params = Zotero_Storage::generateUploadPOSTParams($item, $info, true);
 					
+					$this->queryParams['format'] = null;
 					header('Content-Type: application/xml');
 					$xml = new SimpleXMLElement('<upload/>');
 					$xml->url = Zotero_Storage::getUploadBaseURL();
@@ -955,6 +961,7 @@ class ItemsController extends ApiController {
 					
 					$params['uploadKey'] = $uploadKey;
 					
+					$this->queryParams['format'] = null;
 					header('Content-Type: application/json');
 					echo json_encode($params);
 				}

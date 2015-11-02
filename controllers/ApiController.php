@@ -917,7 +917,13 @@ class ApiController extends Controller {
 		switch ($this->responseCode) {
 			case 200:
 				// Output a Content-Type header for the given format
-				// Note that this overrides any Content-Type set elsewhere
+				//
+				// Note that this overrides any Content-Type set elsewhere. To force a content
+				// type elsewhere, clear $this->queryParams['format'] when calling header()
+				// manually.
+				//
+				// TODO: Check headers_list so that clearing the format parameter manually isn't
+				// necessary? Performance?
 				if (isset($this->queryParams['format'])) {
 					Zotero_API::outputContentType($this->queryParams['format']);
 				}
