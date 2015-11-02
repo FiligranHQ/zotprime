@@ -1946,7 +1946,7 @@ class Zotero_Item extends Zotero_DataObject {
 								$relatedItem = Zotero_URI::getURIItem($rel[1]);
 								if (!$relatedItem) {
 									Z_Core::debug("Related item " . $rel[1] . " does not exist "
-										. "for item " . $this->_libraryKey);
+										. "for item " . $this->libraryKey);
 									continue;
 								}
 								// If item has already changed, assume something else is taking
