@@ -217,9 +217,15 @@ $awsConfig = [
 ];
 // IAM role authentication
 if (empty(Z_CONFIG::$AWS_ACCESS_KEY)) {
-	/*$awsConfig['credentials.cache'] = new Guzzle\Cache\DoctrineCacheAdapter(
-		new Doctrine\Common\Cache\FilesystemCache(Z_ENV_BASE_PATH . 'tmp/cache')
-	);*/
+	// If APC cache is available, use that to cache temporary credentials
+	if (function_exists('apc_store')) {
+		$cache = new \Doctrine\Common\Cache\ApcCache();
+	}
+	// Otherwise use temp dir
+	else {
+		$cache = new \Doctrine\Common\Cache\FilesystemCache(Z_ENV_BASE_PATH . 'tmp/cache');
+	}
+	$awsConfig['credentials'] = new \Aws\DoctrineCacheAdapter($cache);
 }
 // Access key and secret
 else {
