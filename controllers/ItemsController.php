@@ -659,6 +659,7 @@ class ItemsController extends ApiController {
 			if (!$info) {
 				$this->e404();
 			}
+			StatsD::increment("storage.info", 1);
 			/*
 			header("Last-Modified: " . gmdate('r', $info['uploaded']));
 			header("Content-Type: " . $info['type']);
@@ -687,6 +688,7 @@ class ItemsController extends ApiController {
 				if (!$url) {
 					$this->e500();
 				}
+				StatsD::increment("storage.view", 1);
 				$this->redirect($url);
 				exit;
 			}
@@ -849,6 +851,7 @@ class ItemsController extends ApiController {
 				$total = $usage['total'];
 				$fileSizeMB = round($info->size / 1024 / 1024, 1);
 				if ($total + $fileSizeMB > $quota) {
+					StatsD::increment("storage.upload.quota", 1);
 					$this->e413("File would exceed quota ($total + $fileSizeMB > $quota)");
 				}
 				
@@ -901,6 +904,8 @@ class ItemsController extends ApiController {
 					Zotero_Storage::updateFileItemInfo($item, $storageFileID, $info, $this->httpAuth);
 					Zotero_DB::commit();
 					
+					StatsD::increment("storage.upload.existing", 1);
+					
 					if ($this->httpAuth) {
 						$this->queryParams['format'] = null;
 						header('Content-Type: application/xml');
@@ -929,6 +934,8 @@ class ItemsController extends ApiController {
 						$this->e429("Too many queued uploads");
 					}
 				}
+				
+				StatsD::increment("storage.upload.new", 1);
 				
 				// Output XML for client requests (which use HTTP Auth)
 				if ($this->httpAuth) {
