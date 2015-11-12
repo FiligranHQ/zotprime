@@ -119,7 +119,7 @@ class ItemsController extends ApiController {
 			}
 			else {
 				// Possibly temporary workaround to block unnecessary full syncs
-				if ($this->fileMode && $this->method == 'POST') {
+				if ($this->fileMode && $this->httpAuth && $this->method == 'POST') {
 					// If > 2 requests for missing file, trigger a full sync via 404
 					$cacheKey = "apiMissingFile_"
 						. $this->objectLibraryID . "_"
