@@ -795,7 +795,10 @@ class ApiController extends Controller {
 	
 	
 	protected function requireContentType($contentType) {
-		if (empty($_SERVER['CONTENT_TYPE']) || $_SERVER['CONTENT_TYPE'] != $contentType) {
+		if (empty($_SERVER['CONTENT_TYPE'])
+				|| ($_SERVER['CONTENT_TYPE'] != $contentType
+					// Workaround for Firefox bug before Fx44
+					&& $_SERVER['CONTENT_TYPE'] != $contentType . "; charset=UTF-8")) {
 			throw new Exception("Content-Type must be $contentType", Z_ERROR_INVALID_INPUT);
 		}
 	}
