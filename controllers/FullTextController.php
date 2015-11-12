@@ -35,12 +35,9 @@ class FullTextController extends ApiController {
 	public function fulltext() {
 		$this->allowMethods(array('GET'));
 		
-		if (!isset($this->queryParams['since'])) {
-			$this->e400("'since' not provided");
-		}
-		
 		$newer = Zotero_FullText::getNewerInLibrary(
-			$this->objectLibraryID, $this->queryParams['since']
+			$this->objectLibraryID,
+			!empty($this->queryParams['since']) ? $this->queryParams['since'] : 0
 		);
 		
 		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
