@@ -106,6 +106,15 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function testNonExistentLibraryFullText() {
+		$response = API::get("users/" . self::$config['userID'] . "/publications/fulltext");
+		$this->assert200($response);
+		$this->assertInternalType('object', json_decode($response->getBody()));
+		$this->assertEmpty(json_decode($response->getBody(), true));
+		$this->assertLastModifiedVersion(0, $response);
+	}
+	
+	
 	public function testNonExistentLibraryTags() {
 		$response = API::get("users/" . self::$config['userID'] . "/publications/tags");
 		$this->assert200($response);
