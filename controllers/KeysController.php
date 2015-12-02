@@ -33,14 +33,23 @@ class KeysController extends ApiController {
 		
 		$this->allowMethods(['GET', 'POST', 'PUT', 'DELETE']);
 		
+		if ($key) {
+			$keyObj = Zotero_Keys::getByKey($key);
+			if (!$keyObj) {
+				$this->e404("Key '$key' not found");
+			}
+			$isWebsite = $this->permissions->isSuper()
+				|| ($this->apiVersion >= 3 && $this->cookieAuth && $keyObj->userID == $this->userID);
+		}
+		else {
+			$keyObj = null;
+			$isWebsite = $this->permissions->isSuper()
+				|| ($this->apiVersion >= 3 && $this->cookieAuth && $userID == $this->userID);
+		}
+		
 		if ($this->method == 'GET') {
 			// Single key
 			if ($key) {
-				$keyObj = Zotero_Keys::getByKey($key);
-				if (!$keyObj) {
-					$this->e404("Key not found");
-				}
-				
 				// /users/<userID>/keys/<keyID> (deprecated)
 				if ($userID) {
 					// If we have a userID, make sure it matches
@@ -58,8 +67,8 @@ class KeysController extends ApiController {
 				if ($this->apiVersion >= 3) {
 					$json = $keyObj->toJSON();
 					
-					// If not super-user, don't include name or recent IP addresses
-					if (!$this->permissions->isSuper()) {
+					// If not super-user or website user, don't include name or recent IP addresses
+					if (!$isWebsite) {
 						unset($json['dateAdded']);
 						unset($json['lastUsed']);
 						unset($json['name']);
@@ -84,7 +93,7 @@ class KeysController extends ApiController {
 			
 			// All of the user's keys
 			else {
-				if (!$this->permissions->isSuper()) {
+				if (!$isWebsite) {
 					$this->e403();
 				}
 				
@@ -131,11 +140,6 @@ class KeysController extends ApiController {
 		}
 		
 		else {
-			// Require super-user for modifications
-			if (!$this->permissions->isSuper()) {
-				$this->e403();
-			}
-			
 			if ($this->method == 'POST') {
 				if ($key) {
 					$this->e400("POST requests cannot end with a key (did you mean PUT?)");
@@ -151,9 +155,22 @@ class KeysController extends ApiController {
 						$this->e400("POST requests cannot contain a key in '" . $this->body . "'");
 					}
 					
+					// If not website and not /users/:userID/keys, check for 'username'/'password'
+					// in JSON
+					if (!$isWebsite) {
+						if ($userID) {
+							$this->e403();
+						}
+						$userID = $this->authenticateKeyJSON($json);
+					}
+					
 					$fields = $this->getFieldsFromJSON($json);
 				}
 				else {
+					if (!$isWebsite) {
+						$this->e403();
+					}
+					
 					try {
 						$keyXML = @new SimpleXMLElement($this->body);
 					}
@@ -218,9 +235,22 @@ class KeysController extends ApiController {
 						$this->e400("$this->method data is not valid JSON");
 					}
 					
+					// If not website and not /users/:userID/keys/:key, check for
+					// 'username'/'password' in JSON
+					if (!$isWebsite) {
+						if ($userID) {
+							$this->e403();
+						}
+						$userID = $this->authenticateKeyJSON($json);
+					}
+					
 					$fields = $this->getFieldsFromJSON($json);
 				}
 				else {
+					if (!$isWebsite) {
+						$this->e403();
+					}
+					
 					try {
 						$keyXML = @new SimpleXMLElement($this->body);
 					}
@@ -287,6 +317,26 @@ class KeysController extends ApiController {
 			echo $doc->saveXML();
 			exit;
 		}
+	}
+	
+	
+	private function authenticateKeyJSON($json) {
+		if (empty($json['username']) || empty($json['password'])) {
+			$this->e403();
+		}
+		
+		// Authenticate username/password
+		$userID = Zotero_Users::authenticate(
+			'password',
+			[
+				'username' => $json['username'],
+				'password' => $json['password']
+			]
+		);
+		if (!$userID) {
+			$this->e403('Invalid username/password');
+		}
+		return $userID;
 	}
 	
 	

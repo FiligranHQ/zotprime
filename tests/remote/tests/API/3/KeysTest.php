@@ -61,6 +61,9 @@ class KeysTest extends APITests {
 		$json = API::getJSONFromResponse($response);
 		$this->assertTrue(is_array($json));
 		$this->assertTrue(sizeOf($json) > 0);
+		$this->assertArrayHasKey('dateAdded', $json[0]);
+		$this->assertArrayHasKey('lastUsed', $json[0]);
+		$this->assertArrayHasKey('recentIPs', $json[0]);
 	}
 	
 	
@@ -79,6 +82,10 @@ class KeysTest extends APITests {
 		$this->assertTrue($json['access']['user']['write']);
 		$this->assertTrue($json['access']['groups']['all']['library']);
 		$this->assertTrue($json['access']['groups']['all']['write']);
+		$this->assertArrayNotHasKey('name', $json);
+		$this->assertArrayNotHasKey('dateAdded', $json);
+		$this->assertArrayNotHasKey('lastUsed', $json);
+		$this->assertArrayNotHasKey('recentIPs', $json);
 	}
 	
 	
@@ -109,7 +116,7 @@ class KeysTest extends APITests {
 		
 		$name = "Test " . uniqid();
 		
-		// Can't create as user
+		// Can't create anonymously
 		$response = API::userPost(
 			self::$config['userID'],
 			'keys',
@@ -160,5 +167,97 @@ class KeysTest extends APITests {
 			"keys/$key"
 		);
 		$this->assert404($response);
+	}
+	
+	
+	// Private API
+	public function testKeyCreateAndModifyWithCredentials() {
+		API::useAPIKey("");
+		
+		$name = "Test " . uniqid();
+		
+		// Can't create on /users/:userID/keys with credentials
+		$response = API::userPost(
+			self::$config['userID'],
+			'keys',
+			json_encode([
+				'username' => self::$config['username'],
+				'password' => self::$config['password'],
+				'name' => $name,
+				'access' => [
+					'user' => [
+						'library' => true
+					]
+				]
+			])
+		);
+		$this->assert403($response);
+		
+		// Create with credentials
+		$response = API::post(
+			'keys',
+			json_encode([
+				'username' => self::$config['username'],
+				'password' => self::$config['password'],
+				'name' => $name,
+				'access' => [
+					'user' => [
+						'library' => true
+					]
+				]
+			]),
+			[],
+			[]
+		);
+		$this->assert201($response);
+		$json = API::getJSONFromResponse($response);
+		$key = $json['key'];
+		$this->assertEquals($json['userID'], self::$config['userID']);
+		$this->assertEquals($json['name'], $name);
+		$this->assertEquals(['user' => ['library' => true, 'files' => true]], $json['access']);
+		
+		$name = "Test " . uniqid();
+		
+		// Can't modify on /users/:userID/keys/:key with credentials
+		$response = API::userPut(
+			self::$config['userID'],
+			"keys/$key",
+			json_encode([
+				'username' => self::$config['username'],
+				'password' => self::$config['password'],
+				'name' => $name,
+				'access' => [
+					'user' => [
+						'library' => true
+					]
+				]
+			])
+		);
+		$this->assert403($response);
+		
+		// Modify with credentials
+		$response = API::put(
+			"keys/$key",
+			json_encode([
+				'username' => self::$config['username'],
+				'password' => self::$config['password'],
+				'name' => $name,
+				'access' => [
+					'user' => [
+						'library' => true
+					]
+				]
+			])
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$key = $json['key'];
+		$this->assertEquals($json['name'], $name);
+		
+		$response = API::userDelete(
+			self::$config['userID'],
+			"keys/$key"
+		);
+		$this->assert204($response);
 	}
 }
