@@ -3356,16 +3356,14 @@ class Zotero_Item extends Zotero_DataObject {
 				: "");
 		
 		$cached = Z_Core::$MC->get($cacheKey);
-		if (false && $cached) {
+		if ($cached) {
 			// Make sure numChildren reflects the current permissions
 			if ($isRegularItem) {
-				$json = json_decode($cached);
-				$json['numChildren'] = $numChildren;
-				$cached = json_encode($json);
+				$cached['meta']->numChildren = $numChildren;
 			}
 			
-			//StatsD::timing("api.items.itemToResponseJSON.cached", (microtime(true) - $t) * 1000);
-			//StatsD::increment("memcached.items.itemToResponseJSON.hit");
+			StatsD::timing("api.items.itemToResponseJSON.cached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.items.itemToResponseJSON.hit");
 			
 			// Skip the cache every 10 times for now, to ensure cache sanity
 			if (!Z_Core::probability(10)) {
@@ -3501,19 +3499,20 @@ class Zotero_Item extends Zotero_DataObject {
 
 		// TEMP
 		if ($cached) {
-			$uncached = Zotero_Utilities::formatJSON($json);
-			if ($cached != $uncached) {
+			$cachedStr = Zotero_Utilities::formatJSON($cached);
+			$uncachedStr = Zotero_Utilities::formatJSON($json);
+			if ($cachedStr != $uncachedStr) {
 				error_log("Cached JSON item entry does not match");
-				error_log("  Cached: " . $cached);
-				error_log("Uncached: " . $uncached);
+				error_log("  Cached: " . $cachedStr);
+				error_log("Uncached: " . $uncachedStr);
 				
 				//Z_Core::$MC->set($cacheKey, $uncached, 3600); // 1 hour for now
 			}
 		}
 		else {
-			/*Z_Core::$MC->set($cacheKey, $xmlstr, 3600); // 1 hour for now
-			StatsD::timing("api.items.itemToAtom.uncached", (microtime(true) - $t) * 1000);
-			StatsD::increment("memcached.items.itemToAtom.miss");*/
+			Z_Core::$MC->set($cacheKey, $json, 10);
+			StatsD::timing("api.items.itemToResponseJSON.uncached", (microtime(true) - $t) * 1000);
+			StatsD::increment("memcached.items.itemToResponseJSON.miss");
 		}
 		
 		return $json;
