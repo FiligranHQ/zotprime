@@ -391,7 +391,7 @@ class Zotero_Group {
 		Zotero_DB::beginTransaction();
 		
 		if (!$this->hasUser($userID)) {
-			throw new Exception("User $userID is not a member of group $groupID", Z_ERROR_USER_NOT_GROUP_MEMBER);
+			throw new Exception("User $userID is not a member of group $this->id", Z_ERROR_USER_NOT_GROUP_MEMBER);
 		}
 		
 		$role = $this->getUserRole($userID);
