@@ -893,9 +893,6 @@ class ItemsController extends ApiController {
 							$info->zip,
 							$contentTypeHeader
 						);
-						if (!$storageFileID) {
-							$this->e500("File duplication failed");
-						}
 					}
 				}
 				
