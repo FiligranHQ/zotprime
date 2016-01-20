@@ -107,7 +107,15 @@ class Zotero_Setting {
 			throw new Exception("Setting name not provided");
 		}
 		
-		Zotero_Settings::editCheck($this, $userID);
+		try {
+			Zotero_Settings::editCheck($this, $userID);
+		}
+		// TEMP: Ignore this for now, since there seems to be a client bug as of 4.0.17 that can
+		// cause settings from deleted libraries to remain
+		catch (Exception $e) {
+			error_log("WARNING: " . $e);
+			return false;
+		}
 		
 		if (!$this->changed) {
 			Z_Core::debug("Setting $this->libraryID/$this->name has not changed");
