@@ -420,7 +420,14 @@ class Zotero_DB {
 			self::error($e, $sql, $params, $shardID);
 		}
 		
-		return self::queryFromStatement($stmt);
+		try {
+			return self::queryFromStatement($stmt);
+		}
+		finally {
+			if (!$cacheStatement) {
+				$stmt->close();
+			}
+		}
 	}
 	
 	
@@ -497,12 +504,13 @@ class Zotero_DB {
 	}
 	
 	
-	public static function columnQuery($sql, $params=false, $shardID=0) {
+	public static function columnQuery($sql, $params=false, $shardID=0, array $options=[]) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		$isWriteQuery = self::isWriteQuery($sql);
+		$cacheStatement = empty($options['cache']);
 		
 		// TODO: Use instance->link->fetchCol once it supports type casting
 		
@@ -523,6 +531,11 @@ class Zotero_DB {
 		}
 		catch (Exception $e) {
 			self::error($e, $sql, $params, $shardID);
+		}
+		finally {
+			if (!$cacheStatement) {
+				$stmt->close();
+			}
 		}
 	}
 	
@@ -598,6 +611,11 @@ class Zotero_DB {
 		}
 		catch (Exception $e) {
 			self::error($e, $sql, $params, $shardID);
+		}
+		finally {
+			if (!$cacheStatement) {
+				$stmt->close();
+			}
 		}
 	}
 	
