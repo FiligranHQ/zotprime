@@ -325,6 +325,7 @@ class Zotero_Key {
 	 */
 	private function permissionsDiff($permissions1, $permissions2, $userID) {
 		$diff = [];
+		$userGroupLibraries = Zotero_Groups::getUserGroupLibraries($userID);
 		foreach ($permissions2 as $libraryID => $libraryPermissions) {
 			if (!$libraryPermissions['library']) {
 				continue;
@@ -336,7 +337,7 @@ class Zotero_Key {
 					$diff = array_merge(
 						$diff,
 						array_filter(
-							Zotero_Groups::getUserGroupLibraries($userID),
+							$userGroupLibraries,
 							function ($libraryID) use ($permissions1) {
 								return empty($permissions1[$libraryID]['library']);
 							}
