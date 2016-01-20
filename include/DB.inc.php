@@ -365,13 +365,14 @@ class Zotero_DB {
 	}
 	
 	
-	public static function query($sql, $params=false, $shardID=0) {
+	public static function query($sql, $params=false, $shardID=0, array $options=[]) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		
 		$isWriteQuery = self::isWriteQuery($sql);
+		$cacheStatement = empty($options['cache']);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
@@ -407,11 +408,11 @@ class Zotero_DB {
 					}
 				}
 				
-				$stmt = self::getStatement($sql, true, $shardID);
+				$stmt = self::getStatement($sql, $cacheStatement, $shardID);
 				$stmt->execute($params);
 			}
 			else {
-				$stmt = self::getStatement($sql, true, $shardID);
+				$stmt = self::getStatement($sql, $cacheStatement, $shardID);
 				$stmt->execute();
 			}
 		}
@@ -572,19 +573,20 @@ class Zotero_DB {
 	}
 	
 	
-	public static function rowQuery($sql, $params=false, $shardID=0) {
+	public static function rowQuery($sql, $params=false, $shardID=0, array $options=[]) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		$isWriteQuery = self::isWriteQuery($sql);
+		$cacheStatement = empty($options['cache']);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
 		}
 		
 		try {
-			$stmt = self::getStatement($sql, true, $shardID);
+			$stmt = self::getStatement($sql, $cacheStatement, $shardID);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -643,18 +645,19 @@ class Zotero_DB {
 	}
 	
 	
-	public static function valueQuery($sql, $params=false, $shardID=0) {
+	public static function valueQuery($sql, $params=false, $shardID=0, array $options=[]) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		$isWriteQuery = self::isWriteQuery($sql);
+		$cacheStatement = empty($options['cache']);
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
 		}
 		
-		$stmt = self::getStatement($sql, true, $shardID);
+		$stmt = self::getStatement($sql, $cacheStatement, $shardID);
 		
 		try {
 			if ($params) {

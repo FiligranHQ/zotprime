@@ -520,10 +520,10 @@ trait Zotero_DataObjects {
 			}
 			
 			if ($countOnly) {
-				$count += Zotero_DB::valueQuery($sql, $params, $shardID);
+				$count += Zotero_DB::valueQuery($sql, $params, $shardID, [ 'cache' => false ]);
 			}
 			else {
-				$rows = Zotero_DB::query($sql, $params, $shardID);
+				$rows = Zotero_DB::query($sql, $params, $shardID, [ 'cache' => false ]);
 				if ($rows) {
 					// Separate ids by libraryID
 					foreach ($rows as $row) {
@@ -714,7 +714,9 @@ trait Zotero_DataObjects {
 		}
 		
 		$t = microtime();
-		$rows = Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
+		$rows = Zotero_DB::query(
+			$sql, $params, Zotero_Shards::getByLibraryID($libraryID), [ 'cache' => false ]
+		);
 		foreach ($rows as $row) {
 			$id = $row['id'];
 			
