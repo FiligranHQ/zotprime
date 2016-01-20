@@ -1024,6 +1024,8 @@ class Zotero_DB {
 	
 	public static function close($shardID=0) {
 		$instance = self::getInstance();
+		// Remove prepared statements for this connection
+		unset($instance->preparedStatements[$shardID]);
 		$link = $instance->getShardLink($shardID);
 		$link->closeConnection();
 	}
