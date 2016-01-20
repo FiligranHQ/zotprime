@@ -60,15 +60,18 @@ class Zotero_AuthenticationPlugin_Password implements Zotero_AuthenticationPlugi
 		try {
 			$retry = true;
 			$rows = Zotero_WWW_DB_2::query($sql, $params);
+			Zotero_WWW_DB_2::close();
 			if (!$rows) {
 				$retry = false;
 				$rows = Zotero_WWW_DB_1::query($sql, $params);
+				Zotero_WWW_DB_1::close();
 			}
 		}
 		catch (Exception $e) {
 			if ($retry) {
 				Z_Core::logError("WARNING: $e -- retrying on primary");
 				$rows = Zotero_WWW_DB_1::query($sql, $params);
+				Zotero_WWW_DB_1::close();
 			}
 		}
 		
