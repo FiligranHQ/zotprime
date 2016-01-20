@@ -533,7 +533,7 @@ class Zotero_DB {
 			self::error($e, $sql, $params, $shardID);
 		}
 		finally {
-			if (!$cacheStatement) {
+			if ($stmt && !$cacheStatement) {
 				$stmt->close();
 			}
 		}
@@ -613,7 +613,7 @@ class Zotero_DB {
 			self::error($e, $sql, $params, $shardID);
 		}
 		finally {
-			if (!$cacheStatement) {
+			if ($stmt && !$cacheStatement) {
 				$stmt->close();
 			}
 		}
@@ -675,9 +675,8 @@ class Zotero_DB {
 			$params = array($params);
 		}
 		
-		$stmt = self::getStatement($sql, $cacheStatement, $shardID);
-		
 		try {
+			$stmt = self::getStatement($sql, $cacheStatement, $shardID);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -689,6 +688,11 @@ class Zotero_DB {
 		}
 		catch (Exception $e) {
 			self::error($e, $sql, $params, $shardID);
+		}
+		finally {
+			if ($stmt && !$cacheStatement) {
+				$stmt->close();
+			}
 		}
 	}
 	
