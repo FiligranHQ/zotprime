@@ -74,9 +74,7 @@ class Zotero_Groups {
 			// try to get a cached row count.
 			if ($cacheFoundRows) {
 				$foundRowsCacheKey = self::getCacheComponentFromParam($params, 'q') . ","
-					. self::getCacheComponentFromParam($params, 'fq') . ","
-					. "sort=" . $params['sort'] . "/" . $params['direction'] . ","
-					. "start=$start,limit=" . ($limit ? $limit : "");
+					. self::getCacheComponentFromParam($params, 'fq');
 				$foundRowsTTL = 180;
 				$foundRowsLockTTL = 10;
 				$foundRowsRealTTL = 3600;
