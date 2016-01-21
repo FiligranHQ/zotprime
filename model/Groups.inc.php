@@ -53,7 +53,6 @@ class Zotero_Groups {
 	}
 	
 	
-	
 	public static function getAllAdvanced($userID=false, $params=array(), $permissions=null) {
 		$buffer = 20;
 		$maxTimes = 3;
@@ -69,8 +68,39 @@ class Zotero_Groups {
 				Z_Core::logError('Getting more groups in Zotero_Groups::getAllAdvanced()');
 			}
 			
-			$sql = "SELECT SQL_CALC_FOUND_ROWS G.groupID, GUO.userID AS ownerUserID FROM groups G
-					JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
+			$calcFoundRows = !$totalResults;
+			$cacheFoundRows = $calcFoundRows && !$userID;
+			// If we don't yet have a row count and this isn't a user-specific search,
+			// try to get a cached row count.
+			if ($cacheFoundRows) {
+				$foundRowsCacheKey = self::getCacheComponentFromParam($params, 'q') . ","
+					. self::getCacheComponentFromParam($params, 'fq') . ","
+					. "sort=" . $params['sort'] . "/" . $params['direction'] . ","
+					. "start=$start,limit=" . ($limit ? $limit : "");
+				$foundRowsTTL = 180;
+				$foundRowsLockTTL = 10;
+				$foundRowsRealTTL = 3600;
+				
+				$obj = Z_Core::$MC->get($foundRowsCacheKey);
+				if ($obj) {
+					$foundRows = $obj['rows'];
+					$exp = $obj['exp'];
+					// If count was found but is past the expiration time, check if another
+					// request is getting the row count, and fetch it if not
+					if ($exp < time()) {
+						if (!Z_Core::$MC->add($foundRowsCacheKey . "Lock", true, $foundRowsLockTTL)) {
+							$calcFoundRows = false;
+						}
+					}
+					else {
+						$calcFoundRows = false;
+					}
+				}
+			}
+			
+			$sql = "SELECT " . ($calcFoundRows ? "SQL_CALC_FOUND_ROWS " : "")
+				. "G.groupID, GUO.userID AS ownerUserID FROM groups G "
+				. "JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
 			$sqlParams = array();
 			
 			if ($userID) {
@@ -158,7 +188,7 @@ class Zotero_Groups {
 				}
 			}
 			
-			// Set limit higher than the actual limit, in case some groups are
+			// Limit is set $buffer higher than the actual limit, in case some groups are
 			// removed during access checks
 			//
 			// Actual limiting is done below
@@ -173,8 +203,22 @@ class Zotero_Groups {
 				break;
 			}
 			
-			if (!$totalResults) {
-				$foundRows = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+			if (is_null($totalResults)) {
+				if ($calcFoundRows) {
+					$foundRows = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+					// Cache found rows count, and store earlier expiration time so that one
+					// request can trigger a recalculation before cached value expires
+					if ($cacheFoundRows) {
+						Z_Core::$MC->set(
+							$foundRowsCacheKey,
+							[
+								'rows' => $foundRows,
+								'exp' => time() + $foundRowsTTL
+							],
+							$foundRowsRealTTL
+						);
+					}
+				}
 				$totalResults = $foundRows;
 			}
 			
@@ -227,13 +271,8 @@ class Zotero_Groups {
 			}
 			
 			// If there no more rows, stop
-			if ($start + sizeOf($rows) == $foundRows) {
+			if ($start + sizeOf($rows) >= $foundRows) {
 				break;
-			}
-			
-			// This shouldn't happen
-			if ($start + sizeOf($rows) > $foundRows) {
-				Z_Core::logError('More rows than $foundRows in Zotero_Groups::getAllAdvanced()');
 			}
 			
 			$start = $start + sizeOf($rows);
@@ -259,6 +298,22 @@ class Zotero_Groups {
 		
 		$results = array('results' => $groups, 'total' => $totalResults);
 		return $results;
+	}
+	
+	
+	private static function getCacheComponentFromParam($params, $param) {
+		$str = $param . ":";
+		if (empty($params[$param])) {
+			return $str;
+		}
+		$val = $params[$param];
+		if (!is_array($val)) {
+			$val = [$val];
+		}
+		else {
+			ksort($val);
+		}
+		return $str . implode($val);
 	}
 	
 	
