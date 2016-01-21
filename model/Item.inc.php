@@ -3356,7 +3356,7 @@ class Zotero_Item extends Zotero_DataObject {
 				: "");
 		
 		$cached = Z_Core::$MC->get($cacheKey);
-		if ($cached) {
+		if (false && $cached) {
 			// Make sure numChildren reflects the current permissions
 			if ($isRegularItem) {
 				$cached['meta']->numChildren = $numChildren;
@@ -3510,9 +3510,9 @@ class Zotero_Item extends Zotero_DataObject {
 			}
 		}
 		else {
-			Z_Core::$MC->set($cacheKey, $json, 10);
+			/*Z_Core::$MC->set($cacheKey, $json, 10);
 			StatsD::timing("api.items.itemToResponseJSON.uncached", (microtime(true) - $t) * 1000);
-			StatsD::increment("memcached.items.itemToResponseJSON.miss");
+			StatsD::increment("memcached.items.itemToResponseJSON.miss");*/
 		}
 		
 		return $json;
