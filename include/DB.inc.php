@@ -383,7 +383,7 @@ class Zotero_DB {
 		$instance->checkShardTransaction($shardID);
 		
 		$isWriteQuery = self::isWriteQuery($sql);
-		$cacheStatement = empty($options['cache']);
+		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
@@ -521,7 +521,7 @@ class Zotero_DB {
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		$isWriteQuery = self::isWriteQuery($sql);
-		$cacheStatement = empty($options['cache']);
+		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
 		
 		// TODO: Use instance->link->fetchCol once it supports type casting
 		
@@ -530,7 +530,7 @@ class Zotero_DB {
 		}
 		
 		try {
-			$stmt = self::getStatement($sql, true, $shardID);
+			$stmt = self::getStatement($sql, $cacheStatement, $shardID);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -603,7 +603,7 @@ class Zotero_DB {
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		$isWriteQuery = self::isWriteQuery($sql);
-		$cacheStatement = empty($options['cache']);
+		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
@@ -680,7 +680,7 @@ class Zotero_DB {
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
 		$isWriteQuery = self::isWriteQuery($sql);
-		$cacheStatement = empty($options['cache']);
+		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
@@ -701,7 +701,7 @@ class Zotero_DB {
 			self::error($e, $sql, $params, $shardID);
 		}
 		finally {
-			if ($stmt && !$cacheStatement) {
+			if (isset($stmt) && !$cacheStatement) {
 				$stmt->close();
 			}
 		}
