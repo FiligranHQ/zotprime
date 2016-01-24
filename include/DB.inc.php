@@ -84,7 +84,13 @@ class Zotero_DB {
 			$linkID = $shardID;
 		}
 		
-		if (isset($this->links[$linkID])) {
+		// Master queries always use the cached link that was created at class construction.
+		//
+		// For read queries on shards, use a cached link if available. This does allow
+		// subsequent read queries in a request to go through even if the shard was since
+		// disabled, but that's generally not a big deal, and new requests will check the shard
+		// info again and throw.
+		if ($shardID == 0 || (!$forWriting && isset($this->links[$linkID]))) {
 			return $this->links[$linkID];
 		}
 		
@@ -101,6 +107,11 @@ class Zotero_DB {
 			if ($forWriting && get_called_class() != 'Zotero_Admin_DB') {
 				throw new Exception("Cannot write to read-only shard $shardID", Z_ERROR_SHARD_READ_ONLY);
 			}
+		}
+		
+		// Host isn't read-only or down, so can use a cached link if available for write queries
+		if (isset($this->links[$linkID])) {
+			return $this->links[$linkID];
 		}
 		
 		$auth = Zotero_DBConnectAuth('shard');
