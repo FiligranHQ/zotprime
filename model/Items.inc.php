@@ -458,8 +458,35 @@ class Zotero_Items {
 					}
 					break;
 				
+				
 				case 'itemType';
 					$orderSQL = "TITN.itemTypeName";
+					/*
+					// Optional method for sorting by localized item type name, which would avoid
+					// the INSERT and JOIN above and allow these requests to use DB read replicas
+					$locale = 'en-US';
+					$types = Zotero_ItemTypes::getAll($locale);
+					// TEMP: get localized string
+					// DEBUG: Why is attachment skipped in getAll()?
+					$types[] = [
+						'id' => 14,
+						'localized' => 'Attachment'
+					];
+					usort($types, function ($a, $b) {
+						return strcasecmp($a['localized'], $b['localized']);
+					});
+					// Pass order of localized item type names for sorting
+					// e.g., FIELD(14, 12, 14, 26...) for sorting "Attachment" after "Artwork"
+					$orderSQL = "FIELD($itemTypeIDSelector, "
+						. implode(", ", array_map(function ($x) {
+							return $x['id'];
+						}, $types)) . ")";
+					// If itemTypeID isn't found in passed list (currently only for NSF Reviewer),
+					// sort last
+					$orderSQL = "IFNULL(NULLIF($orderSQL, 0), 99999)";
+					// All items have types, so no need to check for empty sort values
+					$params['emptyFirst'] = true;
+					*/
 					break;
 				
 				case 'title':

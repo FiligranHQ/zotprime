@@ -393,6 +393,12 @@ class ApiController extends Controller {
 			$atomAccepted
 		);
 		
+		// Sorting by Item Type or Added By currently require writing to shard tables, so don't
+		// send those to the read replicas
+		if ($this->queryParams['sort'] == 'itemType' || $this->queryParams['sort'] == 'addedBy') {
+			Zotero_DB::readOnly(false);
+		}
+		
 		$this->apiVersion = $version = $this->queryParams['v'];
 		
 		header("Zotero-API-Version: " . $version);
