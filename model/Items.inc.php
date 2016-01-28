@@ -507,8 +507,7 @@ class Zotero_Items {
 						$orderSQL = "TCBU.username";
 					}
 					else {
-						$orderSQL = "IP.dateAdded";
-						$params['direction'] = 'desc';
+						$orderSQL = ($onlyTopLevel ? "IP" : "I") . ".dateAdded";
 					}
 					break;
 				
