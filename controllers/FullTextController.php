@@ -37,7 +37,8 @@ class FullTextController extends ApiController {
 		
 		// Default empty library
 		if ($this->objectLibraryID === 0) {
-			return new stdClass;
+			echo Zotero_Utilities::formatJSON(new stdClass);
+			$this->end();
 		}
 		
 		$newer = Zotero_FullText::getNewerInLibrary(
