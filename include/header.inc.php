@@ -88,11 +88,7 @@ spl_autoload_register('zotero_autoload');
 require('config/config.inc.php');
 
 if (Z_Core::isCommandLine()) {
-	if (empty(Z_CONFIG::$CLI_DOCUMENT_ROOT)) {
-		throw new Exception ("CLI defaults not set");
-	}
-	
-	$_SERVER['DOCUMENT_ROOT'] = Z_CONFIG::$CLI_DOCUMENT_ROOT;
+	$_SERVER['DOCUMENT_ROOT'] = realpath(dirname(dirname(__FILE__))) . '/';
 	$_SERVER['SERVER_NAME'] = Z_CONFIG::$SYNC_DOMAIN;
 	$_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'];
 	$_SERVER['REQUEST_URI'] = "/";
