@@ -1016,8 +1016,8 @@ class Zotero_DB {
 	 * Determine the type of query using first word
 	 */
 	public static function isWriteQuery($sql) {
-		preg_match('/^[^\s\(]*/', $sql, $matches);
-		$command = strtoupper($matches[0]);
+		preg_match('/^\(*([^\s\(]+)/', $sql, $matches);
+		$command = strtoupper($matches[1]);
 		switch ($command) {
 			case 'SELECT':
 			case 'SHOW':
