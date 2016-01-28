@@ -170,7 +170,21 @@ class Zotero_Storage {
 		$sql = "INSERT INTO storageDownloadLog
 				(ownerUserID, downloadUserID, ipAddress, storageFileID, filename, size)
 				VALUES (?, ?, INET_ATON(?), ?, ?, ?)";
-		Zotero_DB::query($sql, array($ownerUserID, $downloadUserID, $ipAddress, $storageFileID, $filename, $size));
+		Zotero_DB::query(
+			$sql,
+			[
+				$ownerUserID,
+				$downloadUserID,
+				$ipAddress,
+				$storageFileID,
+				$filename,
+				$size
+			],
+			0,
+			[
+				'writeInReadMode' => true
+			]
+		);
 	}
 	
 	

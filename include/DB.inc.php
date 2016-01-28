@@ -39,17 +39,20 @@ class Zotero_DB {
 	
 	protected static $instances;
 	
-	protected $links = array();
+	protected $connections = [];
+	protected $replicaConnections = [];
 	private $profilerEnabled = false;
 	
+	private $readOnly = false;
 	private $transactionLevel = 0;
 	private $transactionTimestamp;
 	private $transactionTimestampMS;
 	private $transactionTimestampUnix;
-	private $transactionShards = array();
+	private $transactionConnections = [];
 	private $transactionRollback = false;
 	
-	private $preparedStatements = array();
+	private $testFailureCounts = [];
+	
 	private $callbacks = array(
 		'begin' => array(),
 		'commit' => array(),
@@ -61,7 +64,10 @@ class Zotero_DB {
 	protected function __construct() {
 		// Set up main link
 		$auth = Zotero_DBConnectAuth($this->db);
-		$this->links[0] = new Zend_Db_Adapter_Mysqli(array(
+		$conn = new Zotero_DB_Connection;
+		$conn->shardID = 0;
+		$conn->host = $auth['host'];
+		$conn->link = new Zend_Db_Adapter_Mysqli([
 			'host'     => $auth['host'],
 			'port'     => $auth['port'],
 			'username' => $auth['user'],
@@ -71,11 +77,20 @@ class Zotero_DB {
 			'driver_options' => array(
 				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
 			)
-		));
+		]);
+		$this->connections[0] = $conn;
 	}
 	
 	
-	protected function getShardLink($shardID, $forWriting=false) {
+	protected function getShardConnection($shardID, array $options = []) {
+		if (!is_numeric($shardID)) {
+			throw new Exception('$shardID must be an integer');
+		}
+		
+		$isWriteQuery = !empty($options['isWriteQuery']);
+		$lastLinkFailed = !empty($options['lastLinkFailed']);
+		$writeInReadMode = !empty($options['writeInReadMode']);
+		
 		// TEMP
 		if (get_called_class() == 'Zotero_FullText_DB') {
 			$linkID = "FT" . $shardID;
@@ -84,18 +99,47 @@ class Zotero_DB {
 			$linkID = $shardID;
 		}
 		
-		// Master queries always use the cached link that was created at class construction.
+		if ($this->readOnly && $isWriteQuery && !$writeInReadMode) {
+			throw new Exception("Cannot get link for writing in read-only mode");
+		}
+		
+		// Master queries always use the cached link that was created at class construction
+		if ($shardID == 0) {
+			//error_log($this->connections[$linkID]->link->getConnection()->host_info);
+			return $this->connections[$linkID];
+		}
+		
+		// For read-only mode and read queries, use a cached link if available. Since this is
+		// done before checking the latest shard info, it's possible for subsequent read queries
+		// in a request to go through even if the shard was since disabled, but that's generally
+		// not a big deal, and new requests will check the shard info again and throw.
 		//
-		// For read queries on shards, use a cached link if available. This does allow
-		// subsequent read queries in a request to go through even if the shard was since
-		// disabled, but that's generally not a big deal, and new requests will check the shard
-		// info again and throw.
-		if ($shardID == 0 || (!$forWriting && isset($this->links[$linkID]))) {
-			return $this->links[$linkID];
+		// Read-only mode
+		if ($this->readOnly && !$writeInReadMode) {
+			// Use a cached replica link if available.
+			if (isset($this->replicaConnections[$linkID])) {
+				// If the last link failed, try the next one. If no more, that's fatal.
+				if ($lastLinkFailed) {
+					$lastHost = $this->replicaConnections[$linkID][0]->host;
+					if (sizeOf($this->replicaConnections[$linkID]) == 1) {
+						throw new Exception("Read failed from replica $lastHost -- no more replica connections", Z_ERROR_SHARD_UNAVAILABLE);
+					}
+					error_log("WARNING: Read failed from replica $lastHost -- retrying on another replica");
+					array_shift($this->replicaConnections[$linkID]);
+				}
+				//error_log($this->replicaConnections[$linkID][0]->link->getConnection()->host_info);
+				return $this->replicaConnections[$linkID][0];
+			}
+		}
+		// Read queries in read/write mode
+		//
+		// Use a cached link if available
+		else if (!$isWriteQuery && isset($this->connections[$linkID])) {
+			//error_log($this->connections[$linkID]->link->getConnection()->host_info);
+			return $this->connections[$linkID];
 		}
 		
 		$shardInfo = Zotero_Shards::getShardInfo($shardID);
-		
 		if (!$shardInfo) {
 			throw new Exception("Invalid shard $shardID");
 		}
@@ -104,23 +148,55 @@ class Zotero_DB {
 			throw new Exception("Shard $shardID is down", Z_ERROR_SHARD_UNAVAILABLE);
 		}
 		else if ($shardInfo['state'] == 'readonly') {
-			if ($forWriting && get_called_class() != 'Zotero_Admin_DB') {
+			if ($isWriteQuery && get_called_class() != 'Zotero_Admin_DB') {
 				throw new Exception("Cannot write to read-only shard $shardID", Z_ERROR_SHARD_READ_ONLY);
 			}
 		}
 		
-		// Host isn't read-only or down, so can use a cached link if available for write queries
-		if (isset($this->links[$linkID])) {
-			return $this->links[$linkID];
+		if ($this->readOnly && !$writeInReadMode) {
+			$replicas = Zotero_Shards::getReplicaInfo($shardInfo['shardHostID']);
+			if ($replicas) {
+				// Randomize replica order
+				shuffle($replicas);
+				foreach ($replicas as $replica) {
+					$info = $shardInfo;
+					$info['address'] = $replica['address'];
+					$info['port'] = $replica['port'];
+					
+					$conn = new Zotero_DB_Connection;
+					$conn->host = $info['address'];
+					$conn->shardID = $linkID;
+					$conn->link = $this->getLinkFromConnectionInfo($info);
+					$this->replicaConnections[$linkID][] = $conn;
+				}
+				
+				//error_log($this->replicaConnections[$linkID][0]->link->getConnection()->host_info);
+				return $this->replicaConnections[$linkID][0];
+			}
 		}
 		
+		// Host isn't read-only or down, so write queries can use a cached link if available.
+		// Otherwise, make a new link.
+		if (!isset($this->connections[$linkID])) {
+			$conn = new Zotero_DB_Connection;
+			$conn->host = $shardInfo['address'];
+			$conn->shardID = $linkID;
+			$conn->link = $this->getLinkFromConnectionInfo($shardInfo);
+			$this->connections[$linkID] = $conn;
+		}
+		//error_log($this->connections[$linkID]->link->getConnection()->host_info);
+		return $this->connections[$linkID];
+	}
+	
+	
+	private function getLinkFromConnectionInfo($connInfo) {
 		$auth = Zotero_DBConnectAuth('shard');
 		$config = array(
-			'host'     => $shardInfo['address'],
-			'port'     => $shardInfo['port'],
+			'host'     => $connInfo['address'],
+			'port'     => $connInfo['port'],
 			'username' => $auth['user'],
 			'password' => $auth['pass'],
-			'dbname'   => $shardInfo['db'],
+			'dbname'   => $connInfo['db'],
 			'charset'  => !empty($auth['charset']) ? $auth['charset'] : 'utf8',
 			'driver_options' => array(
 				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
@@ -140,17 +216,14 @@ class Zotero_DB {
 			$config['password'] = $auth['pass'];
 		}
 		
-		$this->links[$linkID] = new Zend_Db_Adapter_Mysqli($config);
-		
-		$conn = $this->links[$linkID]->getConnection();
-		$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+		$link = new Zend_Db_Adapter_Mysqli($config);
 		
 		// If profile was previously enabled, enable it for this link
 		if ($this->profilerEnabled) {
-			$this->links[$linkID]->getProfiler()->setEnabled(true);
+			$link->getProfiler()->setEnabled(true);
 		}
 		
-		return $this->links[$linkID];
+		return $link;
 	}
 	
 	
@@ -165,6 +238,12 @@ class Zotero_DB {
 		}
 		
 		return self::$instances[$class];
+	}
+	
+	
+	public static function readOnly($set) {
+		$instance = self::getInstance();
+		$instance->readOnly = !!$set;
 	}
 	
 	
@@ -226,12 +305,8 @@ class Zotero_DB {
 			return;
 		}
 		
-		$shardIDs = array_keys($instance->transactionShards);
-		// Sort in reverse order to make sure we're not relying on race conditions
-		// to get data replicated to the shards
-		rsort($shardIDs);
-		foreach ($shardIDs as $shardID) {
-			$instance->commitReal($shardID);
+		while ($conn = array_pop($instance->transactionConnections)) {
+			$instance->commitReal($conn);
 		}
 		
 		foreach ($instance->callbacks['commit'] as $callback) {
@@ -249,7 +324,9 @@ class Zotero_DB {
 		$instance = self::getInstance();
 		
 		if ($instance->transactionLevel == 0) {
-			Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
+			if (!$all) {
+				Z_Core::debug('Transaction not open in Zotero_DB::rollback()');
+			}
 			return;
 		}
 		
@@ -266,10 +343,8 @@ class Zotero_DB {
 			return;
 		}
 		
-		$shardIDs = array_keys($instance->transactionShards);
-		rsort($shardIDs);
-		foreach ($shardIDs as $shardID) {
-			$instance->rollBackReal($shardID);
+		while ($conn = array_pop($instance->transactionConnections)) {
+			$instance->rollBackReal($conn);
 		}
 		
 		$instance->transactionLevel--;
@@ -339,10 +414,24 @@ class Zotero_DB {
 	/*
 	 * @return	Zotero_DBStatement
 	 */
-	public static function getStatement($sql, $cache=false, $shardID=0) {
+	public static function getStatement($sql, $cache = false, $shardID = 0, array $options = []) {
 		$instance = self::getInstance();
-		$isWriteQuery = self::isWriteQuery($sql);
-		$link = $instance->getShardLink($shardID, $isWriteQuery);
+		
+		// For testing, simulate an error reading from a replica (disabled by default)
+		$testFailures = false;
+		if ($testFailures && $shardID != 0 && !empty($options['internalStatement']) && $instance->readOnly) {
+			if (!isset($instance->testFailureCounts[$shardID])) {
+				$instance->testFailureCounts[$shardID] = 0;
+			}
+			$instance->testFailureCounts[$shardID]++;
+			if ($instance->testFailureCounts[$shardID] == 5) {
+				error_log("Failing for test!");
+				throw new Exception("Fake failure");
+			}
+		}
+		
+		$options['isWriteQuery'] = self::isWriteQuery($sql);
+		$conn = $instance->getShardConnection($shardID, $options);
 		
 		if ($cache) {
 			if (is_bool($cache)) {
@@ -358,32 +447,28 @@ class Zotero_DB {
 		}
 		
 		// See if statement is already cached for this shard
-		if ($cache && isset($instance->preparedStatements[$shardID][$key])) {
-			return $instance->preparedStatements[$shardID][$key];
+		if ($cache && isset($conn->statements[$key])) {
+			return $conn->statements[$key];
 		}
 		
-		$stmt = new Zotero_DB_Statement($link, $sql, $shardID);
+		$stmt = new Zotero_DB_Statement($conn->link, $sql, $shardID);
 		
 		// Cache for future use
 		if ($cache) {
-			if (!isset($instance->preparedStatements[$shardID])) {
-				$instance->preparedStatements[$shardID] = array();
-			}
-			$instance->preparedStatements[$shardID][$key] = $stmt;
+			$conn->statements[$key] = $stmt;
 		}
 		
 		return $stmt;
 	}
-	
 	
 	public static function query($sql, $params=false, $shardID=0, array $options=[]) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
-		
 		$isWriteQuery = self::isWriteQuery($sql);
 		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
+		$options['internalStatement'] = true;
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
@@ -419,23 +504,34 @@ class Zotero_DB {
 					}
 				}
 				
-				$stmt = self::getStatement($sql, $cacheStatement, $shardID);
+				$stmt = self::getStatement($sql, $cacheStatement, $shardID, $options);
 				$stmt->execute($params);
 			}
 			else {
-				$stmt = self::getStatement($sql, $cacheStatement, $shardID);
+				$stmt = self::getStatement($sql, $cacheStatement, $shardID, $options);
 				$stmt->execute();
 			}
-		}
-		catch (Exception $e) {
-			self::error($e, $sql, $params, $shardID);
-		}
-		
-		try {
+			
 			return self::queryFromStatement($stmt);
 		}
+		catch (Exception $e) {
+			// Writes in read mode are allowed to fail
+			if (!empty($options['writeInReadMode'])) {
+				$str = self::getErrorString($e, $sql, $params, $shardID);
+				error_log("WARNING: $str");
+				return;
+			}
+			
+			// In read mode, retry automatically
+			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+				$options['lastLinkFailed'] = true;
+				return self::query($sql, $params, $shardID, $options);
+			}
+			
+			self::error($e, $sql, $params, $shardID);
+		}
 		finally {
-			if (!$cacheStatement) {
+			if (isset($stmt) && !$cacheStatement) {
 				$stmt->close();
 			}
 		}
@@ -515,13 +611,16 @@ class Zotero_DB {
 	}
 	
 	
-	public static function columnQuery($sql, $params=false, $shardID=0, array $options=[]) {
+	public static function columnQuery($sql, $params = false, $shardID = 0, array $options = []) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
-		$isWriteQuery = self::isWriteQuery($sql);
+		if (self::isWriteQuery($sql)) {
+			throw new Exception("Can't use columnQuery() for write query -- use query()");
+		}
 		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
+		$options['internalStatement'] = true;
 		
 		// TODO: Use instance->link->fetchCol once it supports type casting
 		
@@ -530,7 +629,7 @@ class Zotero_DB {
 		}
 		
 		try {
-			$stmt = self::getStatement($sql, $cacheStatement, $shardID);
+			$stmt = self::getStatement($sql, $cacheStatement, $shardID, $options);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -541,10 +640,16 @@ class Zotero_DB {
 			return self::columnQueryFromStatement($stmt);
 		}
 		catch (Exception $e) {
+			// In read mode, retry automatically
+			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+				$options['lastLinkFailed'] = true;
+				return self::columnQuery($sql, $params, $shardID, $options);
+			}
+			
 			self::error($e, $sql, $params, $shardID);
 		}
 		finally {
-			if ($stmt && !$cacheStatement) {
+			if (isset($stmt) && !$cacheStatement) {
 				$stmt->close();
 			}
 		}
@@ -597,20 +702,23 @@ class Zotero_DB {
 	}
 	
 	
-	public static function rowQuery($sql, $params=false, $shardID=0, array $options=[]) {
+	public static function rowQuery($sql, $params = false, $shardID = 0, array $options = []) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
-		$isWriteQuery = self::isWriteQuery($sql);
+		if (self::isWriteQuery($sql)) {
+			throw new Exception("Can't use rowQuery() for write query -- use query()");
+		}
 		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
+		$options['internalStatement'] = true;
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
 		}
 		
 		try {
-			$stmt = self::getStatement($sql, $cacheStatement, $shardID);
+			$stmt = self::getStatement($sql, $cacheStatement, $shardID, $options);
 			if ($params) {
 				$stmt->execute($params);
 			}
@@ -621,10 +729,16 @@ class Zotero_DB {
 			return self::rowQueryFromStatement($stmt);
 		}
 		catch (Exception $e) {
+			// In read mode, retry automatically
+			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+				$options['lastLinkFailed'] = true;
+				return self::rowQuery($sql, $params, $shardID, $options);
+			}
+			
 			self::error($e, $sql, $params, $shardID);
 		}
 		finally {
-			if ($stmt && !$cacheStatement) {
+			if (isset($stmt) && !$cacheStatement) {
 				$stmt->close();
 			}
 		}
@@ -674,30 +788,38 @@ class Zotero_DB {
 	}
 	
 	
-	public static function valueQuery($sql, $params=false, $shardID=0, array $options=[]) {
+	public static function valueQuery($sql, $params = false, $shardID = 0, array $options = []) {
 		self::logQuery($sql, $params, $shardID);
 		
 		$instance = self::getInstance();
 		$instance->checkShardTransaction($shardID);
-		$isWriteQuery = self::isWriteQuery($sql);
+		if (self::isWriteQuery($sql)) {
+			throw new Exception("Can't use valueQuery() for write query -- use query()");
+		}
 		$cacheStatement = !isset($options['cache']) || $options['cache'] === true;
+		$options['internalStatement'] = true;
 		
 		if ($params !== false && (is_scalar($params) || is_null($params))) {
 			$params = array($params);
 		}
 		
 		try {
-			$stmt = self::getStatement($sql, $cacheStatement, $shardID);
+			$stmt = self::getStatement($sql, $cacheStatement, $shardID, $options);
 			if ($params) {
 				$stmt->execute($params);
 			}
 			else {
 				$stmt->execute();
 			}
-			
 			return self::valueQueryFromStatement($stmt);
 		}
 		catch (Exception $e) {
+			// In read mode, retry automatically
+			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+				$options['lastLinkFailed'] = true;
+				return self::valueQuery($sql, $params, $shardID, $options);
+			}
+			
 			self::error($e, $sql, $params, $shardID);
 		}
 		finally {
@@ -739,11 +861,12 @@ class Zotero_DB {
 	}
 	
 	
-	public static function bulkInsert($sql, $sets, $maxInsertGroups, $firstVal=false, $shardID=0) {
+	public static function bulkInsert($sql, $sets, $maxInsertGroups, $firstVal = false, $shardID = 0, array $options = []) {
 		$origInsertSQL = $sql;
 		$insertSQL = $origInsertSQL;
 		$insertParams = array();
 		$insertCounter = 0;
+		$options['internalStatement'] = true;
 		
 		if (!$sets) {
 			return;
@@ -770,7 +893,7 @@ class Zotero_DB {
 			
 			if ($insertCounter == $maxInsertGroups - 1) {
 				$insertSQL = substr($insertSQL, 0, -1);
-				$stmt = self::getStatement($insertSQL, true, $shardID);
+				$stmt = self::getStatement($insertSQL, true, $shardID, $options);
 				self::queryFromStatement($stmt, $insertParams);
 				$insertSQL = $origInsertSQL;
 				$insertParams = array();
@@ -782,7 +905,7 @@ class Zotero_DB {
 		
 		if ($insertCounter > 0 && $insertCounter < $maxInsertGroups) {
 			$insertSQL = substr($insertSQL, 0, -1);
-			$stmt = self::getStatement($insertSQL, true, $shardID);
+			$stmt = self::getStatement($insertSQL, true, $shardID, $options);
 			self::queryFromStatement($stmt, $insertParams);
 		}
 	}
@@ -858,32 +981,34 @@ class Zotero_DB {
 */	
 	
 	protected function checkShardTransaction($shardID) {
-		if ($this->transactionLevel && empty($this->transactionShards[$shardID])) {
-			$this->beginTransactionReal($shardID);
+		if (!$this->transactionLevel) {
+			return;
+		}
+		if ($this->readOnly) {
+			error_log("WARNING: Transaction started in read-only mode");
+			error_log(Z_Core::getBacktrace());
+		}
+		
+		// Start a transaction for this shard if necessary
+		$conn = $this->getShardConnection($shardID);
+		if (!$conn->transactionStarted) {
+			Z_Core::debug("Beginning transaction on shard $shardID");
+			$conn->link->beginTransaction();
+			$conn->transactionStarted = true;
+			$this->transactionConnections[] = $conn;
 		}
 	}
 	
-	
-	private function beginTransactionReal($shardID=0) {
-		$link = $this->getShardLink($shardID);
-		Z_Core::debug("Beginning transaction on shard $shardID");
-		$link->beginTransaction();
-		$this->transactionShards[$shardID] = true;
+	private function commitReal(Zotero_DB_Connection $conn) {
+		Z_Core::debug("Committing transaction on shard $conn->shardID");
+		$conn->link->commit();
+		$conn->transactionStarted = false;
 	}
 	
-	
-	private function commitReal($shardID=0) {
-		$link = $this->getShardLink($shardID);
-		Z_Core::debug("Committing transaction on shard $shardID");
-		$link->commit();
-		unset($this->transactionShards[$shardID]);
-	}
-	
-	private function rollbackReal($shardID=0) {
-		$link = $this->getShardLink($shardID);
-		Z_Core::debug("Rolling back transaction on shard $shardID");
-		$link->rollBack();
-		unset($this->transactionShards[$shardID]);
+	private function rollbackReal(Zotero_DB_Connection $conn) {
+		Z_Core::debug("Rolling back transaction on shard $conn->shardID");
+		$conn->link->rollBack();
+		$conn->transactionStarted = false;
 	}
 	
 	
@@ -935,15 +1060,18 @@ class Zotero_DB {
 	
 	
 	protected static function logQuery($sql, $params, $shardID) {
-		Z_Core::debug($sql . ($params ? " (" . (is_scalar($params) ? $params : implode(",", $params)) . ") ($shardID)" : ""));
+		Z_Core::debug($sql
+			. ($params ? " (" . (is_scalar($params) ? $params : implode(",", $params)) . ") "
+			. "(shard: $shardID)" : ""));
 	}
 	
 	
 	public static function profileStart() {
 		$instance = self::getInstance();
 		$instance->profilerEnabled = true;
-		foreach ($instance->links as $link) {
-			$profiler = $link->getProfiler();
+		// TODO: Support replica connections
+		foreach ($instance->connections as $conn) {
+			$profiler = $conn->link->getProfiler();
 			$profiler->setEnabled(true);
 		}
 	}
@@ -954,7 +1082,8 @@ class Zotero_DB {
 		
 		$str = "";
 		$first = true;
-		foreach ($instance->links as $shardID => $link) {
+		// TODO: Support replica connections
+		foreach ($instance->connections as $shardID => $link) {
 			$profiler = $link->getProfiler();
 			
 			$totalTime    = $profiler->getTotalElapsedSecs();
@@ -1036,10 +1165,19 @@ class Zotero_DB {
 	
 	
 	public static function error(Exception $e, $sql, $params=array(), $shardID=0) {
-		$paramsArray = Z_Array::array2string($params);
+		$str = self::getErrorString($e, $sql, $params, $shardID);
 		
+		if (strpos($e->getMessage(), "Can't connect to MySQL server") !== false) {
+			throw new Exception($str, Z_ERROR_SHARD_UNAVAILABLE);
+		}
+		
+		throw new Exception($str, $e->getCode());
+	}
+	
+	
+	private static function getErrorString(Exception $e, $sql, $params = [], $shardID = 0) {
 		$error = $e->getMessage();
-		$errno = $e->getCode();
+		$paramsArray = Z_Array::array2string($params);
 		
 		$str = "$error\n\n"
 				. "Shard: $shardID\n\n"
@@ -1050,20 +1188,16 @@ class Zotero_DB {
 			$str .= Z_Array::array2string(xdebug_get_function_stack());
 		}
 		
-		if (strpos($error, "Can't connect to MySQL server") !== false) {
-			throw new Exception($str, Z_ERROR_SHARD_UNAVAILABLE);
-		}
-		
-		throw new Exception($str, $errno);
+		return $str;
 	}
 	
 	
 	public static function close($shardID=0) {
 		$instance = self::getInstance();
+		$conn = $instance->getShardConnection($shardID);
 		// Remove prepared statements for this connection
-		unset($instance->preparedStatements[$shardID]);
-		$link = $instance->getShardLink($shardID);
-		$link->closeConnection();
+		$conn->statements = [];
+		$conn->link->closeConnection();
 	}
 }
 
@@ -1134,20 +1268,29 @@ class Zotero_Admin_DB extends Zotero_DB {
 }
 
 
+class Zotero_DB_Connection {
+	public $shardID;
+	public $host;
+	public $link;
+	public $statements = [];
+	public $transactionStarted = false;
+}
+
+
 class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
 	private $link;
 	private $sql;
 	private $shardID;
 	private $isWriteQuery;
 	
-	public function __construct($db, $sql, $shardID=0) {
+	public function __construct($link, $sql, $shardID=0) {
 		try {
-			parent::__construct($db, $sql);
+			parent::__construct($link, $sql);
 		}
 		catch (Exception $e) {
 			Zotero_DB::error($e, $sql, array(), $shardID);
 		}
-		$this->link = $db;
+		$this->link = $link;
 		$this->sql = $sql;
 		$this->shardID = $shardID;
 		
@@ -1166,4 +1309,3 @@ class Zotero_DB_Statement extends Zend_Db_Statement_Mysqli {
 		return null;
 	}
 }
-?>

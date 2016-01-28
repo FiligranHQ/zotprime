@@ -212,6 +212,16 @@ CREATE TABLE `sessions` (
 
 
 
+CREATE TABLE `shardHostReplicas` (
+  `shardHostID` tinyint(3) unsigned NOT NULL,
+  `address` varchar(75) NOT NULL,
+  `port` smallint(5) unsigned NOT NULL DEFAULT '3306',
+  `secure` int(1) unsigned NOT NULL DEFAULT '0',
+  `state` enum('up','down') NOT NULL,
+  PRIMARY KEY (`shardHostID`,`address`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 CREATE TABLE `shardHosts` (
   `shardHostID` tinyint(3) unsigned NOT NULL,
   `address` varchar(15) NOT NULL,
@@ -492,6 +502,9 @@ ALTER TABLE `libraries`
 
 ALTER TABLE `sessions`
   ADD CONSTRAINT `sessions_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE;
+
+ALTER TABLE `shardHostReplicas`
+  ADD CONSTRAINT `shardHostReplicas_ibfk_1` FOREIGN KEY (`shardHostID`) REFERENCES `shardHosts` (`shardHostID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `shards`
   ADD CONSTRAINT `shards_ibfk_1` FOREIGN KEY (`shardHostID`) REFERENCES `shardHosts` (`shardHostID`);

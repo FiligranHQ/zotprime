@@ -184,6 +184,11 @@ require('config/dbconnect.inc.php');
 
 require('StatsD.inc.php');
 
+// Use DB read replicas for GET requests
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'GET') {
+	Zotero_DB::readOnly(true);
+}
+
 // Database callbacks
 Zotero_DB::addCallback("begin", array("Zotero_Notifier", "begin"));
 Zotero_DB::addCallback("commit", array("Zotero_Notifier", "commit"));

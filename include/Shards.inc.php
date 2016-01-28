@@ -27,6 +27,7 @@
 class Zotero_Shards {
 	private static $libraryShards = array();
 	private static $shardInfo = array();
+	private static $shardHostReplicas = [];
 	
 	public static function getShardInfo($shardID) {
 		if (!$shardID) {
@@ -67,6 +68,36 @@ class Zotero_Shards {
 	public static function shardIsWriteable($shardID) {
 		$shardInfo = self::getShardInfo($shardID);
 		return $shardInfo['state'] == 'up';
+	}
+	
+	
+	public static function getReplicaInfo($shardHostID) {
+		if (!$shardHostID) {
+			throw new Exception('$shardHostID not provided');
+		}
+		
+		if (isset(self::$shardHostReplicas[$shardHostID])) {
+			return self::$shardHostReplicas[$shardHostID];
+		}
+		
+		$cacheKey = 'shardHostReplicas_' . $shardHostID;
+		$replicaInfo = Z_Core::$MC->get($cacheKey);
+		if ($replicaInfo) {
+			self::$shardHostReplicas[$shardHostID] = $replicaInfo;
+			return $replicaInfo;
+		}
+		
+		$sql = "SELECT address, port, state FROM shardHostReplicas "
+			. "WHERE shardHostID=? AND state='up'";
+		$replicaInfo = Zotero_DB::query($sql, $shardHostID);
+		if (!$replicaInfo) {
+			return [];
+		}
+		
+		self::$shardHostReplicas[$shardHostID] = $replicaInfo;
+		Z_Core::$MC->set($cacheKey, $replicaInfo, 60);
+		
+		return $replicaInfo;
 	}
 	
 	

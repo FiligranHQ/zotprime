@@ -536,10 +536,10 @@ class Zotero_Key {
 		
 		try {
 			$sql = "UPDATE `keys` SET lastUsed=NOW() WHERE keyID=?";
-			Zotero_DB::query($sql, $this->id);
+			Zotero_DB::query($sql, $this->id, 0, [ 'writeInReadMode' => true ]);
 			
 			$sql = "REPLACE INTO keyAccessLog (keyID, ipAddress) VALUES (?, INET_ATON(?))";
-			Zotero_DB::query($sql, array($this->id, $ip));
+			Zotero_DB::query($sql, [$this->id, $ip], 0, [ 'writeInReadMode' => true ]);
 		}
 		catch (Exception $e) {
 			error_log("WARNING: " . $e);
