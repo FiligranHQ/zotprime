@@ -241,24 +241,30 @@ class Zotero_Libraries {
 			$sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID)
 		);
 		
-		// TEMP
+		// TEMP: Remove after classic sync, and use shardLibraries only for version info?
 		if (!$version || $version == 1) {
+			$readOnly = Zotero_DB::readOnly();
+			
 			$shardID = Zotero_Shards::getByLibraryID($libraryID);
 			
 			$sql = "SELECT lastUpdated, version FROM libraries WHERE libraryID=?";
 			$row = Zotero_DB::rowQuery($sql, $libraryID);
 			
-			$sql = "UPDATE shardLibraries SET version=?, lastUpdated=? WHERE libraryID=?";
-			Zotero_DB::query(
-				$sql,
-				array($row['version'], $row['lastUpdated'], $libraryID),
-				$shardID
-			);
+			if (!$readOnly) {
+				$sql = "UPDATE shardLibraries SET version=?, lastUpdated=? WHERE libraryID=?";
+				Zotero_DB::query(
+					$sql,
+					array($row['version'], $row['lastUpdated'], $libraryID),
+					$shardID
+				);
+			}
 			$sql = "SELECT IFNULL(IF(MAX(version)=0, 1, MAX(version)), 1) FROM items WHERE libraryID=?";
 			$version = Zotero_DB::valueQuery($sql, $libraryID, $shardID);
 			
-			$sql = "UPDATE shardLibraries SET version=? WHERE libraryID=?";
-			Zotero_DB::query($sql, array($version, $libraryID), $shardID);
+			if (!$readOnly) {
+				$sql = "UPDATE shardLibraries SET version=? WHERE libraryID=?";
+				Zotero_DB::query($sql, array($version, $libraryID), $shardID);
+			}
 		}
 		
 		// Store original version for use by getOriginalVersion()
