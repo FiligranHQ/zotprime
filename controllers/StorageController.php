@@ -74,8 +74,6 @@ class StorageController extends ApiController {
 		
 		$this->allowMethods(array('GET', 'POST'));
 		
-		Zotero_DB::beginTransaction();
-		
 		if ($this->method == 'POST') {
 			if (!isset($_POST['quota'])) {
 				$this->e400("Quota not provided");
@@ -139,8 +137,6 @@ class StorageController extends ApiController {
 			$xmlGroup = $xml->usage->addChild('group', $group['usage']);
 			$xmlGroup['id'] = $group['id'];
 		}
-		
-		Zotero_DB::commit();
 		
 		header('application/xml');
 		echo $xml->asXML();
