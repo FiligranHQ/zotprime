@@ -156,6 +156,10 @@ class Zotero_DB {
 		if ($this->readOnly && !$writeInReadMode) {
 			$replicas = Zotero_Shards::getReplicaInfo($shardInfo['shardHostID']);
 			if ($replicas) {
+				$writerCacheKey = 'shardHostReplicasWriter_' . $shardInfo['shardHostID'];
+				$writerAddress = Z_Core::$MC->get($writerCacheKey);
+				$writerConn = null;
+				
 				// Randomize replica order
 				shuffle($replicas);
 				foreach ($replicas as $replica) {
@@ -167,7 +171,53 @@ class Zotero_DB {
 					$conn->host = $info['address'];
 					$conn->shardID = $linkID;
 					$conn->link = $this->getLinkFromConnectionInfo($info);
-					$this->replicaConnections[$linkID][] = $conn;
+					
+					if ($replica['address'] == $writerAddress) {
+						$writerConn = $conn;
+					}
+					else {
+						$this->replicaConnections[$linkID][] = $conn;
+					}
+				}
+				
+				// If we know the writer, add it last, so that all read replicas are tried first
+				if ($writerConn) {
+					$this->replicaConnections[$linkID][] = $writerConn;
+				}
+				// Otherwise, check the randomly sorted first replica to see if it's the writer
+				else {
+					try {
+						$results = $this->replicaConnections[$linkID][0]->link->query(
+							"SHOW GLOBAL VARIABLES LIKE 'innodb_read_only'"
+						);
+						$row = $results->fetch(Zend_Db::FETCH_ASSOC);
+						$connReadOnly = $row ? $row['Value'] : false;
+						// If we found the writer
+						if ($connReadOnly == "OFF") {
+							// Store host in memcached so that every request doesn't need to check
+							// the variables to sort the writer last.
+							//
+							// This can probably be increased, because the only consequence of not
+							// knowing the writer is that a few requests could use the writer
+							// for reads.
+							Z_Core::$MC->set(
+								$writerCacheKey,
+								$this->replicaConnections[$linkID][0]->host,
+								60
+							);
+							
+							// If more than one connection, move writer connection to end and
+							// close it
+							if (sizeOf($this->replicaConnections[$linkID]) > 1) {
+								$conn = array_shift($this->replicaConnections[$linkID]);
+								$this->replicaConnections[$linkID][] = $conn;
+								$conn->link->closeConnection();
+							}
+						}
+					}
+					catch (Exception $e) {
+						error_log("WARNING: Failed checking replica state: $e");
+					}
 				}
 				
 				//error_log($this->replicaConnections[$linkID][0]->link->getConnection()->host_info);
