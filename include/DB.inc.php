@@ -245,10 +245,10 @@ class Zotero_DB {
 	 * Get or set the state of read-only mode
 	 */
 	public static function readOnly($set = null) {
+		$instance = self::getInstance();
 		if (is_null($set)) {
 			return $instance->readOnly;
 		}
-		$instance = self::getInstance();
 		$instance->readOnly = !!$set;
 	}
 	
