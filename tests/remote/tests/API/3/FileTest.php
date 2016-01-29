@@ -1485,7 +1485,7 @@ class FileTests extends APITests {
 		
 		$json = API::createAttachmentItem("imported_url", [], $key, $this, 'jsonData');
 		$key = $json['key'];
-		$version = $json['version'];
+		$originalVersion = $json['version'];
 		
 		$fileContents = self::getRandomUnicodeString();
 		$contentType = "text/html";
