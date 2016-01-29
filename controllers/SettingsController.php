@@ -37,9 +37,9 @@ class SettingsController extends ApiController {
 			$this->e403();
 		}
 		
-		Zotero_DB::beginTransaction();
-		
 		if ($this->isWriteMethod()) {
+			Zotero_DB::beginTransaction();
+			
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
 				$this->e403("Write access denied");
@@ -70,12 +70,12 @@ class SettingsController extends ApiController {
 			}
 			
 			if ($this->isWriteMethod()) {
-				if (!empty($this->body)) {
+				if ($this->method == 'PUT') {
 					$json = $this->jsonDecode($this->body);
+					$objectVersionValidated = $this->checkSingleObjectWriteVersion(
+						'setting', $setting, $json
+					);
 				}
-				$objectVersionValidated = $this->checkSingleObjectWriteVersion(
-					'setting', $setting, $json
-				);
 				
 				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
 				
@@ -99,7 +99,6 @@ class SettingsController extends ApiController {
 						$this->e204();
 					}
 				}
-				
 				// Delete setting
 				else if ($this->method == 'DELETE') {
 					Zotero_Settings::delete($this->objectLibraryID, $this->objectKey);
@@ -108,7 +107,8 @@ class SettingsController extends ApiController {
 					throw new Exception("Unexpected method $this->method");
 				}
 				
-				$this->responseCode = 204;
+				Zotero_DB::commit();
+				$this->e204();
 			}
 			else {
 				$this->libraryVersion = $setting->version;
@@ -142,7 +142,8 @@ class SettingsController extends ApiController {
 					);
 				}
 				
-				$this->responseCode = 204;
+				Zotero_DB::commit();
+				$this->e204();
 			}
 			// Display all settings
 			else {
@@ -156,8 +157,6 @@ class SettingsController extends ApiController {
 				echo Zotero_Utilities::formatJSON($json);
 			}
 		}
-		
-		Zotero_DB::commit();
 		
 		$this->end();
 	}
