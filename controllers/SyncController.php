@@ -212,6 +212,11 @@ class SyncController extends Controller {
 	
 	
 	public function updated() {
+		// Shards can use read-only mode
+		Zotero_DB::readOnly(true);
+		// Master remains writable for session/queue data
+		Zotero_DB::readOnly(false, 0);
+		
 		if (empty($_REQUEST['lastsync'])) {
 			$this->error(400, 'NO_LAST_SYNC_TIME', 'Last sync time not provided');
 		}

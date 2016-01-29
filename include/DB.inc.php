@@ -44,6 +44,7 @@ class Zotero_DB {
 	private $profilerEnabled = false;
 	
 	private $readOnly = false;
+	private $readOnlyShards = [];
 	private $transactionLevel = 0;
 	private $transactionTimestamp;
 	private $transactionTimestampMS;
@@ -99,8 +100,8 @@ class Zotero_DB {
 			$linkID = $shardID;
 		}
 		
-		if ($this->readOnly && $isWriteQuery && !$writeInReadMode) {
-			throw new Exception("Cannot get link for writing in read-only mode");
+		if ($this->isReadOnly($shardID) && $isWriteQuery && !$writeInReadMode) {
+			throw new Exception("Cannot get link for writing to shard $shardID in read-only mode");
 		}
 		
 		// Master queries always use the cached link that was created at class construction
@@ -115,7 +116,7 @@ class Zotero_DB {
 		// not a big deal, and new requests will check the shard info again and throw.
 		//
 		// Read-only mode
-		if ($this->readOnly && !$writeInReadMode) {
+		if ($this->isReadOnly($shardID) && !$writeInReadMode) {
 			// Use a cached replica link if available.
 			if (isset($this->replicaConnections[$linkID])) {
 				// If the last link failed, try the next one. If no more, that's fatal.
@@ -153,7 +154,7 @@ class Zotero_DB {
 			}
 		}
 		
-		if ($this->readOnly && !$writeInReadMode) {
+		if ($this->isReadOnly($shardID) && !$writeInReadMode) {
 			$replicas = Zotero_Shards::getReplicaInfo($shardInfo['shardHostID']);
 			if ($replicas) {
 				$writerCacheKey = 'shardHostReplicasWriter_' . $shardInfo['shardHostID'];
@@ -291,15 +292,33 @@ class Zotero_DB {
 	}
 	
 	
-	/**
-	 * Get or set the state of read-only mode
-	 */
-	public static function readOnly($set = null) {
+	public static function isReadOnly($shardID = null) {
 		$instance = self::getInstance();
-		if (is_null($set)) {
-			return $instance->readOnly;
+		if (is_numeric($shardID)) {
+			if (isset($instance->readOnlyShards[$shardID])) {
+				return $instance->readOnlyShards[$shardID];
+			}
 		}
-		$instance->readOnly = !!$set;
+		return $instance->readOnly;
+	}
+	
+	
+	/**
+	 * Enable or disable read-only mode
+	 */
+	public static function readOnly($set, $shards = null) {
+		$instance = self::getInstance();
+		if (isset($shards)) {
+			if (is_numeric($shards)) {
+				$shards = [$shards];
+			}
+			foreach ($shards as $shardID) {
+				$instance->readOnlyShards[$shardID] = !!$set;
+			}
+		}
+		else {
+			$instance->readOnly = !!$set;
+		}
 	}
 	
 	
@@ -475,7 +494,10 @@ class Zotero_DB {
 		
 		// For testing, simulate an error reading from a replica (disabled by default)
 		$testFailures = false;
-		if ($testFailures && $shardID != 0 && !empty($options['internalStatement']) && $instance->readOnly) {
+		if ($testFailures
+				&& $shardID != 0
+				&& !empty($options['internalStatement'])
+				&& $instance->isReadOnly($shardID)) {
 			if (!isset($instance->testFailureCounts[$shardID])) {
 				$instance->testFailureCounts[$shardID] = 0;
 			}
@@ -578,8 +600,10 @@ class Zotero_DB {
 				return;
 			}
 			
-			// In read mode, retry automatically
-			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+			// In read mode, retry automatically if not in a transaction
+			if ($instance->isReadOnly($shardID)
+					&& !$instance->transactionLevel
+					&& empty($options['lastLinkFailed'])) {
 				$options['lastLinkFailed'] = true;
 				return self::query($sql, $params, $shardID, $options);
 			}
@@ -697,7 +721,7 @@ class Zotero_DB {
 		}
 		catch (Exception $e) {
 			// In read mode, retry automatically
-			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+			if ($instance->isReadOnly($shardID) && empty($options['lastLinkFailed'])) {
 				$options['lastLinkFailed'] = true;
 				return self::columnQuery($sql, $params, $shardID, $options);
 			}
@@ -786,7 +810,7 @@ class Zotero_DB {
 		}
 		catch (Exception $e) {
 			// In read mode, retry automatically
-			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+			if ($instance->isReadOnly($shardID) && empty($options['lastLinkFailed'])) {
 				$options['lastLinkFailed'] = true;
 				return self::rowQuery($sql, $params, $shardID, $options);
 			}
@@ -871,7 +895,7 @@ class Zotero_DB {
 		}
 		catch (Exception $e) {
 			// In read mode, retry automatically
-			if ($instance->readOnly && empty($options['lastLinkFailed'])) {
+			if ($instance->isReadOnly($shardID) && empty($options['lastLinkFailed'])) {
 				$options['lastLinkFailed'] = true;
 				return self::valueQuery($sql, $params, $shardID, $options);
 			}
@@ -1039,10 +1063,6 @@ class Zotero_DB {
 	protected function checkShardTransaction($shardID) {
 		if (!$this->transactionLevel) {
 			return;
-		}
-		if ($this->readOnly) {
-			error_log("WARNING: Transaction started in read-only mode");
-			error_log(Z_Core::getBacktrace());
 		}
 		
 		// Start a transaction for this shard if necessary

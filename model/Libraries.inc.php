@@ -243,9 +243,8 @@ class Zotero_Libraries {
 		
 		// TEMP: Remove after classic sync, and use shardLibraries only for version info?
 		if (!$version || $version == 1) {
-			$readOnly = Zotero_DB::readOnly();
-			
 			$shardID = Zotero_Shards::getByLibraryID($libraryID);
+			$readOnly = Zotero_DB::isReadOnly($shardID);
 			
 			$sql = "SELECT lastUpdated, version FROM libraries WHERE libraryID=?";
 			$row = Zotero_DB::rowQuery($sql, $libraryID);
