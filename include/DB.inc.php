@@ -1145,8 +1145,7 @@ class Zotero_DB {
 	public static function profileStart() {
 		$instance = self::getInstance();
 		$instance->profilerEnabled = true;
-		// TODO: Support replica connections
-		foreach ($instance->connections as $conn) {
+		foreach (array_merge($instance->connections, $instance->replicaConnections) as $conn) {
 			$profiler = $conn->link->getProfiler();
 			$profiler->setEnabled(true);
 		}
@@ -1159,74 +1158,31 @@ class Zotero_DB {
 		$str = "";
 		$first = true;
 		// TODO: Support replica connections
-		foreach ($instance->connections as $shardID => $link) {
-			$profiler = $link->getProfiler();
-			
-			$totalTime    = $profiler->getTotalElapsedSecs();
-			$queryCount   = $profiler->getTotalNumQueries();
-			$longestTime  = 0;
-			$longestQuery = null;
-			
-			if (!$queryCount) {
-				$profiler->setEnabled(false);
-				continue;
-			}
-			
-			ob_start();
-			
+		foreach ($instance->connections as $shardID => $conn) {
 			if ($first) {
-				echo "======================================================================\n\n";
+				$str .= "======================================================================\n\n";
 				$first = false;
 			}
 			else {
-				echo "----------------------------------------------------------------------\n\n";
+				$str .= "----------------------------------------------------------------------\n\n";
 			}
-			echo "Shard: $shardID\n\n";
-			
-			$queries = [];
-			
-			$profiles = $profiler->getQueryProfiles();
-			if ($profiles) {
-				foreach ($profiles as $query) {
-					$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
-					$hash = md5($sql);
-					if (isset($queries[$hash])) {
-						$queries[$hash]['count']++;
-						$queries[$hash]['time'] += $query->getElapsedSecs();
-					}
-					else {
-						$queries[$hash]['sql'] = $sql;
-						$queries[$hash]['count'] = 1;
-						$queries[$hash]['time'] = $query->getElapsedSecs();
-					}
-					if ($query->getElapsedSecs() > $longestTime) {
-						$longestTime  = $query->getElapsedSecs();
-						$longestQuery = $query->getQuery();
-					}
-				}
+			$str .= "Shard: $shardID\n\n";
+			$profiler = $conn->link->getProfiler();
+			$str .= self::getReportFromProfiler($profiler);
+			$profiler->setEnabled(false);
+		}
+		
+		foreach ($instance->replicaConnections as $shardID => $conn) {
+			if ($first) {
+				$str .= "======================================================================\n\n";
+				$first = false;
 			}
-			
-			foreach($queries as &$query) {
-				//$query['avg'] = $query['time'] / $query['count'];
+			else {
+				$str .= "----------------------------------------------------------------------\n\n";
 			}
-			
-			usort($queries, function ($a, $b) {
-				if ($a['time'] == $b['time']) {
-					return 0;
-				}
-				return ($a['time'] < $b['time']) ? -1 : 1;
-			});
-			
-			var_dump($queries);
-			
-			echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
-			echo 'Average query length: ' . ($queryCount ? ($totalTime / $queryCount) : "N/A") . ' seconds' . "\n";
-			echo 'Queries per second: ' . ($totalTime ? ($queryCount / $totalTime) : "N/A") . "\n";
-			echo 'Longest query length: ' . $longestTime . "\n";
-			echo "Longest query: " . $longestQuery . "\n\n";
-			
-			$str .= ob_get_clean();
-			
+			$str .= "Shard: $shardID (replica)\n\n";
+			$profiler = $conn[0]->link->getProfiler();
+			$str .= self::getReportFromProfiler($profiler);
 			$profiler->setEnabled(false);
 		}
 		
@@ -1237,6 +1193,64 @@ class Zotero_DB {
 			}
 			file_put_contents("/tmp/profile" . ($id ? "_" . $id : ""), $str);
 		}
+	}
+	
+	
+	private static function getReportFromProfiler($profiler) {
+		$totalTime    = $profiler->getTotalElapsedSecs();
+		$queryCount   = $profiler->getTotalNumQueries();
+		$longestTime  = 0;
+		$longestQuery = null;
+		
+		if (!$queryCount) {
+			return "";
+		}
+		
+		ob_start();
+		
+		$queries = [];
+		
+		$profiles = $profiler->getQueryProfiles();
+		if ($profiles) {
+			foreach ($profiles as $query) {
+				$sql = str_replace("\t", "", str_replace("\n", " ", $query->getQuery()));
+				$hash = md5($sql);
+				if (isset($queries[$hash])) {
+					$queries[$hash]['count']++;
+					$queries[$hash]['time'] += $query->getElapsedSecs();
+				}
+				else {
+					$queries[$hash]['sql'] = $sql;
+					$queries[$hash]['count'] = 1;
+					$queries[$hash]['time'] = $query->getElapsedSecs();
+				}
+				if ($query->getElapsedSecs() > $longestTime) {
+					$longestTime  = $query->getElapsedSecs();
+					$longestQuery = $query->getQuery();
+				}
+			}
+		}
+		
+		foreach($queries as &$query) {
+			//$query['avg'] = $query['time'] / $query['count'];
+		}
+		
+		usort($queries, function ($a, $b) {
+			if ($a['time'] == $b['time']) {
+				return 0;
+			}
+			return ($a['time'] < $b['time']) ? -1 : 1;
+		});
+		
+		var_dump($queries);
+		
+		echo 'Executed ' . $queryCount . ' queries in ' . $totalTime . ' seconds' . "\n";
+		echo 'Average query length: ' . ($queryCount ? ($totalTime / $queryCount) : "N/A") . ' seconds' . "\n";
+		echo 'Queries per second: ' . ($totalTime ? ($queryCount / $totalTime) : "N/A") . "\n";
+		echo 'Longest query length: ' . $longestTime . "\n";
+		echo "Longest query: " . $longestQuery . "\n\n";
+		
+		return ob_get_clean();
 	}
 	
 	
