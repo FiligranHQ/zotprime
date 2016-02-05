@@ -82,7 +82,7 @@ class Zotero_Shards {
 		
 		$cacheKey = 'shardHostReplicas_' . $shardHostID;
 		$replicaInfo = Z_Core::$MC->get($cacheKey);
-		if ($replicaInfo) {
+		if ($replicaInfo !== false) {
 			self::$shardHostReplicas[$shardHostID] = $replicaInfo;
 			return $replicaInfo;
 		}
@@ -91,7 +91,10 @@ class Zotero_Shards {
 			. "WHERE shardHostID=? AND state='up'";
 		$replicaInfo = Zotero_DB::query($sql, $shardHostID);
 		if (!$replicaInfo) {
-			return [];
+			$replicaInfo = [];
+			self::$shardHostReplicas[$shardHostID] = $replicaInfo;
+			Z_Core::$MC->set($cacheKey, $replicaInfo, 60);
+			return $replicaInfo;
 		}
 		
 		self::$shardHostReplicas[$shardHostID] = $replicaInfo;
