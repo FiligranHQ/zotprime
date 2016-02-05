@@ -43,6 +43,7 @@ class Zotero_Group {
 	private $loaded = false;
 	private $changed = array();
 	private $erased = false;
+	private $userData;
 	
 	
 	public function __get($field) {
@@ -264,12 +265,13 @@ class Zotero_Group {
 			throw new Exception("Group hasn't been saved");
 		}
 		
+		if (isset($this->userData[$userID])) {
+			return $this->userData[$userID];
+		}
+		
 		$sql = "SELECT role, joined, lastUpdated FROM groupUsers WHERE groupID=? AND userID=?";
 		$row = Zotero_DB::rowQuery($sql, array($this->id, $userID));
-		if (!$row) {
-			return false;
-		}
-		return $row;
+		return $this->userData[$userID] = $row;
 	}
 	
 	
@@ -305,6 +307,9 @@ class Zotero_Group {
 		$sql = "INSERT IGNORE INTO groupUsers (groupID, userID, role, joined)
 					VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
 		$added = Zotero_DB::query($sql, array($this->id, $userID, $role));
+		
+		// Clear cache
+		unset($this->userData[$userID]);
 		
 		// Delete any record of this user losing access to the group
 		if ($added) {
@@ -366,6 +371,9 @@ class Zotero_Group {
 					WHERE groupID=? AND userID=?";
 		$updated = Zotero_DB::query($sql, array($role, $this->id, $userID));
 		
+		// Clear cache
+		unset($this->userData[$userID]);
+		
 		// If group is locked by a sync, flag for later timestamp update
 		// once the sync is done so that the uploading user gets the change
 		try {
@@ -405,6 +413,9 @@ class Zotero_Group {
 		
 		$sql = "DELETE FROM groupUsers WHERE groupID=? AND userID=?";
 		Zotero_DB::query($sql, array($this->id, $userID));
+		
+		// Clear cache
+		unset($this->userData[$userID]);
 		
 		// A group user removal is logged as a deletion of the group from the user's personal library
 		$sql = "REPLACE INTO syncDeleteLogIDs (libraryID, objectType, id) VALUES (?, 'group', ?)";
