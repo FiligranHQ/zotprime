@@ -774,8 +774,8 @@ class Zotero_Item extends Zotero_DataObject {
 		if (!$this->isAttachment()) {
 			return false;
 		}
-		$name = Zotero_Attachments::linkModeNumberToName($this->attachmentLinkMode);
-		return $name == "IMPORTED_FILE" || $name == "IMPORTED_URL";
+		$name = $this->attachmentLinkMode;
+		return $name == "imported_file" || $name == "imported_url";
 	}
 	
 	
@@ -1234,7 +1234,7 @@ class Zotero_Item extends Zotero_DataObject {
 						}
 					}
 					
-					$linkMode = $this->attachmentLinkMode;
+					$linkMode = Zotero_Attachments::linkModeNameToNumber($this->attachmentLinkMode);
 					$charsetID = Zotero_CharacterSets::getID($this->attachmentCharset);
 					$path = $this->attachmentPath;
 					$storageModTime = $this->attachmentStorageModTime;
@@ -1619,7 +1619,7 @@ class Zotero_Item extends Zotero_DataObject {
 						}
 					}
 					
-					$linkMode = $this->attachmentLinkMode;
+					$linkMode = Zotero_Attachments::linkModeNameToNumber($this->attachmentLinkMode);
 					$charsetID = Zotero_CharacterSets::getID($this->attachmentCharset);
 					$path = $this->attachmentPath;
 					$storageModTime = $this->attachmentStorageModTime;
@@ -2563,8 +2563,7 @@ class Zotero_Item extends Zotero_DataObject {
 	/**
 	 * Get the link mode of an attachment
 	 *
-	 * Possible return values specified as constants in Zotero.Attachments
-	 * (e.g. Zotero.Attachments.LINK_MODE_LINKED_FILE)
+	 * @return {String} - Possible return values specified Zotero.Attachments (e.g. 'imported_url')
 	 */
 	private function getAttachmentLinkMode() {
 		if (!$this->isAttachment()) {
@@ -2584,8 +2583,7 @@ class Zotero_Item extends Zotero_DataObject {
 		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		// DEBUG: why is this returned as a float without the cast?
 		$linkMode = (int) Zotero_DB::valueQueryFromStatement($stmt, $this->id);
-		$this->attachmentData['linkMode'] = $linkMode;
-		return $linkMode;
+		return $this->attachmentData['linkMode'] = Zotero_Attachments::linkModeNumberToName($linkMode);
 	}
 	
 	
@@ -2726,7 +2724,6 @@ class Zotero_Item extends Zotero_DataObject {
 		$sql = "SELECT storageModTime FROM itemAttachments WHERE itemID=?";
 		$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
 		$val = Zotero_DB::valueQueryFromStatement($stmt, $this->id);
-		
 		$this->attachmentData['storageModTime'] = $val;
 		return $val;
 	}
@@ -2775,21 +2772,45 @@ class Zotero_Item extends Zotero_DataObject {
 				trigger_error("Invalid attachment field $field", E_USER_ERROR);
 		}
 		
+		// Clean value
+		switch ($field) {
+			case 'mimeType':
+			case 'charset':
+			case 'path':
+			case 'filename':
+				if (!$val) {
+					$val = '';
+				}
+				break;
+			
+			case 'linkMode':
+				if (is_numeric($val)) {
+					$val = Zotero_Attachments::linkModeNumberToName($val);
+				}
+				// Validate
+				else {
+					Zotero_Attachments::linkModeNameToNumber($val);
+				}
+				break;
+			
+			case 'storageModTime':
+			case 'storageHash':
+				if (!$val) {
+					$val = null;
+				}
+				break;
+		}
+		
 		if (!$this->isAttachment()) {
 			trigger_error("attachment$fieldCap can only be set for attachment items", E_USER_ERROR);
 		}
 		
-		// Validate linkMode
-		if ($field == 'linkMode') {
-			Zotero_Attachments::linkModeNumberToName($val);
-		}
-		else if ($field == 'filename') {
+		if ($field == 'filename') {
 			$linkMode = $this->getAttachmentLinkMode();
-			$linkMode = Zotero_Attachments::linkModeNumberToName($linkMode);
-			if ($linkMode == "LINKED_URL") {
+			if ($linkMode == "linked_url") {
 				throw new Exception("Linked URLs cannot have filenames");
 			}
-			else if ($linkMode == "LINKED_FILE") {
+			else if ($linkMode == "linked_file") {
 				throw new Exception("Cannot change filename for linked file");
 			}
 			
@@ -3277,7 +3298,13 @@ class Zotero_Item extends Zotero_DataObject {
 		}
 		
 		if ($this->isAttachment()) {
-			Zotero_Atom::addHTMLRow($html, "linkMode", "Link Mode", $this->attachmentLinkMode);
+			Zotero_Atom::addHTMLRow(
+				$html,
+				"linkMode",
+				"Link Mode",
+				// TODO: Stop returning number
+				Zotero_Attachments::linkModeNameToNumber($this->attachmentLinkMode)
+			);
 			Zotero_Atom::addHTMLRow($html, "mimeType", "MIME Type", $this->attachmentMIMEType);
 			Zotero_Atom::addHTMLRow($html, "charset", "Character Set", $this->attachmentCharset);
 			
@@ -3558,8 +3585,7 @@ class Zotero_Item extends Zotero_DataObject {
 		$arr['itemType'] = Zotero_ItemTypes::getName($this->itemTypeID);
 		
 		if ($this->isAttachment()) {
-			$val = $this->attachmentLinkMode;
-			$arr['linkMode'] = strtolower(Zotero_Attachments::linkModeNumberToName($val));
+			$arr['linkMode'] = $this->attachmentLinkMode;
 		}
 		
 		// For regular items, show title and creators first
@@ -3642,8 +3668,7 @@ class Zotero_Item extends Zotero_DataObject {
 		}
 		
 		if ($this->isAttachment()) {
-			$val = $this->attachmentLinkMode;
-			$arr['linkMode'] = strtolower(Zotero_Attachments::linkModeNumberToName($val));
+			$arr['linkMode'] = $this->attachmentLinkMode;
 			
 			$val = $this->attachmentMIMEType;
 			if ($includeEmpty || ($val !== false && $val !== "")) {
@@ -3666,6 +3691,12 @@ class Zotero_Item extends Zotero_DataObject {
 				$val = $this->attachmentStorageModTime;
 				if ($includeEmpty || $val) {
 					$arr['mtime'] = $val;
+				}
+			}
+			else if ($arr['linkMode'] == 'linked_file') {
+				$val = $this->attachmentPath;
+				if ($includeEmpty || $val) {
+					$arr['path'] = $val;
 				}
 			}
 		}

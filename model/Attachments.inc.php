@@ -28,10 +28,10 @@ class Zotero_Attachments {
 	private static $cacheTime = 60; // seconds to cache extracted ZIP files
 	
 	private static $linkModes = array(
-		0 => "IMPORTED_FILE",
-		1 => "IMPORTED_URL",
-		2 => "LINKED_FILE",
-		3 => "LINKED_URL"
+		0 => "imported_file",
+		1 => "imported_url",
+		2 => "linked_file",
+		3 => "linked_url"
 	);
 	
 	public static function linkModeNumberToName($number) {
@@ -44,7 +44,7 @@ class Zotero_Attachments {
 	
 	public static function linkModeNameToNumber($name, $caseInsensitive=false) {
 		if ($caseInsensitive) {
-			$name = strtoupper($name);
+			$name = strtolower($name);
 		}
 		$number = array_search($name, self::$linkModes);
 		if ($number === false) {

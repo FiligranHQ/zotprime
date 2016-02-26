@@ -619,13 +619,12 @@ class Zotero_Storage {
 		}
 		$linkMode = $item->attachmentLinkMode;
 		switch ($linkMode) {
-			// TODO: get these constants from somewhere
-			case 0:
-			case 1:
-				break;
-			
-			default:
-				throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
+		case "imported_file":
+		case "imported_url":
+			break;
+		
+		default:
+			throw new Exception("Attachment with link mode $linkMode cannot be uploaded");
 		}
 		
 		$lifetime = 3600;

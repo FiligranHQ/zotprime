@@ -84,8 +84,7 @@ class FullTextController extends ApiController {
 			$this->e404();
 		}
 		
-		if (!$item->isAttachment() || Zotero_Attachments::linkModeNumberToName(
-				$item->attachmentLinkMode) == 'LINKED_URL') {
+		if (!$item->isAttachment() || $item->attachmentLinkMode == 'linked_url') {
 			$this->e404();
 		}
 		

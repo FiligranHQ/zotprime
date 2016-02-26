@@ -159,7 +159,7 @@ class MappingsController extends ApiController {
 			$linkModeName = $_GET['linkMode'];
 			
 			try {
-				$linkMode = Zotero_Attachments::linkModeNameToNumber(strtoupper($linkModeName));
+				$linkMode = Zotero_Attachments::linkModeNameToNumber($linkModeName);
 			}
 			catch (Exception $e) {
 				$this->e400("Invalid linkMode '$linkModeName'");

@@ -984,7 +984,8 @@ class Zotero_Items {
 		}
 		
 		if ($item->isAttachment()) {
-			$xml['linkMode'] = $item->attachmentLinkMode;
+			$linkMode = $item->attachmentLinkMode;
+			$xml['linkMode'] = Zotero_Attachments::linkModeNameToNumber($linkMode);
 			$xml['mimeType'] = $item->attachmentMIMEType;
 			if ($item->attachmentCharset) {
 				$xml['charset'] = $item->attachmentCharset;
@@ -1000,8 +1001,7 @@ class Zotero_Items {
 				$xml['storageHash'] = $storageHash;
 			}
 			
-			// TODO: get from a constant
-			if ($item->attachmentLinkMode != 3) {
+			if ($linkMode != 'linked_url') {
 				$xml->addChild('path', htmlspecialchars($item->attachmentPath));
 			}
 		}
@@ -1871,6 +1871,7 @@ class Zotero_Items {
 				case 'contentType':
 				case 'charset':
 				case 'filename':
+				case 'path':
 					$k = "attachment" . ucwords($key);
 					$item->$k = $val;
 					break;
@@ -2280,7 +2281,9 @@ class Zotero_Items {
 				// Attachment properties
 				case 'linkMode':
 					try {
-						$linkMode = Zotero_Attachments::linkModeNameToNumber($val, true);
+						$linkMode = Zotero_Attachments::linkModeNumberToName(
+							Zotero_Attachments::linkModeNameToNumber($val, true)
+						);
 					}
 					catch (Exception $e) {
 						throw new Exception("'$val' is not a valid linkMode", Z_ERROR_INVALID_INPUT);
@@ -2296,19 +2299,27 @@ class Zotero_Items {
 				case 'filename':
 				case 'md5':
 				case 'mtime':
+				case 'path':
 					if ($itemType != 'attachment') {
 						throw new Exception("'$key' is valid only for attachment items", Z_ERROR_INVALID_INPUT);
 					}
+					
+					$linkMode = isset($json->linkMode)
+						? strtolower($json->linkMode)
+						: $item->attachmentLinkMode;
 					
 					switch ($key) {
 						case 'filename':
 						case 'md5':
 						case 'mtime':
-							$lm = isset($json->linkMode)
-								? $json->linkMode
-								: Zotero_Attachments::linkModeNumberToName($item->attachmentLinkMode);
-							if (strpos(strtolower($lm), 'imported_') !== 0) {
+							if (strpos($linkMode, 'imported_') !== 0) {
 								throw new Exception("'$key' is valid only for imported attachment items", Z_ERROR_INVALID_INPUT);
+							}
+							break;
+						
+						case 'path':
+							if ($linkMode != 'linked_file') {
+								throw new Exception("'$key' is valid only for linked file attachment items", Z_ERROR_INVALID_INPUT);
 							}
 							break;
 					}
@@ -2317,6 +2328,7 @@ class Zotero_Items {
 						case 'contentType':
 						case 'charset':
 						case 'filename':
+						case 'path':
 							$propName = 'attachment' . ucwords($key);
 							break;
 							

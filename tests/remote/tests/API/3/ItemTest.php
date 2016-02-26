@@ -1043,6 +1043,24 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testCreateLinkedFileAttachment() {
+		$key = API::createItem("book", false, $this, 'key');
+		$path = 'attachments:test.txt';
+		$json = API::createAttachmentItem(
+			"linked_file", [
+				'path' => $path
+			], $key, $this, 'jsonData'
+		);
+		$this->assertEquals('linked_file', $json['linkMode']);
+		// Linked file should have path
+		$this->assertEquals($path, $json['path']);
+		// And shouldn't have other attachment properties
+		$this->assertArrayNotHasKey('filename', $json);
+		$this->assertArrayNotHasKey('md5', $json);
+		$this->assertArrayNotHasKey('mtime', $json);
+	}
+	
+	
 	public function testEditAttachmentJSONDateModified() {
 		$json = API::createAttachmentItem("linked_file", [], false, $this, 'jsonData');
 		$modified = $json['dateModified'];
