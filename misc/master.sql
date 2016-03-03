@@ -357,7 +357,7 @@ CREATE TABLE `syncDownloadQueue` (
   `syncDownloadProcessID` int(10) unsigned DEFAULT NULL,
   `finished` timestamp NULL DEFAULT NULL,
   `finishedMS` smallint(5) unsigned NOT NULL DEFAULT '0',
-  `xmldata` longtext,
+  `xmldata` text,
   `errorCode` int(10) unsigned DEFAULT NULL,
   `errorMessage` text,
   PRIMARY KEY (`syncDownloadQueueID`),
@@ -391,7 +391,7 @@ CREATE TABLE `syncProcessLocks` (
 CREATE TABLE `syncUploadQueue` (
   `syncUploadQueueID` int(10) unsigned NOT NULL,
   `processorHost` int(10) unsigned DEFAULT NULL,
-  `xmldata` longtext NOT NULL,
+  `xmldata` text NOT NULL,
   `dataLength` int(10) unsigned NOT NULL DEFAULT '0',
   `hasCreator` tinyint(3) unsigned NOT NULL DEFAULT '0',
   `userID` int(10) unsigned NOT NULL,

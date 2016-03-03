@@ -39,6 +39,8 @@ class Zotero_Sync {
 	// This needs to be incremented any time there's a change to the sync response
 	private static $cacheVersion = 1;
 	
+	private static $queueDataThreshold = 65535;
+	
 	public static function getResponseXML($version=null) {
 		if (!$version) {
 			$version = self::$defaultAPIVersion;
@@ -152,6 +154,9 @@ class Zotero_Sync {
 		
 		// Strip control characters in XML data
 		$xmldata = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $xmldata);
+		
+		// If too big for DB, store in S3 and store pointer instead
+		$xmldata = self::storeQueueData('upload', $xmldata);
 		
 		Zotero_DB::beginTransaction();
 		
@@ -271,6 +276,9 @@ class Zotero_Sync {
 			
 			$xmldata = $doc->saveXML();
 			$size = strlen($xmldata);
+			
+			// If too big for DB, store in S3 and store pointer instead
+			$xmldata = self::storeQueueData('download', $xmldata);
 			
 			$sql = "UPDATE syncDownloadQueue SET finished=FROM_UNIXTIME(?), xmldata=? WHERE syncDownloadQueueID=?";
 			Zotero_DB::query(
@@ -427,6 +435,10 @@ class Zotero_Sync {
 		$error = false;
 		$lockError = false;
 		try {
+			$queueDataID = self::getQueueDataIDFromField($row['xmldata']);
+			if ($queueDataID) {
+				$row['xmldata'] = self::getQueueData('upload', $queueDataID);
+			}
 			$xml = new SimpleXMLElement($row['xmldata'], LIBXML_COMPACT | LIBXML_PARSEHUGE);
 			$timestamp = self::processUploadInternal($row['userID'], $xml, $row['syncUploadQueueID'], $syncProcessID);
 		}
@@ -479,6 +491,11 @@ class Zotero_Sync {
 			}
 			catch (Exception $e) {
 				Z_Core::logError($e);
+			}
+			
+			// Delete stored data if necessary
+			if ($queueDataID) {
+				self::removeQueueData('upload', $queueDataID);
 			}
 		}
 		// Timeout/connection error
@@ -941,6 +958,94 @@ class Zotero_Sync {
 	}
 	
 	
+	public static function getQueueDataIDFromField($field) {
+		if (substr($field, 0, 7) == 'STORED:') {
+			return substr($field, 7);
+		}
+		return false;
+	}
+	
+	
+	public static function getQueueData($type, $queueDataID) {
+		$s3Client = Z_Core::$AWS->createS3();
+		$s3Key = "sync/$type/$queueDataID";
+		
+		$tries = 0;
+		$maxTries = 5;
+		while (true) {
+			try {
+				$result = $s3Client->getObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+					'Key' => $s3Key
+				]);
+				break;
+			}
+			catch (Exception $e) {
+				$tries++;
+				if ($tries >= $maxTries) {
+					throw new Exception($e);
+				}
+				error_log("WARNING: " . $e);
+				sleep(pow(2, $tries));
+				continue;
+			}
+		}
+		
+		return (string) $result['Body'];
+	}
+	
+	
+	public static function storeQueueData($type, $xmldata) {
+		if (strlen($xmldata) < self::$queueDataThreshold) {
+			return $xmldata;
+		}
+		
+		$s3Client = Z_Core::$AWS->createS3();
+		$queueDataID = Zotero_Utilities::randomString(32, 'mixed', true);
+		$s3Key = "sync/$type/$queueDataID";
+		
+		$tries = 0;
+		$maxTries = 5;
+		while (true) {
+			try {
+				$s3Client->putObject([
+					'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+					'Key' => $s3Key,
+					'Body' => $xmldata
+				]);
+			}
+			catch (Exception $e) {
+				$tries++;
+				if ($tries >= $maxTries) {
+					throw new Exception($e);
+				}
+				error_log("WARNING: " . $e);
+				sleep(pow(2, $tries));
+				continue;
+			}
+			break;
+		}
+		
+		return "STORED:" . $queueDataID;
+	}
+	
+	
+	public static function removeQueueData($type, $queueDataID) {
+		$s3Client = Z_Core::$AWS->createS3();
+		$s3Key = "sync/$type/$queueDataID";
+		
+		try {
+			$s3Client->deleteObject([
+				'Bucket' => Z_CONFIG::$S3_BUCKET_CACHE,
+				'Key' => $s3Key
+			]);
+		}
+		catch (Exception $e) {
+			error_log("WARNING: " . $e);
+		}
+	}
+	
+	
 	/**
 	 * Get the result of a queued download process for a given sync session
 	 *
@@ -951,7 +1056,8 @@ class Zotero_Sync {
 	 */
 	public static function getSessionDownloadResult($sessionID) {
 		Zotero_DB::beginTransaction();
-		$sql = "SELECT finished, xmldata, errorCode, errorMessage FROM syncDownloadQueue WHERE sessionID=?";
+		$sql = "SELECT syncDownloadQueueID, finished, xmldata, errorCode, errorMessage "
+			. "FROM syncDownloadQueue WHERE sessionID=?";
 		$row = Zotero_DB::rowQuery($sql, $sessionID);
 		if (!$row) {
 			Zotero_DB::commit();
@@ -970,13 +1076,32 @@ class Zotero_Sync {
 			return false;
 		}
 		
+		// On success, get download data from S3 or DB
+		if (is_null($row['errorCode'])) {
+			$queueDataID = self::getQueueDataIDFromField($row['xmldata']);
+			
+			// S3
+			if ($queueDataID) {
+				$xmldata = self::getQueueData('download', $queueDataID);
+			}
+			// DB
+			else {
+				$queueDataID = false;
+				$xmldata = $row['xmldata'];
+			}
+		}
+		
 		$sql = "DELETE FROM syncDownloadQueue WHERE sessionID=?";
 		Zotero_DB::query($sql, $sessionID);
 		Zotero_DB::commit();
 		
 		// Success
 		if (is_null($row['errorCode'])) {
-			return $row['xmldata'];
+			// Delete stored data if necessary
+			if ($queueDataID) {
+				self::removeQueueData('download', $queueDataID);
+			}
+			return $xmldata;
 		}
 		
 		$e = @unserialize($row['errorMessage']);
@@ -1019,6 +1144,13 @@ class Zotero_Sync {
 		// Success
 		if (is_null($row['errorCode'])) {
 			return array('timestamp' => $row['finished']);
+		}
+		
+		// On failure, get XML data from cache for error report and clear from cache
+		$queueDataID = self::getQueueDataIDFromField($row['xmldata']);
+		if ($queueDataID) {
+			$row['xmldata'] = self::getQueueData('upload', $queueDataID);
+			self::removeQueueData('upload', $queueDataID);
 		}
 		
 		$e = @unserialize($row['errorMessage']);
