@@ -1114,7 +1114,7 @@ class Zotero_Items {
 		);
 		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
 		
-		$cacheVersion = 2;
+		$cacheVersion = 3;
 		$cacheKey = "atomEntry_" . $item->libraryID . "/" . $item->id . "_"
 			. md5(
 				$version
@@ -1354,6 +1354,10 @@ class Zotero_Items {
 			
 			$val = $item->getField('date', true, true, true);
 			if ($val !== '') {
+				// TODO: Make sure all stored values are multipart strings
+				if (!Zotero_Date::isMultipart($val)) {
+					$val = Zotero_Date::strToMultipart($val);
+				}
 				if ($queryParams['v'] < 3) {
 					$val = substr($val, 0, 4);
 					if ($val !== '0000') {
