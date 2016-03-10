@@ -307,8 +307,8 @@ class Zotero_API {
 				if ($limitMax && (int) $value > $limitMax) {
 					$value = $limitMax;
 				}
-				// Use default if 0 or invalid
-				else if ((int) $value == 0) {
+				// Use default if less than 0 or invalid
+				else if ((int) $value <= 0) {
 					continue 2;
 				}
 				$value = (int) $value;
