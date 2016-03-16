@@ -2,6 +2,9 @@
 require '../../vendor/autoload.php';
 require 'include/config.inc.php';
 
+mb_language('uni');
+mb_internal_encoding('UTF-8');
+date_default_timezone_set('UTC');
 require '../../model/Date.inc.php';
 require '../../model/Utilities.inc.php';
 
