@@ -1877,6 +1877,11 @@ class Zotero_Items {
 				case 'filename':
 				case 'path':
 					$k = "attachment" . ucwords($key);
+					// Until classic sync is removed, store paths in Mozilla relative descriptor style,
+					// and then batch convert and remove this
+					if ($key == 'path') {
+						$val = Zotero_Attachments::encodeRelativeDescriptorString($val);
+					}
 					$item->$k = $val;
 					break;
 				

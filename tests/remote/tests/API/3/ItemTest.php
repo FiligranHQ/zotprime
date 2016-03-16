@@ -1045,7 +1045,7 @@ class ItemTests extends APITests {
 	
 	public function testCreateLinkedFileAttachment() {
 		$key = API::createItem("book", false, $this, 'key');
-		$path = 'attachments:test.txt';
+		$path = 'attachments:tést.txt';
 		$json = API::createAttachmentItem(
 			"linked_file", [
 				'path' => $path
@@ -1058,8 +1058,92 @@ class ItemTests extends APITests {
 		$this->assertArrayNotHasKey('filename', $json);
 		$this->assertArrayNotHasKey('md5', $json);
 		$this->assertArrayNotHasKey('mtime', $json);
+		
+		// Until classic sync is removed, paths should be stored as Mozilla-style relative descriptors,
+		// at which point they should be batch converted
+		require_once 'include/sync.inc.php';
+		require_once '../../include/Unicode.inc.php';
+		require_once '../../model/Attachments.inc.php';
+		$sessionID = \Sync::login();
+		$xml = \Sync::updated($sessionID, time() - 10);
+		$path2 = (string) array_shift($xml->xpath('//items/item[@key="' . $json['key'] . '"]/path'));
+		$this->assertEquals(
+			$path,
+			"attachments:" . \Zotero_Attachments::decodeRelativeDescriptorString(substr($path2, 12))
+		);
 	}
 	
+	
+	public function testLinkedFileAttachmentPathViaSync() {
+		require_once 'include/sync.inc.php';
+		require_once '../../include/Unicode.inc.php';
+		require_once '../../model/Attachments.inc.php';
+		require_once '../../model/ID.inc.php';
+		
+		$sessionID = \Sync::login();
+		$xml = \Sync::updated($sessionID, time());
+		
+		$updateKey = (string) $xml['updateKey'];
+		$itemKey = \Zotero_ID::getKey();
+		$filename = "tést.pdf";
+		
+		// Create item via sync
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" '
+			. 'key="' . $itemKey . '" '
+			. 'itemType="attachment" '
+			. 'dateAdded="2016-03-07 04:53:20" '
+			. 'dateModified="2016-03-07 04:54:09" '
+			. 'mimeType="application/pdf" '
+			. 'linkMode="2">'
+			// See note in testCreateLinkedFileAttachment
+			. '<path>attachments:' . \Zotero_Attachments::encodeRelativeDescriptorString($filename) . '</path>'
+			. '</item></items></data>';
+		$response = \Sync::upload($sessionID, $updateKey, $data);
+		\Sync::waitForUpload($sessionID, $response, $this);
+		\Sync::logout($sessionID);
+		
+		$json = API::getItem($itemKey, $this, 'json');
+		$this->assertEquals('linked_file', $json['data']['linkMode']);
+		// Linked file should have path
+		$this->assertEquals("attachments:" . $filename, $json['data']['path']);
+	}
+	
+	
+	public function testStoredFileAttachmentPathViaSync() {
+		require_once 'include/sync.inc.php';
+		require_once '../../include/Unicode.inc.php';
+		require_once '../../model/Attachments.inc.php';
+		require_once '../../model/ID.inc.php';
+		
+		$sessionID = \Sync::login();
+		$xml = \Sync::updated($sessionID, time());
+		
+		$updateKey = (string) $xml['updateKey'];
+		$itemKey = \Zotero_ID::getKey();
+		$filename = "tést.pdf";
+		
+		// Create item via sync
+		$data = '<data version="9"><items><item libraryID="'
+			. self::$config['libraryID'] . '" '
+			. 'key="' . $itemKey . '" '
+			. 'itemType="attachment" '
+			. 'dateAdded="2016-03-07 04:53:20" '
+			. 'dateModified="2016-03-07 04:54:09" '
+			. 'mimeType="application/pdf" '
+			. 'linkMode="0">'
+			// See note in testCreateLinkedFileAttachment
+			. '<path>storage:' . \Zotero_Attachments::encodeRelativeDescriptorString($filename) . '</path>'
+			. '</item></items></data>';
+		$response = \Sync::upload($sessionID, $updateKey, $data);
+		\Sync::waitForUpload($sessionID, $response, $this);
+		\Sync::logout($sessionID);
+		
+		$json = API::getItem($itemKey, $this, 'json');
+		$this->assertEquals('imported_file', $json['data']['linkMode']);
+		// Linked file should have path
+		$this->assertEquals($filename, $json['data']['filename']);
+	}
 	
 	public function testEditAttachmentJSONDateModified() {
 		$json = API::createAttachmentItem("linked_file", [], false, $this, 'jsonData');

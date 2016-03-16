@@ -2700,6 +2700,7 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		// Strip "storage:"
 		$filename = substr($path, 8);
+		// TODO: Remove after classic sync is remove and existing values are batch-converted
 		$filename = Zotero_Attachments::decodeRelativeDescriptorString($filename);
 		
 		$this->attachmentData['filename'] = $filename;
@@ -3696,7 +3697,7 @@ class Zotero_Item extends Zotero_DataObject {
 			else if ($arr['linkMode'] == 'linked_file') {
 				$val = $this->attachmentPath;
 				if ($includeEmpty || $val) {
-					$arr['path'] = $val;
+					$arr['path'] = Zotero_Attachments::decodeRelativeDescriptorString($val);
 				}
 			}
 		}
