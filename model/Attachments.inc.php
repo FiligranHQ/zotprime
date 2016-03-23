@@ -236,18 +236,11 @@ class Zotero_Attachments {
 	public static function decodeRelativeDescriptorString($str) {
 		$str = Z_Unicode::convertCharStr2CP($str, false, true, 'hex');
 		$str = Z_Unicode::convertUTF82Char($str);
-		if (function_exists('normalizer_normalize')) {
-			$str = normalizer_normalize($str);
-		}
 		return $str;
 	}
 	
 	
 	public static function encodeRelativeDescriptorString($str) {
-		if (function_exists('normalizer_normalize')) {
-			$str = normalizer_normalize($str);
-		}
-		
 		$str = Z_Unicode::convertCharStr2UTF8($str);
 		// convertNumbers2Char($str, 'hex')
 		$str = preg_replace_callback(
