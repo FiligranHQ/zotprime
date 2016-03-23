@@ -3677,7 +3677,11 @@ class Zotero_Item extends Zotero_DataObject {
 			}
 			
 			$val = $this->attachmentCharset;
-			if ($includeEmpty || ($val !== false && $val !== "")) {
+			if ($includeEmpty || $val) {
+				if ($val) {
+					// TODO: Move to CharacterSets::getName() after classic sync removal
+					$val = Zotero_CharacterSets::toCanonical($val);
+				}
 				$arr['charset'] = $val;
 			}
 			
