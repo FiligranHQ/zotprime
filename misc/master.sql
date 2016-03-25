@@ -93,7 +93,7 @@ CREATE TABLE `groups` (
   `hasImage` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `dateAdded` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `version` tinyint(3) unsigned NOT NULL DEFAULT '1',
+  `version` mediumint(8) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`groupID`),
   UNIQUE KEY `libraryID` (`libraryID`),
   UNIQUE KEY `slug` (`slug`)

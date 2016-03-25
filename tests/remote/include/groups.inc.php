@@ -18,10 +18,6 @@ foreach ($groups as $group) {
 	$owner = $data['owner'];
 	$libraryReading = $data['libraryReading'];
 	
-	if ($type == 'Private') {
-		continue;
-	}
-	
 	if (!$config['ownedPublicGroupID']
 			&& $type == 'PublicOpen'
 			&& $owner == $config['userID']
@@ -33,6 +29,10 @@ foreach ($groups as $group) {
 			&& $owner == $config['userID']
 			&& $libraryReading == 'members') {
 		$config['ownedPublicNoAnonymousGroupID'] = $id;
+	}
+	else if ($type == 'Private'
+			&& ($id == $config['ownedPrivateGroupID'] || $id == $config['ownedPrivateGroupID2'])) {
+		continue;
 	}
 	else {
 		$toDelete[] = $id;
@@ -61,7 +61,9 @@ $config['numOwnedGroups'] = 3;
 $config['numPublicGroups'] = 2;
 
 foreach ($groups as $group) {
-	API3::groupClear($group['id']);
+	if (!in_array($group['id'], $toDelete)) {
+		API3::groupClear($group['id']);
+	}
 }
 
 \Zotero\Tests\Config::update($config);

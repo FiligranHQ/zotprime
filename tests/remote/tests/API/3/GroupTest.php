@@ -44,7 +44,7 @@ class GroupTests extends APITests {
 	
 	
 	/**
-	 * Changing a group's metadata should change its ETag
+	 * Changing a group's metadata should change its version
 	 */
 	public function testUpdateMetadataJSON() {
 		$response = API::userGet(
@@ -53,13 +53,12 @@ class GroupTests extends APITests {
 		);
 		$this->assert200($response);
 		
-		// Get group API URI and ETag
+		// Get group API URI and version
 		$json = API::getJSONFromResponse($response)[0];
 		$groupID = $json['id'];
 		$url = $json['links']['self']['href'];
 		$url = str_replace(self::$config['apiURLPrefix'], '', $url);
 		$version = $json['version'];
-		//$etag = (string) array_shift($xml->xpath("//atom:entry/atom:content/@etag"));
 		
 		// Make sure format=versions returns the same version
 		$response = API::userGet(
@@ -139,7 +138,7 @@ class GroupTests extends APITests {
 	
 	
 	/**
-	 * Changing a group's metadata should change its ETag
+	 * Changing a group's metadata should change its version
 	 */
 	public function testUpdateMetadataAtom() {
 		$response = API::userGet(
@@ -157,7 +156,7 @@ class GroupTests extends APITests {
 		$url = str_replace(self::$config['apiURLPrefix'], '', $url);
 		$version = json_decode(API::parseDataFromAtomEntry($xml)['content'], true)['version'];
 		
-		// Make sure format=versions returns the same ETag
+		// Make sure format=versions returns the same version
 		$response = API::userGet(
 			self::$config['userID'],
 			"groups?format=versions&key=" . self::$config['apiKey']
@@ -221,7 +220,7 @@ class GroupTests extends APITests {
 		$newVersion = $json->$groupID;
 		$this->assertNotEquals($version, $newVersion);
 		
-		// Check ETag header on individual group request
+		// Check version header on individual group request
 		$response = API::groupGet(
 			$groupID,
 			"?content=json&key=" . self::$config['apiKey']
@@ -232,6 +231,47 @@ class GroupTests extends APITests {
 		$this->assertEquals($name, $json->name);
 		$this->assertEquals($description, $json->description);
 		$this->assertEquals($urlField, $json->url);
+	}
+	
+	
+	public function testUpdateMemberJSON() {
+		$groupID = API::createGroup([
+			'owner' => self::$config['userID'],
+			'type' => 'Private',
+			'libraryReading' => 'all'
+		]);
+		
+		// Get group version
+		$response = API::userGet(
+			self::$config['userID'],
+			"groups?format=versions&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$version = json_decode($response->getBody())->$groupID;
+		
+		$response = API::superPost(
+			"groups/$groupID/users",
+			'<user id="' . self::$config['userID2'] . '" role="member"/>',
+			["Content-Type: text/xml"]
+		);
+		$this->assert200($response);
+		
+		// Group metadata version should have changed
+		$response = API::userGet(
+			self::$config['userID'],
+			"groups?format=versions&key=" . self::$config['apiKey']
+		);
+		$this->assert200($response);
+		$json = json_decode($response->getBody());
+		$newVersion = $json->$groupID;
+		$this->assertNotEquals($version, $newVersion);
+		
+		// Check version header on individual group request
+		$response = API::groupGet($groupID, "");
+		$this->assert200($response);
+		$this->assertEquals($newVersion, $response->getHeader('Last-Modified-Version'));
+		
+		API::deleteGroup($groupID);
 	}
 }
 ?>

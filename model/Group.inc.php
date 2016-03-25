@@ -308,6 +308,9 @@ class Zotero_Group {
 					VALUES (?, ?, ?, CURRENT_TIMESTAMP)";
 		$added = Zotero_DB::query($sql, array($this->id, $userID, $role));
 		
+		$sql = "UPDATE groups SET dateModified=CURRENT_TIMESTAMP, version=version+1 WHERE groupID=?";
+		Zotero_DB::query($sql, $this->id);
+		
 		// Clear cache
 		unset($this->userData[$userID]);
 		
@@ -371,6 +374,9 @@ class Zotero_Group {
 					WHERE groupID=? AND userID=?";
 		$updated = Zotero_DB::query($sql, array($role, $this->id, $userID));
 		
+		$sql = "UPDATE groups SET dateModified=CURRENT_TIMESTAMP, version=version+1 WHERE groupID=?";
+		Zotero_DB::query($sql, $this->id);
+		
 		// Clear cache
 		unset($this->userData[$userID]);
 		
@@ -413,6 +419,9 @@ class Zotero_Group {
 		
 		$sql = "DELETE FROM groupUsers WHERE groupID=? AND userID=?";
 		Zotero_DB::query($sql, array($this->id, $userID));
+		
+		$sql = "UPDATE groups SET dateModified=CURRENT_TIMESTAMP, version=version+1 WHERE groupID=?";
+		Zotero_DB::query($sql, $this->id);
 		
 		// Clear cache
 		unset($this->userData[$userID]);
@@ -610,9 +619,7 @@ class Zotero_Group {
 				$params[] = $this->$field;
 			}
 		}
-		$sql .= implode(", ", $q) . ", "
-			. "dateModified=CURRENT_TIMESTAMP, "
-			. "version=IF(version = 255, 1, version + 1)";
+		$sql .= implode(", ", $q) . ", dateModified=CURRENT_TIMESTAMP, version=version+1";
 		$insertID = Zotero_DB::query($sql, $params);
 		
 		if (!$this->id) {
