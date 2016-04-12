@@ -1914,8 +1914,14 @@ class Zotero_Items {
 		
 		$item->deleted = !empty($json->deleted);
 		
+		// Skip Date Modified update if only certain fields were updated (e.g., collections)
+		$skipDateModifiedUpdate = !sizeOf(array_diff(
+			$item->getChanged(),
+			['collections', 'relations']
+		));
+		
 		// If item has changed, update it with the current timestamp
-		if ($item->hasChanged() && !$changedDateModified) {
+		if ($item->hasChanged() && !$skipDateModifiedUpdate && !$changedDateModified) {
 			$item->dateModified = Zotero_DB::getTransactionTimestamp();
 		}
 		

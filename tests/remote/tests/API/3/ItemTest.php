@@ -480,6 +480,33 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testDateModifiedCollectionChange() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		$json = API::createItem("book", ["title" => "Test"], $this, 'jsonData');
+		
+		$objectKey = $json['key'];
+		$dateModified1 = $json['dateModified'];
+		
+		$json['collections'] = [$collectionKey];
+		
+		// Make sure we're in the next second
+		sleep(1);
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json])
+		);
+		$this->assert200ForObject($response);
+		
+		$json = API::getItem($objectKey, $this, 'json')['data'];
+		$dateModified2 = $json['dateModified'];
+		
+		// Date Modified shouldn't have changed
+		$this->assertEquals($dateModified1, $dateModified2);
+	}
+	
+	
 	public function testChangeItemType() {
 		$json = API::getItemTemplate("book");
 		$json->title = "Foo";

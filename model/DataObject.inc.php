@@ -464,10 +464,15 @@ class Zotero_DataObject {
 		return $this->{"load" . ucwords($dataType)}($reload);
 	}
 	
+	
 	protected function markAllDataTypeLoadStates($loaded) {
 		foreach ($this->dataTypes as $dataType) {
 			$this->loaded[$dataType] = $loaded;
 		}
+	}
+	
+	public function getChanged() {
+		return array_keys($this->changed);
 	}
 	
 	
