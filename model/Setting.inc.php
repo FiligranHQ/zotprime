@@ -223,11 +223,7 @@ class Zotero_Setting {
 				break;
 			
 			case 'name':
-				switch ($val) {
-				case 'tagColors':
-					break;
-					
-				default:
+				if (!in_array($val, Zotero_Settings::$allowedSettings)) {
 					throw new Exception("Invalid setting '$val'", Z_ERROR_INVALID_INPUT);
 				}
 				break;

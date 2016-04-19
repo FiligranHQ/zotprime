@@ -119,23 +119,31 @@ class SettingsTests extends APITests {
 	
 	
 	public function testAddUserSettingMultiple() {
-		$settingKey = "tagColors";
-		$value = array(
-			array(
-				"name" => "_READ",
-				"color" => "#990000"
-			)
-		);
-		
-		// TODO: multiple, once more settings are supported
+		$json = [
+			"tagColors" => [
+				"value" => [
+					[
+						"name" => "_READ",
+						"color" => "#990000"
+					]
+				]
+			],
+			"feeds" => [
+				"value" => [
+					"http://www.nytimes.com/services/xml/rss/nyt/HomePage.xml" => [
+						"url" => "http://www.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+						"name" => "NYT > Home Page",
+						"cleanupAfter" => 2,
+						"refreshInterval" => 60
+					]
+				]
+			]
+		];
+		$settingKeys = array_keys($json);
+		$json = json_decode(json_encode($json));
 		
 		$libraryVersion = API::getLibraryVersion();
 		
-		$json = array(
-			$settingKey => array(
-				"value" => $value
-			)
-		);
 		$response = API::userPost(
 			self::$config['userID'],
 			"settings",
@@ -151,23 +159,27 @@ class SettingsTests extends APITests {
 		);
 		$this->assert200($response);
 		$this->assertContentType("application/json", $response);
-		$json = json_decode($response->getBody(), true);
-		$this->assertNotNull($json);
-		$this->assertArrayHasKey($settingKey, $json);
-		$this->assertEquals($value, $json[$settingKey]['value']);
-		$this->assertEquals($libraryVersion + 1, $json[$settingKey]['version']);
+		$json2 = json_decode($response->getBody());
+		$this->assertNotNull($json2);
+		foreach ($settingKeys as $settingKey) {
+			$this->assertObjectHasAttribute($settingKey, $json2, "Object should have $settingKey property");
+			$this->assertEquals($json->$settingKey->value, $json2->$settingKey->value, "'$settingKey' value should match");
+			$this->assertEquals($libraryVersion + 1, $json2->$settingKey->version, "'$settingKey' version should match");
+		}
 		
 		// Single-object GET
-		$response = API::userGet(
-			self::$config['userID'],
-			"settings/$settingKey"
-		);
-		$this->assert200($response);
-		$this->assertContentType("application/json", $response);
-		$json = json_decode($response->getBody(), true);
-		$this->assertNotNull($json);
-		$this->assertEquals($value, $json['value']);
-		$this->assertEquals($libraryVersion + 1, $json['version']);
+		foreach ($settingKeys as $settingKey) {
+			$response = API::userGet(
+				self::$config['userID'],
+				"settings/$settingKey"
+			);
+			$this->assert200($response);
+			$this->assertContentType("application/json", $response);
+			$json2 = json_decode($response->getBody());
+			$this->assertNotNull($json2);
+			$this->assertEquals($json->$settingKey->value, $json2->value);
+			$this->assertEquals($libraryVersion + 1, $json2->version);
+		}
 	}
 	
 	

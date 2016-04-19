@@ -27,6 +27,8 @@
 class Zotero_Settings extends Zotero_ClassicDataObjects {
 	public static $MAX_VALUE_LENGTH = 1000;
 	
+	public static $allowedSettings = ['feeds', 'tagColors'];
+	
 	protected static $ZDO_object = 'setting';
 	protected static $ZDO_key = 'name';
 	protected static $ZDO_id = 'name';
@@ -159,12 +161,8 @@ class Zotero_Settings extends Zotero_ClassicDataObjects {
 		
 		$requiredProps = array('value');
 		
-		switch ($name) {
-		case 'tagColors':
-			break;
-		
-		default:
-			throw new Exception("Invalid setting '$name'");
+		if (!in_array($name, self::$allowedSettings)) {
+			throw new Exception("Invalid setting '$name'", Z_ERROR_INVALID_INPUT);
 		}
 		
 		foreach ($requiredProps as $prop) {
@@ -219,7 +217,19 @@ class Zotero_Settings extends Zotero_ClassicDataObjects {
 	
 	
 	public static function checkSettingValue($setting, $value) {
+		if (mb_strlen(is_string($value) ? $value : json_encode($value)) > self::$MAX_VALUE_LENGTH) {
+			throw new Exception("'value' cannot be longer than "
+				. self::$MAX_VALUE_LENGTH . " characters", Z_ERROR_INVALID_INPUT);
+		}
+		
 		switch ($setting) {
+		// Object settings
+		case 'feeds':
+			if (!is_object($value)) {
+				throw new Exception("'value' must be an object", Z_ERROR_INVALID_INPUT);
+			}
+			break;
+		
 		// Array settings
 		case 'tagColors':
 			if (!is_array($value)) {
@@ -228,11 +238,6 @@ class Zotero_Settings extends Zotero_ClassicDataObjects {
 			
 			if (empty($value)) {
 				throw new Exception("'value' array cannot be empty", Z_ERROR_INVALID_INPUT);
-			}
-			
-			if (mb_strlen(json_encode($value)) > self::$MAX_VALUE_LENGTH) {
-				throw new Exception("'value' cannot be longer than "
-					. self::$MAX_VALUE_LENGTH . " characters", Z_ERROR_INVALID_INPUT);
 			}
 			break;
 		
@@ -244,11 +249,6 @@ class Zotero_Settings extends Zotero_ClassicDataObjects {
 			
 			if ($val === "") {
 				throw new Exception("'value' cannot be empty", Z_ERROR_INVALID_INPUT);
-			}
-			
-			if (mb_strlen($value) > self::$MAX_VALUE_LENGTH) {
-				throw new Exception("'value' cannot be longer than "
-					. self::$MAX_VALUE_LENGTH . " characters", Z_ERROR_INVALID_INPUT);
 			}
 			break;
 		}

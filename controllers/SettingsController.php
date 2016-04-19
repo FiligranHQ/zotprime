@@ -70,17 +70,15 @@ class SettingsController extends ApiController {
 			}
 			
 			if ($this->isWriteMethod()) {
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				
+				// Update setting
 				if ($this->method == 'PUT') {
 					$json = $this->jsonDecode($this->body);
 					$objectVersionValidated = $this->checkSingleObjectWriteVersion(
 						'setting', $setting, $json
 					);
-				}
-				
-				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
-				
-				// Update setting
-				if ($this->method == 'PUT') {
+					
 					$changed = Zotero_Settings::updateFromJSON(
 						$setting,
 						$json,
