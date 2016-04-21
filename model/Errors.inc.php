@@ -47,12 +47,27 @@ class Zotero_Errors {
 		$errorCode = $e->getCode();
 		switch ($errorCode) {
 			case Z_ERROR_INVALID_INPUT:
+			case Z_ERROR_CITESERVER_INVALID_STYLE:
+				$error['code'] = 400;
+				$error['log'] = true;
+				break;
+			
 			case Z_ERROR_NOTE_TOO_LONG:
 			case Z_ERROR_FIELD_TOO_LONG:
 			case Z_ERROR_CREATOR_TOO_LONG:
 			case Z_ERROR_COLLECTION_TOO_LONG:
-			case Z_ERROR_CITESERVER_INVALID_STYLE:
-				$error['code'] = 400;
+				$error['code'] = 413;
+				$error['log'] = true;
+				break;
+			
+			case Z_ERROR_TAG_TOO_LONG:
+				$error['code'] = 413;
+				preg_match("/Tag '(.+)' too long/s", $msg, $matches);
+				if ($matches) {
+					$name = $matches[1];
+					$error['message'] = "Tag '" . mb_substr($name, 0, 50) . "…' too long";
+					$error['data']['tag'] = $name;
+				}
 				$error['log'] = true;
 				break;
 			

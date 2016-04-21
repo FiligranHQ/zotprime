@@ -70,6 +70,21 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function testTagTooLong() {
+		$tag = \Zotero_Utilities::randomString(300);
+		$json = API::getItemTemplate("book");
+		$json->tags[] = [
+			"tag" => $tag,
+			"type" => 1
+		];
+		
+		$response = API::postItem($json);
+		$this->assert413ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($tag, $json['failed'][0]['data']['tag']);
+	}
+	
+	
 	public function testItemTagSearch() {
 		API::userClear(self::$config['userID']);
 		

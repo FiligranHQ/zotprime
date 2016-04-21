@@ -90,15 +90,20 @@ class Zotero_Results {
 			$report['unchanged']->$index = $key;
 		}
 		foreach ($this->failed as $index => $error) {
-			$report['failed']->$index = array(
+			$obj = [
 				'key' => $error['key'],
 				'code' => $error['code'],
 				'message' => htmlspecialchars($error['message'])
-			);
-			// If key is blank, don't include it
-			if ($report['failed']->{$index}['key'] === '') {
-				unset($report['failed']->{$index}['key']);
+			];
+			if (isset($error['data'])) {
+				$obj['data'] = $error['data'];
 			}
+			// If key is blank, don't include it
+			if ($obj['key'] === '') {
+				unset($obj['key']);
+			}
+			
+			$report['failed']->$index = $obj;
 		}
 		return $report;
 	}
