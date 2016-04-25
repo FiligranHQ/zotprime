@@ -715,7 +715,7 @@ class Zotero_Items {
 	 * @param	DOMElement		$xml		Item data as DOMElement
 	 * @return	Zotero_Item					Zotero item object
 	 */
-	public static function convertXMLToItem(DOMElement $xml) {
+	public static function convertXMLToItem(DOMElement $xml, $skipCreators = []) {
 		// Get item type id, adding custom type if necessary
 		$itemTypeName = $xml->getAttribute('itemType');
 		$itemTypeID = Zotero_ItemTypes::getID($itemTypeName);
@@ -807,6 +807,10 @@ class Zotero_Items {
 			if (!$creatorObj) {
 				$subcreator = $creator->getElementsByTagName('creator')->item(0);
 				if (!$subcreator) {
+					if (!empty($skipCreators[$libraryID]) && in_array($key, $skipCreators[$libraryID])) {
+						error_log("Skipping empty referenced creator $key for item $libraryID/$itemObj->key");
+						continue;
+					}
 					throw new Exception("Data for missing local creator $key not provided", Z_ERROR_CREATOR_NOT_FOUND);
 				}
 				$creatorObj = Zotero_Creators::convertXMLToCreator($subcreator, $libraryID);

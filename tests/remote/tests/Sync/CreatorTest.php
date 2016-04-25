@@ -298,4 +298,31 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		// Not ideal, but for now the updated creator should just be ignored
 		$this->assertEquals("Test", (string) $xml->updated->creators->creator->name);
 	}
+	
+	
+	public function testEmptyLinkedCreator() {
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		// Create creator via sync
+		$data = '<data version="9"><creators>'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="AAAAAAAA" dateAdded="2013-12-01 03:53:20" dateModified="2013-12-01 03:54:09">'
+			. '<name>' . chr(0x7f) . '</name>'
+			. '<fieldMode>1</fieldMode>'
+			. '</creator>'
+			. '</creators>'
+			. '<items><item libraryID="' . self::$config['libraryID'] . '" itemType="book" '
+			. 'dateAdded="2013-12-01 03:53:20" dateModified="2013-12-01 03:53:20" key="BBBBBBBB">'
+			. '<creator libraryID="' . self::$config['libraryID'] . '" '
+			. 'key="AAAAAAAA" creatorType="editor" index="0"/>'
+			. '</item></items></data>';
+		$response = Sync::upload(self::$sessionID, $updateKey, $data);
+		Sync::waitForUpload(self::$sessionID, $response, $this);
+		
+		// Creators should have been skipped
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		$this->assertEquals(0, sizeOf($xml->updated->creators->creator));
+	}
 }

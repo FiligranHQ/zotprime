@@ -1551,6 +1551,7 @@ class Zotero_Sync {
 			}
 			
 			$modifiedItems = array();
+			$skipCreators = [];
 			
 			// Add/update creators
 			if ($xml->creators) {
@@ -1572,6 +1573,12 @@ class Zotero_Sync {
 						$creatorObj = Zotero_Creators::convertXMLToCreator($xmlElement);
 						if (Zotero_Utilities::unicodeTrim($creatorObj->firstName) === ''
 								&& Zotero_Utilities::unicodeTrim($creatorObj->lastName) === '') {
+							// Remember the empty creator, since it might be referenced without
+							// data within an item and would otherwise be missing
+							if (empty($skipCreators[$creatorObj->libraryID])) {
+								$skipCreators[$creatorObj->libraryID] = [];
+							}
+							$skipCreators[$creatorObj->libraryID][] = $creatorObj->key;
 							continue;
 						}
 						$addedLibraryIDs[] = $creatorObj->libraryID;
@@ -1624,7 +1631,7 @@ class Zotero_Sync {
 						throw new Exception("Item $libraryID/$key already processed");
 					}
 					
-					$itemObj = Zotero_Items::convertXMLToItem($xmlElement);
+					$itemObj = Zotero_Items::convertXMLToItem($xmlElement, $skipCreators);
 					
 					if (!$itemObj->getSourceKey()) {
 						try {
