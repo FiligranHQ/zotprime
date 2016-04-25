@@ -158,7 +158,7 @@ class BibTests extends APITests {
 				);
 				$this->assert200($response);
 				$json = API::getJSONFromResponse($response);
-				$this->assertEquals($expected['json']['citation'][$style], $json['citation']);
+				$this->assertEquals($expected['json']['citation'][$style], $json['citation'], "Item: $key, style: $style");
 			}
 		}
 	}

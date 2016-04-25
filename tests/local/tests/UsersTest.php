@@ -27,12 +27,12 @@ require_once 'include/bootstrap.inc.php';
 
 class UsersTests extends PHPUnit_Framework_TestCase {
 	public function testExists() {
-		$this->assertEquals(Zotero_Users::exists(1), true);
-		$this->assertEquals(Zotero_Users::exists(100), false);
+		$this->assertTrue(Zotero_Users::exists(1));
+		$this->assertFalse(Zotero_Users::exists(100));
 	}
 	
 	public function testAuthenticate() {
-		$this->assertEquals(Zotero_Users::authenticate('password', array('username'=>'testuser', 'password'=>'letmein')), 1);
-		$this->assertEquals(Zotero_Users::authenticate('password', array('username'=>'testuser', 'password'=>'letmein2')), false);
+		$this->assertEquals(1, Zotero_Users::authenticate('password', ['username'=>'testuser', 'password'=>'letmein']));
+		$this->assertFalse(Zotero_Users::authenticate('password', ['username'=>'testuser', 'password'=>'letmein2']));
 	}
 }
