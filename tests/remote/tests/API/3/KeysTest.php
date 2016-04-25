@@ -67,7 +67,41 @@ class KeysTest extends APITests {
 	}
 	
 	
-	public function testGetKey() {
+	public function testGetKeyInfoCurrent() {
+		API::useAPIKey("");
+		$response = API::get(
+			'keys/current',
+			[
+				"Zotero-API-Key" => self::$config['apiKey']
+			]
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals(self::$config['apiKey'], $json['key']);
+		$this->assertEquals(self::$config['userID'], $json['userID']);
+		$this->arrayHasKey("user", $json['access']);
+		$this->arrayHasKey("groups", $json['access']);
+		$this->assertTrue($json['access']['user']['library']);
+		$this->assertTrue($json['access']['user']['files']);
+		$this->assertTrue($json['access']['user']['notes']);
+		$this->assertTrue($json['access']['user']['write']);
+		$this->assertTrue($json['access']['groups']['all']['library']);
+		$this->assertTrue($json['access']['groups']['all']['write']);
+		$this->assertArrayNotHasKey('name', $json);
+		$this->assertArrayNotHasKey('dateAdded', $json);
+		$this->assertArrayNotHasKey('lastUsed', $json);
+		$this->assertArrayNotHasKey('recentIPs', $json);
+	}
+	
+	
+	public function testGetKeyInfoCurrentWithoutHeader() {
+		API::useAPIKey("");
+		$response = API::get('keys/current');
+		$this->assert403($response);
+	}
+	
+	
+	public function testGetKeyInfoByPath() {
 		API::useAPIKey("");
 		$response = API::get('keys/' . self::$config['apiKey']);
 		$this->assert200($response);
@@ -90,7 +124,7 @@ class KeysTest extends APITests {
 	
 	
 	// Deprecated
-	public function testGetKeyWithUser() {
+	public function testGetKeyInfoWithUser() {
 		API::useAPIKey("");
 		$response = API::userGet(
 			self::$config['userID'],
@@ -158,13 +192,19 @@ class KeysTest extends APITests {
 		// Delete anonymously (with embedded key)
 		$response = API::userDelete(
 			self::$config['userID'],
-			"keys/$key"
+			"keys/current",
+			[
+				"Zotero-API-Key" => $key
+			]
 		);
 		$this->assert204($response);
 		
 		$response = API::userGet(
 			self::$config['userID'],
-			"keys/$key"
+			"keys/current",
+			[
+				"Zotero-API-Key" => $key
+			]
 		);
 		$this->assert404($response);
 	}

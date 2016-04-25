@@ -30,6 +30,9 @@ class KeysController extends ApiController {
 	public function keys() {
 		$userID = $this->objectUserID;
 		$key = $this->objectName;
+		if ($key == 'current') {
+			$key = $this->apiKey;
+		}
 		
 		$this->allowMethods(['GET', 'POST', 'PUT', 'DELETE']);
 		
@@ -123,7 +126,7 @@ class KeysController extends ApiController {
 		
 		else if ($this->method == 'DELETE') {
 			if (!$key) {
-				$this->e400("DELETE requests must end with a key");
+				$this->e400("DELETE requests must include a key");
 			}
 			
 			Zotero_DB::beginTransaction();
@@ -142,7 +145,7 @@ class KeysController extends ApiController {
 		else {
 			if ($this->method == 'POST') {
 				if ($key) {
-					$this->e400("POST requests cannot end with a key (did you mean PUT?)");
+					$this->e400("POST requests cannot include a key (did you mean PUT?)");
 				}
 				
 				if ($this->apiVersion >= 3) {
@@ -226,7 +229,7 @@ class KeysController extends ApiController {
 			
 			else if ($this->method == 'PUT') {
 				if (!$key) {
-					$this->e400("PUT requests must end with a key (did you mean POST?)");
+					$this->e400("PUT requests must include a key (did you mean POST?)");
 				}
 				
 				if ($this->apiVersion >= 3) {
