@@ -209,7 +209,10 @@ class APITests extends \APITests {
 	
 	
 	protected function assertLastModifiedVersion($expected, $response) {
-		$this->assertEquals($expected, $response->getHeader('Last-Modified-Version'));
+		$this->assertSame(
+			is_numeric($expected) ? (string) $expected : $expected,
+			$response->getHeader('Last-Modified-Version')
+		);
 	}
 	
 	
