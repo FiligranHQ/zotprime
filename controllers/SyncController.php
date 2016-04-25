@@ -844,7 +844,7 @@ class SyncController extends Controller {
 			case Z_ERROR_ITEM_NOT_FOUND:
 			case Z_ERROR_COLLECTION_NOT_FOUND:
 			case Z_ERROR_CREATOR_NOT_FOUND:
-				error_log($e);
+				error_log($e->getMessage());
 				$this->error(500, "FULL_SYNC_REQUIRED",
 					"Please perform a full sync in the Sync->Reset pane of the Zotero preferences. (Report ID: $id)"
 				);
