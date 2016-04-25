@@ -686,7 +686,7 @@ class ObjectTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assert200ForObject($response, false, 0);
-		$this->assert400ForObject($response, false, 1);
+		$this->assert413ForObject($response, false, 1);
 		$this->assert200ForObject($response, false, 2);
 		$successKeys = API::getSuccessfulKeysFromResponse($response);
 		
@@ -745,7 +745,7 @@ class ObjectTests extends APITests {
 		$this->assert200($response);
 		$json = API::getJSONFromResponse($response);
 		$this->assertUnchangedForObject($response, 0);
-		$this->assert400ForObject($response, false, 1);
+		$this->assert413ForObject($response, false, 1);
 		$this->assert200ForObject($response, false, 2);
 		$successKeys = API::getSuccessfulKeysFromResponse($response);
 		

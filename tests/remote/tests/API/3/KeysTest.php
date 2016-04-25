@@ -206,7 +206,7 @@ class KeysTest extends APITests {
 				"Zotero-API-Key" => $key
 			]
 		);
-		$this->assert404($response);
+		$this->assert403($response);
 	}
 	
 	
