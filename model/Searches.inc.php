@@ -295,7 +295,7 @@ class Zotero_Searches {
 					}
 					
 					if (mb_strlen($val) > 255) {
-						throw new Exception("Search name cannot be longer than 255 characters", Z_ERROR_INVALID_INPUT);
+						throw new Exception("Search name cannot be longer than 255 characters", Z_ERROR_FIELD_TOO_LONG);
 					}
 					break;
 					
