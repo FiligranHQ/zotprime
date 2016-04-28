@@ -12,7 +12,7 @@
   </define>
   <define name="keyPattern">
     <data type="string">
-      <param name="pattern">[23456789ABCDEFGHIJKMNPQRSTUVWXTZ]{8}</param>
+      <param name="pattern">[23456789ABCDEFGHIJKLMNPQRSTUVWXYZ]{8}</param>
     </data>
   </define>
   <define name="md5Pattern">
