@@ -720,8 +720,9 @@ class Zotero_DB {
 			return self::columnQueryFromStatement($stmt);
 		}
 		catch (Exception $e) {
-			// In read mode, retry automatically
-			if ($instance->isReadOnly($shardID) && empty($options['lastLinkFailed'])) {
+			// In read mode, retry connection errors automatically
+			if (self::isConnectionError($e)
+					&& $instance->isReadOnly($shardID) && empty($options['lastLinkFailed'])) {
 				$options['lastLinkFailed'] = true;
 				return self::columnQuery($sql, $params, $shardID, $options);
 			}
@@ -1251,6 +1252,32 @@ class Zotero_DB {
 		echo "Longest query: " . $longestQuery . "\n\n";
 		
 		return ob_get_clean();
+	}
+	
+	
+	public static function isConnectionError(Exception $e) {
+		$codes = [
+			1040, // Too many connections
+			1205, // Lock wait timeout exceeded; try restarting transaction
+			1213, //  Deadlock found when trying to get lock; try restarting transaction
+			2003, // Can't connect to MySQL server
+			2006 // MySQL server has gone away
+		];
+		if (in_array($e->getCode(), $codes)) {
+			return true;
+		}
+		
+		$messages = [
+			"Connection refused",
+			"Connection timed out"
+		];
+		$msg = $e->getMessage();
+		foreach ($messages as $message) {
+			if (strpos($msg, $message) !== false) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	
