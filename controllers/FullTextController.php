@@ -35,6 +35,11 @@ class FullTextController extends ApiController {
 	public function fulltext() {
 		$this->allowMethods(array('GET'));
 		
+		// Check for general library access
+		if (!$this->permissions->canAccess($this->objectLibraryID)) {
+			$this->e403();
+		}
+		
 		// Default empty library
 		if ($this->objectLibraryID === 0) {
 			$this->libraryVersion = 0;

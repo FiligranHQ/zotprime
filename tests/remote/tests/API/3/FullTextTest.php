@@ -41,6 +41,25 @@ class FullTextTests extends APITests {
 	}
 	
 	
+	public function testVersionsAnonymous() {
+		API::useAPIKey(false);
+		$response = API::userGet(
+			self::$config['userID'],
+			"fulltext"
+		);
+		$this->assert403($response);
+	}
+	
+	
+	public function testContentAnonymous() {
+		API::useAPIKey(false);
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/AAAAAAAA/fulltext"
+		);
+		$this->assert403($response);
+	}
+	
 	public function testSetItemContent() {
 		$key = API::createItem("book", false, $this, 'key');
 		$attachmentKey = API::createAttachmentItem("imported_url", [], $key, $this, 'key');
