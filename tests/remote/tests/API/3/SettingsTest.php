@@ -390,6 +390,64 @@ class SettingsTests extends APITests {
 	}
 	
 	
+	public function testSettingsSince() {
+		$libraryVersion1 = API::getLibraryVersion();
+		$response = API::userPost(
+			self::$config['userID'],
+			"settings",
+			json_encode([
+				"tagColors" => [
+					"value" => [
+						[
+							"name" => "_READ",
+							"color" => "#990000"
+						]
+					]
+				]
+			])
+		);
+		$this->assert204($response);
+		$libraryVersion2 = $response->getHeader("Last-Modified-Version");
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"settings",
+			json_encode([
+				"feeds" => [
+					"value" => [
+						"http://www.nytimes.com/services/xml/rss/nyt/HomePage.xml" => [
+							"url" => "http://www.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+							"name" => "NYT > Home Page",
+							"cleanupAfter" => 2,
+							"refreshInterval" => 60
+						]
+					]
+				]
+			])
+		);
+		$this->assert204($response);
+		$libraryVersion3 = $response->getHeader("Last-Modified-Version");
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"settings?since=$libraryVersion1"
+		);
+		$this->assertNumResults(2, $response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"settings?since=$libraryVersion2"
+		);
+		$this->assertNumResults(1, $response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"settings?since=$libraryVersion3"
+		);
+		$this->assertNumResults(0, $response);
+	}
+	
+	
 	public function testUnsupportedSetting() {
 		$settingKey = "unsupportedSetting";
 		$value = true;
