@@ -120,6 +120,108 @@ class FullTextTests extends APITests {
 	}
 	
 	
+	public function testSetItemContentMultiple() {
+		$key = API::createItem("book", false, $this, 'key');
+		$attachmentKey1 = API::createAttachmentItem("imported_url", [], $key, $this, 'key');
+		$attachmentKey2 = API::createAttachmentItem("imported_url", [], $key, $this, 'key');
+		
+		$libraryVersion = API::getLibraryVersion();
+		
+		$json = [
+			[
+				"key" => $attachmentKey1,
+				"content" => "Here is some full-text content",
+				"indexedPages" => 50,
+				"totalPages" => 50,
+				"invalidParam" => "shouldBeIgnored"
+			],
+			[
+				"content" => "This is missing a key and should be skipped",
+				"indexedPages" => 20,
+				"totalPages" => 40
+			],
+			[
+				"key" => $attachmentKey2,
+				"content" => "Here is some more full-text content",
+				"indexedPages" => 20,
+				"totalPages" => 40
+			]
+		];
+		
+		// No Content-Type
+		$response = API::userPost(
+			self::$config['userID'],
+			"fulltext",
+			json_encode($json),
+			[
+				"If-Unmodified-Since-Version: $libraryVersion"
+			]
+		);
+		$this->assert400($response, "Content-Type must be application/json");
+		
+		// No If-Unmodified-Since-Version
+		$response = API::userPost(
+			self::$config['userID'],
+			"fulltext",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert428($response, "If-Unmodified-Since-Version not provided");
+		
+		// Store content
+		$response = API::userPost(
+			self::$config['userID'],
+			"fulltext",
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $libraryVersion"
+			]
+		);
+		
+		$this->assert200($response);
+		$this->assert200ForObject($response, false, 0);
+		$this->assert400ForObject($response, false, 1);
+		$this->assert200ForObject($response, false, 2);
+		$newLibraryVersion = $response->getHeader("Last-Modified-Version");
+		$this->assertGreaterThan($libraryVersion, $newLibraryVersion);
+		$libraryVersion = $newLibraryVersion;
+		
+		$originalJSON = $json;
+		
+		// Retrieve content
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$attachmentKey1/fulltext"
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$json = json_decode($response->getBody(), true);
+		$this->assertEquals($originalJSON[0]['content'], $json['content']);
+		$this->assertEquals($originalJSON[0]['indexedPages'], $json['indexedPages']);
+		$this->assertEquals($originalJSON[0]['totalPages'], $json['totalPages']);
+		$this->assertArrayNotHasKey("indexedChars", $json);
+		$this->assertArrayNotHasKey("invalidParam", $json);
+		$this->assertEquals($libraryVersion, $response->getHeader("Last-Modified-Version"));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$attachmentKey2/fulltext"
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$json = json_decode($response->getBody(), true);
+		$this->assertEquals($originalJSON[2]['content'], $json['content']);
+		$this->assertEquals($originalJSON[2]['indexedPages'], $json['indexedPages']);
+		$this->assertEquals($originalJSON[2]['totalPages'], $json['totalPages']);
+		$this->assertArrayNotHasKey("indexedChars", $json);
+		$this->assertArrayNotHasKey("invalidParam", $json);
+		$this->assertEquals($libraryVersion, $response->getHeader("Last-Modified-Version"));
+	}
+	
+	
 	public function testModifyAttachmentWithFulltext() {
 		$key = API::createItem("book", false, $this, 'key');
 		$json = API::createAttachmentItem("imported_url", [], $key, $this, 'jsonData');

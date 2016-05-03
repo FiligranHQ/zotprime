@@ -28,7 +28,7 @@ class Zotero_FullText {
 	private static $elasticsearchType = "item_fulltext";
 	public static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
-	public static function indexItem(Zotero_Item $item, $content, $stats=array()) {
+	public static function indexItem(Zotero_Item $item, $data) {
 		if (!$item->isAttachment()) {
 			throw new Exception(
 				"Full-text content can only be added for attachments", Z_ERROR_INVALID_INPUT
@@ -53,29 +53,27 @@ class Zotero_FullText {
 		Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
 		// Add to Elasticsearch
-		self::indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $content, $stats);
+		self::indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $data);
 		
 		Zotero_DB::commit();
 	}
 	
-	private static function indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $content, $stats=array()) {
+	private static function indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $data) {
 		$type = self::getWriteType();
 		
 		$id = $libraryID . "/" . $key;
 		$doc = [
 			'id' => $id,
 			'libraryID' => $libraryID,
-			'content' => (string) $content,
+			'content' => (string) $data->content,
 			// We don't seem to be able to search on _version, so we duplicate it here
 			'version' => $version,
 			// Add "T" between date and time for Elasticsearch
 			'timestamp' => str_replace(" ", "T", $timestamp)
 		];
-		if ($stats) {
-			foreach (self::$metadata as $prop) {
-				if (isset($stats[$prop])) {
-					$doc[$prop] = (int) $stats[$prop];
-				}
+		foreach (self::$metadata as $prop) {
+			if (isset($data->$prop)) {
+				$doc[$prop] = (int) $data->$prop;
 			}
 		}
 		$start = microtime(true);
@@ -105,6 +103,74 @@ class Zotero_FullText {
 				}
 			}
 			throw new Exception($response->getError());
+		}
+	}
+	
+	
+	public static function updateMultipleFromJSON($json, $requestParams, $libraryID, $userID,
+			Zotero_Permissions $permissions) {
+		self::validateMultiObjectJSON($json);
+		
+		$results = new Zotero_Results($requestParams);
+		
+		if (Zotero_DB::transactionInProgress()) {
+			throw new Exception(
+				"Transaction cannot be open when starting multi-object update"
+			);
+		}
+		
+		$i = 0;
+		foreach ($json as $index => $jsonObject) {
+			Zotero_DB::beginTransaction();
+			
+			try {
+				if (!is_object($jsonObject)) {
+					throw new Exception(
+						"Invalid value for index $index in uploaded data; expected JSON full-text object",
+						Z_ERROR_INVALID_INPUT
+					);
+				}
+				
+				if (!isset($jsonObject->key)) {
+					throw new Exception("Item key not provided", Z_ERROR_INVALID_INPUT);
+				}
+				
+				$item = Zotero_Items::getByLibraryAndKey($libraryID, $jsonObject->key);
+				// This shouldn't happen, since the request uses a library version
+				if (!$item) {
+					throw new Exception(
+						"Item $jsonObject->key not found in library",
+						Z_ERROR_ITEM_NOT_FOUND
+					);
+				}
+				self::indexItem($item, $jsonObject);
+				Zotero_DB::commit();
+				$obj = [
+					'key' => $jsonObject->key
+				];
+				$results->addSuccessful($i, $obj);
+			}
+			catch (Exception $e) {
+				Zotero_DB::rollback();
+				
+				// If item key given, include that
+				$resultKey = isset($jsonObject->key) ? $jsonObject->$key : '';
+				$results->addFailure($i, $resultKey, $e);
+			}
+			$i++;
+		}
+		
+		return $results->generateReport();
+	}
+	
+	
+	private static function validateMultiObjectJSON($json) {
+		if (!is_array($json)) {
+			throw new Exception('Uploaded data must be a JSON array', Z_ERROR_INVALID_INPUT);
+		}
+		if (sizeOf($json) > Zotero_API::$maxWriteFullText) {
+			throw new Exception("Cannot add full text for more than " . Zotero_API::$maxWriteFullText
+				. " items at a time", Z_ERROR_UPLOAD_TOO_LARGE);
 		}
 	}
 	
@@ -391,12 +457,12 @@ class Zotero_FullText {
 				. $xml->getAttribute('libraryID') . "/" . $xml->getAttribute('key'));
 			return;
 		}
-		$stats = array();
+		$data = new stdClass;
+		$data->content = $xml->textContent;
 		foreach (self::$metadata as $prop) {
-			$val = $xml->getAttribute($prop);
-			$stats[$prop] = $val;
+			$data->$prop = $xml->getAttribute($prop);
 		}
-		self::indexItem($item, $xml->textContent, $stats);
+		self::indexItem($item, $data);
 	}
 	
 	

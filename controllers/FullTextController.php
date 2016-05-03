@@ -33,7 +33,7 @@ class FullTextController extends ApiController {
 	
 	
 	public function fulltext() {
-		$this->allowMethods(array('GET'));
+		$this->allowMethods(['GET', 'POST']);
 		
 		// Check for general library access
 		if (!$this->permissions->canAccess($this->objectLibraryID)) {
@@ -47,14 +47,56 @@ class FullTextController extends ApiController {
 			$this->end();
 		}
 		
-		$newer = Zotero_FullText::getNewerInLibrary(
-			$this->objectLibraryID,
-			!empty($this->queryParams['since']) ? $this->queryParams['since'] : 0
-		);
+		// Multi-item write
+		if ($this->isWriteMethod()) {
+			if ($this->apiVersion < 3) {
+				$this->e405();
+			}
+			
+			// Check for library write access
+			if (!$this->permissions->canWrite($this->objectLibraryID)) {
+				$this->e403("Write access denied");
+			}
+			
+			$this->requireContentType("application/json");
+			
+			// Make sure library hasn't been modified
+			$this->checkLibraryIfUnmodifiedSinceVersion(true);
+			
+			Zotero_Libraries::updateVersionAndTimestamp($this->objectLibraryID);
+			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+			
+			$this->queryParams['format'] = 'writereport';
+			$obj = $this->jsonDecode($this->body);
+			
+			$results = Zotero_FullText::updateMultipleFromJSON(
+				$obj,
+				$this->queryParams,
+				$this->objectLibraryID,
+				$this->userID,
+				$this->permissions
+			);
+			
+			Zotero_API::multiResponse([
+				'action' => $this->action,
+				'uri' => $this->uri,
+				'results' => $results,
+				'requestParams' => $this->queryParams,
+				'permissions' => $this->permissions
+			]);
+		}
+		// Default to ?format=versions for GET
+		else {
+			$newer = Zotero_FullText::getNewerInLibrary(
+				$this->objectLibraryID,
+				!empty($this->queryParams['since']) ? $this->queryParams['since'] : 0
+			);
+			
+			$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
+			
+			echo Zotero_Utilities::formatJSON($newer);
+		}
 		
-		$this->libraryVersion = Zotero_Libraries::getVersion($this->objectLibraryID);
-		
-		echo Zotero_Utilities::formatJSON($newer);
 		$this->end();
 	}
 	
@@ -72,6 +114,8 @@ class FullTextController extends ApiController {
 		}
 		
 		if ($this->isWriteMethod()) {
+			Zotero_DB::beginTransaction();
+			
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
 				$this->e403("Write access denied");
@@ -85,11 +129,6 @@ class FullTextController extends ApiController {
 			$this->e404();
 		}
 		
-		// If no access to the note, don't show that it exists
-		if ($item->isNote() && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
-			$this->e404();
-		}
-		
 		if (!$item->isAttachment() || $item->attachmentLinkMode == 'linked_url') {
 			$this->e404();
 		}
@@ -100,22 +139,12 @@ class FullTextController extends ApiController {
 			if ($this->method == 'PUT') {
 				$this->requireContentType("application/json");
 				
-				$json = json_decode($this->body, true);
-				if (!$json) {
-					$this->e400("PUT data is not valid JSON");
-				}
-				$stats = [];
-				foreach (Zotero_FullText::$metadata as $prop) {
-					if (isset($json[$prop])) {
-						$stats[$prop] = $json[$prop];
-					}
-				}
-				Zotero_FullText::indexItem($item, $json['content'], $stats);
+				Zotero_FullText::indexItem($item, $this->jsonDecode($this->body));
+				Zotero_DB::commit();
 				$this->e204();
 			}
-			else {
-				$this->e405();
-			}
+			
+			$this->e405();
 		}
 		
 		$data = Zotero_FullText::getItemData($item->libraryID, $item->key);

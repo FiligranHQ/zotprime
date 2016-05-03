@@ -32,6 +32,7 @@ class Zotero_API {
 	public static $maxWriteItems = 50;
 	public static $maxWriteSearches = 50;
 	public static $maxWriteSettings = 50;
+	public static $maxWriteFullText = 10;
 	public static $maxTranslateItems = 10;
 	
 	private static $validAPIVersions = [1, 2, 3];
