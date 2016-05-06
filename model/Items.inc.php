@@ -794,11 +794,6 @@ class Zotero_Items {
 		foreach ($xmlCreators as $creator) {
 			// TODO: add custom creator types
 			
-			$pos = (int) $creator->getAttribute('index');
-			if ($pos != $i) {
-				throw new Exception("No creator in position $i for item " . $itemObj->key);
-			}
-			
 			$key = $creator->getAttribute('key');
 			$creatorObj = Zotero_Creators::getByLibraryAndKey($libraryID, $key);
 			// If creator doesn't exist locally (e.g., if it was deleted locally
@@ -824,7 +819,7 @@ class Zotero_Items {
 				continue;
 			}
 			$creatorTypeID = Zotero_CreatorTypes::getID($creator->getAttribute('creatorType'));
-			$itemObj->setCreator($pos, $creatorObj, $creatorTypeID);
+			$itemObj->setCreator($i, $creatorObj, $creatorTypeID);
 			$i++;
 		}
 		
