@@ -869,6 +869,21 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testConvertChildNoteToParentViaPatch() {
+		$key = API::createItem("book", [ "title" => "Test" ], $this, 'key');
+		$json = API::createNoteItem("", $key, $this, 'jsonData');
+		$json['parentItem'] = false;
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/{$json['key']}",
+			json_encode($json)
+		);
+		$this->assert204($response);
+		$json = API::getItem($json['key'], $this, 'json')['data'];
+		$this->assertArrayNotHasKey('parentItem', $json);
+	}
+	
+	
 	public function testEditTitleWithCollectionInMultipleMode() {
 		$collectionKey = API::createCollection('Test', false, $this, 'key');
 		
