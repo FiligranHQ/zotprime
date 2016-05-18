@@ -3657,11 +3657,6 @@ class Zotero_Item extends Zotero_DataObject {
 			$arr[$fieldName] = ($value !== false && $value !== "") ? $value : "";
 		}
 		
-		if ($requestParams['v'] >= 3) {
-			$arr['dateAdded'] = Zotero_Date::sqlToISO8601($this->dateAdded);
-			$arr['dateModified'] = Zotero_Date::sqlToISO8601($this->dateModified);
-		}
-		
 		// Embedded note for notes and attachments
 		if (!$regularItem) {
 			// Use sanitized version
@@ -3732,6 +3727,11 @@ class Zotero_Item extends Zotero_DataObject {
 			}
 			
 			$arr['relations'] = $this->getRelations();
+		}
+		
+		if ($requestParams['v'] >= 3) {
+			$arr['dateAdded'] = Zotero_Date::sqlToISO8601($this->dateAdded);
+			$arr['dateModified'] = Zotero_Date::sqlToISO8601($this->dateModified);
 		}
 		
 		if ($asArray) {
