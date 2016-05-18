@@ -2059,7 +2059,7 @@ class Zotero_Items {
 						throw new Exception("Invalid property '$key'", Z_ERROR_INVALID_INPUT);
 					}
 					if (!Zotero_ID::isValidKey($val) && $val !== false) {
-						throw new Exception("'$key' must be a valid item key", Z_ERROR_INVALID_INPUT);
+						throw new Exception("'$key' must be a valid item key or false", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				
