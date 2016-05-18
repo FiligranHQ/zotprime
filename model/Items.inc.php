@@ -1710,9 +1710,10 @@ class Zotero_Items {
 	                                      $partialUpdate=false) {
 		$json = Zotero_API::extractEditableJSON($json);
 		$exists = Zotero_API::processJSONObjectKey($item, $json, $requestParams);
+		$apiVersion = $requestParams['v'];
 		
 		// computerProgram used 'version' instead of 'versionNumber' before v3
-		if ($requestParams['v'] < 3 && isset($json->version)) {
+		if ($apiVersion < 3 && isset($json->version)) {
 			$json->versionNumber = $json->version;
 			unset($json->version);
 		}
@@ -1743,7 +1744,14 @@ class Zotero_Items {
 			$item->setField("itemTypeID", Zotero_ItemTypes::getID($json->itemType));
 		}
 		
+		$dateModifiedProvided = false;
+		// APIv2 and below
 		$changedDateModified = false;
+		// Limit new Date Modified handling to Zotero for now. It can be applied to all v3 clients
+		// once people have time to update their code.
+		$tmpZoteroClientDateModifiedHack = !empty($_SERVER['HTTP_USER_AGENT'])
+			&& (strpos($_SERVER['HTTP_USER_AGENT'], 'Firefox') !== false
+				|| strpos($_SERVER['HTTP_USER_AGENT'], 'Zotero') !== false);
 		
 		foreach ($json as $key=>$val) {
 			switch ($key) {
@@ -1893,7 +1901,13 @@ class Zotero_Items {
 					break;
 				
 				case 'dateModified':
-					$changedDateModified = $item->setField($key, $val);
+					if ($apiVersion >= 3 && $tmpZoteroClientDateModifiedHack) {
+						$item->setField($key, $val);
+						$dateModifiedProvided = true;
+					}
+					else {
+						$changedDateModified = $item->setField($key, $val);
+					}
 					break;
 				
 				default:
@@ -1906,21 +1920,22 @@ class Zotero_Items {
 			$item->setSource($parentItem->id);
 		}
 		// Clear parent if not a partial update and a parentItem isn't provided
-		else if ($requestParams['v'] >= 2 && !$partialUpdate
+		else if ($apiVersion >= 2 && !$partialUpdate
 				&& $item->getSourceKey() && !isset($json->parentItem)) {
 			$item->setSourceKey(false);
 		}
 		
 		$item->deleted = !empty($json->deleted);
 		
-		// Skip Date Modified update if only certain fields were updated (e.g., collections)
-		$skipDateModifiedUpdate = !sizeOf(array_diff(
+		// Skip "Date Modified" update if only certain fields were updated (e.g., collections)
+		$skipDateModifiedUpdate = $dateModifiedProvided || !sizeOf(array_diff(
 			$item->getChanged(),
-			['collections', 'relations']
+			['collections', 'deleted', 'relations', 'tags']
 		));
 		
-		// If item has changed, update it with the current timestamp
-		if ($item->hasChanged() && !$skipDateModifiedUpdate && !$changedDateModified) {
+		if ($item->hasChanged() && !$skipDateModifiedUpdate
+				&& (($apiVersion >= 3 && $tmpZoteroClientDateModifiedHack) || !$changedDateModified)) {
+			// Update item with the current timestamp
 			$item->dateModified = Zotero_DB::getTransactionTimestamp();
 		}
 		

@@ -480,6 +480,105 @@ class ItemTests extends APITests {
 	}
 	
 	
+	// TODO: Make this the default and remove above after clients update code
+	public function testDateModifiedTmpZoteroClientHack() {
+		// In case this is ever extended to other objects
+		$objectType = 'item';
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		switch ($objectType) {
+		case 'item':
+			$itemData = array(
+				"title" => "Test"
+			);
+			$json = API::createItem("videoRecording", $itemData, $this, 'jsonData');
+			break;
+		}
+		
+		$objectKey = $json['key'];
+		$dateModified1 = $json['dateModified'];
+		
+		// Make sure we're in the next second
+		sleep(1);
+		
+		//
+		// If no explicit dateModified, use current timestamp
+		//
+		$json['title'] = "Test 2";
+		unset($json['dateModified']);
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey",
+			json_encode($json),
+			// TODO: Remove
+			[
+				"User-Agent: Firefox"
+			]
+		);
+		$this->assert204($response);
+		
+		switch ($objectType) {
+		case 'item':
+			$json = API::getItem($objectKey, $this, 'json')['data'];
+			break;
+		}
+		
+		$dateModified2 = $json['dateModified'];
+		$this->assertNotEquals($dateModified1, $dateModified2);
+		
+		// Make sure we're in the next second
+		sleep(1);
+		
+		//
+		// If dateModified provided and hasn't changed, use that
+		//
+		$json['title'] = "Test 3";
+		$json['dateModified'] = trim(preg_replace("/[TZ]/", " ", $dateModified2));
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey",
+			json_encode($json),
+			// TODO: Remove
+			[
+				"User-Agent: Firefox"
+			]
+		);
+		$this->assert204($response);
+		
+		switch ($objectType) {
+		case 'item':
+			$json = API::getItem($objectKey, $this, 'json')['data'];
+			break;
+		}
+		
+		$this->assertEquals($dateModified2, $json['dateModified']);
+		
+		//
+		// If dateModified is provided and has changed, use that
+		//
+		$newDateModified = "2013-03-03T21:33:53Z";
+		$json['title'] = "Test 4";
+		$json['dateModified'] = $newDateModified;
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey",
+			json_encode($json),
+			// TODO: Remove
+			[
+				"User-Agent: Firefox"
+			]
+		);
+		$this->assert204($response);
+		
+		switch ($objectType) {
+		case 'item':
+			$json = API::getItem($objectKey, $this, 'json')['data'];
+			break;
+		}
+		$this->assertEquals($newDateModified, $json['dateModified']);
+	}
+	
+	
 	public function testDateModifiedCollectionChange() {
 		$collectionKey = API::createCollection('Test', false, $this, 'key');
 		$json = API::createItem("book", ["title" => "Test"], $this, 'jsonData');
@@ -1187,9 +1286,13 @@ class ItemTests extends APITests {
 		$this->assertEquals($filename, $json['data']['filename']);
 	}
 	
-	public function testEditAttachmentJSONDateModified() {
+	/**
+	 * Date Modified should be updated when a field is changed if not included in upload
+	 */
+	public function testDateModifiedChangeOnEdit() {
 		$json = API::createAttachmentItem("linked_file", [], false, $this, 'jsonData');
 		$modified = $json['dateModified'];
+		unset($json['dateModified']);
 		$json['note'] = "Test";
 		
 		sleep(1);
@@ -1206,6 +1309,64 @@ class ItemTests extends APITests {
 		$this->assertNotEquals($modified, $json['dateModified']);
 	}
 	
+	/**
+	 * Date Modified shouldn't be changed if 1) dateModified is provided or 2) certain fields are changed
+	 */
+	public function testDateModifiedNoChange() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		
+		$json = API::createItem('book', false, $this, 'jsonData');
+		$modified = $json['dateModified'];
+		
+		for ($i = 1; $i <= 5; $i++) {
+			sleep(1);
+			
+			switch ($i) {
+			case 1:
+				$json['title'] = 'A';
+				break;
+			
+			case 2:
+				// For all subsequent tests, unset field, which would normally cause it to be updated
+				unset($json['dateModified']);
+				
+				$json['collections'] = [$collectionKey];
+				break;
+			
+			case 3:
+				$json['deleted'] = true;
+				break;
+			
+			case 4:
+				$json['deleted'] = false;
+				break;
+			
+			case 5:
+				$json['tags'] = [
+					[
+						'tag' => 'A'
+					]
+				];
+				break;
+			}
+			
+			$response = API::userPost(
+				self::$config['userID'],
+				"items",
+				json_encode([$json]),
+				[
+					"If-Unmodified-Since-Version: " . $json['version'],
+					// TODO: Remove
+					[
+						"User-Agent: Firefox"
+					]
+				]
+			);
+			$this->assert200($response);
+			$json = API::getJSONFromResponse($response)['successful'][0]['data'];
+			$this->assertEquals($modified, $json['dateModified'], "Date Modified changed on loop $i");
+		}
+	}
 	
 	public function testEditAttachmentAtomUpdatedTimestamp() {
 		$xml = API::createAttachmentItem("linked_file", [], false, $this, 'atom');
@@ -1221,6 +1382,36 @@ class ItemTests extends APITests {
 			"items/{$data['key']}",
 			json_encode($json),
 			array("If-Unmodified-Since-Version: " . $data['version'])
+		);
+		$this->assert204($response);
+		
+		$xml = API::getItemXML($data['key']);
+		$atomUpdated2 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$this->assertNotEquals($atomUpdated2, $atomUpdated);
+	}
+	
+	
+	public function testEditAttachmentAtomUpdatedTimestampTmpZoteroClientHack() {
+		$xml = API::createAttachmentItem("linked_file", [], false, $this, 'atom');
+		$data = API::parseDataFromAtomEntry($xml);
+		$atomUpdated = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$json = json_decode($data['content'], true);
+		unset($json['dateModified']);
+		$json['note'] = "Test";
+		
+		sleep(1);
+		
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$data['key']}",
+			json_encode($json),
+			[
+				"If-Unmodified-Since-Version: " . $data['version'],
+				// TODO: Remove
+				[
+					"User-Agent: Firefox"
+				]
+			]
 		);
 		$this->assert204($response);
 		
