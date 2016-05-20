@@ -944,6 +944,9 @@ class Zotero_Item extends Zotero_DataObject {
 			$lastPos++;
 		}
 		
+		// Disabled (see function comment)
+		//$this->checkTopLevelAttachment();
+		
 		$shardID = Zotero_Shards::getByLibraryID($this->_libraryID);
 		
 		$env = [];
@@ -4138,6 +4141,33 @@ class Zotero_Item extends Zotero_DataObject {
 			. "_". $this->id
 			. "_" . $this->version
 			. ($cacheVersion ? "_" . $cacheVersion : "");
+	}
+	
+	
+	/**
+	 * Throw if item is a top-level attachment and isn't either a file attachment (imported or linked)
+	 * or an imported web PDF
+	 *
+	 * NOTE: This is currently unused, because 1) these items still exist in people's databases from
+	 * early Zotero versions (and could be modified and uploaded at any time) and 2) it's apparently
+	 * still possible to create them on Linux/Windows by dragging child items out, which is a bug.
+	 * In any case, if this were to be enforced, the client would need to properly prevent that on all
+	 * platforms, convert those items in a schema update step by adding parent items (which would
+	 * probably make people unhappy (though so would things breaking because we forgot they existed in
+	 * old databases)), and old clients would need to be cut off from syncing.
+	 */
+	private function checkTopLevelAttachment() {
+		if (!$this->isAttachment()) {
+			return;
+		}
+		if ($this->getSourceKey()) {
+			return;
+		}
+		$linkMode = $this->attachmentLinkMode;
+		if ($linkMode == 'linked_url'
+				|| ($linkMode == 'imported_url' && $this->attachmentContentType != 'application/pdf')) {
+			throw new Exception("Only file attachments and PDFs can be top-level items", Z_ERROR_INVALID_INPUT);
+		}
 	}
 }
 ?>

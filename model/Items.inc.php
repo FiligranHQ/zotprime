@@ -2068,6 +2068,13 @@ class Zotero_Items {
 						throw new Exception("'itemType' must be a string", Z_ERROR_INVALID_INPUT);
 					}
 					
+					// TODO: Don't allow changing item type
+					
+					if (!Zotero_ItemTypes::getID($val)) {
+						throw new Exception("'$val' is not a valid itemType", Z_ERROR_INVALID_INPUT);
+					}
+					
+					// Parent/child checks by item type
 					if ($isChild || !empty($json->parentItem)) {
 						switch ($val) {
 							case 'note':
@@ -2077,17 +2084,6 @@ class Zotero_Items {
 							default:
 								throw new Exception("Child item must be note or attachment", Z_ERROR_INVALID_INPUT);
 						}
-					}
-					// Don't allow web attachments other than PDFs to be top-level items
-					else if ($val == 'attachment' && (!$item || !$item->getSource())) {
-						if ($json->linkMode == 'linked_url' ||
-								($json->linkMode == 'imported_url' && (empty($json->contentType) || $json->contentType != 'application/pdf'))) {
-							throw new Exception("Only file attachments and PDFs can be top-level items", Z_ERROR_INVALID_INPUT);
-						}
-					}
-					
-					if (!Zotero_ItemTypes::getID($val)) {
-						throw new Exception("'$val' is not a valid itemType", Z_ERROR_INVALID_INPUT);
 					}
 					break;
 				

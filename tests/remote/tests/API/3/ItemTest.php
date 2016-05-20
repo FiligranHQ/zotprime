@@ -1060,6 +1060,9 @@ class ItemTests extends APITests {
 	}
 	
 	
+	/*
+	Disabled -- see note at Zotero_Item::checkTopLevelAttachment()
+	
 	public function testNewInvalidTopLevelAttachment() {
 		$linkModes = array("linked_url", "imported_url");
 		foreach ($linkModes as $linkMode) {
@@ -1075,6 +1078,74 @@ class ItemTests extends APITests {
 			$this->assert400ForObject($response, "Only file attachments and PDFs can be top-level items");
 		}
 	}
+	*/
+	
+	
+	/**
+	 * It should be possible to edit an existing PDF attachment without sending 'contentType'
+	 * (which would cause a new attachment to be rejected)
+	 */
+	/*
+	Disabled -- see note at Zotero_Item::checkTopLevelAttachment()
+	
+	public function testPatchTopLevelAttachment() {
+		$json = API::createAttachmentItem("imported_url", [
+			'title' => 'A',
+			'contentType' => 'application/pdf',
+			'filename' => 'test.pdf'
+		], false, $this, 'jsonData');
+		
+		// With 'attachment' and 'linkMode'
+		$json = [
+			'itemType' => 'attachment',
+			'linkMode' => 'imported_url',
+			'key' => $json['key'],
+			'version' => $json['version'],
+			'title' => 'B'
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			["Content-Type: application/json"]
+		);
+		$this->assert200ForObject($response);
+		$json = API::getItem($json['key'], $this, 'json')['data'];
+		$this->assertEquals("B", $json['title']);
+		
+		// Without 'linkMode'
+		$json = [
+			'itemType' => 'attachment',
+			'key' => $json['key'],
+			'version' => $json['version'],
+			'title' => 'C'
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			["Content-Type: application/json"]
+		);
+		$this->assert200ForObject($response);
+		$json = API::getItem($json['key'], $this, 'json')['data'];
+		$this->assertEquals("C", $json['title']);
+		
+		// Without 'itemType' or 'linkMode'
+		$json = [
+			'key' => $json['key'],
+			'version' => $json['version'],
+			'title' => 'D'
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			["Content-Type: application/json"]
+		);
+		$this->assert200ForObject($response);
+		$json = API::getItem($json['key'], $this, 'json')['data'];
+		$this->assertEquals("D", $json['title']);
+	}*/
 	
 	
 	public function testNewEmptyLinkAttachmentItemWithItemKey() {
@@ -2206,7 +2277,7 @@ class ItemTests extends APITests {
 		$parentKey = $json['key'];
 		$parentVersion = $json['version'];
 		
-		$json = API::createAttachmentItem("linked_url", [], $parentKey, $this, 'jsonData');
+		$json = API::createAttachmentItem("linked_file", [], $parentKey, $this, 'jsonData');
 		$childKey = $json['key'];
 		$childVersion = $json['version'];
 		
@@ -2234,7 +2305,7 @@ class ItemTests extends APITests {
 		$parentKey = $json['key'];
 		$parentVersion = $json['version'];
 		
-		$json = API::createAttachmentItem("linked_url", [], $parentKey, $this, 'jsonData');
+		$json = API::createAttachmentItem("linked_file", [], $parentKey, $this, 'jsonData');
 		$childKey = $json['key'];
 		$childVersion = $json['version'];
 		

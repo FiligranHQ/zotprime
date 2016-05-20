@@ -608,6 +608,9 @@ class ItemTests extends APITests {
 	}
 	
 	
+	/*
+	Disabled -- see note at Zotero_Item::checkTopLevelAttachment()
+	
 	public function testNewInvalidTopLevelAttachment() {
 		$linkModes = array("linked_url", "imported_url");
 		foreach ($linkModes as $linkMode) {
@@ -625,6 +628,7 @@ class ItemTests extends APITests {
 			$this->assert400ForObject($response, "Only file attachments and PDFs can be top-level items");
 		}
 	}
+	*/
 	
 	
 	public function testNewEmptyLinkAttachmentItem() {
