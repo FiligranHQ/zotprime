@@ -1046,6 +1046,14 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testNewEmptyAttachmentFields() {
+		$key = API::createItem("book", false, $this, 'key');
+		$json = API::createAttachmentItem("imported_url", [], $key, $this, 'jsonData');
+		$this->assertNull($json['md5']);
+		$this->assertNull($json['mtime']);
+	}
+	
+	
 	public function testNewTopLevelImportedFileAttachment() {
 		$response = API::get("items/new?itemType=attachment&linkMode=imported_file");
 		$json = json_decode($response->getBody());
@@ -1170,12 +1178,6 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testNewEmptyImportedURLAttachmentItem() {
-		$key = API::createItem("book", false, $this, 'key');
-		return API::createAttachmentItem("imported_url", [], $key, $this, 'jsonData');
-	}
-	
-	
 	public function testEditEmptyLinkAttachmentItem() {
 		$key = API::createItem("book", false, $this, 'key');
 		$json = API::createAttachmentItem("linked_url", [], $key, $this, 'jsonData');
@@ -1201,10 +1203,10 @@ class ItemTests extends APITests {
 	}
 	
 	
-	/**
-	 * @depends testNewEmptyImportedURLAttachmentItem
-	 */
-	public function testEditEmptyImportedURLAttachmentItem($json) {
+	public function testEditEmptyImportedURLAttachmentItem() {
+		$key = API::createItem("book", false, $this, 'key');
+		$json = API::createAttachmentItem("imported_url", [], $key, $this, 'jsonData');
+		
 		$key = $json['key'];
 		$version = $json['version'];
 		
@@ -1560,20 +1562,14 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testNewEmptyImportedURLAttachmentItemGroup() {
+	public function testEditImportedURLAttachmentItemGroup() {
 		$key = API::groupCreateItem(
 			self::$config['ownedPrivateGroupID'], "book", [], $this, 'key'
 		);
-		return API::groupCreateAttachmentItem(
+		$json = API::groupCreateAttachmentItem(
 			self::$config['ownedPrivateGroupID'], "imported_url", [], $key, $this, 'jsonData'
 		);
-	}
-	
-	
-	/**
-	 * @depends testNewEmptyImportedURLAttachmentItemGroup
-	 */
-	public function testEditImportedURLAttachmentItemGroup($json) {
+		
 		$key = $json['key'];
 		$version = $json['version'];
 		
