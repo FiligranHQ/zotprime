@@ -1,2 +1,122 @@
 <?xml version="1.0"?>
-<response version="9" timestamp="" userID="23848" defaultLibraryID="21999" updateKey="" earliest=""><updated><creators><creator key="DMAHQQR9" dateAdded="2009-03-07 04:59:21" dateModified="2009-03-07 04:59:23"><firstName>D&#xF8;n</firstName><lastName>St&#xEE;llm&#xE5;n</lastName></creator><creator key="I2QFIFDT" dateAdded="2009-03-07 04:54:17" dateModified="2009-03-07 04:54:17"><name>&#x6C49;&#x5B57;</name><fieldMode>1</fieldMode></creator><creator key="V9MECAGR" dateAdded="2009-03-07 04:53:27" dateModified="2009-03-07 04:53:28"><firstName>Test</firstName><lastName>Testerman</lastName></creator><creator key="WTEG7VPJ" dateAdded="2009-03-07 04:53:37" dateModified="2009-03-07 04:53:40"><name>Testish McTester</name><fieldMode>1</fieldMode></creator><creator key="ZT4UDTTT" dateAdded="2009-03-07 04:54:37" dateModified="2009-03-07 04:54:42"><firstName>Testy</firstName><lastName>Teststein</lastName></creator></creators><items><item key="2TGWDASM" itemType="note" dateAdded="2009-03-07 04:55:36" dateModified="2009-03-07 04:55:46" sourceItem="DUQPU87V"><note>&lt;p&gt;Here's a &lt;strong&gt;child&lt;/strong&gt; note.&lt;/p&gt;</note></item><item key="6TKKAABJ" itemType="bookSection" dateAdded="2009-03-07 04:53:20" dateModified="2009-03-07 04:54:09"><field name="edition">3</field><field name="date">March 6, 2007</field><field name="title">My Book Section</field><creator key="V9MECAGR" creatorType="author" index="0"/><creator key="WTEG7VPJ" creatorType="editor" index="1"/><related>DUQPU87V</related></item><item key="7IMJZ8V6" itemType="attachment" dateAdded="2009-03-07 05:00:17" dateModified="2009-03-07 05:00:42" linkMode="2" mimeType="text/html" charset="utf-8"><field name="title">amazon.html</field><path>AAAAAAFkAAIAAAxNYWNpbnRvc2ggSEQAAAAAAAAAAAAAAAAAAADC/J9aSCsAAAAOrpkLYW1hem9uLmh0bWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADnT/bcS9TKEAAAAAAAAAAP////8AAAkgAAAAAAAAAAAAAAAAAAAAB0Rlc2t0b3AAABAACAAAwvzXmgAAABEACAAAxL2E4QAAAAEADAAOrpkADjPnAA4z5QACACpNYWNpbnRvc2ggSEQ6VXNlcnM6ZGFuOkRlc2t0b3A6YW1hem9uLmh0bWwADgAYAAsAYQBtAGEAegBvAG4ALgBoAHQAbQBsAA8AGgAMAE0AYQBjAGkAbgB0AG8AcwBoACAASABEABIAHVVzZXJzL2Rhbi9EZXNrdG9wL2FtYXpvbi5odG1sAAATAAEvAAAVAAIACv//AAA=</path><note>&lt;p&gt;Note on a top-level linked file&lt;/p&gt;</note><related>DUQPU87V</related></item><item key="976Q6TWE" itemType="attachment" dateAdded="2009-03-07 04:55:59" dateModified="2009-03-07 04:56:16" sourceItem="DUQPU87V" linkMode="1" mimeType="text/html" charset="utf-8"><field name="url">http://chnm.gmu.edu/</field><field name="accessDate">2009-03-07 04:55:59</field><field name="title">Center for History and New Media</field><path>storage:chnm.gmu.edu.html</path><note>&lt;p&gt;This is a note for a snapshot.&lt;/p&gt;</note></item><item key="9P9UVFK3" itemType="note" dateAdded="2009-03-07 04:56:20" dateModified="2009-03-07 04:56:29"><note>&lt;p&gt;Here's a top-level note.&lt;/p&gt;</note></item><item key="C2W49E6Q" itemType="attachment" dateAdded="2009-03-07 04:56:47" dateModified="2009-03-07 04:56:47" linkMode="1" mimeType="text/html" charset="utf-8"><field name="url">http://www.zotero.org/</field><field name="accessDate">2009-03-07 04:56:47</field><field name="title">Zotero: The Next-Generation Research Tool</field><path>storage:www.zotero.org.html</path></item><item key="DUQPU87V" itemType="book" dateAdded="2009-03-07 04:52:56" dateModified="2009-03-07 04:55:18"><field name="title">My Book</field><creator key="I2QFIFDT" creatorType="translator" index="0"/><creator key="ZT4UDTTT" creatorType="author" index="1"/><related>6TKKAABJ 7IMJZ8V6</related></item><item key="G3PTXNXS" itemType="attachment" dateAdded="2009-03-07 04:56:01" dateModified="2009-03-07 04:56:10" sourceItem="DUQPU87V" linkMode="3" mimeType="text/html" charset="utf-8"><field name="url">http://chnm.gmu.edu/</field><field name="accessDate">2009-03-07 04:56:01</field><field name="title">Center for History and New Media</field><note>&lt;p&gt;This is a note for a link.&lt;/p&gt;</note></item><item key="HTHD884W" itemType="attachment" dateAdded="2009-03-07 04:58:37" dateModified="2009-03-07 04:58:37" linkMode="0" mimeType="image/jpeg"><field name="title">FILE.jpg</field><path>storage:FILE.jpg</path></item><item key="T3K4BNWP" itemType="book" dateAdded="2009-03-07 04:59:04" dateModified="2009-03-07 04:59:39" deleted="1"><field name="title">Trashed item</field><creator key="DMAHQQR9" creatorType="author" index="0"/></item></items><collections><collection key="8VE7W6RN" name="Subcollection" dateAdded="2009-03-07 04:57:19" dateModified="2009-03-07 04:57:25" parent="KBTFHUZD"><items>DUQPU87V</items></collection><collection key="9Z7WTWC2" name="Another subcollection" dateAdded="2009-03-07 04:57:53" dateModified="2009-03-07 04:58:38" parent="8VE7W6RN"><items>HTHD884W</items></collection><collection key="KBTFHUZD" name="My Collection" dateAdded="2009-03-07 04:55:26" dateModified="2009-03-07 04:56:01"><items>6TKKAABJ 9P9UVFK3</items></collection><collection key="M6B882D5" name="Empty subcollection" dateAdded="2009-03-07 04:57:36" dateModified="2009-03-07 04:57:36" parent="8VE7W6RN"/></collections><searches><search key="W2KN2TFW" name="Me" dateAdded="2009-03-07 04:57:10" dateModified="2009-03-07 04:57:10"><condition id="1" condition="title" operator="contains" value="My"/><condition id="2" condition="edition" operator="is" value="2"/></search><search key="Q88FDVN3" name="Notes" dateAdded="2009-03-07 05:01:14" dateModified="2009-03-07 05:01:14"><condition id="1" condition="itemTypeID" operator="is" value="1"/></search></searches><tags><tag key="MR3BTEPM" name="Birds" dateAdded="2009-03-07 04:55:05" dateModified="2009-03-07 04:55:05"><items>6TKKAABJ</items></tag><tag key="TNT9H7Q2" name="Cats" dateAdded="2009-03-07 04:55:02" dateModified="2009-03-07 04:55:02"><items>6TKKAABJ</items></tag><tag key="4EQG6EUX" name="Dogs" dateAdded="2009-03-07 04:54:54" dateModified="2009-03-07 04:55:04"><items>6TKKAABJ DUQPU87V</items></tag><tag key="IPSDQFTW" name="Fish" dateAdded="2009-03-07 04:54:56" dateModified="2009-03-07 04:54:56"><items>DUQPU87V</items></tag><tag key="EAMSZGIN" name="Frogs" dateAdded="2009-03-07 04:58:47" dateModified="2009-03-07 04:58:47"><items>HTHD884W</items></tag><tag key="QU5QF6A7" name="Kumquats" dateAdded="2009-03-07 04:59:33" dateModified="2009-03-07 04:59:33"><items>T3K4BNWP</items></tag></tags></updated></response>
+<response version="9" timestamp="" userID="23848" defaultLibraryID="21999" updateKey="" earliest="">
+	<updated>
+		<creators>
+			<creator key="DMAHQQR9" dateAdded="2009-03-07 04:59:21" dateModified="2009-03-07 04:59:23">
+				<firstName>D&#xF8;n</firstName>
+				<lastName>St&#xEE;llm&#xE5;n</lastName>
+			</creator>
+			<creator key="I2QFIFDT" dateAdded="2009-03-07 04:54:17" dateModified="2009-03-07 04:54:17">
+				<name>&#x6C49;&#x5B57;</name>
+				<fieldMode>1</fieldMode>
+			</creator>
+			<creator key="V9MECAGR" dateAdded="2009-03-07 04:53:27" dateModified="2009-03-07 04:53:28">
+				<firstName>Test</firstName>
+				<lastName>Testerman</lastName>
+			</creator>
+			<creator key="WTEG7VPJ" dateAdded="2009-03-07 04:53:37" dateModified="2009-03-07 04:53:40">
+				<name>Testish McTester</name>
+				<fieldMode>1</fieldMode>
+			</creator>
+			<creator key="ZT4UDTTT" dateAdded="2009-03-07 04:54:37" dateModified="2009-03-07 04:54:42">
+				<firstName>Testy</firstName>
+				<lastName>Teststein</lastName>
+			</creator>
+		</creators>
+		<items>
+			<item key="2TGWDASM" itemType="note" dateAdded="2009-03-07 04:55:36" dateModified="2009-03-07 04:55:46" sourceItem="DUQPU87V">
+				<note>&lt;p&gt;Here's a &lt;strong&gt;child&lt;/strong&gt; note.&lt;/p&gt;</note>
+			</item>
+			<item key="6TKKAABJ" itemType="bookSection" dateAdded="2009-03-07 04:53:20" dateModified="2009-03-07 04:54:09">
+				<field name="edition">3</field>
+				<field name="date">March 6, 2007</field>
+				<field name="title">My Book Section</field>
+				<creator key="V9MECAGR" creatorType="author" index="0"/>
+				<creator key="WTEG7VPJ" creatorType="editor" index="1"/>
+			</item>
+			<item key="7IMJZ8V6" itemType="attachment" dateAdded="2009-03-07 05:00:17" dateModified="2009-03-07 05:00:42" linkMode="2" mimeType="text/html" charset="utf-8">
+				<field name="title">amazon.html</field>
+				<path>AAAAAAFkAAIAAAxNYWNpbnRvc2ggSEQAAAAAAAAAAAAAAAAAAADC/J9aSCsAAAAOrpkLYW1hem9uLmh0bWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADnT/bcS9TKEAAAAAAAAAAP////8AAAkgAAAAAAAAAAAAAAAAAAAAB0Rlc2t0b3AAABAACAAAwvzXmgAAABEACAAAxL2E4QAAAAEADAAOrpkADjPnAA4z5QACACpNYWNpbnRvc2ggSEQ6VXNlcnM6ZGFuOkRlc2t0b3A6YW1hem9uLmh0bWwADgAYAAsAYQBtAGEAegBvAG4ALgBoAHQAbQBsAA8AGgAMAE0AYQBjAGkAbgB0AG8AcwBoACAASABEABIAHVVzZXJzL2Rhbi9EZXNrdG9wL2FtYXpvbi5odG1sAAATAAEvAAAVAAIACv//AAA=</path>
+				<note>&lt;p&gt;Note on a top-level linked file&lt;/p&gt;</note>
+				<related>DUQPU87V</related>
+			</item>
+			<item key="976Q6TWE" itemType="attachment" dateAdded="2009-03-07 04:55:59" dateModified="2009-03-07 04:56:16" sourceItem="DUQPU87V" linkMode="1" mimeType="text/html" charset="utf-8">
+				<field name="url">http://chnm.gmu.edu/</field>
+				<field name="accessDate">2009-03-07 04:55:59</field>
+				<field name="title">Center for History and New Media</field>
+				<path>storage:chnm.gmu.edu.html</path>
+				<note>&lt;p&gt;This is a note for a snapshot.&lt;/p&gt;</note>
+			</item>
+			<item key="9P9UVFK3" itemType="note" dateAdded="2009-03-07 04:56:20" dateModified="2009-03-07 04:56:29">
+				<note>&lt;p&gt;Here's a top-level note.&lt;/p&gt;</note>
+			</item>
+			<item key="C2W49E6Q" itemType="attachment" dateAdded="2009-03-07 04:56:47" dateModified="2009-03-07 04:56:47" linkMode="1" mimeType="text/html" charset="utf-8">
+				<field name="url">http://www.zotero.org/</field>
+				<field name="accessDate">2009-03-07 04:56:47</field>
+				<field name="title">Zotero: The Next-Generation Research Tool</field>
+				<path>storage:www.zotero.org.html</path>
+			</item>
+			<item key="DUQPU87V" itemType="book" dateAdded="2009-03-07 04:52:56" dateModified="2009-03-07 04:55:18">
+				<field name="title">My Book</field>
+				<creator key="I2QFIFDT" creatorType="translator" index="0"/>
+				<creator key="ZT4UDTTT" creatorType="author" index="1"/>
+				<related>6TKKAABJ</related>
+			</item>
+			<item key="G3PTXNXS" itemType="attachment" dateAdded="2009-03-07 04:56:01" dateModified="2009-03-07 04:56:10" sourceItem="DUQPU87V" linkMode="3" mimeType="text/html" charset="utf-8">
+				<field name="url">http://chnm.gmu.edu/</field>
+				<field name="accessDate">2009-03-07 04:56:01</field>
+				<field name="title">Center for History and New Media</field>
+				<note>&lt;p&gt;This is a note for a link.&lt;/p&gt;</note>
+			</item>
+			<item key="HTHD884W" itemType="attachment" dateAdded="2009-03-07 04:58:37" dateModified="2009-03-07 04:58:37" linkMode="0" mimeType="image/jpeg">
+				<field name="title">FILE.jpg</field>
+				<path>storage:FILE.jpg</path>
+			</item>
+			<item key="T3K4BNWP" itemType="book" dateAdded="2009-03-07 04:59:04" dateModified="2009-03-07 04:59:39" deleted="1">
+				<field name="title">Trashed item</field>
+				<creator key="DMAHQQR9" creatorType="author" index="0"/>
+			</item>
+		</items>
+		<collections>
+			<collection key="8VE7W6RN" name="Subcollection" dateAdded="2009-03-07 04:57:19" dateModified="2009-03-07 04:57:25" parent="KBTFHUZD">
+				<items>DUQPU87V</items>
+			</collection>
+			<collection key="9Z7WTWC2" name="Another subcollection" dateAdded="2009-03-07 04:57:53" dateModified="2009-03-07 04:58:38" parent="8VE7W6RN">
+				<items>HTHD884W</items>
+			</collection>
+			<collection key="KBTFHUZD" name="My Collection" dateAdded="2009-03-07 04:55:26" dateModified="2009-03-07 04:56:01">
+				<items>6TKKAABJ 9P9UVFK3</items>
+			</collection>
+			<collection key="M6B882D5" name="Empty subcollection" dateAdded="2009-03-07 04:57:36" dateModified="2009-03-07 04:57:36" parent="8VE7W6RN"/>
+		</collections>
+		<searches>
+			<search key="W2KN2TFW" name="Me" dateAdded="2009-03-07 04:57:10" dateModified="2009-03-07 04:57:10">
+				<condition id="1" condition="title" operator="contains" value="My"/>
+				<condition id="2" condition="edition" operator="is" value="2"/>
+			</search>
+			<search key="Q88FDVN3" name="Notes" dateAdded="2009-03-07 05:01:14" dateModified="2009-03-07 05:01:14">
+				<condition id="1" condition="itemTypeID" operator="is" value="1"/>
+			</search>
+		</searches>
+		<tags>
+			<tag key="MR3BTEPM" name="Birds" dateAdded="2009-03-07 04:55:05" dateModified="2009-03-07 04:55:05">
+				<items>6TKKAABJ</items>
+			</tag>
+			<tag key="TNT9H7Q2" name="Cats" dateAdded="2009-03-07 04:55:02" dateModified="2009-03-07 04:55:02">
+				<items>6TKKAABJ</items>
+			</tag>
+			<tag key="4EQG6EUX" name="Dogs" dateAdded="2009-03-07 04:54:54" dateModified="2009-03-07 04:55:04">
+				<items>6TKKAABJ DUQPU87V</items>
+			</tag>
+			<tag key="IPSDQFTW" name="Fish" dateAdded="2009-03-07 04:54:56" dateModified="2009-03-07 04:54:56">
+				<items>DUQPU87V</items>
+			</tag>
+			<tag key="EAMSZGIN" name="Frogs" dateAdded="2009-03-07 04:58:47" dateModified="2009-03-07 04:58:47">
+				<items>HTHD884W</items>
+			</tag>
+			<tag key="QU5QF6A7" name="Kumquats" dateAdded="2009-03-07 04:59:33" dateModified="2009-03-07 04:59:33">
+				<items>T3K4BNWP</items>
+			</tag>
+		</tags>
+	</updated>
+</response>
