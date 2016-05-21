@@ -1230,17 +1230,6 @@ class FileTests extends APITests {
 	public function testAddFileClientV5() {
 		API::userClear(self::$config['userID']);
 		
-		// Get last storage sync
-		$response = API::userGet(
-			self::$config['userID'],
-			"laststoragesync"
-		);
-		$this->assert404($response);
-		
-		$json = API::createAttachmentItem("imported_file", [], false, $this, 'jsonData');
-		$key = $json['key'];
-		$originalVersion = $json['version'];
-		
 		$file = "work/file";
 		$fileContents = self::getRandomUnicodeString();
 		$contentType = "text/html";
@@ -1250,6 +1239,20 @@ class FileTests extends APITests {
 		$filename = "test_" . $fileContents;
 		$mtime = filemtime($file) * 1000;
 		$size = filesize($file);
+		
+		// Get last storage sync
+		$response = API::userGet(
+			self::$config['userID'],
+			"laststoragesync"
+		);
+		$this->assert404($response);
+		
+		$json = API::createAttachmentItem("imported_file", [
+			'contentType' => $contentType,
+			'charset' => $charset
+		], false, $this, 'jsonData');
+		$key = $json['key'];
+		$originalVersion = $json['version'];
 		
 		// Get a sync timestamp from before the file is updated
 		sleep(1);
@@ -1294,9 +1297,7 @@ class FileTests extends APITests {
 				"md5" => $hash,
 				"mtime" => $mtime,
 				"filename" => $filename,
-				"filesize" => $size,
-				"contentType" => $contentType,
-				"charset" => $charset
+				"filesize" => $size
 			]),
 			[
 				"Content-Type: application/x-www-form-urlencoded",
@@ -1473,6 +1474,14 @@ class FileTests extends APITests {
 	public function testAddFileClientV5Zip() {
 		API::userClear(self::$config['userID']);
 		
+		$fileContents = self::getRandomUnicodeString();
+		$contentType = "text/html";
+		$charset = "utf-8";
+		$filename = "file.html";
+		$mtime = time();
+		$hash = md5($fileContents);
+		
+		
 		// Get last storage sync
 		$response = API::userGet(
 			self::$config['userID'],
@@ -1483,16 +1492,12 @@ class FileTests extends APITests {
 		$json = API::createItem("book", false, $this, 'jsonData');
 		$key = $json['key'];
 		
-		$json = API::createAttachmentItem("imported_url", [], $key, $this, 'jsonData');
+		$json = API::createAttachmentItem("imported_url", [
+			'contentType' => $contentType,
+			'charset' => $charset
+		], $key, $this, 'jsonData');
 		$key = $json['key'];
 		$originalVersion = $json['version'];
-		
-		$fileContents = self::getRandomUnicodeString();
-		$contentType = "text/html";
-		$charset = "utf-8";
-		$filename = "file.html";
-		$mtime = time();
-		$hash = md5($fileContents);
 		
 		// Create ZIP file
 		$zip = new \ZipArchive();
@@ -1528,9 +1533,7 @@ class FileTests extends APITests {
 				"filename" => $filename,
 				"filesize" => $zipSize,
 				"zipMD5" => $zipHash,
-				"zipFilename" => $zipFilename,
-				"contentType" => $contentType,
-				"charset" => $charset
+				"zipFilename" => $zipFilename
 			]),
 			[
 				"Content-Type: application/x-www-form-urlencoded",
