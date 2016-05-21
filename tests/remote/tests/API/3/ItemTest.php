@@ -1562,7 +1562,7 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testEditImportedURLAttachmentItemGroup() {
+	public function testCannotChangeStoragePropertiesInGroupLibraries() {
 		$key = API::groupCreateItem(
 			self::$config['ownedPrivateGroupID'], "book", [], $this, 'key'
 		);
@@ -1573,7 +1573,7 @@ class ItemTests extends APITests {
 		$key = $json['key'];
 		$version = $json['version'];
 		
-		$props = array("contentType", "charset", "filename", "md5", "mtime");
+		$props = ["md5", "mtime"];
 		foreach ($props as $prop) {
 			$json2 = $json;
 			$json2[$prop] = "new" . ucwords($prop);

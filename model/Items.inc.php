@@ -2366,7 +2366,7 @@ class Zotero_Items {
 							break;
 					}
 					
-					if (Zotero_Libraries::getType($libraryID) == 'group') {
+					if (($key == 'mtime' || $key == 'md5') && Zotero_Libraries::getType($libraryID) == 'group') {
 						if (($item && $item->$propName !== $val) || (!$item && $val !== null && $val !== "")) {
 							throw new Exception("Cannot change '$key' directly in group library", Z_ERROR_INVALID_INPUT);
 						}
