@@ -118,7 +118,7 @@ class ApiController extends Controller {
 		if (isset($_SERVER['HTTP_ORIGIN'])) {
 			header("Access-Control-Allow-Origin: *");
 			header("Access-Control-Allow-Methods: HEAD, GET, POST, PUT, PATCH, DELETE");
-			header("Access-Control-Allow-Headers: Content-Type, If-Match, If-None-Match, If-Modified-Since-Version, If-Unmodified-Since-Version, Zotero-API-Version, Zotero-Write-Token");
+			header("Access-Control-Allow-Headers: Authorization, Content-Type, If-Match, If-None-Match, If-Modified-Since-Version, If-Unmodified-Since-Version, Zotero-API-Key, Zotero-API-Version, Zotero-Write-Token");
 			header("Access-Control-Expose-Headers: Backoff, ETag, Last-Modified-Version, Link, Retry-After, Total-Results, Zotero-API-Version");
 		}
 		
