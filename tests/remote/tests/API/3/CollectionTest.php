@@ -180,11 +180,34 @@ class CollectionTests extends APITests {
 	}
 	
 	
-	public function testEditMultipleCollections() {
+	public function testUpdateMultipleCollections() {
 		$collection1Data = API::createCollection("Test 1", false, $this, 'jsonData');
 		$collection2Name = "Test 2";
 		$collection2Data = API::createCollection($collection2Name, false, $this, 'jsonData');
 		
+		$libraryVersion = API::getLibraryVersion();
+		
+		// Update with no change, which should still update library version (for now)
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections",
+			json_encode([
+				$collection1Data,
+				$collection2Data
+			]),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert200($response);
+		// If this behavior changes, remove the pre-increment
+		$this->assertEquals(++$libraryVersion, $response->getHeader("Last-Modified-Version"));
+		$json = API::getJSONFromResponse($response);
+		$this->assertCount(2, $json['unchanged']);
+		
+		$this->assertEquals($libraryVersion, API::getLibraryVersion());
+		
+		// Update
 		$collection1NewName = "Test 1 Modified";
 		$collection2NewParentKey = API::createCollection("Test 3", false, $this, 'key');
 		

@@ -92,7 +92,6 @@ class SettingsController extends ApiController {
 						$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
 							$this->objectLibraryID
 						);
-						
 						Zotero_DB::rollback();
 						$this->e204();
 					}
@@ -138,9 +137,11 @@ class SettingsController extends ApiController {
 					$this->libraryVersion = Zotero_Libraries::getOriginalVersion(
 						$this->objectLibraryID
 					);
+					Zotero_DB::rollback();
 				}
-				
-				Zotero_DB::commit();
+				else {
+					Zotero_DB::commit();
+				}
 				$this->e204();
 			}
 			// Display all settings

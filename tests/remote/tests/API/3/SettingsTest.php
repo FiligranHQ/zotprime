@@ -151,6 +151,7 @@ class SettingsTests extends APITests {
 			array("Content-Type: application/json")
 		);
 		$this->assert204($response);
+		$this->assertEquals(++$libraryVersion, $response->getHeader("Last-Modified-Version"));
 		
 		// Multi-object GET
 		$response = API::userGet(
@@ -164,7 +165,7 @@ class SettingsTests extends APITests {
 		foreach ($settingKeys as $settingKey) {
 			$this->assertObjectHasAttribute($settingKey, $json2, "Object should have $settingKey property");
 			$this->assertEquals($json->$settingKey->value, $json2->$settingKey->value, "'$settingKey' value should match");
-			$this->assertEquals($libraryVersion + 1, $json2->$settingKey->version, "'$settingKey' version should match");
+			$this->assertEquals($libraryVersion, $json2->$settingKey->version, "'$settingKey' version should match");
 		}
 		
 		// Single-object GET
@@ -178,7 +179,7 @@ class SettingsTests extends APITests {
 			$json2 = json_decode($response->getBody());
 			$this->assertNotNull($json2);
 			$this->assertEquals($json->$settingKey->value, $json2->value);
-			$this->assertEquals($libraryVersion + 1, $json2->version);
+			$this->assertEquals($libraryVersion, $json2->version);
 		}
 	}
 	
@@ -329,6 +330,118 @@ class SettingsTests extends APITests {
 		$this->assertNotNull($json);
 		$this->assertEquals($newValue, $json['value']);
 		$this->assertEquals($libraryVersion + 2, $json['version']);
+	}
+	
+	
+	public function testUpdateUserSettings() {
+		$settingKey = "tagColors";
+		$value = [
+			[
+				"name" => "_READ",
+				"color" => "#990000"
+			]
+		];
+		
+		$libraryVersion = API::getLibraryVersion();
+		
+		$json = [
+			"value" => $value,
+			"version" => 0
+		];
+		
+		// Create
+		$response = API::userPut(
+			self::$config['userID'],
+			"settings/$settingKey",
+			json_encode($json),
+			[
+				"Content-Type: application/json"
+			]
+		);
+		$this->assert204($response);
+		$this->assertEquals(++$libraryVersion, $response->getHeader('Last-Modified-Version'));
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"settings"
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$this->assertEquals($libraryVersion, $response->getHeader('Last-Modified-Version'));
+		$json = json_decode($response->getBody(), true);
+		$this->assertNotNull($json);
+		$this->assertArrayHasKey($settingKey, $json);
+		$this->assertEquals($value, $json[$settingKey]['value']);
+		$this->assertEquals($libraryVersion, $json[$settingKey]['version']);
+		
+		// Update with no change
+		$response = API::userPost(
+			self::$config['userID'],
+			"settings",
+			json_encode([
+				$settingKey => [
+					"value" => $value
+				]
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $libraryVersion"
+			]
+		);
+		$this->assert204($response);
+		$this->assertEquals($libraryVersion, $response->getHeader('Last-Modified-Version'));
+		
+		// Check
+		$response = API::userGet(
+			self::$config['userID'],
+			"settings"
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$this->assertEquals($libraryVersion, $response->getHeader('Last-Modified-Version'));
+		$json = json_decode($response->getBody(), true);
+		$this->assertNotNull($json);
+		$this->assertArrayHasKey($settingKey, $json);
+		$this->assertEquals($value, $json[$settingKey]['value']);
+		$this->assertEquals($libraryVersion, $json[$settingKey]['version']);
+		
+		$newValue = [
+			[
+				"name" => "_READ",
+				"color" => "#CC9933"
+			]
+		];
+		
+		// Update
+		$response = API::userPost(
+			self::$config['userID'],
+			"settings",
+			json_encode([
+				$settingKey => [
+					"value" => $newValue
+				]
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $libraryVersion"
+			]
+		);
+		$this->assert204($response);
+		$this->assertEquals(++$libraryVersion, $response->getHeader('Last-Modified-Version'));
+		
+		// Check
+		$response = API::userGet(
+			self::$config['userID'],
+			"settings"
+		);
+		$this->assert200($response);
+		$this->assertContentType("application/json", $response);
+		$this->assertEquals($libraryVersion, $response->getHeader('Last-Modified-Version'));
+		$json = json_decode($response->getBody(), true);
+		$this->assertNotNull($json);
+		$this->assertArrayHasKey($settingKey, $json);
+		$this->assertEquals($newValue, $json[$settingKey]['value']);
+		$this->assertEquals($libraryVersion, $json[$settingKey]['version']);
 	}
 	
 	
