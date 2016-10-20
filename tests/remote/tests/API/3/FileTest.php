@@ -1652,6 +1652,26 @@ class FileTests extends APITests {
 	}
 	
 	
+	public function testClientV5ShouldReturn404GettingAuthorizationForMissingFile() {
+		// Get authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/UP24VFQR/file",
+			$this->implodeParams([
+				"md5" => md5('qzpqBjLddCc6UhfX'),
+				"mtime" => 1477002989206,
+				"filename" => 'test.pdf',
+				"filesize" => 12345
+			]),
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			]
+		);
+		$this->assert404($response);
+	}
+	
+	
 	public function testAddFileLinkedAttachment() {
 		$key = API::createAttachmentItem("linked_file", [], false, $this, 'key');
 		

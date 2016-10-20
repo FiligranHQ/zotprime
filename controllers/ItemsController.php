@@ -118,6 +118,10 @@ class ItemsController extends ApiController {
 				}
 			}
 			else {
+				if ($this->isWriteMethod() && $this->fileMode) {
+					$this->e404();
+				}
+				
 				// Possibly temporary workaround to block unnecessary full syncs
 				if ($this->fileMode && $this->httpAuth && $this->method == 'POST') {
 					// If > 2 requests for missing file, trigger a full sync via 404
