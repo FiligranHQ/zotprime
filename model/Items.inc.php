@@ -960,7 +960,7 @@ class Zotero_Items {
 			if ($sourceItemID) {
 				$sourceItem = Zotero_Items::get($item->libraryID, $sourceItemID);
 				if (!$sourceItem) {
-					throw new Exception("Source item $sourceItemID not found");
+					throw new Exception("Parent item $sourceItemID not found");
 				}
 				$xml['sourceItem'] = $sourceItem->key;
 			}

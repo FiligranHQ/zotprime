@@ -2136,7 +2136,7 @@ class Zotero_Item extends Zotero_DataObject {
 			}
 			$sourceItem = Zotero_Items::getByLibraryAndKey($this->libraryID, $this->sourceItem);
 			if (!$sourceItem) {
-				throw new Exception("Source item $this->libraryID/$this->sourceItem for keyed source doesn't exist", Z_ERROR_ITEM_NOT_FOUND);
+				throw new Exception("Parent item $this->libraryID/$this->sourceItem doesn't exist", Z_ERROR_ITEM_NOT_FOUND);
 			}
 			// Replace stored key with id
 			$this->sourceItem = $sourceItem->id;
