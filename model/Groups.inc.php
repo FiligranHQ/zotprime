@@ -132,7 +132,7 @@ class Zotero_Groups {
 						
 						$querySQL .= "AND " . $field[0]
 							// If first character is '-', negate
-							. $querySQL .= ($field[0][0] == '-' ? '!' : '')
+							. ($field[0][0] == '-' ? '!' : '')
 							. "=? ";
 						$queryParams[] = $field[1];
 					}
