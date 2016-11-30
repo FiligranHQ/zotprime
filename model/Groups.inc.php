@@ -75,9 +75,9 @@ class Zotero_Groups {
 			if ($cacheFoundRows) {
 				$foundRowsCacheKey = md5(self::getCacheComponentFromParam($params, 'q') . ","
 					. self::getCacheComponentFromParam($params, 'fq'));
-				$foundRowsTTL = 180;
+				$foundRowsTTL = 3600;
 				$foundRowsLockTTL = 10;
-				$foundRowsRealTTL = 3600;
+				$foundRowsRealTTL = 7200;
 				
 				$obj = Z_Core::$MC->get($foundRowsCacheKey);
 				if ($obj) {
@@ -96,17 +96,23 @@ class Zotero_Groups {
 				}
 			}
 			
-			$sql = "SELECT " . ($calcFoundRows ? "SQL_CALC_FOUND_ROWS " : "")
-				. "G.groupID, GUO.userID AS ownerUserID FROM groups G "
-				. "JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
-			$sqlParams = array();
-			
+			$sql = "SELECT "
+				// Use SQL_CALC_FOUND_ROWS for user queries
+				. (($calcFoundRows && $userID) ? "SQL_CALC_FOUND_ROWS " : "")
+				. "G.groupID, GUO.userID AS ownerUserID "
+				. "FROM groups G JOIN groupUsers GUO ON (G.groupID=GUO.groupID AND GUO.role='owner') ";
+			$sqlParams = [];
 			if ($userID) {
 				$sql .= "JOIN groupUsers GUA ON (G.groupID=GUA.groupID) WHERE GUA.userID=? ";
 				$sqlParams[] = $userID;
 			}
 			
-			$paramSQL = "";
+			// Run separate query to get Total-Results for non-user queries
+			$countSQL = "SELECT COUNT(*) FROM groups G ";
+			$countSQLParams = [];
+			
+			$querySQL = "";
+			$queryParams = [];
 			$includeEmpty = false;
 			if (!empty($params['q'])) {
 				if (!is_array($params['q'])) {
@@ -124,35 +130,41 @@ class Zotero_Groups {
 								throw new Exception("Cannot search by group field '{$field[0]}'", Z_ERROR_INVALID_GROUP_TYPE);
 						}
 						
-						$paramSQL .= "AND " . $field[0];
-						// If first character is '-', negate
-						$paramSQL .= ($field[0][0] == '-' ? '!' : '');
-						$paramSQL .= "=? ";
-						$sqlParams[] = $field[1];
+						$querySQL .= "AND " . $field[0]
+							// If first character is '-', negate
+							. $querySQL .= ($field[0][0] == '-' ? '!' : '')
+							. "=? ";
+						$queryParams[] = $field[1];
 					}
 					else {
-						$paramSQL .= "AND name LIKE ? ";
-						$sqlParams[] = "%$q%";
+						$querySQL .= "AND name LIKE ? ";
+						$queryParams[] = "%$q%";
 					}
 				}
 			}
-			
 			if (!$userID) {
 				if ($includeEmpty) {
-					$sql .= "WHERE 1 ";
+					$whereSQL = "WHERE 1 ";
 				}
 				else {
 					// Don't include groups that have never had items
-					$sql .= "JOIN libraries L ON (G.libraryID=L.libraryID)
+					$whereSQL = "JOIN libraries L ON (G.libraryID=L.libraryID)
 							WHERE L.lastUpdated != '0000-00-00 00:00:00' ";
 				}
+				$sql .= $whereSQL;
+				$countSQL .= $whereSQL;
 			}
-			$sql .= $paramSQL;
+			$sql .= $querySQL;
+			$sqlParams = array_merge($sqlParams, $queryParams);
+			$countSQL .= $querySQL;
+			$countSQLParams = array_merge($countSQLParams, $queryParams);
 			
 			if (!empty($params['fq'])) {
 				if (!is_array($params['fq'])) {
 					$params['fq'] = array($params['fq']);
 				}
+				$querySQL = "";
+				$queryParams = [];
 				foreach ($params['fq'] as $fq) {
 					$facet = explode(":", $fq);
 					if (sizeOf($facet) == 2 && preg_match('/-?GroupType/', $facet[0])) {
@@ -166,13 +178,18 @@ class Zotero_Groups {
 								throw new Exception("Invalid group type '{$facet[1]}'", Z_ERROR_INVALID_GROUP_TYPE);
 						}
 						
-						$sql .= "AND type";
-						// If first character is '-', negate
-						$sql .= ($facet[0][0] == '-' ? '!' : '');
-						$sql .= "=? ";
-						$sqlParams[] = $facet[1];
+						$querySQL .= "AND type"
+							// If first character is '-', negate
+							. ($facet[0][0] == '-' ? '!' : '')
+							. "=? ";
+						$queryParams[] = $facet[1];
 					}
 				}
+				
+				$sql .= $querySQL;
+				$sqlParams = array_merge($sqlParams, $queryParams);
+				$countSQL .= $querySQL;
+				$countSQLParams = array_merge($countSQLParams, $queryParams);
 			}
 			
 			if (!empty($params['sort'])) {
@@ -203,7 +220,12 @@ class Zotero_Groups {
 			
 			if (is_null($totalResults)) {
 				if ($calcFoundRows) {
-					$foundRows = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+					if ($userID) {
+						$foundRows = Zotero_DB::valueQuery("SELECT FOUND_ROWS()");
+					}
+					else {
+						$foundRows = Zotero_DB::valueQuery($countSQL, $countSQLParams);
+					}
 					// Cache found rows count, and store earlier expiration time so that one
 					// request can trigger a recalculation before cached value expires
 					if ($cacheFoundRows) {
