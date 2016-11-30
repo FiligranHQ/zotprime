@@ -76,7 +76,7 @@ class Zotero_Groups {
 				$foundRowsCacheKey = md5(self::getCacheComponentFromParam($params, 'q') . ","
 					. self::getCacheComponentFromParam($params, 'fq'));
 				$foundRowsTTL = 3600;
-				$foundRowsLockTTL = 10;
+				$foundRowsLockTTL = 120;
 				$foundRowsRealTTL = 7200;
 				
 				$obj = Z_Core::$MC->get($foundRowsCacheKey);
