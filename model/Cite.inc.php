@@ -34,7 +34,7 @@ class Zotero_Cite {
 		$response = self::processCitationResponse($response);
 		if ($response) {
 			$key = self::getCacheKey('citation', $item, $queryParams);
-			Z_Core::$MC->set($key, $response);
+			Z_Core::$MC->set($key, $response, 3600);
 		}
 		return $response;
 	}
@@ -46,7 +46,7 @@ class Zotero_Cite {
 		$response = self::processBibliographyResponse($response);
 		if ($response && sizeOf($items) == 1) {
 			$key = self::getCacheKey('bib', $items[0], $queryParams);
-			Z_Core::$MC->set($key, $response);
+			Z_Core::$MC->set($key, $response, 3600);
 		}
 		return $response;
 	}
