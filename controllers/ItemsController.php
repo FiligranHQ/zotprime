@@ -738,7 +738,7 @@ class ItemsController extends ApiController {
 				$group = null;
 			}
 			
-			// If not the client, require If-Match or If-None-Match
+			// If not the 4.0 client, require If-Match or If-None-Match
 			if (!$this->httpAuth) {
 				if (empty($_SERVER['HTTP_IF_MATCH']) && empty($_SERVER['HTTP_IF_NONE_MATCH'])) {
 					$this->e428("If-Match/If-None-Match header not provided");
@@ -750,7 +750,7 @@ class ItemsController extends ApiController {
 					}
 					
 					if (!$item->attachmentStorageHash) {
-						$this->e412("ETag set but file does not exist");
+						$this->e412("If-Match set but file does not exist");
 					}
 					
 					if ($item->attachmentStorageHash != $matches[1]) {
@@ -764,7 +764,7 @@ class ItemsController extends ApiController {
 						$this->e400("Invalid value for If-None-Match header");
 					}
 					
-					if (Zotero_Storage::getLocalFileItemInfo($item)) {
+					if ($item->attachmentStorageHash) {
 						$this->libraryVersion = $item->version;
 						$this->libraryVersionOnFailure = true;
 						$this->e412("If-None-Match: * set but file exists");
