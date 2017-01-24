@@ -26,7 +26,7 @@
 
 class Zotero_API {
 	const MAX_BIBLIOGRAPHY_ITEMS = 150;
-	const MAX_OBJECT_KEYS = 50;
+	const MAX_OBJECT_KEYS = 100;
 	
 	public static $maxWriteCollections = 50;
 	public static $maxWriteItems = 50;
