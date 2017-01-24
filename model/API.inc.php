@@ -952,6 +952,7 @@ class Zotero_API {
 		// here for HEAD requests, which don't run the translation. This should match
 		// SERVER_CONTENT_TYPES in src/server_translation.js in translation-server.
 		case 'bibtex':
+		case 'biblatex':
 			return 'application/x-bibtex';
 		
 		case 'bookmarks':

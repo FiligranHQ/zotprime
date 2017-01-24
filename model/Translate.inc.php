@@ -27,6 +27,7 @@
 class Zotero_Translate {
 	public static $exportFormats = array(
 		'bibtex',
+		'biblatex',
 		'bookmarks',
 		'coins',
 		'csljson',
