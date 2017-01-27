@@ -258,10 +258,11 @@ class Zotero_FullText {
 		$index = self::getReadIndex();
 		$type = self::getReadType();
 		$first = true;
+		$stop = false;
 		$chars = 0;
 		$data = [];
 		
-		while ($batchRows = array_splice($rows, 0, 100)) {
+		while (($chars < $maxChars) && ($batchRows = array_splice($rows, 0, 5)) && !$stop) {
 			// Make a raw query, since Elastica doesn't yet support mget
 			$json = [
 				"docs" => []
@@ -309,6 +310,7 @@ class Zotero_FullText {
 				$currentChars = strlen($source['content']);
 				if (!$first && (($chars + $currentChars) > $maxChars)) {
 					$data[$key]['empty'] = true;
+					$stop = true;
 				}
 				else {
 					$data[$key]['content'] = $source['content'];
@@ -324,6 +326,21 @@ class Zotero_FullText {
 				}
 			}
 		}
+		
+		// Add unprocessed rows as empty
+		foreach ($rows as $row) {
+			$data[$row['key']] = [
+				"libraryID" => $row['libraryID'],
+				"key" => $row['key'],
+				"version" => 0,
+				"indexedChars" => 0,
+				"totalChars" => 0,
+				"indexedPages" => 0,
+				"indexedPages" => 0,
+				"empty" => true
+			];
+		}
+		
 		return $data;
 	}
 	
