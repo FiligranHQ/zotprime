@@ -83,7 +83,42 @@ class Zotero_Notes {
 	
 	
 	public static function sanitize($text) {
-		return Z_Core::htmlPurify($text);
+		$url = "http://127.0.0.1:" . Z_CONFIG::$HTMLCLEAN_PORT;
+		
+		$start = microtime(true);
+		
+		$ch = curl_init($url);
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $text);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: text/plain"]);
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+		curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+		curl_setopt($ch, CURLOPT_HEADER, 0); // do not return HTTP headers
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER , 1);
+		$response = curl_exec($ch);
+		
+		$time = microtime(true) - $start;
+		StatsD::timing("api.htmlclean", $time * 1000);
+		
+		$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		
+		if ($code != 200) {
+			throw new Exception($code . " from htmlclean "
+				. "[URL: '$url'] [INPUT: '" . Zotero_Utilities::ellipsize($text, 100)
+				. "'] [RESPONSE: '$response']");
+		}
+		
+		if (!$response) {
+			error_log($code);
+			error_log($time);
+			error_log($url);
+		}
+		
+		if (!$response) {
+			throw new Exception("Error cleaning note");
+		}
+		
+		return $response;
 	}
 	
 	

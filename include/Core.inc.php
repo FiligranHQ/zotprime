@@ -29,7 +29,6 @@ class Z_Core {
 	public static $AWS = null; // AWS-SDK
 	public static $MC = null; // Memcached
 	public static $Elastica = null; // ElasticSearch client
-	private static $HTMLPurifier;
 	
 	// Set in config.inc.php
 	public static $debug = false;
@@ -56,17 +55,6 @@ class Z_Core {
 		return ob_get_clean();
 	}
 	
-	public static function htmlPurify($text) {
-		if (!isset(self::$HTMLPurifier)) {
-			require('HTMLPurifier/HTMLPurifier.standalone.php');
-			$c = HTMLPurifier_Config::createDefault();
-			$c->set('HTML.Doctype', 'XHTML 1.0 Strict');
-			$c->set('Cache.SerializerPath', Z_ENV_TMP_PATH);
-			self::$HTMLPurifier = new HTMLPurifier($c);
-		}
-		return self::$HTMLPurifier->purify($text);
-	}
-	
 	public static function exitClean() {
 		include('footer.inc.php');
 		exit;
@@ -82,4 +70,3 @@ class Z_Core {
 		return rand(1,$x) == rand(1,$x);
 	}
 }
-?>

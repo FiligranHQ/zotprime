@@ -65,6 +65,8 @@ class Z_CONFIG {
 	public static $LOG_TIMEZONE = 'US/Eastern';
 	public static $LOG_TARGET_DEFAULT = 'errors';
 	
+	public static $HTMLCLEAN_PORT = 16342;
+	
 	public static $PROCESSOR_PORT_DOWNLOAD = 3455;
 	public static $PROCESSOR_PORT_UPLOAD = 3456;
 	public static $PROCESSOR_PORT_ERROR = 3457;
