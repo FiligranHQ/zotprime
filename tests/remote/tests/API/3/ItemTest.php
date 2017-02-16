@@ -2341,6 +2341,14 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function test_should_return_400_on_missing_parent() {
+		$missingParentKey = "BDARG2AV";
+		$json = API::createNoteItem("<p>test</p>", $missingParentKey, $this);
+		$this->assert400ForObject($json, "Parent item '$missingParentKey' not found");
+		$this->assertEquals($missingParentKey, $json['failed'][0]['data']['parentItem']);
+	}
+	
+	
 	public function testUnicodeTitle() {
 		$title = "Tést";
 		

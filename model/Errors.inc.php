@@ -72,8 +72,16 @@ class Zotero_Errors {
 				break;
 			
 			case Z_ERROR_COLLECTION_NOT_FOUND:
-			// 404?
+			case Z_ERROR_ITEM_NOT_FOUND:
 			case Z_ERROR_TAG_NOT_FOUND:
+				if ($errorCode == Z_ERROR_ITEM_NOT_FOUND) {
+					preg_match("/Parent item \d+\/([^ ]+) doesn't exist/", $msg, $matches);
+					error_log(json_encode($matches));
+					if ($matches) {
+						$error['message'] = "Parent item '{$matches[1]}' not found";
+						$error['data']['parentItem'] = $matches[1];
+					}
+				}
 				$error['code'] = 400;
 				break;
 			
