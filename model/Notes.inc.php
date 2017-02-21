@@ -83,6 +83,10 @@ class Zotero_Notes {
 	
 	
 	public static function sanitize($text) {
+		if (strlen(trim($text)) == 0) {
+			return $text;
+		}
+		
 		$url = "http://127.0.0.1:" . Z_CONFIG::$HTMLCLEAN_PORT;
 		
 		$start = microtime(true);
