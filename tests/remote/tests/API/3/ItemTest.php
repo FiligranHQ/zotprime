@@ -923,10 +923,10 @@ class ItemTests extends APITests {
 	
 	
 	public function testEditTopLevelNote() {
-		$noteText = "Test";
+		$noteText = "<p>Test</p>";
 		
 		$json = API::createNoteItem($noteText, null, $this, 'jsonData');
-		$noteText .= " Test";
+		$noteText = "<p>Test Test</p>";
 		$json['note'] = $noteText;
 		$response = API::userPut(
 			self::$config['userID'],
@@ -946,10 +946,10 @@ class ItemTests extends APITests {
 	
 	
 	public function testEditChildNote() {
-		$noteText = "Test";
+		$noteText = "<p>Test</p>";
 		$key = API::createItem("book", [ "title" => "Test" ], $this, 'key');
 		$json = API::createNoteItem($noteText, $key, $this, 'jsonData');
-		$noteText .= " Test";
+		$noteText = "<p>Test Test</p>";
 		$json['note'] = $noteText;
 		$response = API::userPut(
 			self::$config['userID'],
