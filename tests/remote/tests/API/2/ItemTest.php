@@ -464,12 +464,10 @@ class ItemTests extends APITests {
 	
 	
 	public function testEditTopLevelNote() {
-		$noteText = "Test";
-		
-		$xml = API::createNoteItem($noteText, null, $this, 'atom');
+		$xml = API::createNoteItem("<p>Test</p>", null, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
-		$noteText .= " Test";
+		$noteText = "<p>Test Test</p>";
 		$json['note'] = $noteText;
 		$response = API::userPut(
 			self::$config['userID'],
@@ -491,12 +489,11 @@ class ItemTests extends APITests {
 	
 	
 	public function testEditChildNote() {
-		$noteText = "Test";
 		$key = API::createItem("book", [ "title" => "Test" ], $this, 'key');
-		$xml = API::createNoteItem($noteText, $key, $this, 'atom');
+		$xml = API::createNoteItem("<p>Test</p>", $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
-		$noteText .= " Test";
+		$noteText = "<p>Test Test</p>";
 		$json['note'] = $noteText;
 		$response = API::userPut(
 			self::$config['userID'],

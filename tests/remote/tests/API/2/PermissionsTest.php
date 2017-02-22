@@ -106,22 +106,22 @@ class PermissionsTest extends APITests {
 		$topKeys[] = $data['key'];
 		$bookKeys[] = $data['key'];
 		
-		$xml = API::createNoteItem("B", false, $this);
+		$xml = API::createNoteItem("<p>B</p>", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
-		$xml = API::createNoteItem("C", false, $this);
+		$xml = API::createNoteItem("<p>C</p>", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
-		$xml = API::createNoteItem("D", false, $this);
+		$xml = API::createNoteItem("<p>D</p>", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
 		
-		$xml = API::createNoteItem("E", false, $this);
+		$xml = API::createNoteItem("<p>E</p>", false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		$topKeys[] = $data['key'];
@@ -132,7 +132,7 @@ class PermissionsTest extends APITests {
 		$topKeys[] = $data['key'];
 		$bookKeys[] = $data['key'];
 		
-		$xml = API::createNoteItem("G", $data['key'], $this);
+		$xml = API::createNoteItem("<p>G</p>", $data['key'], $this);
 		$data = API::parseDataFromAtomEntry($xml);
 		$keys[] = $data['key'];
 		

@@ -279,7 +279,7 @@ class CollectionTests extends APITests {
 		$collectionKey = API::createCollection('Test', false, $this, 'key');
 		
 		$key = API::createItem("book", array(), $this, 'key');
-		$xml = API::createNoteItem("Test Note", $key, $this, 'atom');
+		$xml = API::createNoteItem("<p>Test Note</p>", $key, $this, 'atom');
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content'], true);
 		$json['collections'] = array($collectionKey);
