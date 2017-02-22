@@ -2002,6 +2002,23 @@ class Zotero_Items {
 		
 		$apiVersion = $requestParams['v'];
 		
+		// Check if child item is being converted to top-level or vice-versa, and update $isChild to the
+		// target state so that, e.g., we properly check for the required property 'collections' below
+		// when converting a child item to a top-level item
+		if ($isChild) {
+			// PATCH
+			if (($partialUpdate && isset($json->parentItem) && $json->parentItem === false)
+					// PUT
+					|| (!$partialUpdate && (!isset($json->parentItem) || $json->parentItem === false))) {
+				$isChild = false;
+			}
+		}
+		else {
+			if (isset($json->parentItem) && $json->parentItem !== false) {
+				$isChild = true;
+			}
+		}
+		
 		if ($partialUpdate) {
 			$requiredProps = [];
 		}

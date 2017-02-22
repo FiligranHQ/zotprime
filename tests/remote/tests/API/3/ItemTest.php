@@ -983,6 +983,44 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function test_should_convert_child_note_to_top_level_and_add_to_collection_via_PATCH() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		$parentItemKey = API::createItem("book", false, $this, 'key');
+		$noteJSON = API::createNoteItem("", $parentItemKey, $this, 'jsonData');
+		$noteJSON['parentItem'] = false;
+		$noteJSON['collections'] = [$collectionKey];
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/{$noteJSON['key']}",
+			json_encode($noteJSON)
+		);
+		$this->assert204($response);
+		$json = API::getItem($noteJSON['key'], $this, 'json')['data'];
+		$this->assertArrayNotHasKey('parentItem', $json);
+		$this->assertCount(1, $json['collections']);
+		$this->assertEquals($collectionKey, $json['collections'][0]);
+	}
+	
+	
+	public function test_should_convert_child_note_to_top_level_and_add_to_collection_via_PUT() {
+		$collectionKey = API::createCollection('Test', false, $this, 'key');
+		$parentItemKey = API::createItem("book", false, $this, 'key');
+		$noteJSON = API::createNoteItem("", $parentItemKey, $this, 'jsonData');
+		unset($noteJSON['parentItem']);
+		$noteJSON['collections'] = [$collectionKey];
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/{$noteJSON['key']}",
+			json_encode($noteJSON)
+		);
+		$this->assert204($response);
+		$json = API::getItem($noteJSON['key'], $this, 'json')['data'];
+		$this->assertArrayNotHasKey('parentItem', $json);
+		$this->assertCount(1, $json['collections']);
+		$this->assertEquals($collectionKey, $json['collections'][0]);
+	}
+	
+	
 	public function testEditTitleWithCollectionInMultipleMode() {
 		$collectionKey = API::createCollection('Test', false, $this, 'key');
 		
