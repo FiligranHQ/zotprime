@@ -216,18 +216,19 @@ class Sync {
 		}
 		
 		$max = 5;
+		$try = 0;
 		do {
 			$wait = (int) $xml->locked['wait'];
 			sleep($wait / 1000);
 			
 			$xml = Sync::updated($sessionID, $lastsync, $allowError, true, $params);
 			
-			$max--;
+			$try++;
 		}
-		while (isset($xml->locked) && $max > 0);
+		while (isset($xml->locked) && $try < $max);
 		
-		if (!$max) {
-			throw new Exception("Download did not finish after $max attempts");
+		if (isset($xml->locked)) {
+			throw new Exception("Download did not finish after $try attempts");
 		}
 		
 		if (!$allowError && !isset($xml->updated)) {
