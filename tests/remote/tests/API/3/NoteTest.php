@@ -157,5 +157,17 @@ class NoteTests extends APITests {
 		$json = API::getJSONFromResponse($response);
 		$this->assertArrayHasKey(0, $json['unchanged']);
 	}
+	
+	
+	public function test_should_allow_zotero_links_in_notes() {
+		$json = API::createNoteItem('<p>Test</p>', false, $this, 'json');
+		
+		$val = '<p><a href="zotero://select/library/items/ABCD2345">Test</a></p>';
+		$json['data']['note'] = $val;
+		
+		$response = API::postItem($json['data']);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals($val, $json['successful'][0]['data']['note']);
+	}
 }
 ?>
