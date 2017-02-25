@@ -845,6 +845,24 @@ class VersionTests extends APITests {
 	}
 	
 	
+	// should return 412 for POST to /settings with outdated version header
+	public function testPostToSettingsWithOutdatedVersionHeader() {
+		$libraryVersion = API::getLibraryVersion();
+		
+		// Outdated library version
+		$response = API::userPost(
+			self::$config['userID'],
+			"settings",
+			json_encode([]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: " . ($libraryVersion - 1)
+			]
+		);
+		$this->assert412($response);
+	}
+	
+	
 	// POST to an existing object with a version prop < current version is a 412 for that object
 	public function testPatchExistingObjectsWithOldVersion0Property() {
 		$this->_testPatchExistingObjectsWithOldVersionProperty('collection');
