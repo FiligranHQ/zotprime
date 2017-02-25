@@ -105,6 +105,7 @@ class Zotero_Translate {
 		}
 		
 		if ($response === null) {
+			StatsD::increment("translate.export.$format.error");
 			throw new Exception("Error exporting items");
 		}
 		
@@ -113,6 +114,7 @@ class Zotero_Translate {
 			'mimeType' => $mimeType
 		);
 		
+		StatsD::increment("translate.export.$format.success");
 		return $export;
 	}
 	
