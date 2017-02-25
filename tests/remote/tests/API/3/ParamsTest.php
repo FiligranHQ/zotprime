@@ -212,36 +212,22 @@ class ParamsTests extends APITests {
 	}
 	
 	
-	private function _testPagination($objectType) {
-		API::userClear(self::$config['userID']);
-		
-		$objectTypePlural = API::getPluralObjectType($objectType);
-		
-		$limit = 2;
-		$totalResults = 5;
-		$formats = ['json', 'atom', 'keys'];
-		
+	private function _createPaginationData($objectType, $num) {
 		switch ($objectType) {
 		case 'collection':                                                                                         
-			for ($i=0; $i<$totalResults; $i++) {
+			for ($i=0; $i<$num; $i++) {
 				API::createCollection("Test", false, $this, 'key');
 			}
 			break;
 		
 		case 'item':
-			//
-			// Items
-			//
-			for ($i=0; $i<$totalResults; $i++) {
+			for ($i=0; $i<$num; $i++) {
 				API::createItem("book", false, $this, 'key');
 			}
 			break;
 		
-		//
-		// Searches
-		//
 		case 'search':
-			for ($i=0; $i<$totalResults; $i++) {
+			for ($i=0; $i<$num; $i++) {
 				API::createSearch("Test", 'default', $this, 'key');
 			}
 			break;
@@ -260,6 +246,32 @@ class ParamsTests extends APITests {
 					'e'
 				]
 			], $this);
+			break;
+		}
+	}
+	
+	
+	private function _testPagination($objectType) {
+		API::userClear(self::$config['userID']);
+		
+		$objectTypePlural = API::getPluralObjectType($objectType);
+		
+		$limit = 2;
+		$totalResults = 5;
+		$formats = ['json', 'atom', 'keys'];
+		
+		// Create sample data
+		switch ($objectType) {
+		case 'collection':
+		case 'item':
+		case 'search':
+		case 'tag':
+			$this->_createPaginationData($objectType, $totalResults);
+			break;
+		}
+		
+		switch ($objectType) {
+		case 'tag':
 			$formats = array_filter($formats, function ($val) { return !in_array($val, ['keys']); });
 			break;
 		
