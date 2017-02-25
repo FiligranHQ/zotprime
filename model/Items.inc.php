@@ -1632,33 +1632,75 @@ class Zotero_Items {
 		}
 		
 		if (isset($response->items)) {
-			if ($requestParams['v'] >= 2) {
-				$response = $response->items;
-				
-				for ($i=0, $len=sizeOf($response); $i<$len; $i++) {
+			$items = $response->items;
+			
+			// APIv3
+			if ($requestParams['v'] >= 3) {
+				for ($i = 0, $len = sizeOf($items); $i < $len; $i++) {
 					// Assign key here so that we can add notes if necessary
 					do {
 						$itemKey = Zotero_ID::getKey();
 					}
 					while (Zotero_Items::existsByLibraryAndKey($libraryID, $itemKey));
-					$response[$i]->key = $itemKey;
+					$items[$i]->key = $itemKey;
+					// TEMP: translation-server shouldn't include these, but as long as it does,
+					// remove them
+					unset($items[$i]->itemKey);
+					unset($items[$i]->itemVersion);
 					
 					// Pull out notes and stick in separate items
-					if (isset($response[$i]->notes)) {
-						foreach ($response[$i]->notes as $note) {
+					if (isset($items[$i]->notes)) {
+						foreach ($items[$i]->notes as $note) {
 							$newNote = (object) [
 								"itemType" => "note",
 								"note" => $note->note,
 								"parentItem" => $itemKey
 							];
-							$response[] = $newNote;
+							$items[] = $newNote;
 						}
-						unset($response[$i]->notes);
+						unset($items[$i]->notes);
+					}
+					
+					// TODO: link attachments, or not possible from translation-server?
+				}
+				
+				$response = $items;
+			}
+			// APIv2 (was this ever used? it's possible the bookmarklet used v1 and we never publicized
+			// this for v2)
+			else if ($requestParams['v'] == 2) {
+				for ($i = 0, $len = sizeOf($items); $i < $len; $i++) {
+					// Assign key here so that we can add notes if necessary
+					do {
+						$itemKey = Zotero_ID::getKey();
+					}
+					while (Zotero_Items::existsByLibraryAndKey($libraryID, $itemKey));
+					$items[$i]->itemKey = $itemKey;
+					
+					// Pull out notes and stick in separate items
+					if (isset($items[$i]->notes)) {
+						foreach ($items[$i]->notes as $note) {
+							$newNote = (object) [
+								"itemType" => "note",
+								"note" => $note->note,
+								"parentItem" => $itemKey
+							];
+							$items[] = $newNote;
+						}
+						unset($items[$i]->notes);
 					}
 					
 					// TODO: link attachments, or not possible from translation-server?
 				}
 			}
+			// APIv1
+			else {
+				for ($i = 0, $len = sizeOf($items); $i < $len; $i++) {
+					unset($items[$i]->itemKey);
+					unset($items[$i]->itemVersion);
+				}
+			}
+			
 			try {
 				self::validateMultiObjectJSON($response, $requestParams);
 			}
