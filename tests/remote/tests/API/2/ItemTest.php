@@ -852,26 +852,20 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testNewEmptyImportedURLAttachmentItemGroup() {
+	public function test_should_not_allow_changing_storage_properties_in_group_libraries() {
 		$key = API::groupCreateItem(
 			self::$config['ownedPrivateGroupID'], "book", $this, 'key'
 		);
 		$xml = API::groupCreateAttachmentItem(
 			self::$config['ownedPrivateGroupID'], "imported_url", [], $key, $this
 		);
-		return API::parseDataFromAtomEntry($xml);
-	}
-	
-	
-	/**
-	 * @depends testNewEmptyImportedURLAttachmentItemGroup
-	 */
-	public function testEditImportedURLAttachmentItemGroup($newItemData) {
+		$newItemData = API::parseDataFromAtomEntry($xml);
+		
 		$key = $newItemData['key'];
 		$version = $newItemData['version'];
 		$json = json_decode($newItemData['content']);
 		
-		$props = array("contentType", "charset", "filename", "md5", "mtime");
+		$props = ["md5", "mtime"];
 		foreach ($props as $prop) {
 			$json2 = clone $json;
 			$json2->$prop = "new" . ucwords($prop);
