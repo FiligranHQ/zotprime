@@ -490,7 +490,7 @@ class VersionTests extends APITests {
 	}
 	
 	
-	// PATCH to a missing object with version header > 0 is a 404
+	// PATCH to a missing object with version header > 0 is a 412
 	public function testPatchMissingObjectWithVersionHeader() {
 		$this->_testPatchMissingObjectWithVersionHeader('collection');
 		$this->_testPatchMissingObjectWithVersionHeader('item');
@@ -511,11 +511,11 @@ class VersionTests extends APITests {
 				"If-Unmodified-Since-Version: 123"
 			]
 		);
-		$this->assert404($response);
+		$this->assert412($response);
 	}
 	
 	
-	// PATCH to a missing object with version property > 0 is a 404
+	// PATCH to a missing object with version property > 0 is a 412
 	public function testPatchMissingObjectWithVersionProperty() {
 		$this->_testPatchMissingObjectWithVersionProperty('collection');
 		$this->_testPatchMissingObjectWithVersionProperty('item');
@@ -536,7 +536,7 @@ class VersionTests extends APITests {
 				"Content-Type: application/json"
 			]
 		);
-		$this->assert404($response);
+		$this->assert412($response);
 	}
 	
 	
@@ -746,7 +746,7 @@ class VersionTests extends APITests {
 	}
 	
 	
-	// POST to a missing object with version > 0 is a 404 for that object
+	// POST to a missing object with version > 0 is a 412 for that object
 	public function testPatchMissingObjectsWithVersion() {
 		$this->_testPatchMissingObjectsWithVersion('collection');
 		$this->_testPatchMissingObjectsWithVersion('item');
@@ -766,7 +766,7 @@ class VersionTests extends APITests {
 			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
-		$this->assert404ForObject($response, ucwords($objectType)
+		$this->assert412ForObject($response, ucwords($objectType)
 			. " doesn't exist (expected version 123; use 0 instead)");
 	}
 	
