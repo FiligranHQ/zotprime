@@ -1359,6 +1359,7 @@ class FileTests extends APITests {
 			]
 		);
 		$this->assert412($response);
+		$this->assertNull($response->getHeader("Last-Modified-Version"));
 		
 		// Successful registration
 		$response = API::userPost(
@@ -1371,7 +1372,8 @@ class FileTests extends APITests {
 			]
 		);
 		$this->assert204($response);
-		$newVersion = $response->getHeader("Last-Modified-Version");
+		$newVersion = $response->getHeader('Last-Modified-Version');
+		$this->assertGreaterThan($originalVersion, $newVersion);
 		
 		// Verify attachment item metadata
 		$response = API::userGet(
@@ -1412,6 +1414,25 @@ class FileTests extends APITests {
 			]
 		);
 		$this->assert412($response, "If-None-Match: * set but file exists");
+		$this->assertNotNull($response->getHeader("Last-Modified-Version"));
+		
+		// Conflict for If-Match when existing file differs
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$key/file",
+			$this->implodeParams([
+				"md5" => $hash,
+				"mtime" => $mtime + 1000,
+				"filename" => $filename,
+				"filesize" => $size
+			]),
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-Match: " . md5("invalid")
+			]
+		);
+		$this->assert412($response, "ETag does not match current version of file");
+		$this->assertNotNull($response->getHeader("Last-Modified-Version"));
 		
 		// File exists
 		$response = API::userPost(
@@ -1593,8 +1614,7 @@ class FileTests extends APITests {
 			]
 		);
 		$this->assert204($response);
-		$newVersion = $response->getHeader('Last-Modified-Version');
-		$this->assertGreaterThan($originalVersion, $newVersion);
+		$newVersion = $response->getHeader("Last-Modified-Version");
 		
 		// Verify attachment item metadata
 		$response = API::userGet(
