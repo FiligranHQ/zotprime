@@ -250,6 +250,10 @@ class MappingsController extends ApiController {
 			$json['contentType'] = '';
 			$json['charset'] = '';
 			
+			if ($linkModeName == 'linked_file') {
+				$json['path'] = '';
+			}
+			
 			if (preg_match('/^imported_/', $linkModeName)) {
 				$json['filename'] = '';
 				$json['md5'] = null;

@@ -1107,6 +1107,33 @@ class ItemTests extends APITests {
 	}
 	
 	
+	public function testNewItemTemplateAttachmentFields() {
+		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
+		$json = json_decode($response->getBody());
+		$this->assertSame('', $json->url);
+		$this->assertObjectNotHasAttribute('filename', $json);
+		$this->assertObjectNotHasAttribute('path', $json);
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=linked_file");
+		$json = json_decode($response->getBody());
+		$this->assertSame('', $json->path);
+		$this->assertObjectNotHasAttribute('filename', $json);
+		$this->assertObjectNotHasAttribute('url', $json);
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=imported_url");
+		$json = json_decode($response->getBody());
+		$this->assertSame('', $json->filename);
+		$this->assertSame('', $json->url);
+		$this->assertObjectNotHasAttribute('path', $json);
+		
+		$response = API::get("items/new?itemType=attachment&linkMode=imported_file");
+		$json = json_decode($response->getBody());
+		$this->assertSame('', $json->filename);
+		$this->assertObjectNotHasAttribute('path', $json);
+		$this->assertObjectNotHasAttribute('url', $json);
+	}
+	
+	
 	/*
 	Disabled -- see note at Zotero_Item::checkTopLevelAttachment()
 	
