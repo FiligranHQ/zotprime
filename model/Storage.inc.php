@@ -704,6 +704,7 @@ class Zotero_Storage {
 				['key' => $info->hash],
 				['acl' => 'private'],
 				['Content-MD5' => $contentMD5],
+				['content-length-range', $info->size, $info->size],
 				['success_action_status' => $successStatus],
 				['x-amz-credential' => $credentials],
 				['x-amz-algorithm' => $algorithm],

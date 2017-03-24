@@ -213,7 +213,7 @@ class FileTests extends APITests {
 		// Upload wrong contents to S3
 		$response = HTTP::post(
 			$json->url,
-			$json->prefix . $fileContents . "INVALID" . $json->suffix,
+			$json->prefix . strrev($fileContents) . $json->suffix,
 			[
 				"Content-Type: " . $json->contentType
 			]
@@ -1669,6 +1669,61 @@ class FileTests extends APITests {
 		$this->assertEquals($hash, (string) $itemXML['storageHash']);
 		$this->assertEquals($mtime + 1000, (string) $itemXML['storageModTime']);
 		Sync::logout($sessionID);
+	}
+	
+	
+	public function testClientV5ShouldRejectFileSizeMismatch() {
+		API::userClear(self::$config['userID']);
+		
+		$file = "work/file";
+		$fileContents = self::getRandomUnicodeString();
+		$contentType = "text/plain";
+		$charset = "utf-8";
+		file_put_contents($file, $fileContents);
+		$hash = md5_file($file);
+		$filename = "test_" . $fileContents;
+		$mtime = filemtime($file) * 1000;
+		$size = 0;
+		
+		$json = API::createAttachmentItem("imported_file", [
+			'contentType' => $contentType,
+			'charset' => $charset
+		], false, $this, 'jsonData');
+		$key = $json['key'];
+		$originalVersion = $json['version'];
+		
+		// Get authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$key/file",
+			$this->implodeParams([
+				"md5" => $hash,
+				"mtime" => $mtime,
+				"filename" => $filename,
+				"filesize" => $size
+			]),
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			]
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		self::$toDelete[] = "$hash";
+		
+		// Try to upload to S3, which should fail
+		$response = HTTP::post(
+			$json['url'],
+			$json['prefix'] . $fileContents . $json['suffix'],
+			[
+				"Content-Type: {$json['contentType']}"
+			]
+		);
+		$this->assert400($response);
+		$this->assertContains(
+			"Your proposed upload exceeds the maximum allowed size", $response->getBody()
+		);
 	}
 	
 	
