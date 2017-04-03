@@ -212,10 +212,13 @@ class ApiController extends Controller {
 			// other than Basic/Digest, so use an Apache-specific method to get the header
 			if (!$key && function_exists('apache_request_headers')) {
 				$headers = apache_request_headers();
-				if (isset($headers['Authorization'])) {
+				if (isset($headers['Authorization']) || isset($headers['authorization'])) {
+					$val = isset($headers['Authorization'])
+						? $headers['Authorization']
+						: $headers['authorization'];
 					// Look for "Authorization: Bearer" from OAuth 2.0, and ignore everything else
-					if (preg_match('/^bearer/i', $headers['Authorization'], $matches)) {
-						if (preg_match('/^bearer +([a-z0-9]+)$/i', $headers['Authorization'], $matches)) {
+					if (preg_match('/^bearer/i', $val, $matches)) {
+						if (preg_match('/^bearer +([a-z0-9]+)$/i', $val, $matches)) {
 							$key = $matches[1];
 						}
 						else {
