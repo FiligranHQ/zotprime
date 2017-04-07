@@ -2458,8 +2458,17 @@ class Zotero_Items {
 						if (Zotero_Date::isISO8601($val)) {
 							$val = Zotero_Date::iso8601ToSQL($val);
 						}
+						// Don't allow dateAdded to change
 						if ($val != $item->$key) {
-							throw new Exception("'$key' cannot be modified for existing items", Z_ERROR_INVALID_INPUT);
+							// If passed dateAdded is exactly one hour off, assume it's from a DST bug
+							// we haven't yet tracked down (https://github.com/zotero/zotero/issues/1201)
+							// and ignore it
+							if (abs(strtotime($val) - strtotime($item->$key)) == 3600) {
+								$json->$key = $item->$key;
+							}
+							else {
+								throw new Exception("'$key' cannot be modified for existing items", Z_ERROR_INVALID_INPUT);
+							}
 						}
 					}
 					break;

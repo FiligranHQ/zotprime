@@ -344,9 +344,10 @@ class ItemTests extends APITests {
 		
 		switch ($objectType) {
 		case 'item':
-			$itemData = array(
-				"title" => "Test"
-			);
+			$itemData = [
+				"title" => "Test",
+				"dateAdded" => "2017-03-12T02:48:54Z"
+			];
 			$data = API::createItem("videoRecording", $itemData, $this, 'jsonData');
 			break;
 		}
@@ -381,7 +382,7 @@ class ItemTests extends APITests {
 		$data = API::getItem($objectKey, $this, 'json')['data'];
 		
 		// But with a changed dateAdded, disallow
-		$newDateAdded = "2013-03-03T21:33:53Z";
+		$newDateAdded = "2017-04-01T00:00:00Z";
 		$data['title'] = "Test 4";
 		$data['dateAdded'] = $newDateAdded;
 		$response = API::userPut(
@@ -390,6 +391,20 @@ class ItemTests extends APITests {
 			json_encode($data)
 		);
 		$this->assert400($response, "'dateAdded' cannot be modified for existing $objectTypePlural");
+		
+		// Unless it's exactly one hour off, because there's a DST bug we haven't fixed
+		// https://github.com/zotero/zotero/issues/1201
+		$newDateAdded = "2017-03-12T01:48:54Z";
+		$data['dateAdded'] = $newDateAdded;
+		$response = API::userPut(
+			self::$config['userID'],
+			"$objectTypePlural/$objectKey",
+			json_encode($data)
+		);
+		$this->assert204($response);
+		$data = API::getItem($objectKey, $this, 'json')['data'];
+		// But the value shouldn't have actually changed
+		$this->assertEquals($originalDateAdded, $data['dateAdded']);
 	}
 	
 	
