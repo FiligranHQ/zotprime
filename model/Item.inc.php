@@ -1291,7 +1291,10 @@ class Zotero_Item extends Zotero_DataObject {
 					foreach ($this->collections as $collectionKey) {
 						$collection = Zotero_Collections::getByLibraryAndKey($this->_libraryID, $collectionKey);
 						if (!$collection) {
-							throw new Exception("Collection with key '$collectionKey' not found", Z_ERROR_COLLECTION_NOT_FOUND);
+							throw new Exception(
+								"Collection $this->_libraryID/$collectionKey doesn't exist",
+								Z_ERROR_COLLECTION_NOT_FOUND
+							);
 						}
 						$collection->addItem($itemID);
 						$collection->save();
@@ -1784,7 +1787,10 @@ class Zotero_Item extends Zotero_DataObject {
 					foreach ($toAdd as $collectionKey) {
 						$collection = Zotero_Collections::getByLibraryAndKey($this->_libraryID, $collectionKey);
 						if (!$collection) {
-							throw new Exception("Collection with key '$collectionKey' not found", Z_ERROR_COLLECTION_NOT_FOUND);
+							throw new Exception(
+								"Collection $this->_libraryID/$collectionKey doesn't exist",
+								Z_ERROR_COLLECTION_NOT_FOUND
+							);
 						}
 						$collection->addItem($this->_id);
 						$collection->save();

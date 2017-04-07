@@ -2425,8 +2425,16 @@ class ItemTests extends APITests {
 	public function test_should_return_400_on_missing_parent() {
 		$missingParentKey = "BDARG2AV";
 		$json = API::createNoteItem("<p>test</p>", $missingParentKey, $this);
-		$this->assert400ForObject($json, "Parent item '$missingParentKey' not found");
+		$this->assert400ForObject($json, "Parent item $missingParentKey not found");
 		$this->assertEquals($missingParentKey, $json['failed'][0]['data']['parentItem']);
+	}
+	
+	
+	public function test_should_return_400_on_missing_collection() {
+		$missingCollectionKey = "BDARG2AV";
+		$json = API::createItem("book", [ 'collections' => [$missingCollectionKey] ], $this);
+		$this->assert400ForObject($json, "Collection $missingCollectionKey not found");
+		$this->assertEquals($missingCollectionKey, $json['failed'][0]['data']['collection']);
 	}
 	
 	
