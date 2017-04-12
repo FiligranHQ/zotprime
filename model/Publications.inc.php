@@ -36,43 +36,28 @@ class Zotero_Publications {
 		'CC0'
 	];
 	
-	public static function add($userID) {
-		Z_Core::debug("Creating publications library for user $userID");
-		
-		Zotero_DB::beginTransaction();
-		
-		// Use same shard as user library
-		$shardID = Zotero_Shards::getByUserID($userID);
-		$libraryID = Zotero_Libraries::add('publications', $shardID);
-		
-		$sql = "INSERT INTO userPublications (userID, libraryID) VALUES (?, ?)";
-		Zotero_DB::query($sql, [$userID, $libraryID]);
-		
-		Zotero_DB::commit();
-		
-		return $libraryID;
+	
+	public static function getETag($userID) {
+		$cacheKey = "publicationsETag_" . $userID;
+		$etag = Z_Core::$MC->get($cacheKey);
+		return $etag ? $etag : self::updateETag($userID);
 	}
 	
 	
-	public static function validateJSONItem($json) {
-		// No deleted items
-		if (!empty($json->deleted)) {
-			throw new Exception("Items in publications libraries cannot be marked as deleted",
-				Z_ERROR_INVALID_INPUT);
-		}
-		
-		// No top-level attachments or notes
-		if (!empty($json->itemType)) {
-			if (($json->itemType == 'note' || $json->itemType == 'attachment')
-					&& empty($json->parentItem)) {
-				throw new Exception("Top-level notes and attachments cannot be added to publications libraries",
-					Z_ERROR_INVALID_INPUT);
-			}
-			
-			if ($json->itemType == 'attachment' && $json->linkMode == 'linked_file') {
-				throw new Exception("Linked-file attachments cannot be added to publications libraries",
-					Z_ERROR_INVALID_INPUT);
-			}
-		}
+	public static function updateETag($userID) {
+		$cacheKey = "publicationsETag_" . $userID;
+		$etag = Zotero_Utilities::randomString(8, 'mixed');
+		Z_Core::$MC->set($cacheKey, $etag);
+		return $etag;
+	}
+	
+	
+	public static function filterResponseJSON($json) {
+		unset($json['data']['tags']);
+	}
+	
+	
+	public static function filterResponseAtom($json) {
+		unset($json['data']['tags']);
 	}
 }

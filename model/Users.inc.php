@@ -561,6 +561,25 @@ class Zotero_Users {
 	}
 	
 	
+	public static function hasPublicationsInUserLibrary($userID) {
+		$sql = "SELECT COUNT(*) > 0 FROM publicationsItems JOIN items WHERE libraryID=?";
+		$libraryID = self::getLibraryIDFromUserID($userID);
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		return !!Zotero_DB::valueQuery($sql, $libraryID, $shardID);
+	}
+	
+	
+	public static function hasPublicationsInLegacyLibrary($userID) {
+		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID, 'publications');
+		if (!$libraryID) {
+			return false;
+		}
+		$sql = "SELECT COUNT(*) > 0 FROM items WHERE libraryID=?";
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		return !!Zotero_DB::valueQuery($sql, $libraryID, $shardID);
+	}
+	
+	
 	private static function getUsernameFromWWW($userID) {
 		$sql = "SELECT username FROM users WHERE userID=?";
 		try {

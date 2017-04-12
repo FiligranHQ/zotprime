@@ -27,6 +27,7 @@
 class Zotero_Permissions {
 	private $super = false;
 	private $anonymous = false;
+	private $publications = false;
 	private $userID = null;
 	private $permissions = array();
 	private $userPrivacy = array();
@@ -39,7 +40,7 @@ class Zotero_Permissions {
 	
 	
 	public function canAccess($libraryID, $permission='library') {
-		if ($this->super || $libraryID === 0) {
+		if ($this->super) {
 			return true;
 		}
 		
@@ -65,6 +66,7 @@ class Zotero_Permissions {
 				$privacy = $this->getUserPrivacy($userID);
 				break;
 			
+			// TEMP
 			case 'publications':
 				return true;
 			
@@ -106,6 +108,19 @@ class Zotero_Permissions {
 		default:
 			return false;
 		}
+	}
+	
+	
+	public function canAccessObject(Zotero_DataObject $obj) {
+		if ($obj instanceof Zotero_Item && $this->publications && $obj->inPublications) {
+			return true;
+		}
+		
+		$scope = 'library';
+		if ($obj instanceof Zotero_Item && $obj->isNote()) {
+			$scope = 'notes';
+		}
+		return $this->canAccess($obj->libraryID, $scope);
 	}
 	
 	
@@ -179,6 +194,10 @@ class Zotero_Permissions {
 	
 	public function setAnonymous() {
 		$this->anonymous = true;
+	}
+	
+	public function setPublications() {
+		$this->publications = true;
 	}
 	
 	public function setUser($userID) {

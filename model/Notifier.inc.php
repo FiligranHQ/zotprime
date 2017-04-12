@@ -33,7 +33,7 @@ class Zotero_Notifier {
 	private static $types = array(
 		'apikey-library', 'collection', 'creator', 'search', 'share', 'share-items', 'item',
 		'collection-item', 'item-tag', 'tag', 'group', 'trash', 'relation',
-		'library'
+		'library', 'publications'
 	);
 	
 	/**
@@ -147,10 +147,10 @@ class Zotero_Notifier {
 		}
 		
 		foreach (self::$observers as $hash => $observer) {
-			Z_Core::debug("Calling notify('$event', '$type', ...) on observer with hash '$hash'", 4);
-			
 			// Find observers that handle notifications for this type (or all types)
 			if (!$observer['types'] || in_array($type, $observer['types'])) {
+				Z_Core::debug("Calling notify('$event', '$type', ...) on observer with hash '$hash'", 4);
+				
 				// Catch exceptions so all observers get notified even if
 				// one throws an error
 				try {

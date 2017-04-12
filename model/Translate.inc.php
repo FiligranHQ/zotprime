@@ -41,14 +41,20 @@ class Zotero_Translate {
 		'wikipedia'
 	);
 	
-	public static function doExport($items, $format) {
+	/**
+	 * @param array[] $items Array of item JSON objects
+	 * @param string $requestParams Request parameters
+	 */
+	public static function doExport($items, $requestParams) {
+		$format = $requestParams['format'];
+		
 		if (!in_array($format, self::$exportFormats)) {
 			throw new Exception("Invalid export format '$format'");
 		}
 		
 		$jsonItems = array();
 		foreach ($items as $item) {
-			$arr = $item->toJSON(true);
+			$arr = $item->toJSON(true, $requestParams);
 			$arr['uri'] = Zotero_URI::getItemURI($item);
 			$jsonItems[] = $arr;
 		}

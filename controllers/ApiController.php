@@ -53,6 +53,7 @@ class ApiController extends Controller {
 	protected $objectName;
 	protected $subset;
 	protected $singleObject;
+	protected $publications = false;
 	protected $fileMode;
 	protected $fileView;
 	protected $httpAuth = false;
@@ -338,8 +339,6 @@ class ApiController extends Controller {
 			$apiVersion = 1;
 		}
 		
-		// For publications URLs (e.g., /users/:userID/publications/items), swap in
-		// objectLibraryID of user's publications library
 		if (!empty($extra['publications'])) {
 			// Query parameters not yet parsed, so check version parameter
 			if (($apiVersion && $apiVersion < 3)
@@ -347,24 +346,45 @@ class ApiController extends Controller {
 					|| (!empty($_REQUEST['version']) && $_REQUEST['version'] == 1)) {
 				$this->e404();
 			}
-			$userLibraryID = $this->objectLibraryID;
-			$this->objectLibraryID = Zotero_Users::getLibraryIDFromUserID(
-				$this->objectUserID, 'publications'
-			);
-			// If one doesn't exist, for write requests create a library if the key
-			// has write permission to the user library. For read requests, just
-			// return a 404.
-			if (!$this->objectLibraryID) {
-				if ($this->isWriteMethod()) {
-					if (!$this->permissions->canAccess($userLibraryID)
-							|| !$this->permissions->canWrite($userLibraryID)) {
-						$this->e403();
-					}
-					$this->objectLibraryID = Zotero_Publications::add($this->objectUserID);
+			
+			if ($this->isWriteMethod()) {
+				$this->e405("Please upgrade to the latest Zotero 5.0 beta to update My Publications.", Z_ERROR_INVALID_INPUT);
+			}
+			
+			$this->permissions->setPublications();
+			// Added to queryParams below
+			$this->publications = true;
+			
+			// If no publications items in main user library, see if there's a legacy publications library
+			if (!Zotero_Users::hasPublicationsInUserLibrary($this->objectUserID)) {
+				$publicationsLibraryID = Zotero_Users::getLibraryIDFromUserID(
+					$this->objectUserID, 'publications'
+				);
+				if ($publicationsLibraryID) {
+					$this->objectLibraryID = $publicationsLibraryID;
 				}
-				else {
-					$this->objectLibraryID = 0;
+			}
+			
+			// TEMP: Remove after integrated publications upgrade
+			if ($this->action == 'settings') {
+				// If publications in either legacy library or user library, show upgrade error
+				if (Zotero_Users::hasPublicationsInUserLibrary($this->objectUserID)
+						|| Zotero_Users::hasPublicationsInLegacyLibrary($this->objectUserID)) {
+					$this->e400("Please upgrade to the latest Zotero 5.0 beta to continue syncing My Publications.", Z_ERROR_INVALID_INPUT);
 				}
+				$this->apiVersion = 3;
+				header("Total-Results: 0");
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				$this->queryParams['format'] = 'json';
+				echo json_encode([]);
+				$this->end();
+			}
+			else if ($this->action == 'deleted') {
+				$this->apiVersion = 3;
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+				$this->queryParams['format'] = 'json';
+				echo json_encode(new stdClass);
+				$this->end();
 			}
 		}
 		
@@ -413,6 +433,11 @@ class ApiController extends Controller {
 			$apiVersion,
 			$atomAccepted
 		);
+		if ($this->publications) {
+			$this->queryParams['publications'] = true;
+			// Don't show trashed items in publications view
+			$this->queryParams['includeTrashed'] = false;
+		}
 		
 		// Sorting by Item Type or Added By currently require writing to shard tables, so don't
 		// send those to the read replicas
@@ -882,6 +907,7 @@ class ApiController extends Controller {
 		if ($matches[1] == "4" || $matches[1] == "5") {
 			if (!$this->libraryVersionOnFailure) {
 				$this->libraryVersion = null;
+				$this->etag = null;
 			}
 			Zotero_DB::rollback(true);
 		}
@@ -936,6 +962,7 @@ class ApiController extends Controller {
 		}
 		
 		$this->libraryVersion = null;
+		$this->etag = null;
 		$this->responseXML = null;
 		
 		$this->responseCode = $httpCode;
@@ -1018,6 +1045,10 @@ class ApiController extends Controller {
 					Zotero_Notifier::trigger('modify', 'library', $this->objectLibraryID);
 				}
 			}
+		}
+		
+		if (isset($this->etag)) {
+			header("ETag: " . $this->etag);
 		}
 		
 		if ($this->responseXML instanceof SimpleXMLElement) {

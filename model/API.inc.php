@@ -135,7 +135,8 @@ class Zotero_API {
 		
 		// For internal use only
 		'emptyFirst' => false,
-		'uncached' => false
+		'uncached' => false,
+		'publications' => false
 	];
 	
 	
@@ -563,7 +564,6 @@ class Zotero_API {
 	public static function buildLinks($action, $path, $totalResults, $queryParams, $nonDefaultParams, $excludeParams=[]) {
 		$apiVersion = $queryParams['v'];
 		$baseURI = Zotero_API::getBaseURI() . substr($path, 1);
-		$alternateBaseURI = Zotero_URI::getBaseWWWURI() . substr($path, 1);
 		
 		$links = [];
 		
@@ -630,7 +630,7 @@ class Zotero_API {
 			}
 		}
 		
-		$links['alternate'] = $alternateBaseURI;
+		$links['alternate'] = Zotero_URI::getBaseWWWURI() . substr($path, 1);
 		
 		return $links;
 	}
@@ -812,7 +812,7 @@ class Zotero_API {
 	
 	
 	private static function getPrivateParams() {
-		$params = ['emptyFirst'];
+		$params = ['emptyFirst', 'publications'];
 		if (!Z_CONFIG::$TESTING_SITE) {
 			$params[] = 'uncached';
 		}

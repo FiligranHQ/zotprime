@@ -40,13 +40,6 @@ class FullTextController extends ApiController {
 			$this->e403();
 		}
 		
-		// Default empty library
-		if ($this->objectLibraryID === 0) {
-			$this->libraryVersion = 0;
-			echo Zotero_Utilities::formatJSON(new stdClass);
-			$this->end();
-		}
-		
 		// Multi-item write
 		if ($this->isWriteMethod()) {
 			if ($this->apiVersion < 3) {

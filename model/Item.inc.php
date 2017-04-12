@@ -51,6 +51,7 @@ class Zotero_Item extends Zotero_DataObject {
 	private $noteTextSanitized = null;
 	
 	private $deleted = null;
+	private $inPublications = null;
 	
 	private $attachmentData = array(
 		'linkMode' => null,
@@ -115,6 +116,9 @@ class Zotero_Item extends Zotero_DataObject {
 			case 'deleted':
 				return $this->getDeleted();
 			
+			case 'inPublications':
+				return $this->getPublications();
+			
 			case 'createdByUserID':
 				return $this->getCreatedByUserID();
 			
@@ -170,6 +174,9 @@ class Zotero_Item extends Zotero_DataObject {
 		switch ($field) {
 			case 'deleted':
 				return $this->setDeleted($val);
+			
+			case 'inPublications':
+				return $this->setPublications($val);
 			
 			case 'attachmentLinkMode':
 			case 'attachmentCharset':
@@ -908,6 +915,57 @@ class Zotero_Item extends Zotero_DataObject {
 	}
 	
 	
+	private function getPublications() {
+		if ($this->inPublications !== null) {
+			return $this->inPublications;
+		}
+		
+		if (!$this->__get('id')) {
+			return false;
+		}
+		
+		if (!is_numeric($this->id)) {
+			throw new Exception("Invalid itemID");
+		}
+		
+		if ($this->cacheEnabled) {
+			$cacheVersion = 1;
+			$cacheKey = $this->getCacheKey("itemInPublications", $cacheVersion);
+			$inPublications = Z_Core::$MC->get($cacheKey);
+		}
+		else {
+			$inPublications = false;
+		}
+		if ($inPublications === false) {
+			$sql = "SELECT COUNT(*) FROM publicationsItems WHERE itemID=?";
+			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+			$inPublications = !!Zotero_DB::valueQueryFromStatement($stmt, $this->id);
+			
+			// Memcache returns false for empty keys, so use integer
+			if ($this->cacheEnabled) {
+				Z_Core::$MC->set($cacheKey, $inPublications ? 1 : 0);
+			}
+		}
+		
+		return $this->inPublications = $inPublications;
+	}
+	
+	
+	private function setPublications($val) {
+		$inPublications = !!$val;
+		
+		if ($this->getPublications() == $inPublications) {
+			Z_Core::debug("Publications state ($inPublications) hasn't changed for item $this->id");
+			return;
+		}
+		
+		if (empty($this->changed['inPublications'])) {
+			$this->changed['inPublications'] = true;
+		}
+		$this->inPublications = $inPublications;
+	}
+	
+	
 	private function getCreatedByUserID() {
 		$sql = "SELECT createdByUserID FROM groupItems WHERE itemID=?";
 		return Zotero_DB::valueQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
@@ -1166,6 +1224,19 @@ class Zotero_Item extends Zotero_DataObject {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
 					Zotero_DB::query($sql, $itemID, $shardID);
+				}
+				
+				
+				// My Publications item
+				if (!empty($this->changed['inPublications'])) {
+					if ($this->getPublications()) {
+						$sql = "INSERT IGNORE INTO publicationsItems (itemID) VALUES (?)";
+					}
+					else {
+						$sql = "DELETE FROM publicationsItems WHERE itemID=?";
+					}
+					Zotero_DB::query($sql, $itemID, $shardID);
+					Zotero_Notifier::trigger('modify', 'publications', $this->libraryID);
 				}
 				
 				
@@ -1547,6 +1618,18 @@ class Zotero_Item extends Zotero_DataObject {
 						$sql = "DELETE FROM deletedItems WHERE itemID=?";
 					}
 					Zotero_DB::query($sql, $this->_id, $shardID);
+				}
+				
+				// My Publications item
+				if (!empty($this->changed['inPublications'])) {
+					if ($this->getPublications()) {
+						$sql = "INSERT IGNORE INTO publicationsItems (itemID) VALUES (?)";
+					}
+					else {
+						$sql = "DELETE FROM publicationsItems WHERE itemID=?";
+					}
+					Zotero_DB::query($sql, $this->_id, $shardID);
+					Zotero_Notifier::trigger('modify', 'publications', $this->libraryID);
 				}
 				
 				
@@ -2123,6 +2206,33 @@ class Zotero_Item extends Zotero_DataObject {
 		return $this->numNotes($includeTrashed) + $this->numAttachments($includeTrashed);
 	}
 	
+	// TODO: Cache
+	public function numPublicationsChildren() {
+		if (!$this->isRegularItem()) {
+			throw new Exception("numPublicationsNotes() cannot be called on note or attachment items");
+		}
+		
+		if (!$this->id) {
+			return 0;
+		}
+		
+		$shardID = Zotero_Shards::getByLibraryID($this->libraryID);
+		
+		$sql = "SELECT COUNT(*) FROM itemNotes INo "
+			. "JOIN publicationsItems PI USING (itemID) "
+			. "LEFT JOIN deletedItems DI USING (itemID) "
+			. "WHERE INo.sourceItemID=? AND DI.itemID IS NULL";
+		$numNotes = Zotero_DB::valueQuery($sql, $this->id, $shardID);
+		
+		$sql = "SELECT COUNT(*) FROM itemAttachments IA "
+			. "JOIN publicationsItems PI USING (itemID) "
+			. "LEFT JOIN deletedItems DI USING (itemID) "
+			. "WHERE IA.sourceItemID=? AND DI.itemID IS NULL";
+		$numAttachments = Zotero_DB::valueQuery($sql, $this->id, $shardID);
+		
+		return $numNotes + $numAttachments;
+	}
+	
 	
 	//
 	//
@@ -2492,8 +2602,8 @@ class Zotero_Item extends Zotero_DataObject {
 	 * @return	{Integer}
 	 */
 	public function numNotes($includeTrashed=false) {
-		if ($this->isNote()) {
-			throw new Exception("numNotes() cannot be called on items of type 'note'");
+		if (!$this->isRegularItem()) {
+			throw new Exception("numNotes() cannot be called on note or attachment items");
 		}
 		
 		if (!$this->id) {
@@ -3117,7 +3227,7 @@ class Zotero_Item extends Zotero_DataObject {
 	}
 	
 	
-	public function toHTML($asSimpleXML=false) {
+	public function toHTML($asSimpleXML = false, $requestParams) {
 		$html = new SimpleXMLElement('<table/>');
 		
 		/*
@@ -3329,11 +3439,51 @@ class Zotero_Item extends Zotero_DataObject {
 			Zotero_Atom::addHTMLRow($html, "deleted", "Deleted", "Yes");
 		}
 		
+		if (!$requestParams['publications'] && $this->getPublications() ) {
+			Zotero_Atom::addHTMLRow($html, "publications", "In My Publications", "Yes");
+		}
+		
 		if ($asSimpleXML) {
 			return $html;
 		}
 		
 		return str_replace('<?xml version="1.0"?>', '', $html->asXML());
+	}
+	
+	
+	/**
+	 * Get some uncached properties used by JSON and Atom
+	 */
+	public function getUncachedResponseProps($requestParams, Zotero_Permissions $permissions) {
+		$parent = $this->getSource();
+		$isRegularItem = !$parent && $this->isRegularItem();
+		$downloadDetails = false;
+		if ($requestParams['publications'] || $permissions->canAccess($this->libraryID, 'files')) {
+			$downloadDetails = Zotero_Storage::getDownloadDetails($this);
+			// Link to publications download URL in My Publications
+			if ($downloadDetails && $requestParams['publications']) {
+				$downloadDetails['url'] = str_replace("/items/", "/publications/items/", $downloadDetails['url']);
+			}
+		}
+		if ($isRegularItem) {
+			if ($requestParams['publications']) {
+				$numChildren = $this->numPublicationsChildren();
+			}
+			else if ($permissions->canAccess($this->libraryID, 'notes')) {
+				$numChildren = $this->numChildren();
+			}
+			else {
+				$numChildren = $this->numAttachments();
+			}
+		}
+		else {
+			$numChildren = false;
+		}
+		
+		return [
+			"downloadDetails" => $downloadDetails,
+			"numChildren" => $numChildren
+		];
 	}
 	
 	
@@ -3351,23 +3501,21 @@ class Zotero_Item extends Zotero_DataObject {
 		$version = $this->version;
 		$parent = $this->getSource();
 		$isRegularItem = !$parent && $this->isRegularItem();
-		$downloadDetails = $permissions->canAccess($this->libraryID, 'files')
-								? Zotero_Storage::getDownloadDetails($this)
-								: false;
-		if ($isRegularItem) {
-			$numChildren = $permissions->canAccess($this->libraryID, 'notes')
-								? $this->numChildren()
-								: $this->numAttachments();
-		}
+		
+		$props = $this->getUncachedResponseProps($requestParams, $permissions);
+		$downloadDetails = $props['downloadDetails'];
+		$numChildren = $props['numChildren'];
+		
 		$libraryType = Zotero_Libraries::getType($this->libraryID);
 		
-		// Any query parameters that have an effect on the output
+		// Any query parameters that have an effect on an individual item's response JSON
 		// need to be added here
 		$allowedParams = [
 			'include',
 			'style',
 			'css',
-			'linkwrap'
+			'linkwrap',
+			'publications'
 		];
 		$cachedParams = Z_Array::filterKeys($requestParams, $allowedParams);
 		
@@ -3491,7 +3639,7 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		foreach ($include as $type) {
 			if ($type == 'html') {
-				$json[$type] = trim($this->toHTML());
+				$json[$type] = trim($this->toHTML($requestParams));
 			}
 			else if ($type == 'citation') {
 				if (isset($sharedData[$type][$this->libraryID . "/" . $this->key])) {
@@ -3528,13 +3676,14 @@ class Zotero_Item extends Zotero_DataObject {
 				$json[$type] = $this->toCSLItem();
 			}
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
-				$export = Zotero_Translate::doExport([$this], $type);
+				$exportParams = $requestParams;
+				$exportParams['format'] = $type;
+				$export = Zotero_Translate::doExport([$this], $exportParams);
 				$json[$type] = $export['body'];
 				unset($export);
 			}
 		}
 		
-
 		// TEMP
 		if ($cached) {
 			$cachedStr = Zotero_Utilities::formatJSON($cached);
@@ -3558,6 +3707,8 @@ class Zotero_Item extends Zotero_DataObject {
 	
 	
 	public function toJSON($asArray=false, $requestParams=array(), $includeEmpty=false, $unformattedFields=false) {
+		$isPublications = !empty($requestParams['publications']);
+		
 		if ($this->_id || $this->_key) {
 			if ($this->_version) {
 				// TODO: Check memcache and return if present
@@ -3711,37 +3862,44 @@ class Zotero_Item extends Zotero_DataObject {
 			}
 		}
 		
-		if ($this->getDeleted()) {
-			$arr['deleted'] = 1;
-		}
-		
-		// Tags
-		$arr['tags'] = array();
-		$tags = $this->getTags();
-		if ($tags) {
-			foreach ($tags as $tag) {
-				$t = array(
-					'tag' => $tag->name
-				);
-				if ($tag->type != 0) {
-					$t['type'] = $tag->type;
-				}
-				$arr['tags'][] = $t;
-			}
-		}
-		
-		if ($requestParams['v'] >= 2) {
-			if ($this->isTopLevelItem()) {
-				$collections = $this->getCollections(true);
-				$arr['collections'] = $collections;
+		// Non-field properties, which don't get shown for publications endpoints
+		if (!$isPublications) {
+			if ($this->getDeleted()) {
+				$arr['deleted'] = 1;
 			}
 			
-			$arr['relations'] = $this->getRelations();
-		}
-		
-		if ($requestParams['v'] >= 3) {
-			$arr['dateAdded'] = Zotero_Date::sqlToISO8601($this->dateAdded);
-			$arr['dateModified'] = Zotero_Date::sqlToISO8601($this->dateModified);
+			if ($this->getPublications()) {
+				$arr['inPublications'] = true;
+			}
+			
+			// Tags
+			$arr['tags'] = array();
+			$tags = $this->getTags();
+			if ($tags) {
+				foreach ($tags as $tag) {
+					$t = array(
+						'tag' => $tag->name
+					);
+					if ($tag->type != 0) {
+						$t['type'] = $tag->type;
+					}
+					$arr['tags'][] = $t;
+				}
+			}
+			
+			if ($requestParams['v'] >= 2) {
+				if ($this->isTopLevelItem()) {
+					$collections = $this->getCollections(true);
+					$arr['collections'] = $collections;
+				}
+				
+				$arr['relations'] = $this->getRelations();
+			}
+			
+			if ($requestParams['v'] >= 3) {
+				$arr['dateAdded'] = Zotero_Date::sqlToISO8601($this->dateAdded);
+				$arr['dateModified'] = Zotero_Date::sqlToISO8601($this->dateModified);
+			}
 		}
 		
 		if ($asArray) {

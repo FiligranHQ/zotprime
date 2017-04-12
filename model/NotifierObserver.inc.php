@@ -28,7 +28,11 @@ class Zotero_NotifierObserver {
 	private static $messageReceivers = [];
 	
 	public static function init($messageReceiver=null) {
-		Zotero_Notifier::registerObserver(__CLASS__, ["library", "apikey-library"], "NotifierObserver");
+		Zotero_Notifier::registerObserver(
+			__CLASS__,
+			["library", "publications", "apikey-library"],
+			"NotifierObserver"
+		);
 		
 		// Send notifications to SNS by default
 		self::$messageReceivers[] = function ($topic, $message) {
@@ -53,7 +57,7 @@ class Zotero_NotifierObserver {
 			return;
 		}
 		
-		if ($type == "library") {
+		if ($type == "library" || $type == "publications") {
 			switch ($event) {
 			case "modify":
 				$event = "topicUpdated";
@@ -76,6 +80,9 @@ class Zotero_NotifierObserver {
 					$topic = str_replace(
 						Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
 					);
+					if ($type == 'publications') {
+						$topic .= '/publications';
+					}
 				}
 				// For deleted libraries (groups), the URI-based method fails,
 				// so just build from parts

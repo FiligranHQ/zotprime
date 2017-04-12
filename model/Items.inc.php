@@ -66,15 +66,10 @@ class Zotero_Items {
 		
 		$results = array('results' => array(), 'total' => 0);
 		
-		// Default empty library
-		if ($libraryID === 0) {
-			return $results;
-		}
-		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$includeNotes = true;
-		if ($permissions && !$permissions->canAccess($libraryID, 'notes')) {
+		if (empty($params['publications']) && $permissions && !$permissions->canAccess($libraryID, 'notes')) {
 			$includeNotes = false;
 		}
 		
@@ -168,6 +163,7 @@ class Zotero_Items {
 			$sql .= "LEFT JOIN itemData IDD ON (IDD.itemID=I.itemID AND IDD.fieldID IN "
 					. "(" . implode(',', $dateFieldIDs) . ")) ";
 		}
+		
 		if ($includeTrashed) {
 			if (!empty($params['trashedItemsOnly'])) {
 				$sql .= "JOIN deletedItems DI ON (DI.itemID=I.itemID) ";
@@ -181,6 +177,11 @@ class Zotero_Items {
 				$sql .= "LEFT JOIN deletedItems DIP ON (DIP.itemID=$itemIDSelector) ";
 			}
 		}
+		
+		if (!empty($params['publications'])) {
+			$sql .= "LEFT JOIN publicationsItems PI ON (PI.itemID=I.itemID) ";
+		}
+		
 		if (!empty($params['sort'])) {
 			switch ($params['sort']) {
 				case 'title':
@@ -288,6 +289,10 @@ class Zotero_Items {
 			if ($onlyTopLevel) {
 				$sql .= "AND DIP.itemID IS NULL ";
 			}
+		}
+		
+		if (!empty($params['publications'])) {
+			$sql .= "AND PI.itemID IS NOT NULL ";
 		}
 		
 		// Search on title, creators, and dates
@@ -1086,14 +1091,11 @@ class Zotero_Items {
 		$version = $item->version;
 		$parent = $item->getSource();
 		$isRegularItem = !$parent && $item->isRegularItem();
-		$downloadDetails = $permissions->canAccess($item->libraryID, 'files')
-								? Zotero_Storage::getDownloadDetails($item)
-								: false;
-		if ($isRegularItem) {
-			$numChildren = $permissions->canAccess($item->libraryID, 'notes')
-								? $item->numChildren()
-								: $item->numAttachments();
-		}
+		
+		$props = $item->getUncachedResponseProps($queryParams, $permissions);
+		$downloadDetails = $props['downloadDetails'];
+		$numChildren = $props['numChildren'];
+		
 		// <id> changes based on group visibility in v1
 		if ($queryParams['v'] < 2) {
 			$id = Zotero_URI::getItemURI($item, false, true);
@@ -1109,7 +1111,8 @@ class Zotero_Items {
 			'content',
 			'style',
 			'css',
-			'linkwrap'
+			'linkwrap',
+			'publications'
 		);
 		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
 		
@@ -1283,9 +1286,12 @@ class Zotero_Items {
 		$link = $xml->addChild("link");
 		$link['rel'] = "self";
 		$link['type'] = "application/atom+xml";
-		$href = Zotero_API::getItemURI($item);
+		$href = Zotero_API::getItemURI($item) . "?format=atom";
+		if ($queryParams['publications']) {
+			$href = str_replace("/items/", "/publications/items/", $href);
+		}
 		if (!$contentIsHTML) {
-			$href .= "?content=$contentParamString";
+			$href .= "&content=$contentParamString";
 		}
 		$link['href'] = $href;
 		
@@ -1295,9 +1301,9 @@ class Zotero_Items {
 			$link = $xml->addChild("link");
 			$link['rel'] = "up";
 			$link['type'] = "application/atom+xml";
-			$href = Zotero_API::getItemURI($parentItem);
+			$href = Zotero_API::getItemURI($parentItem) . "?format=atom";
 			if (!$contentIsHTML) {
-				$href .= "?content=$contentParamString";
+				$href .= "&content=$contentParamString";
 			}
 			$link['href'] = $href;
 		}
@@ -1436,7 +1442,7 @@ class Zotero_Items {
 					Zotero_Atom::$nsXHTML, 'div'
 				);
 				$target->appendChild($div);
-				$html = $item->toHTML(true);
+				$html = $item->toHTML(true, $queryParams);
 				$subNode = dom_import_simplexml($html);
 				$importedNode = $domDoc->importNode($subNode, true);
 				$div->appendChild($importedNode);
@@ -1497,7 +1503,9 @@ class Zotero_Items {
 				$target->appendChild($textNode);
 			}
 			else if (in_array($type, Zotero_Translate::$exportFormats)) {
-				$export = Zotero_Translate::doExport(array($item), $type);
+				$exportParams = $queryParams;
+				$exportParams['format'] = $type;
+				$export = Zotero_Translate::doExport([$item], $exportParams);
 				$target->setAttribute('type', $export['mimeType']);
 				// Insert XML into document
 				if (preg_match('/\+xml$/', $export['mimeType'])) {
@@ -1803,6 +1811,7 @@ class Zotero_Items {
 				case 'itemVersion':
 				case 'itemType':
 				case 'deleted':
+				case 'inPublications':
 					continue;
 				
 				case 'parentItem':
@@ -1969,10 +1978,14 @@ class Zotero_Items {
 		
 		$item->deleted = !empty($json->deleted);
 		
+		if (!empty($json->inPublications) || !$partialUpdate) {
+			$item->inPublications = !empty($json->inPublications);
+		}
+		
 		// Skip "Date Modified" update if only certain fields were updated (e.g., collections)
 		$skipDateModifiedUpdate = $dateModifiedProvided || !sizeOf(array_diff(
 			$item->getChanged(),
-			['collections', 'deleted', 'relations', 'tags']
+			['collections', 'deleted', 'inPublications', 'relations', 'tags']
 		));
 		
 		if ($item->hasChanged() && !$skipDateModifiedUpdate
@@ -2362,6 +2375,22 @@ class Zotero_Items {
 				case 'deleted':
 					break;
 				
+				case 'inPublications':
+					if ($val && !$isChild && ($itemType == 'note' || $itemType == 'attachment')) {
+						throw new Exception(
+							"Top-level notes and attachments cannot be added to My Publications",
+							Z_ERROR_INVALID_INPUT
+						);
+					}
+					
+					if ($val && $itemType == 'attachment' && $json->linkMode == 'linked_file') {
+						throw new Exception(
+							"Linked-file attachments cannot be added to My Publications",
+							Z_ERROR_INVALID_INPUT
+						);
+					}
+					break;
+				
 				// Attachment properties
 				case 'linkMode':
 					try {
@@ -2489,11 +2518,6 @@ class Zotero_Items {
 					
 					break;
 			}
-		}
-		
-		// Publications libraries have additional restrictions
-		if (Zotero_Libraries::getType($libraryID) == 'publications') {
-			Zotero_Publications::validateJSONItem($json);
 		}
 	}
 	

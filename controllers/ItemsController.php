@@ -28,11 +28,6 @@ require('ApiController.php');
 
 class ItemsController extends ApiController {
 	public function items() {
-		// Check for general library access
-		if (!$this->permissions->canAccess($this->objectLibraryID)) {
-			$this->e403();
-		}
-		
 		if ($this->isWriteMethod()) {
 			// Check for library write access
 			if (!$this->permissions->canWrite($this->objectLibraryID)) {
@@ -73,20 +68,26 @@ class ItemsController extends ApiController {
 				$this->allowMethods(array('HEAD', 'GET', 'PUT', 'PATCH', 'DELETE'));
 			}
 			
-			if (!$this->objectLibraryID || !Zotero_ID::isValidKey($this->objectKey)) {
+			if (!Zotero_ID::isValidKey($this->objectKey)) {
 				$this->e404();
 			}
 			
 			$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 			if ($item) {
-				// If no access to the note, don't show that it exists
-				if ($item->isNote() && !$this->permissions->canAccess($this->objectLibraryID, 'notes')) {
+				// If no access to the item, don't show that it exists
+				if (!$this->permissions->canAccessObject($item)) {
+					$this->e404();
+				}
+				
+				// Don't show an item in publications that doesn't belong there, even if user has
+				// access to it
+				if ($this->publications && (!$item->inPublications || $item->deleted)) {
 					$this->e404();
 				}
 				
 				// Make sure URL libraryID matches item libraryID
 				if ($this->objectLibraryID != $item->libraryID) {
-					$this->e404("Item does not exist");
+					$this->e404();
 				}
 				
 				// File access mode
@@ -186,7 +187,7 @@ class ItemsController extends ApiController {
 					break;
 				
 				default:
-					$export = Zotero_Translate::doExport(array($item), $this->queryParams['format']);
+					$export = Zotero_Translate::doExport([$item], $this->queryParams);
 					$this->queryParams['format'] = null;
 					header("Content-Type: " . $export['mimeType']);
 					echo $export['body'];
@@ -200,7 +201,27 @@ class ItemsController extends ApiController {
 		else {
 			$this->allowMethods(array('HEAD', 'GET', 'POST', 'DELETE'));
 			
-			$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+			// Check for general library access
+			if (!$this->publications && !$this->permissions->canAccess($this->objectLibraryID)) {
+				$this->e403();
+			}
+			
+			if ($this->publications) {
+				// Include ETag in My Publications (or, in the future, public collections)
+				$this->etag = Zotero_Publications::getETag($this->objectUserID);
+				
+				// Return 304 if ETag matches
+				if (!empty($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] == $this->etag) {
+					$this->e304();
+				}
+				
+				// TEMP: Remove after integrated publications upgrade
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+			}
+			// Last-Modified-Version otherwise
+			else {
+				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
+			}
 			
 			$includeTrashed = $this->queryParams['includeTrashed'];
 			
@@ -333,6 +354,11 @@ class ItemsController extends ApiController {
 				else if ($this->subset == 'children') {
 					$item = Zotero_Items::getByLibraryAndKey($this->objectLibraryID, $this->objectKey);
 					if (!$item) {
+						$this->e404("Item not found");
+					}
+					
+					// Don't show child items in publications mode of an item not in publications
+					if ($this->publications && !$item->inPublications) {
 						$this->e404("Item not found");
 					}
 					
@@ -630,7 +656,7 @@ class ItemsController extends ApiController {
 				if ($this->method == 'HEAD') {
 					break;
 				}
-				$export = Zotero_Translate::doExport($results['results'], $this->queryParams['format']);
+				$export = Zotero_Translate::doExport($results['results'], $this->queryParams);
 				$this->queryParams['format'] = null;
 				header("Content-Type: " . $export['mimeType']);
 				echo $export['body'];

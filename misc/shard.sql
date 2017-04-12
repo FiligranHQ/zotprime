@@ -94,6 +94,11 @@ CREATE TABLE `groupItems` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+CREATE TABLE `publicationsItems` (
+  `itemID` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`itemID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 CREATE TABLE `itemAttachments` (
   `itemID` int(10) unsigned NOT NULL,
@@ -349,6 +354,9 @@ ALTER TABLE `deletedItems`
 
 ALTER TABLE `groupItems`
   ADD CONSTRAINT `groupItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
+
+ALTER TABLE `publicationsItems`
+  ADD CONSTRAINT `publicationsItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `itemAttachments`
   ADD CONSTRAINT `itemAttachments_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
