@@ -46,7 +46,7 @@ class API3 {
 	}
 	
 	
-	public static function useAPIKey($key) {
+	public static function useAPIKey($key = "") {
 		self::$apiKey = $key;
 	}
 	
