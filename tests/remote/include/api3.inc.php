@@ -708,6 +708,41 @@ class API3 {
 	}
 	
 	
+	/**
+	 * @return mixed Array (JSON) or SimpleXMLElement (HTML)
+	 */
+	public static function getContentFromAtomResponse($response, $type = null) {
+		$xml = self::getXMLFromResponse($response);
+		$content = array_shift($xml->xpath('//atom:entry/atom:content'));
+		if (is_null($content)) {
+			var_dump($xml->asXML());
+			throw new Exception("Atom response does not contain <content>");
+		}
+		
+		$subcontent = array_shift($content->xpath('//zapi:subcontent'));
+		if ($subcontent) {
+			if (!$type) {
+				throw new Exception('$type not provided for multi-content response');
+			}
+			switch ($type) {
+			case 'json':
+				return json_decode((string) $subcontent[0]->xpath('//zapi:subcontent[@zapi:type="json"]')[0], true);
+			
+			case 'html':
+				$html = array_shift($subcontent[0]->xpath('//zapi:subcontent[@zapi:type="html"]'));
+				$html->registerXPathNamespace('html', 'http://www.w3.org/1999/xhtml');
+				return $html;
+				
+			default:
+				throw new Exception("Unknown data type '$type'");
+			}
+		}
+		else {
+			throw new Exception("Unimplemented");
+		}
+	}
+	
+	
 	public static function setKeyOption($userID, $key, $option, $val) {
 		$response = self::get(
 			"users/$userID/keys/$key",
