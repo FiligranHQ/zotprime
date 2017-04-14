@@ -744,10 +744,15 @@ class ApiController extends Controller {
 		
 		$version = $headerVersion !== false ? $headerVersion : $propVersion;
 		
-		// If object doesn't exist, version has to be 0
+		// If object doesn't exist, version has to be 0 if provided
 		if (!$obj) {
-			if ($version !== 0) {
-				$this->e404(ucwords($objectType) . " doesn't exist (to create, use version 0)");
+			// PATCH is only allowed for missing objects with version 0
+			if ($this->method == "PATCH" && $version === false) {
+				$this->e404(ucwords($objectType) . " not found "
+					. "(to create, use If-Unmodified-Since-Version: 0, JSON 'version' 0, or PUT method)");
+			}
+			if ($version > 0) {
+				$this->e404(ucwords($objectType) . " not found (expected version $version)");
 			}
 			return true;
 		}
