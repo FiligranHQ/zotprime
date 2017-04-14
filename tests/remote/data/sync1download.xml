@@ -33,6 +33,7 @@
 				<field name="title">My Book Section</field>
 				<creator key="V9MECAGR" creatorType="author" index="0"/>
 				<creator key="WTEG7VPJ" creatorType="editor" index="1"/>
+				<related>DUQPU87V</related>
 			</item>
 			<item key="7IMJZ8V6" itemType="attachment" dateAdded="2009-03-07 05:00:17" dateModified="2009-03-07 05:00:42" linkMode="2" mimeType="text/html" charset="utf-8">
 				<field name="title">amazon.html</field>
@@ -60,7 +61,7 @@
 				<field name="title">My Book</field>
 				<creator key="I2QFIFDT" creatorType="translator" index="0"/>
 				<creator key="ZT4UDTTT" creatorType="author" index="1"/>
-				<related>6TKKAABJ</related>
+				<related>6TKKAABJ 7IMJZ8V6</related>
 			</item>
 			<item key="G3PTXNXS" itemType="attachment" dateAdded="2009-03-07 04:56:01" dateModified="2009-03-07 04:56:10" sourceItem="DUQPU87V" linkMode="3" mimeType="text/html" charset="utf-8">
 				<field name="url">http://chnm.gmu.edu/</field>
