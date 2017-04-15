@@ -26,6 +26,7 @@
 
 class Zotero_NotifierObserver {
 	private static $messageReceivers = [];
+	private static $continued = false;
 	
 	public static function init($messageReceiver=null) {
 		Zotero_Notifier::registerObserver(
@@ -44,6 +45,9 @@ class Zotero_NotifierObserver {
 		};
 	}
 	
+	public static function setContinued() {
+		self::$continued = true;
+	}
 	
 	public static function addMessageReceiver($messageReceiver) {
 		self::$messageReceivers[] = $messageReceiver;
@@ -94,6 +98,11 @@ class Zotero_NotifierObserver {
 					"event" => $event,
 					"topic" => $topic
 				];
+				
+				if (self::$continued) {
+					$message['continued'] = true;
+				}
+				
 				if (!empty($extraData[$id])) {
 					foreach ($extraData[$id] as $key => $val) {
 						$message[$key] = $val;
@@ -133,6 +142,11 @@ class Zotero_NotifierObserver {
 					"apiKey" => $apiKey,
 					"topic" => $topic
 				];
+				
+				if (self::$continued) {
+					$message['continued'] = true;
+				}
+				
 				if (!empty($extraData[$id])) {
 					foreach ($extraData[$id] as $key => $val) {
 						$message[$key] = $val;

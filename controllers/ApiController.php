@@ -123,6 +123,10 @@ class ApiController extends Controller {
 			header("Access-Control-Expose-Headers: Backoff, ETag, Last-Modified-Version, Link, Retry-After, Total-Results, Zotero-API-Version");
 		}
 		
+		if (isset($_SERVER['HTTP_CONTINUED'])) {
+			Zotero_NotifierObserver::setContinued();
+		}
+		
 		if ($this->method == 'OPTIONS') {
 			$this->end();
 		}
