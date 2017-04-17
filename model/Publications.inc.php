@@ -47,7 +47,7 @@ class Zotero_Publications {
 	public static function updateETag($userID) {
 		$cacheKey = "publicationsETag_" . $userID;
 		$etag = Zotero_Utilities::randomString(8, 'mixed');
-		Z_Core::$MC->set($cacheKey, $etag);
+		Z_Core::$MC->set($cacheKey, $etag, 86400);
 		return $etag;
 	}
 	
