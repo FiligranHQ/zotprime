@@ -447,6 +447,38 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function test_should_change_case_of_existing_tag() {
+		$data1 = API::createItem("book", [
+			"tags" => [
+				["tag" => "a"],
+			]
+		], $this, 'jsonData');
+		$data2 = API::createItem("book", [
+			"tags" => [
+				["tag" => "a"]
+			]
+		], $this, 'jsonData');
+		$version = $data1['version'];
+		
+		// Change tag case on one item
+		$data1['tags'] = [
+			["tag" => "A"],
+		];
+		
+		$response = API::postItem($data1);
+		$this->assert200($response);
+		$this->assert200ForObject($response);
+		
+		// Item version should be one greater than last update
+		$data1 = API::getItem($data1['key'], $this, 'json')['data'];
+		$data2 = API::getItem($data2['key'], $this, 'json')['data'];
+		$this->assertEquals($version + 1, $data2['version']);
+		$this->assertCount(1, $data1['tags']);
+		$this->assertContains(["tag" => "A"], $data1['tags']);
+		$this->assertContains(["tag" => "a"], $data2['tags']);
+	}
+	
+	
 	public function testTagDiacritics() {
 		$data = API::createItem("book", [
 			"tags" => [

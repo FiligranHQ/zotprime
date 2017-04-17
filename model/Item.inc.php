@@ -1375,14 +1375,14 @@ class Zotero_Item extends Zotero_DataObject {
 				// Tags
 				if (!empty($this->changed['tags'])) {
 					foreach ($this->tags as $tag) {
-						$tagID = Zotero_Tags::getID($this->libraryID, $tag->tag, $tag->type);
+						$tagID = Zotero_Tags::getID($this->libraryID, $tag->name, $tag->type);
 						if ($tagID) {
 							$tagObj = Zotero_Tags::get($this->_libraryID, $tagID);
 						}
 						else {
 							$tagObj = new Zotero_Tag;
 							$tagObj->libraryID = $this->_libraryID;
-							$tagObj->name = $tag->tag;
+							$tagObj->name = $tag->name;
 							$tagObj->type = (int) $tag->type ? $tag->type : 0;
 						}
 						$tagObj->addItem($this->_key);
@@ -1890,47 +1890,17 @@ class Zotero_Item extends Zotero_DataObject {
 					$oldTags = $this->previousData['tags'];
 					$newTags = $this->tags;
 					
-					$toAdd = [];
-					$toRemove = [];
-					
-					// Get new tags not in existing
-					for ($i=0, $len=sizeOf($newTags); $i<$len; $i++) {
-						if (!isset($newTags[$i]->type)) {
-							$newTags[$i]->type = 0;
-						}
-						
-						$name = trim($newTags[$i]->tag);
-						$type = $newTags[$i]->type;
-						
-						foreach ($oldTags as $tag) {
-							// Do a case-insensitive comparison, to match the client
-							if (strtolower($tag->name) == strtolower($name) && $tag->type == $type) {
-								continue 2;
-							}
-						}
-						
-						$toAdd[] = $newTags[$i];
-					}
-					
-					// Get existing tags not in new
-					for ($i=0, $len=sizeOf($oldTags); $i<$len; $i++) {
-						$name = $oldTags[$i]->name;
-						$type = $oldTags[$i]->type;
-						
-						foreach ($newTags as $tag) {
-							if (strtolower($tag->tag) == strtolower($name) && $tag->type == $type) {
-								continue 2;
-							}
-						}
-						
-						$toRemove[] = $oldTags[$i];
-					}
+					$cmp = function ($a, $b) {
+						return ($a->name == $b->name && $a->type == $b->type) ? 0 : 1;
+					};
+					$toAdd = array_udiff($newTags, $oldTags, $cmp);
+					$toRemove = array_udiff($oldTags, $newTags, $cmp);
 					
 					foreach ($toAdd as $tag) {
-						$name = $tag->tag;
+						$name = $tag->name;
 						$type = $tag->type;
 						
-						$tagID = Zotero_Tags::getID($this->_libraryID, $name, $type, true);
+						$tagID = Zotero_Tags::getID($this->_libraryID, $name, $type);
 						if (!$tagID) {
 							$tag = new Zotero_Tag;
 							$tag->libraryID = $this->_libraryID;
@@ -3059,11 +3029,11 @@ class Zotero_Item extends Zotero_DataObject {
 			$obj = new stdClass;
 			// Allow the passed array to contain either strings or objects
 			if (is_string($newTag)) {
-				$obj->tag = $newTag;
+				$obj->name = trim($newTag);
 				$obj->type = 0;
 			}
 			else {
-				$obj->tag = $newTag->tag;
+				$obj->name = trim($newTag->tag);
 				$obj->type = (int) isset($newTag->type) ? $newTag->type : 0;
 			}
 			$this->tags[] = $obj;
