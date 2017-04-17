@@ -93,6 +93,42 @@ class VersionTests extends APITests {
 	}
 	
 	
+	
+	public function test_should_not_include_library_version_for_400() {
+		$json = API::createItem("book", [], $this, 'json');
+		$libraryVersion = $json['version'];
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/" . $json['key'],
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				// 400 due to version property mismatch
+				"If-Unmodified-Since-Version: " . ($json['version'] - 1)
+			]
+		);
+		$this->assert400($response);
+		$this->assertNull($response->getHeader('Last-Modified-Version'));
+	}
+	
+	public function test_should_include_library_version_for_412() {
+		$json = API::createItem("book", [], $this, 'json');
+		$libraryVersion = $json['version'];
+		$json['data']['version']--;
+		$response = API::userPut(
+			self::$config['userID'],
+			"items/" . $json['key'],
+			json_encode($json),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: " . ($json['version'] - 1)
+			]
+		);
+		$this->assert412($response);
+		$this->assertLastModifiedVersion($libraryVersion, $response);
+	}
+	
+	
 	private function _testSingleObjectLastModifiedVersion($objectType) {
 		$objectTypePlural = API::getPluralObjectType($objectType);
 		$keyProp = $objectType . "Key";
