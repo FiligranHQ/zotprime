@@ -68,8 +68,13 @@ class Zotero_Items {
 		
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
+		$isPublications = !empty($params['publications']);
+		if ($params['publications'] && Zotero_Libraries::getType($libraryID) == 'publications') {
+			$isPublications = false;
+		}
+		
 		$includeNotes = true;
-		if (empty($params['publications']) && $permissions && !$permissions->canAccess($libraryID, 'notes')) {
+		if ($isPublications && $permissions && !$permissions->canAccess($libraryID, 'notes')) {
 			$includeNotes = false;
 		}
 		
@@ -178,7 +183,7 @@ class Zotero_Items {
 			}
 		}
 		
-		if (!empty($params['publications'])) {
+		if ($isPublications) {
 			$sql .= "LEFT JOIN publicationsItems PI ON (PI.itemID=I.itemID) ";
 		}
 		
@@ -291,7 +296,7 @@ class Zotero_Items {
 			}
 		}
 		
-		if (!empty($params['publications'])) {
+		if ($isPublications) {
 			$sql .= "AND PI.itemID IS NOT NULL ";
 		}
 		
