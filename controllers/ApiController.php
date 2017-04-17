@@ -907,9 +907,9 @@ class ApiController extends Controller {
 		$this->responseCode = (int) ($matches[1] . $matches[2]);
 		
 		// On 4xx or 5xx errors, rollback all open transactions
-		// and don't send Last-Modified-Version
+		// and don't send Last-Modified-Version (except for 412 errors)
 		if ($matches[1] == "4" || $matches[1] == "5") {
-			if (!$this->libraryVersionOnFailure) {
+			if (!$this->libraryVersionOnFailure && $this->responseCode != 412) {
 				$this->libraryVersion = null;
 				$this->etag = null;
 			}
