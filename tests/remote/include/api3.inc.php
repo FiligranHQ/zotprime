@@ -743,6 +743,17 @@ class API3 {
 	}
 	
 	
+	public static function parseLinkHeader($response) {
+		$header = $response->getHeader('Link');
+		$links = [];
+		foreach (explode(',', $header) as $val) {
+			preg_match('#<([^>]+)>; rel="([^"]+)"#', $val, $matches);
+			$links[$matches[2]] = $matches[1];
+		}
+		return $links;
+	}
+	
+	
 	public static function setKeyOption($userID, $key, $option, $val) {
 		$response = self::get(
 			"users/$userID/keys/$key",

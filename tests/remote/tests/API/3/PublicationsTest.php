@@ -652,6 +652,48 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function test_should_show_publications_urls_in_json_response_for_single_object_request() {
+		API::useAPIKey(self::$config['apiKey']);
+		$itemKey = API::createItem("book", ['inPublications' => true], $this, 'key');
+		
+		$response = API::get("users/" . self::$config['userID'] . "/publications/items/$itemKey");
+		$json = API::getJSONFromResponse($response);
+		
+		// rel="self"
+		$this->assertRegExp(
+			"%https?://[^/]+/users/" . self::$config['userID'] . "/publications/items/$itemKey%",
+			$json['links']['self']['href']
+		);
+	}
+	
+	
+	public function test_should_show_publications_urls_in_json_response_for_multi_object_request() {
+		API::useAPIKey(self::$config['apiKey']);
+		$itemKey1 = API::createItem("book", ['inPublications' => true], $this, 'key');
+		$itemKey2 = API::createItem("book", ['inPublications' => true], $this, 'key');
+		
+		$response = API::get("users/" . self::$config['userID'] . "/publications/items?limit=1");
+		$json = API::getJSONFromResponse($response);
+		
+		// Parse Link header
+		$links = API::parseLinkHeader($response);
+		
+		// Entry rel="self"
+		$this->assertRegExp(
+			"%https?://[^/]+/users/" . self::$config['userID'] . "/publications/items/($itemKey1|$itemKey2)%",
+			$json[0]['links']['self']['href']
+		);
+		
+		// rel="next"
+		$this->assertRegExp(
+			"%https?://[^/]+/users/" . self::$config['userID'] . "/publications/items%",
+			$links['next']
+		);
+		
+		// TODO: rel="alternate" (what should this be?)
+	}
+	
+	
 	public function test_should_show_publications_urls_in_atom_response_for_single_object_request() {
 		API::useAPIKey(self::$config['apiKey']);
 		$itemKey = API::createItem("book", ['inPublications' => true], $this, 'key');

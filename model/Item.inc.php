@@ -3501,6 +3501,7 @@ class Zotero_Item extends Zotero_DataObject {
 		$version = $this->version;
 		$parent = $this->getSource();
 		$isRegularItem = !$parent && $this->isRegularItem();
+		$isPublications = $requestParams['publications'];
 		
 		$props = $this->getUncachedResponseProps($requestParams, $permissions);
 		$downloadDetails = $props['downloadDetails'];
@@ -3564,9 +3565,13 @@ class Zotero_Item extends Zotero_DataObject {
 			'library' => Zotero_Libraries::toJSON($this->libraryID)
 		];
 		
+		$url = Zotero_API::getItemURI($this);
+		if ($isPublications) {
+			$url = str_replace("/items/", "/publications/items/", $url);
+		}
 		$json['links'] = [
 			'self' => [
-				'href' => Zotero_API::getItemURI($this),
+				'href' => $url,
 				'type' => 'application/json'
 			],
 			'alternate' => [
@@ -3577,8 +3582,12 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		if ($parent) {
 			$parentItem = Zotero_Items::get($this->libraryID, $parent);
+			$url = Zotero_API::getItemURI($parentItem);
+			if ($isPublications) {
+				$url = str_replace("/items/", "/publications/items/", $url);
+			}
 			$json['links']['up'] = [
-				'href' => Zotero_API::getItemURI($parentItem),
+				'href' => $url,
 				'type' => 'application/json'
 			];
 		}
