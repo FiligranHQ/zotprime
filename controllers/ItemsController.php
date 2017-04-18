@@ -207,13 +207,14 @@ class ItemsController extends ApiController {
 			}
 			
 			if ($this->publications) {
-				// Include ETag in My Publications (or, in the future, public collections)
+				// Disabled until it actually works
+				/*// Include ETag in My Publications (or, in the future, public collections)
 				$this->etag = Zotero_Publications::getETag($this->objectUserID);
 				
 				// Return 304 if ETag matches
 				if (!empty($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] == $this->etag) {
 					$this->e304();
-				}
+				}*/
 				
 				// TEMP: Remove after integrated publications upgrade
 				$this->libraryVersion = Zotero_Libraries::getUpdatedVersion($this->objectLibraryID);
