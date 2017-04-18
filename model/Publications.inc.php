@@ -50,14 +50,4 @@ class Zotero_Publications {
 		Z_Core::$MC->set($cacheKey, $etag, 86400);
 		return $etag;
 	}
-	
-	
-	public static function filterResponseJSON($json) {
-		unset($json['data']['tags']);
-	}
-	
-	
-	public static function filterResponseAtom($json) {
-		unset($json['data']['tags']);
-	}
 }
