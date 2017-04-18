@@ -799,7 +799,39 @@ class PublicationsTests extends APITests {
 	}
 	
 	
-	public function test_shouldnt_remove_inPublications_on_PATCH_without_property() {
+	public function test_should_remove_inPublications_on_POST_with_false() {
+		API::useAPIKey(self::$config['apiKey']);
+		$json = API::getItemTemplate("book");
+		$json->inPublications = true;
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json])
+		);
+		
+		$this->assert200($response);
+		$key = API::getJSONFromResponse($response)['successful'][0]['key'];
+		$version = $response->getHeader("Last-Modified-Version");
+		
+		$json = [
+			"key" => $key,
+			"version" => $version,
+			"title" => "Test",
+			"inPublications" => false
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			["Content-Type: application/json"]
+		);
+		$this->assert200ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertArrayNotHasKey('inPublications', $json['successful'][0]['data']);
+	}
+	
+	
+	public function test_shouldnt_remove_inPublications_on_POST_without_property() {
 		API::useAPIKey(self::$config['apiKey']);
 		$json = API::getItemTemplate("book");
 		$json->inPublications = true;

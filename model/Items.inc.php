@@ -1983,7 +1983,7 @@ class Zotero_Items {
 		
 		$item->deleted = !empty($json->deleted);
 		
-		if (!empty($json->inPublications) || !$partialUpdate) {
+		if (isset($json->inPublications) || !$partialUpdate) {
 			$item->inPublications = !empty($json->inPublications);
 		}
 		
