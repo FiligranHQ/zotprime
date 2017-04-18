@@ -40,6 +40,11 @@ class Zotero_URI {
 				$id = Zotero_Users::getUserIDFromLibraryID($libraryID);
 				return self::getUserURI($id, $www, $useSlug);
 			
+			// TEMP
+			case 'publications':
+				$id = Zotero_Users::getUserIDFromLibraryID($libraryID);
+				return self::getUserURI($id, $www, $useSlug) . "/publications";
+			
 			case 'group':
 				$id = Zotero_Groups::getGroupIDFromLibraryID($libraryID);
 				$group = Zotero_Groups::get($id);
