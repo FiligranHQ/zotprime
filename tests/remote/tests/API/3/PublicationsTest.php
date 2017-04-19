@@ -534,6 +534,35 @@ class PublicationsTests extends APITests {
 			"%https?://[^/]+/users/" . self::$config['userID'] . "/publications/items/$key/file/view%",
 			$href
 		);
+		
+		// Check access to file
+		preg_match(
+			"%https?://[^/]+/(users/" . self::$config['userID'] . "/publications/items/$key/file/view)%",
+			$href,
+			$matches
+		);
+		$fileURL = $matches[1];
+		$response = API::get($fileURL);
+		$this->assert302($response);
+		
+		// Remove item from My Publications
+		API::useAPIKey(self::$config['apiKey']);
+		
+		$json['data']['inPublications'] = false;
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			[
+				"Content-Type" => "application/json"
+			]
+		);
+		$this->assert200ForObject($response);
+		
+		// No more access via publications URL
+		API::useAPIKey();
+		$response = API::get($fileURL);
+		$this->assert404($response);
 	}
 	
 	
@@ -860,6 +889,8 @@ class PublicationsTests extends APITests {
 		$json = API::getJSONFromResponse($response);
 		$this->assertTrue($json['successful'][0]['data']['inPublications']);
 	}
+	
+	
 	
 	
 	private function implodeParams($params, $exclude=array()) {

@@ -671,7 +671,9 @@ class ItemsController extends ApiController {
 	 * Permission-checking provided by items()
 	 */
 	private function _handleFileRequest($item) {
-		if (!$this->permissions->canAccess($this->objectLibraryID, 'files')) {
+		if (!$this->permissions->canAccess($this->objectLibraryID, 'files')
+				// Check access on specific item, for My Publications files
+				&& !$this->permissions->canAccessObject($item)) {
 			$this->e403();
 		}
 		
