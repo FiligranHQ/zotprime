@@ -1891,7 +1891,7 @@ class Zotero_Item extends Zotero_DataObject {
 					$newTags = $this->tags;
 					
 					$cmp = function ($a, $b) {
-						return ($a->name == $b->name && $a->type == $b->type) ? 0 : 1;
+						return strcmp($a->name . $a->type, $b->name . $b->type);
 					};
 					$toAdd = array_udiff($newTags, $oldTags, $cmp);
 					$toRemove = array_udiff($oldTags, $newTags, $cmp);

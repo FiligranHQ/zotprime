@@ -70,6 +70,45 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function test_should_add_tag_to_item() {
+		$json = API::getItemTemplate("book");
+		$json->tags[] = [
+			"tag" => "A"
+		];
+		$response = API::postItem($json);
+		$this->assert200ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		
+		$json = $json['successful'][0]['data'];
+		$json['tags'][] = [
+			"tag" => "C"
+		];
+		$response = API::postItem($json);
+		$this->assert200ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		
+		$json = $json['successful'][0]['data'];
+		$json['tags'][] = [
+			"tag" => "B"
+		];
+		$response = API::postItem($json);
+		$this->assert200ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		
+		$json = $json['successful'][0]['data'];
+		$json['tags'][] = [
+			"tag" => "D"
+		];
+		$response = API::postItem($json);
+		$this->assert200ForObject($response);
+		$tags = $json['tags'];
+		$json = API::getJSONFromResponse($response);
+		
+		$json = $json['successful'][0]['data'];
+		$this->assertSame($tags, $json['tags']);
+	}
+	
+	
 	public function testTagTooLong() {
 		$tag = \Zotero_Utilities::randomString(300);
 		$json = API::getItemTemplate("book");
