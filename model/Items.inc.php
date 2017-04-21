@@ -2388,11 +2388,16 @@ class Zotero_Items {
 						);
 					}
 					
-					if ($val && $itemType == 'attachment' && $json->linkMode == 'linked_file') {
-						throw new Exception(
-							"Linked-file attachments cannot be added to My Publications",
-							Z_ERROR_INVALID_INPUT
-						);
+					if ($val && $itemType == 'attachment') {
+						$linkMode = isset($json->linkMode)
+							? strtolower($json->linkMode)
+							: $item->attachmentLinkMode;
+						if ($linkMode == 'linked_file') {
+							throw new Exception(
+								"Linked-file attachments cannot be added to My Publications",
+								Z_ERROR_INVALID_INPUT
+							);
+						}
 					}
 					break;
 				
