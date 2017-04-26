@@ -708,10 +708,14 @@ class Zotero_Storage {
 				['success_action_status' => $successStatus],
 				['x-amz-credential' => $credentials],
 				['x-amz-algorithm' => $algorithm],
-				['x-amz-date' => $date],
-				['x-amz-security-token' => $securityToken]
+				['x-amz-date' => $date]
 			]
         ];
+		
+		if ($securityToken) {
+			$policy['conditions'][] = ['x-amz-security-token' => $securityToken];
+		}
+		
         $base64Policy = base64_encode(json_encode($policy));
         
         // Signing Keys
@@ -723,7 +727,7 @@ class Zotero_Storage {
         // Signature
         $signature = hash_hmac('sha256', $base64Policy, $signingKey);
         
-        return [
+        $result = [
 			"key" => $info->hash,
 			"acl"  => 'private',
 			'Content-MD5' => $contentMD5,
@@ -732,10 +736,14 @@ class Zotero_Storage {
 			"x-amz-algorithm"  => $algorithm,
 			"x-amz-credential"  => $credentials,
 			"x-amz-date"  => $date,
-			"x-amz-signature" => $signature,
-			// Necessary for IAM/STS
-			"x-amz-security-token" => $securityToken
+			"x-amz-signature" => $signature
         ];
+		
+		if ($securityToken) {
+			// Necessary for IAM/STS
+			$result['x-amz-security-token'] = $securityToken;
+		}
+		return $result;
 	}
 	
 	
