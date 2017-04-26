@@ -54,6 +54,7 @@ class ApiController extends Controller {
 	protected $subset;
 	protected $singleObject;
 	protected $publications = false;
+	protected $legacyPublications = false;
 	protected $fileMode;
 	protected $fileView;
 	protected $httpAuth = false;
@@ -365,6 +366,7 @@ class ApiController extends Controller {
 					$this->objectUserID, 'publications'
 				);
 				if ($publicationsLibraryID) {
+					$this->legacyPublications = true;
 					$this->objectLibraryID = $publicationsLibraryID;
 				}
 			}

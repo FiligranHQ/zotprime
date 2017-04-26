@@ -81,7 +81,9 @@ class ItemsController extends ApiController {
 				
 				// Don't show an item in publications that doesn't belong there, even if user has
 				// access to it
-				if ($this->publications && (!$item->inPublications || $item->deleted)) {
+				if ($this->publications
+						&& ((!$this->legacyPublications && !$item->inPublications)
+							|| $item->deleted)) {
 					$this->e404();
 				}
 				
