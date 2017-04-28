@@ -420,5 +420,13 @@ class CollectionTests extends APITests {
 		$response = API::createItem("book", ['collections' => ["AAAAAAAA"]], $this, 'response');
 		$this->assert400ForObject($response, "Collection AAAAAAAA not found");
 	}
+	
+	
+	public function test_should_return_409_on_missing_parent_collection() {
+		$missingCollectionKey = "GDHRG8AZ";
+		$json = API::createCollection("Test", [ 'parentCollection' => $missingCollectionKey ], $this);
+		$this->assert409ForObject($json, "Parent collection $missingCollectionKey not found");
+		$this->assertEquals($missingCollectionKey, $json['failed'][0]['data']['collection']);
+	}
 }
 ?>

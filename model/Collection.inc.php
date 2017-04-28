@@ -101,7 +101,10 @@ class Zotero_Collection extends Zotero_DataObject {
 				
 				if (!$newParentCollection) {
 					// TODO: clear caches
-					throw new Exception("Cannot set parent to invalid collection $this->_parentKey");
+					throw new Exception(
+						"Parent collection $this->_libraryID/$this->_parentKey doesn't exist",
+						Z_ERROR_COLLECTION_NOT_FOUND
+					);
 				}
 				
 				if (!$isNew) {
