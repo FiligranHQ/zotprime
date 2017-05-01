@@ -854,33 +854,10 @@ class Zotero_Collection extends Zotero_DataObject {
 	}
 	
 	
-	private function checkValue($field, $value) {
-		if (!property_exists($this, '_' . $field)) {
-			trigger_error("Invalid property '$field'", E_USER_ERROR);
-		}
+	protected function checkValue($field, $value) {
+		parent::checkValue($field, $value);
 		
-		// Data validation
 		switch ($field) {
-			case 'id':
-			case 'libraryID':
-				if (!Zotero_Utilities::isPosInt($value)) {
-					$this->invalidValueError($field, $value);
-				}
-				break;
-			
-			case 'key':
-				if (!Zotero_ID::isValidKey($value)) {
-					$this->invalidValueError($field, $value);
-				}
-				break;
-			
-			case 'dateAdded':
-			case 'dateModified':
-				if (!preg_match("/^[0-9]{4}\-[0-9]{2}\-[0-9]{2} ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])$/", $value)) {
-					$this->invalidValueError($field, $value);
-				}
-				break;
-			
 			case 'name':
 				if (mb_strlen($value) > Zotero_Collections::$maxLength) {
 					throw new Exception("Collection '" . $value . "' too long", Z_ERROR_COLLECTION_TOO_LONG);

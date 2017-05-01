@@ -118,4 +118,27 @@ class SyncCollectionTests extends PHPUnit_Framework_TestCase {
 		$this->assertGreaterThan($itemVersion, $json['itemVersion']);
 		$this->assertCount(0, $json['collections']);
 	}
+	
+	
+	public function testCollectionNameTooLong() {
+		$xml = Sync::updated(self::$sessionID);
+		$updateKey = (string) $xml['updateKey'];
+		
+		$content = str_repeat("1", 256);
+		
+		// Create too-long note via sync
+		$data = '<data version="9"><collections>'
+			. '<collection libraryID="' . self::$config['libraryID'] . '" key="AAAAAAAA" '
+			. 'dateAdded="2009-03-07 04:53:20" dateModified="2009-03-07 04:54:09" '
+			. 'name="' . $content . '"/>'
+			. '</collections></data>';
+		
+		Sync::useZoteroVersion();
+		$response = Sync::upload(self::$sessionID, $updateKey, $data, true);
+		$xml = Sync::waitForUpload(self::$sessionID, $response, $this, true);
+		
+		$this->assertTrue(isset($xml->error));
+		$this->assertEquals("COLLECTION_TOO_LONG", $xml->error["code"]);
+		$this->assertRegExp('/^Collection \'.+\' too long/', (string) $xml->error);
+	}
 }

@@ -793,6 +793,7 @@ class SyncController extends Controller {
 				case Z_ERROR_COLLECTION_NOT_FOUND:
 				case Z_ERROR_CREATOR_NOT_FOUND:
 				case Z_ERROR_ITEM_NOT_FOUND:
+				case Z_ERROR_COLLECTION_TOO_LONG:
 				case Z_ERROR_TAG_TOO_LONG:
 				case Z_ERROR_LIBRARY_ACCESS_DENIED:
 				case Z_ERROR_TAG_LINKED_ITEM_NOT_FOUND:
@@ -869,9 +870,7 @@ class SyncController extends Controller {
 				if ($matches) {
 					$name = $matches[1];
 					$this->error(400, "COLLECTION_TOO_LONG",
-						"Collection '" . mb_substr($name, 0, 50) . "…' too long",
-						array(),
-						array("collection" => $name)
+						"Collection '" . mb_substr($name, 0, 50) . "…' too long"
 					);
 				}
 				break;

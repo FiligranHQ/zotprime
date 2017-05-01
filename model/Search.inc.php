@@ -353,36 +353,5 @@ class Zotero_Search extends Zotero_DataObject {
 		$this->loaded['conditions'] = true;
 		$this->clearChanged('conditions');
 	}
-	
-	
-	private function checkValue($field, $value) {
-		if (!property_exists($this, $field)) {
-			trigger_error("Invalid property '$field'", E_USER_ERROR);
-		}
-		
-		// Data validation
-		switch ($field) {
-			case 'id':
-			case 'libraryID':
-				if (!Zotero_Utilities::isPosInt($value)) {
-					$this->invalidValueError($field, $value);
-				}
-				break;
-			
-			case 'key':
-				if (!Zotero_ID::isValidKey($value)) {
-					$this->invalidValueError($field, $value);
-				}
-				break;
-			
-			case 'dateAdded':
-			case 'dateModified':
-				if (!preg_match("/^[0-9]{4}\-[0-9]{2}\-[0-9]{2} ([0-1][0-9]|[2][0-3]):([0-5][0-9]):([0-5][0-9])$/", $value)) {
-					$this->invalidValueError($field, $value);
-				}
-				break;
-		}
-	}
-
 }
 ?>

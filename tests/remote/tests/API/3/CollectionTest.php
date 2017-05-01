@@ -428,5 +428,23 @@ class CollectionTests extends APITests {
 		$this->assert409ForObject($json, "Parent collection $missingCollectionKey not found");
 		$this->assertEquals($missingCollectionKey, $json['failed'][0]['data']['collection']);
 	}
+	
+	
+	public function test_should_return_413_if_collection_name_is_too_long() {
+		$content = str_repeat("1", 256);
+		$json = [
+			"name" => $content
+		];
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections",
+			json_encode([$json]),
+			array("Content-Type: application/json")
+		);
+		$this->assert413ForObject(
+			$response,
+			"Collection name cannot be longer than 255 characters"
+		);
+	}
 }
 ?>
