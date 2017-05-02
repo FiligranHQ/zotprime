@@ -74,7 +74,7 @@ class Zotero_Items {
 		}
 		
 		$includeNotes = true;
-		if ($isPublications && $permissions && !$permissions->canAccess($libraryID, 'notes')) {
+		if (!$isPublications && $permissions && !$permissions->canAccess($libraryID, 'notes')) {
 			$includeNotes = false;
 		}
 		
