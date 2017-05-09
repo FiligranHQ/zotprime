@@ -713,7 +713,7 @@ trait Zotero_DataObjects {
 			$sql .= ' AND O.' . self::$idColumn . ' IN (' . implode(',', $ids) . ')';
 		}
 		
-		$t = microtime();
+		$t = microtime(true);
 		$rows = Zotero_DB::query(
 			$sql, $params, Zotero_Shards::getByLibraryID($libraryID), [ 'cache' => false ]
 		);
@@ -736,7 +736,7 @@ trait Zotero_DataObjects {
 			}
 			$loaded[$id] = $obj;
 		}
-		Z_Core::debug("Loaded " . self::$objectTypePlural . " in " . (microtime() - $t) . "ms");
+		Z_Core::debug("Loaded " . self::$objectTypePlural . " in " . (microtime(true) - $t) . "ms");
 		
 		if (!$ids) {
 			self::$loadedLibraries[$libraryID] = true;

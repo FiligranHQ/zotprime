@@ -51,3 +51,14 @@ $config['apiKey'] = $json->apiKey;
 
 // Set up groups
 require 'groups.inc.php';
+
+/**
+ * @param $arr
+ * @return mixed
+ */
+function array_get_first($arr) {
+	if (is_array($arr) && isset($arr[0])) {
+		return $arr[0];
+	}
+	return null;
+}

@@ -209,10 +209,10 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
 		
-		$resultContent1 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']"));
-		$resultContent2 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
-		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
-		$resultContent4 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
+		$resultContent1 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']"));
+		$resultContent2 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
+		$resultContent3 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent4 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
 		
 		if ($resultContent3 === "") {
 			$this->assertEquals($content1, $resultContent1);
@@ -238,10 +238,10 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
 		
-		$resultContent1 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']"));
-		$resultContent2 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
-		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
-		$resultContent4 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
+		$resultContent1 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']"));
+		$resultContent2 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
+		$resultContent3 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent4 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
 		
 		if ($resultContent3 === "") {
 			$this->assertEquals($content1, $resultContent1);
@@ -263,9 +263,9 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(3, $xml->updated[0]->fulltexts[0]->fulltext->count());
 		
-		$resultContent2 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
-		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
-		$resultContent4 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
+		$resultContent2 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']"));
+		$resultContent3 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent4 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']"));
 		
 		if ($resultContent3 === "") {
 			$this->assertEquals($content2, $resultContent2);
@@ -289,7 +289,7 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(1, $xml->updated[0]->fulltexts[0]->fulltext->count());
 		
-		$resultContent3 = (string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
+		$resultContent3 = (string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']"));
 		$this->assertEquals($content3, $resultContent3);
 		
 		// Request for all items by upgrade flag
@@ -306,10 +306,10 @@ class SyncFullTextTests extends PHPUnit_Framework_TestCase {
 		$xml = Sync::updated(self::$sessionID, 1, false, false, $params);
 		$this->assertEquals(1, $xml->updated[0]->fulltexts->count());
 		$this->assertEquals(4, $xml->updated[0]->fulltexts[0]->fulltext->count());
-		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']")));
-		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']")));
-		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']")));
-		$this->assertEmpty((string) array_shift($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']")));
+		$this->assertEmpty((string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key1']")));
+		$this->assertEmpty((string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key2']")));
+		$this->assertEmpty((string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key3']")));
+		$this->assertEmpty((string) array_get_first($xml->updated[0]->fulltexts[0]->xpath("//fulltext[@key='$key4']")));
 	}
 	
 	

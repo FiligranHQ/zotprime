@@ -813,7 +813,7 @@ class ApiController extends Controller {
 	 */
 	protected function checkLibraryIfUnmodifiedSinceVersion($required=false) {
 		if (Z_CONFIG::$TESTING_SITE && !empty($_GET['skipetag'])) {
-			continue;
+			return true;
 		}
 		
 		if (!isset($_SERVER['HTTP_IF_UNMODIFIED_SINCE_VERSION'])) {

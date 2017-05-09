@@ -175,7 +175,7 @@ class ItemTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		$objectKey = $data['key'];
 		$json = json_decode($data['content'], true);
-		$dateModified1 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$dateModified1 = (string) array_get_first($xml->xpath('//atom:entry/atom:updated'));
 		
 		// Make sure we're in the next second
 		sleep(1);
@@ -197,7 +197,7 @@ class ItemTests extends APITests {
 			break;
 		}
 		
-		$dateModified2 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$dateModified2 = (string) array_get_first($xml->xpath('//atom:entry/atom:updated'));
 		$this->assertNotEquals($dateModified1, $dateModified2);
 		$json = json_decode(API::parseDataFromAtomEntry($xml)['content'], true);
 		
@@ -222,7 +222,7 @@ class ItemTests extends APITests {
 			break;
 		}
 		
-		$dateModified3 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$dateModified3 = (string) array_get_first($xml->xpath('//atom:entry/atom:updated'));
 		$this->assertNotEquals($dateModified2, $dateModified3);
 		$json = json_decode(API::parseDataFromAtomEntry($xml)['content'], true);
 		
@@ -244,7 +244,7 @@ class ItemTests extends APITests {
 			$xml = API::getItemXML($objectKey);
 			break;
 		}
-		$dateModified4 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$dateModified4 = (string) array_get_first($xml->xpath('//atom:entry/atom:updated'));
 		$this->assertEquals($newDateModified, trim(preg_replace("/[TZ]/", " ", $dateModified4)));
 	}
 	
@@ -756,7 +756,7 @@ class ItemTests extends APITests {
 	public function testEditAttachmentUpdatedTimestamp() {
 		$xml = API::createAttachmentItem("linked_file", [], false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
-		$atomUpdated = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$atomUpdated = (string) array_get_first($xml->xpath('//atom:entry/atom:updated'));
 		$json = json_decode($data['content'], true);
 		$json['note'] = "Test";
 		
@@ -771,7 +771,7 @@ class ItemTests extends APITests {
 		$this->assert204($response);
 		
 		$xml = API::getItemXML($data['key']);
-		$atomUpdated2 = (string) array_shift($xml->xpath('//atom:entry/atom:updated'));
+		$atomUpdated2 = (string) array_get_first($xml->xpath('//atom:entry/atom:updated'));
 		$this->assertNotEquals($atomUpdated2, $atomUpdated);
 	}
 	
@@ -923,7 +923,7 @@ class ItemTests extends APITests {
 	
 	public function testNumChildren() {
 		$xml = API::createItem("book", false, $this);
-		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+		$this->assertEquals(0, (int) array_get_first($xml->xpath('/atom:entry/zapi:numChildren')));
 		$data = API::parseDataFromAtomEntry($xml);
 		$key = $data['key'];
 		
@@ -934,7 +934,7 @@ class ItemTests extends APITests {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:entry/zapi:numChildren')));
 		
 		API::createNoteItem("Test", $key, $this, 'key');
 		
@@ -943,7 +943,7 @@ class ItemTests extends APITests {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+		$this->assertEquals(2, (int) array_get_first($xml->xpath('/atom:entry/zapi:numChildren')));
 	}
 	
 	
@@ -1348,7 +1348,7 @@ class ItemTests extends APITests {
 		$json = json_decode($data['content']);
 		$this->assertEquals($date, $json->date);
 		
-		$this->assertEquals('2012', array_shift($xml->xpath('/atom:entry/zapi:year')));
+		$this->assertEquals('2012', array_get_first($xml->xpath('/atom:entry/zapi:year')));
 	}
 	
 	

@@ -45,7 +45,7 @@ class CollectionTests extends APITests {
 		$name = "Test Collection";
 		
 		$xml = API::createCollection($name, false, $this, 'atom');
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
 		
@@ -64,7 +64,7 @@ class CollectionTests extends APITests {
 		$parent = $data['key'];
 		
 		$xml = API::createCollection($name, $parent, $this, 'atom');
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		$this->assertEquals($name, (string) $json->name);
@@ -76,7 +76,7 @@ class CollectionTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numCollections')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:entry/zapi:numCollections')));
 	}
 	
 	
@@ -111,7 +111,7 @@ class CollectionTests extends APITests {
 		$json = API::getJSONFromResponse($response);
 		$this->assertCount(2, $json['success']);
 		$xml = API::getCollectionXML($json['success']);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(2, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
 		$content = json_decode(array_shift($contents));
@@ -157,7 +157,7 @@ class CollectionTests extends APITests {
 		$json = API::getJSONFromResponse($response);
 		$this->assertCount(2, $json['success']);
 		$xml = API::getCollectionXML($json['success']);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(2, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$contents = $xml->xpath('/atom:feed/atom:entry/atom:content');
 		$content = json_decode(array_shift($contents));
@@ -193,11 +193,11 @@ class CollectionTests extends APITests {
 		
 		$xml = API::getCollectionXML($collectionKey1);
 		$collectionData1 = API::parseDataFromAtomEntry($xml);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('//atom:entry/zapi:numItems')));
 		
 		$xml = API::getCollectionXML($collectionKey2);
 		$collectionData2 = API::parseDataFromAtomEntry($xml);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('//atom:entry/zapi:numItems')));
 		
 		$libraryVersion = API::getLibraryVersion();
 		
@@ -223,7 +223,7 @@ class CollectionTests extends APITests {
 		// Collection timestamp shouldn't change, but numItems should
 		$xml = API::getCollectionXML($collectionKey2);
 		$data = API::parseDataFromAtomEntry($xml);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals(2, (int) array_get_first($xml->xpath('//atom:entry/zapi:numItems')));
 		$this->assertEquals($collectionData2['version'], $data['version']);
 		$collectionData2 = $data;
 		
@@ -251,7 +251,7 @@ class CollectionTests extends APITests {
 		// Collection timestamp shouldn't change, but numItems should
 		$xml = API::getCollectionXML($collectionKey2);
 		$data = API::parseDataFromAtomEntry($xml);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('//atom:entry/zapi:numItems')));
 		$this->assertEquals($collectionData2['version'], $data['version']);
 		
 		// Check collections arrays and numItems
@@ -268,10 +268,10 @@ class CollectionTests extends APITests {
 		$this->assertCount(0, $json->collections);
 		
 		$xml = API::getCollectionXML($collectionKey1);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('//atom:entry/zapi:numItems')));
 		
 		$xml = API::getCollectionXML($collectionKey2);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numItems')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('//atom:entry/zapi:numItems')));
 	}
 	
 	

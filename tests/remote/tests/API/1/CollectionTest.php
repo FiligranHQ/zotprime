@@ -58,8 +58,8 @@ class CollectionTests extends APITests {
 		$this->assert200($response);
 		
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		$this->assertEquals(0, (int) array_shift($xml->xpath('/atom:feed/zapi:numCollections')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(0, (int) array_get_first($xml->xpath('/atom:feed/zapi:numCollections')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
 		
@@ -91,7 +91,7 @@ class CollectionTests extends APITests {
 		$this->assert200($response);
 		
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
 		
@@ -105,7 +105,7 @@ class CollectionTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:entry/zapi:numCollections')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:entry/zapi:numCollections')));
 	}
 	
 	
@@ -125,7 +125,7 @@ class CollectionTests extends APITests {
 		
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
@@ -142,7 +142,7 @@ class CollectionTests extends APITests {
 		API::useAPIVersion(1);
 		
 		$xml = API::getCollectionXML($data['key']);
-		$etag = (string) array_shift($xml->xpath('//atom:entry/atom:content/@etag'));
+		$etag = (string) array_get_first($xml->xpath('//atom:entry/atom:content/@etag'));
 		$this->assertNotNull($etag);
 		
 		$newName = "Test 2";

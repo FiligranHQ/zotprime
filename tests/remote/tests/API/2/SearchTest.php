@@ -62,7 +62,7 @@ class SearchTests extends APITests {
 		);
 		
 		$xml = API::createSearch($name, $conditions, $this);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);

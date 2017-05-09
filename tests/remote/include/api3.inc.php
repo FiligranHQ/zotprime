@@ -94,7 +94,7 @@ class API3 {
 	}
 	
 	
-	public function createUnsavedDataObject($objectType) {
+	public static function createUnsavedDataObject($objectType) {
 		switch ($objectType) {
 		case 'collection':
 			$json = [
@@ -124,13 +124,13 @@ class API3 {
 	}
 	
 	
-	public function createDataObject($objectType, $format) {
+	public static function createDataObject($objectType, $format) {
 		switch ($objectType) {
 		case 'collection':
-			return self::createCollection("Test", [], $this, $format);
+			return self::createCollection("Test", [], null, $format);
 		
 		case 'item':
-			return self::createItem("book", [], $this, $format);
+			return self::createItem("book", [], null, $format);
 		
 		case 'search':
 			return self::createSearch(
@@ -142,7 +142,7 @@ class API3 {
 						"value" => "test"
 					]
 				],
-				$this,
+				null,
 				$format
 			);
 		}
@@ -152,7 +152,7 @@ class API3 {
 	//
 	// Item modification methods
 	//
-	public function getItemTemplate($itemType) {
+	public static function getItemTemplate($itemType) {
 		$response = self::get("items/new?itemType=$itemType");
 		if ($response->getStatus() != 200) {
 			var_dump($response->getStatus());
@@ -163,7 +163,7 @@ class API3 {
 	}
 	
 	
-	public function createItem($itemType, $data=array(), $context=null, $returnFormat='responseJSON') {
+	public static function createItem($itemType, $data=array(), $context=null, $returnFormat='responseJSON') {
 		$json = self::getItemTemplate($itemType);
 		
 		if ($data) {
@@ -206,7 +206,7 @@ class API3 {
 	}
 	
 	
-	public function groupCreateItem($groupID, $itemType, $data=[], $context=null, $returnFormat='responseJSON') {
+	public static function groupCreateItem($groupID, $itemType, $data=[], $context=null, $returnFormat='responseJSON') {
 		$response = self::get("items/new?itemType=$itemType");
 		$json = json_decode($response->getBody());
 		
@@ -226,7 +226,7 @@ class API3 {
 	}
 	
 	
-	public function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $returnFormat='responseJSON') {
+	public static function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $returnFormat='responseJSON') {
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -247,7 +247,7 @@ class API3 {
 	}
 	
 	
-	public function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $returnFormat='responseJSON') {
+	public static function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $returnFormat='responseJSON') {
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -268,7 +268,7 @@ class API3 {
 	}
 	
 	
-	public function createNoteItem($text="", $parentKey=false, $context=false, $returnFormat='responseJSON') {
+	public static function createNoteItem($text="", $parentKey=false, $context=false, $returnFormat='responseJSON') {
 		$response = self::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
 		$json->note = $text;
@@ -286,7 +286,7 @@ class API3 {
 	}
 	
 	
-	public function createCollection($name, $data=array(), $context=null, $returnFormat='responseJSON') {
+	public static function createCollection($name, $data=array(), $context=null, $returnFormat='responseJSON') {
 		if (is_array($data)) {
 			$parent = isset($data['parentCollection']) ? $data['parentCollection'] : false;
 			$relations = isset($data['relations']) ? $data['relations'] : new stdClass;
@@ -315,7 +315,7 @@ class API3 {
 	}
 	
 	
-	public function createSearch($name, $conditions=array(), $context=null, $returnFormat='responseJSON') {
+	public static function createSearch($name, $conditions=array(), $context=null, $returnFormat='responseJSON') {
 		if ($conditions == 'default') {
 			$conditions = array(
 				array(
@@ -676,9 +676,9 @@ class API3 {
 	
 	
 	public static function parseDataFromAtomEntry($entryXML) {
-		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
-		$version = (string) array_shift($entryXML->xpath('//atom:entry/zapi:version'));
-		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
+		$key = (string) array_get_first($entryXML->xpath('//atom:entry/zapi:key'));
+		$version = (string) array_get_first($entryXML->xpath('//atom:entry/zapi:version'));
+		$content = array_get_first($entryXML->xpath('//atom:entry/atom:content'));
 		if (is_null($content)) {
 			var_dump($entryXML->asXML());
 			throw new Exception("Atom response does not contain <content>");
@@ -713,13 +713,13 @@ class API3 {
 	 */
 	public static function getContentFromAtomResponse($response, $type = null) {
 		$xml = self::getXMLFromResponse($response);
-		$content = array_shift($xml->xpath('//atom:entry/atom:content'));
+		$content = array_get_first($xml->xpath('//atom:entry/atom:content'));
 		if (is_null($content)) {
 			var_dump($xml->asXML());
 			throw new Exception("Atom response does not contain <content>");
 		}
 		
-		$subcontent = array_shift($content->xpath('//zapi:subcontent'));
+		$subcontent = array_get_first($content->xpath('//zapi:subcontent'));
 		if ($subcontent) {
 			if (!$type) {
 				throw new Exception('$type not provided for multi-content response');
@@ -729,7 +729,7 @@ class API3 {
 				return json_decode((string) $subcontent[0]->xpath('//zapi:subcontent[@zapi:type="json"]')[0], true);
 			
 			case 'html':
-				$html = array_shift($subcontent[0]->xpath('//zapi:subcontent[@zapi:type="html"]'));
+				$html = array_get_first($subcontent[0]->xpath('//zapi:subcontent[@zapi:type="html"]'));
 				$html->registerXPathNamespace('html', 'http://www.w3.org/1999/xhtml');
 				return $html;
 				
@@ -903,7 +903,7 @@ class API3 {
 	}
 	
 	
-	private function handleCreateResponse($objectType, $response, $returnFormat, $context=null, $groupID=false) {
+	private static function handleCreateResponse($objectType, $response, $returnFormat, $context=null, $groupID=false) {
 		if ($context) {
 			if (!preg_match('/APIv([0-9]+)/', get_class($context), $matches)) {
 				throw new Exception("Unexpected namespace");

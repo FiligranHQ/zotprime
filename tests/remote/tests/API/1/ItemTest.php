@@ -61,6 +61,6 @@ class ItemTests extends APITests {
 		$this->assert201($response);
 		$xml = API::getXMLFromResponse($response);
 		$this->assertNumResults(1, $response);
-		$this->assertEquals(1, (int) array_shift($xml->xpath('//atom:entry/zapi:numChildren')));
+		$this->assertEquals(1, (int) array_get_first($xml->xpath('//atom:entry/zapi:numChildren')));
 	}
 }

@@ -597,7 +597,7 @@ class VersionTests extends APITests {
 			break;
 		}
 		
-		$version = (int) array_shift($xml->xpath('//atom:entry/zapi:version'));
+		$version = (int) array_get_first($xml->xpath('//atom:entry/zapi:version'));
 		$this->assertNotEquals(0, $version);
 		
 		$data = API::parseDataFromAtomEntry($xml);

@@ -287,7 +287,7 @@ class FileTests extends APITests {
 		$data = API::parseDataFromAtomEntry($xml);
 		
 		// Get serverDateModified
-		$serverDateModified = array_shift($xml->xpath('/atom:entry/atom:updated'));
+		$serverDateModified = array_get_first($xml->xpath('/atom:entry/atom:updated'));
 		sleep(1);
 		
 		$originalVersion = $data['version'];
@@ -385,7 +385,7 @@ class FileTests extends APITests {
 		$this->assertEquals($charset, $json->charset);
 		
 		// Make sure serverDateModified has changed
-		$this->assertNotEquals($serverDateModified, array_shift($xml->xpath('/atom:entry/atom:updated')));
+		$this->assertNotEquals($serverDateModified, array_get_first($xml->xpath('/atom:entry/atom:updated')));
 		
 		// Make sure version has changed
 		$this->assertNotEquals($originalVersion, $data['version']);
@@ -513,7 +513,7 @@ class FileTests extends APITests {
 			"items/{$getFileData['key']}?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$serverDateModified = (string) array_shift($xml->xpath('/atom:entry/atom:updated'));
+		$serverDateModified = (string) array_get_first($xml->xpath('/atom:entry/atom:updated'));
 		sleep(1);
 		
 		$data = API::parseDataFromAtomEntry($xml);

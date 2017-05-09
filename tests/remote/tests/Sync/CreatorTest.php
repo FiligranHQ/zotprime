@@ -84,7 +84,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Last", $creatorSummary);
 		$data = API::parseDataFromAtomEntry($xml);
 		$version = $data['version'];
@@ -115,7 +115,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("First Last", $creatorSummary);
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
@@ -153,7 +153,7 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Bar", $creatorSummary);
 		$this->assertTrue(isset($json->creators[0]->firstName));
 		$this->assertEquals("Foo", $json->creators[0]->firstName);
@@ -192,10 +192,10 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 			"items/$key?key=" . self::$config['apiKey'] . "&content=json"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Last", $creatorSummary);
 		$data = API::parseDataFromAtomEntry($xml);
-		$etag = (string) array_shift($xml->xpath('//atom:entry/atom:content/@zapi:etag'));
+		$etag = (string) array_get_first($xml->xpath('//atom:entry/atom:content/@zapi:etag'));
 		$this->assertNotEquals("", $etag);
 		
 		// Modify creator
@@ -216,11 +216,11 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("First Last", $creatorSummary);
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
-		$newETag = (string) array_shift($xml->xpath('//atom:entry/zapi:etag'));
+		$newETag = (string) array_get_first($xml->xpath('//atom:entry/zapi:etag'));
 		$this->assertNotEquals($etag, $newETag);
 		
 		// Get item again via API
@@ -232,11 +232,11 @@ class CreatorSyncTests extends PHPUnit_Framework_TestCase {
 		$data = API::parseDataFromAtomEntry($xml);
 		$json = json_decode($data['content']);
 		
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("First Last", $creatorSummary);
 		$this->assertTrue(isset($json->creators[0]->name));
 		$this->assertEquals("First Last", $json->creators[0]->name);
-		$newETag = (string) array_shift($xml->xpath('//atom:entry/zapi:etag'));
+		$newETag = (string) array_get_first($xml->xpath('//atom:entry/zapi:etag'));
 		$this->assertNotEquals($etag, $newETag);
 	}
 	

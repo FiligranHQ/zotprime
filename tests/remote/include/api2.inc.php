@@ -50,13 +50,13 @@ class API2 {
 	//
 	// Item modification methods
 	//
-	public function getItemTemplate($itemType) {
+	public static function getItemTemplate($itemType) {
 		$response = self::get("items/new?itemType=$itemType");
 		return json_decode($response->getBody());
 	}
 	
 	
-	public function createItem($itemType, $data=array(), $context=null, $responseFormat='atom') {
+	public static function createItem($itemType, $data=array(), $context=null, $responseFormat='atom') {
 		$json = self::getItemTemplate($itemType);
 		
 		if ($data) {
@@ -103,7 +103,7 @@ class API2 {
 	}
 	
 	
-	public function groupCreateItem($groupID, $itemType, $context=null, $responseFormat='atom') {
+	public static function groupCreateItem($groupID, $itemType, $context=null, $responseFormat='atom') {
 		$response = self::get("items/new?itemType=$itemType");
 		$json = json_decode($response->getBody());
 		
@@ -143,7 +143,7 @@ class API2 {
 	}
 	
 	
-	public function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
+	public static function createAttachmentItem($linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -197,7 +197,7 @@ class API2 {
 	}
 	
 	
-	public function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
+	public static function groupCreateAttachmentItem($groupID, $linkMode, $data=[], $parentKey=false, $context=false, $responseFormat='atom') {
 		$response = self::get("items/new?itemType=attachment&linkMode=$linkMode");
 		$json = json_decode($response->getBody());
 		foreach ($data as $key => $val) {
@@ -249,7 +249,7 @@ class API2 {
 	}
 	
 	
-	public function createNoteItem($text="", $parentKey=false, $context=false, $responseFormat='atom') {
+	public static function createNoteItem($text="", $parentKey=false, $context=false, $responseFormat='atom') {
 		$response = self::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
 		$json->note = $text;
@@ -299,7 +299,7 @@ class API2 {
 	}
 	
 	
-	public function createCollection($name, $data=array(), $context=null, $responseFormat='atom') {
+	public static function createCollection($name, $data=array(), $context=null, $responseFormat='atom') {
 		if (is_array($data)) {
 			$parent = isset($data['parentCollection']) ? $data['parentCollection'] : false;
 			$relations = isset($data['relations']) ? $data['relations'] : new stdClass;
@@ -330,7 +330,7 @@ class API2 {
 	}
 	
 	
-	public function createSearch($name, $conditions=array(), $context=null, $responseFormat='atom') {
+	public static function createSearch($name, $conditions=array(), $context=null, $responseFormat='atom') {
 		if ($conditions == 'default') {
 			$conditions = array(
 				array(
@@ -592,9 +592,9 @@ class API2 {
 	
 	
 	public static function parseDataFromAtomEntry($entryXML) {
-		$key = (string) array_shift($entryXML->xpath('//atom:entry/zapi:key'));
-		$version = (string) array_shift($entryXML->xpath('//atom:entry/zapi:version'));
-		$content = array_shift($entryXML->xpath('//atom:entry/atom:content'));
+		$key = (string) array_get_first($entryXML->xpath('//atom:entry/zapi:key'));
+		$version = (string) array_get_first($entryXML->xpath('//atom:entry/zapi:version'));
+		$content = array_get_first($entryXML->xpath('//atom:entry/atom:content'));
 		if (is_null($content)) {
 			throw new Exception("Atom response does not contain <content>");
 		}
@@ -724,7 +724,7 @@ class API2 {
 	}
 	
 	
-	private function handleCreateResponse($objectType, $response, $responseFormat, $context=null) {
+	private static function handleCreateResponse($objectType, $response, $responseFormat, $context=null) {
 		$uctype = ucwords($objectType);
 		
 		if ($context) {

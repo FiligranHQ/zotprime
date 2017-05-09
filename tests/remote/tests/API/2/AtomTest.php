@@ -112,7 +112,7 @@ class AtomTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(sizeOf($keys), (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
+		$this->assertEquals(sizeOf($keys), (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
 		
 		$entries = $xml->xpath('//atom:entry');
 		foreach ($entries as $entry) {

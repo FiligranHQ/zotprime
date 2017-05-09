@@ -140,8 +140,8 @@ class SyncVersionTests extends PHPUnit_Framework_TestCase {
 		$updateKey = $xml['updateKey'];
 		$lastSyncTimestamp = $xml['timestamp'];
 		
-		$itemXML1 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='{$data1['key']}']"));
-		$itemXML2 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='{$data2['key']}']"));
+		$itemXML1 = array_get_first($xml->updated[0]->items[0]->xpath("item[@key='{$data1['key']}']"));
+		$itemXML2 = array_get_first($xml->updated[0]->items[0]->xpath("item[@key='{$data2['key']}']"));
 		$itemXML1['libraryID'] = self::$config['libraryID'];
 		$itemXML2['libraryID'] = self::$config['libraryID'];
 		

@@ -440,9 +440,9 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$updateKey = $xml['updateKey'];
 		$lastSyncTimestamp = $xml['timestamp'];
 		
-		$itemXML1 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='$itemKey1']"));
-		$itemXML2 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='$itemKey2']"));
-		$itemXML3 = array_shift($xml->updated[0]->items[0]->xpath("item[@key='$itemKey3']"));
+		$itemXML1 = array_get_first($xml->updated[0]->items[0]->xpath("item[@key='$itemKey1']"));
+		$itemXML2 = array_get_first($xml->updated[0]->items[0]->xpath("item[@key='$itemKey2']"));
+		$itemXML3 = array_get_first($xml->updated[0]->items[0]->xpath("item[@key='$itemKey3']"));
 		$itemXML1['libraryID'] = self::$config['libraryID'];
 		$itemXML2['libraryID'] = self::$config['libraryID'];
 		$itemXML3['libraryID'] = self::$config['libraryID'];
@@ -468,9 +468,9 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		);
 		$xml = API::getXMLFromResponse($response);
 		// Item 2 already had the relation and shouldn't have been updated
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:feed/zapi:totalResults')));
-		$itemJSON1 = json_decode(array_shift($xml->xpath("//atom:entry[atom:id='$itemURI1']"))->content, 1);
-		$itemJSON3 = json_decode(array_shift($xml->xpath("//atom:entry[atom:id='$itemURI3']"))->content, 1);
+		$this->assertEquals(2, (int) array_get_first($xml->xpath('/atom:feed/zapi:totalResults')));
+		$itemJSON1 = json_decode(array_get_first($xml->xpath("//atom:entry[atom:id='$itemURI1']"))->content, 1);
+		$itemJSON3 = json_decode(array_get_first($xml->xpath("//atom:entry[atom:id='$itemURI3']"))->content, 1);
 		$this->assertInternalType('array', $itemJSON1['relations']['dc:relation']);
 		$this->assertInternalType('string', $itemJSON3['relations']['dc:relation']);
 		$this->assertCount(2, $itemJSON1['relations']['dc:relation']);
@@ -492,10 +492,10 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$xml = Sync::updated(self::$sessionID);
 		$updateKey = $xml['updateKey'];
 		
-		$note1XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[0]}']"));
-		$note2XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[1]}']"));
-		$note3XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[2]}']"));
-		$note4XML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[3]}']"));
+		$note1XML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[0]}']"));
+		$note2XML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[1]}']"));
+		$note3XML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[2]}']"));
+		$note4XML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[3]}']"));
 		
 		$note1XML['libraryID'] = self::$config['libraryID'];
 		$note2XML['libraryID'] = self::$config['libraryID'];
@@ -544,7 +544,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		
 		$xml = Sync::updated(self::$sessionID);
 		
-		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[0]}']"));
+		$noteXML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[0]}']"));
 		$keys = split(' ', $noteXML->related);
 		$this->assertCount(4, $keys);
 		$this->assertContains($parentKey, $keys);
@@ -552,7 +552,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$this->assertContains((string) $noteKeys[2], $keys);
 		$this->assertContains((string) $noteKeys[3], $keys);
 		
-		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[1]}']"));
+		$noteXML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[1]}']"));
 		$keys = split(' ', $noteXML->related);
 		$this->assertCount(4, $keys);
 		$this->assertContains($parentKey, $keys);
@@ -560,7 +560,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$this->assertContains((string) $noteKeys[2], $keys);
 		$this->assertContains((string) $noteKeys[3], $keys);
 		
-		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[2]}']"));
+		$noteXML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[2]}']"));
 		$keys = split(' ', $noteXML->related);
 		$this->assertCount(4, $keys);
 		$this->assertContains($parentKey, $keys);
@@ -568,7 +568,7 @@ class SyncRelationTests extends PHPUnit_Framework_TestCase {
 		$this->assertContains((string) $noteKeys[1], $keys);
 		$this->assertContains((string) $noteKeys[3], $keys);
 		
-		$noteXML = array_shift($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[3]}']"));
+		$noteXML = array_get_first($xml->updated[0]->items->xpath("//item[@key = '{$noteKeys[3]}']"));
 		$keys = split(' ', $noteXML->related);
 		$this->assertCount(4, $keys);
 		$this->assertContains($parentKey, $keys);

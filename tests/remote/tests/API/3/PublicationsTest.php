@@ -423,7 +423,7 @@ class PublicationsTests extends APITests {
 		);
 		$this->assert200($response);
 		$xml = API::getXMLFromResponse($response);
-		$this->assertEquals(2, (int) array_shift($xml->xpath('/atom:entry/zapi:numChildren')));
+		$this->assertEquals(2, (int) array_get_first($xml->xpath('/atom:entry/zapi:numChildren')));
 	}
 	
 	
@@ -527,7 +527,7 @@ class PublicationsTests extends APITests {
 			"publications/items/$key?format=atom"
 		);
 		$xml = API::getXMLFromResponse($response);
-		$href = (string) array_shift($xml->xpath('//atom:entry/atom:link[@rel="enclosure"]'))['href'];
+		$href = (string) array_get_first($xml->xpath('//atom:entry/atom:link[@rel="enclosure"]'))['href'];
 		
 		// Verify download details (JSON)
 		$this->assertRegExp(

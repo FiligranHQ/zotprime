@@ -57,10 +57,10 @@ class GroupTests extends APITests {
 		$xml = API::getXMLFromResponse($response);
 		$xml->registerXPathNamespace('atom', 'http://www.w3.org/2005/Atom');
 		$xml->registerXPathNamespace('zapi', 'http://zotero.org/ns/api');
-		$groupID = (string) array_shift($xml->xpath("//atom:entry/zapi:groupID"));
-		$url = (string) array_shift($xml->xpath("//atom:entry/atom:link[@rel='self']/@href"));
+		$groupID = (string) array_get_first($xml->xpath("//atom:entry/zapi:groupID"));
+		$url = (string) array_get_first($xml->xpath("//atom:entry/atom:link[@rel='self']/@href"));
 		$url = str_replace(self::$config['apiURLPrefix'], '', $url);
-		$etag = (string) array_shift($xml->xpath("//atom:entry/atom:content/@etag"));
+		$etag = (string) array_get_first($xml->xpath("//atom:entry/atom:content/@etag"));
 		
 		// Make sure format=etags returns the same ETag
 		$response = API::userGet(
@@ -72,7 +72,7 @@ class GroupTests extends APITests {
 		$this->assertEquals($etag, $json->$groupID);
 		
 		// Update group metadata
-		$json = json_decode(array_shift($xml->xpath("//atom:entry/atom:content")));
+		$json = json_decode(array_get_first($xml->xpath("//atom:entry/atom:content")));
 		$xml = new SimpleXMLElement("<group/>");
 		foreach ($json as $key => $val) {
 			switch ($key) {

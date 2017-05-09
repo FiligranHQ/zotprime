@@ -54,7 +54,7 @@ class CreatorTests extends APITests {
 		$itemKey = $data['key'];
 		$json = json_decode($data['content'], true);
 		
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Test", $creatorSummary);
 		
 		$json['creators'][] = array(
@@ -71,7 +71,7 @@ class CreatorTests extends APITests {
 		$this->assert204($response);
 		
 		$xml = API::getItemXML($itemKey);
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Test and Foo", $creatorSummary);
 		
 		$data = API::parseDataFromAtomEntry($xml);
@@ -91,7 +91,7 @@ class CreatorTests extends APITests {
 		$this->assert204($response);
 		
 		$xml = API::getItemXML($itemKey);
-		$creatorSummary = (string) array_shift($xml->xpath('//atom:entry/zapi:creatorSummary'));
+		$creatorSummary = (string) array_get_first($xml->xpath('//atom:entry/zapi:creatorSummary'));
 		$this->assertEquals("Test et al.", $creatorSummary);
 	}
 }
