@@ -460,8 +460,24 @@ class Zotero_Libraries {
 				Zotero_DB::query($sql, $libraryID, $shardID);
 			}
 			
-			$sql = "DELETE FROM $table WHERE libraryID=?";
-			Zotero_DB::query($sql, $libraryID, $shardID);
+			try {
+				$sql = "DELETE FROM $table WHERE libraryID=?";
+				Zotero_DB::query($sql, $libraryID, $shardID);
+			}
+			catch (Exception $e) {
+				// ON DELETE CASCADE will only go 15 levels deep, so if we get an FK error, try
+				// deleting subcollections first, starting with the most recent, which isn't foolproof
+				// but will probably almost always do the trick.
+				if ($table == 'collections'
+						&& strpos($e->getMessage(), "Cannot delete or update a parent row") !== false) {
+					$sql = "DELETE FROM collections WHERE libraryID=? "
+						. "ORDER BY parentCollectionID IS NULL, collectionID DESC";
+					Zotero_DB::query($sql, $libraryID, $shardID);
+				}
+				else {
+					throw $e;
+				}
+			}
 		}
 		
 		Zotero_FullText::deleteByLibrary($libraryID);

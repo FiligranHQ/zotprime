@@ -503,6 +503,34 @@ class Zotero_Collections {
 			}
 		}
 	}
+	
+	
+	public static function deleteSubcollections($libraryID, $key) {
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		$sql = "SELECT C1.collectionID FROM collections C1 "
+			. "JOIN collections C2 ON (C1.parentCollectionID=C2.collectionID) "
+			. "WHERE C2.libraryID=? AND C2.key=?";
+		$childCollectionID = Zotero_DB::valueQuery($sql, [$libraryID, $key], $shardID);
+		if (!$childCollectionID) {
+			error_log("NO");
+			return 0;
+		}
+		
+		$collectionIDs = [$childCollectionID];
+		$sql = "SELECT collectionID FROM collections WHERE parentCollectionID=?";
+		while ($childCollectionID = Zotero_DB::valueQuery($sql, [$childCollectionID], $shardID)) {
+			$collectionIDs[] = $childCollectionID;
+		}
+		$numDeleted = sizeOf($collectionIDs);
+		
+		// Delete from bottom up
+		while ($id = array_pop($collectionIDs)) {
+			$sql = "DELETE FROM collections WHERE collectionID=?";
+			Zotero_DB::query($sql, [$id], $shardID);
+		}
+		return $numDeleted;
+	}
 }
 
 Zotero_Collections::init();

@@ -446,5 +446,24 @@ class CollectionTests extends APITests {
 			"Collection name cannot be longer than 255 characters"
 		);
 	}
+	
+	
+	public function test_should_delete_collection_with_15_levels_below_it() {
+		$json = API::createCollection("0", false, $this, 'json');
+		$topCollectionKey = $json['key'];
+		$parentCollectionKey = $topCollectionKey;
+		for ($i = 0; $i < 15; $i++) {
+			$json = API::createCollection("$i", $parentCollectionKey, $this, 'json');
+			$parentCollectionKey = $json['key'];
+		}
+		$response = API::userDelete(
+			self::$config['userID'],
+			"collections?collectionKey=$topCollectionKey",
+			[
+				"If-Unmodified-Since-Version: {$json['version']}"
+			]
+		);
+		$this->assert204($response);
+	}
 }
 ?>

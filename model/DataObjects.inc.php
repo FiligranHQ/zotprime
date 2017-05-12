@@ -628,8 +628,22 @@ trait Zotero_DataObjects {
 			Zotero_FullText::deleteItemContent($obj);
 		}
 		
-		$sql = "DELETE FROM $table WHERE libraryID=? AND `key`=?";
-		$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
+		try {
+			$sql = "DELETE FROM $table WHERE libraryID=? AND `key`=?";
+			$deleted = Zotero_DB::query($sql, array($libraryID, $key), $shardID);
+		}
+		catch (Exception $e) {
+			// ON DELETE CASCADE will only go 15 levels deep, so if we get an FK error, try
+			// deleting subcollections first, starting with the most recent, which isn't foolproof
+			// but will probably almost always do the trick.
+			if ($type == 'collection'
+					&& strpos($e->getMessage(), "Cannot delete or update a parent row") !== false) {
+				$deleted = self::deleteSubcollections($libraryID, $key);
+			}
+			else {
+				throw $e;
+			}
+		}
 		
 		self::unload($obj->id);
 		
