@@ -452,7 +452,7 @@ class Zotero_Users {
 		$invalid = array();
 		
 		// Get any of these users that are known to be invalid
-		$sql = "SELECT UserID FROM LUM_User WHERE RoleID=2 AND UserID IN ("
+		$sql = "SELECT UserID FROM GDN_User WHERE Banned=1 AND UserID IN ("
 			. implode(', ', array_fill(0, sizeOf($userIDs), '?'))
 			. ")";
 		
@@ -512,16 +512,16 @@ class Zotero_Users {
 		
 		$username = Zotero_Users::getUsername($userID, true);
 		
-		$sql = "SELECT LUM_Role.Name FROM LUM_User JOIN LUM_Role USING (RoleID) WHERE UserID=?";
+		$sql = "SELECT Deleted FROM GDN_User WHERE UserID=?";
 		try {
-			$role = Zotero_WWW_DB_2::valueQuery($sql, $userID);
+			$deleted = Zotero_WWW_DB_2::valueQuery($sql, $userID);
 		}
 		catch (Exception $e) {
 			Z_Core::logError("WARNING: $e -- retrying on primary");
-			$role = Zotero_WWW_DB_1::valueQuery($sql, $userID);
+			$deleted = Zotero_WWW_DB_1::valueQuery($sql, $userID);
 		}
-		if ($role != 'Deleted') {
-			throw new Exception("User '$username' does not have role 'Deleted'");
+		if (!$deleted) {
+			throw new Exception("User '$username' has not been deleted in user table");
 		}
 		
 		Zotero_DB::beginTransaction();
