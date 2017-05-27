@@ -214,7 +214,11 @@ Zotero_DB::addCallback("reset", array(Z_Core::$MC, "reset"));
 $awsConfig = [
 	'region' => !empty(Z_CONFIG::$AWS_REGION) ? Z_CONFIG::$AWS_REGION : 'us-east-1',
 	'version' => 'latest',
-	'signature' => 'v4'
+	'signature' => 'v4',
+	'http' => [
+		'timeout' => 3
+	],
+	'retries' => 2
 ];
 // IAM role authentication
 if (empty(Z_CONFIG::$AWS_ACCESS_KEY)) {
