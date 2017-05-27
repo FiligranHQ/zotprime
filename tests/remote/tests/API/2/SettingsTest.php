@@ -453,6 +453,6 @@ class SettingsTests extends APITests {
 			json_encode($json),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response, "'value' cannot be longer than 1000 characters");
+		$this->assert400($response, "'value' cannot be longer than 10000 characters");
 	}
 }
