@@ -2502,7 +2502,9 @@ class Zotero_Items {
 							// If passed dateAdded is exactly one hour off, assume it's from a DST bug
 							// we haven't yet tracked down (https://github.com/zotero/zotero/issues/1201)
 							// and ignore it
-							if (abs(strtotime($val) - strtotime($item->$key)) == 3600) {
+							if ((abs(strtotime($val) - strtotime($item->$key)) == 3600)
+									// Allow for Quick Start Guide items from <=4.0
+									|| $item->key == 'ABCD2345' || $item->key == 'ABCD3456') {
 								$json->$key = $item->$key;
 							}
 							else {
