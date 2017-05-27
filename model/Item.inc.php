@@ -793,7 +793,12 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		if ($this->cacheEnabled) {
 			$cacheVersion = 1;
-			$cacheKey = $this->getCacheKey("creatorSummary", $cacheVersion);
+			$cacheKey = $this->getCacheKey("creatorSummary",
+				$cacheVersion
+					. isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
+					? "_" . Z_CONFIG::$CACHE_VERSION_ITEM_DATA
+					: ""
+			);
 			if ($cacheKey) {
 				$creatorSummary = Z_Core::$MC->get($cacheKey);
 				if ($creatorSummary !== false) {
@@ -877,7 +882,12 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		if ($this->cacheEnabled) {
 			$cacheVersion = 1;
-			$cacheKey = $this->getCacheKey("itemIsDeleted", $cacheVersion);
+			$cacheKey = $this->getCacheKey("itemIsDeleted",
+				$cacheVersion
+					. isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
+					? "_" . Z_CONFIG::$CACHE_VERSION_ITEM_DATA
+					: ""
+			);
 			$deleted = Z_Core::$MC->get($cacheKey);
 		}
 		else {
@@ -1921,6 +1931,10 @@ class Zotero_Item extends Zotero_DataObject {
 				}
 				
 				// Related items
+				if ($userID == 1867969) {
+					error_log($this->key);
+					error_log(json_encode($this->changed));
+				}
 				if (!empty($this->changed['relations'])) {
 					$removed = [];
 					$new = [];
@@ -2246,7 +2260,12 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		if ($this->cacheEnabled) {
 			$cacheVersion = 1;
-			$cacheKey = $this->getCacheKey("itemSource", $cacheVersion);
+			$cacheKey = $this->getCacheKey("itemSource",
+				$cacheVersion
+					. isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
+					? "_" . Z_CONFIG::$CACHE_VERSION_ITEM_DATA
+					: ""
+			);
 			$sourceItemID = Z_Core::$MC->get($cacheKey);
 		}
 		else {
@@ -4005,7 +4024,12 @@ class Zotero_Item extends Zotero_DataObject {
 		
 		if ($this->cacheEnabled) {
 			$cacheVersion = 1;
-			$cacheKey = $this->getCacheKey("itemCreators", $cacheVersion);
+			$cacheKey = $this->getCacheKey("itemCreators",
+				$cacheVersion
+					. isset(Z_CONFIG::$CACHE_VERSION_ITEM_DATA)
+					? "_" . Z_CONFIG::$CACHE_VERSION_ITEM_DATA
+					: ""
+			);
 			$creators = Z_Core::$MC->get($cacheKey);
 		}
 		else {
