@@ -297,6 +297,8 @@ class ApiController extends Controller {
 			}
 			catch (Exception $e) {
 				if ($e->getCode() == Z_ERROR_USER_NOT_FOUND) {
+					// Switch to DB writer
+					Zotero_DB::readOnly(false);
 					try {
 						Zotero_Users::addFromWWW($this->objectUserID);
 					}
