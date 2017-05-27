@@ -575,7 +575,23 @@ class Zotero_Storage {
 		}
 		$item->save();
 		
+		self::addFileLibraryReference($storageFileID, $item->libraryID);
+		
 		Zotero_DB::commit();
+	}
+	
+	public static function addFileLibraryReference($storageFileID, $libraryID) {
+		$sql = "INSERT IGNORE INTO storageFileLibraries (storageFileID, libraryID) VALUES (?,?)";
+		return Zotero_DB::query($sql, [$storageFileID, $libraryID]);
+	}
+	
+	public static function deleteFileLibraryReference($storageFileID, $libraryID) {
+		$sql = "SELECT 1 FROM storageFileItems WHERE storageFileID = ? LIMIT 1";
+		$exists = Zotero_DB::valueQuery($sql, $storageFileID, Zotero_Shards::getByLibraryID($libraryID));
+		if (!$exists) {
+			$sql = "DELETE FROM storageFileLibraries WHERE storageFileID = ? AND libraryID = ?";
+			Zotero_DB::query($sql, [$storageFileID, $libraryID]);
+		}
 	}
 	
 	

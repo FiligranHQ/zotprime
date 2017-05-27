@@ -62,6 +62,9 @@ class StorageController extends ApiController {
 		$this->allowMethods(array('POST'));
 		$sql = "DELETE SFI FROM storageFileItems SFI JOIN items USING (itemID) WHERE libraryID=?";
 		Zotero_DB::query($sql, $this->objectLibraryID, Zotero_Shards::getByLibraryID($this->objectLibraryID));
+		
+		$sql = "DELETE FROM storageFileLibraries WHERE libraryID = ?";
+		Zotero_DB::query($sql, $this->objectLibraryID);
 		header("HTTP/1.1 204 No Content");
 		exit;
 	}

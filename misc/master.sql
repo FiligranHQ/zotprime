@@ -278,6 +278,14 @@ CREATE TABLE `storageFiles` (
 
 
 
+CREATE TABLE `storageFileLibraries` (
+  `storageFileID` int(10) unsigned NOT NULL,
+  `libraryID` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`storageFileID`,`libraryID`)
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
+
+
+
 CREATE TABLE `storageFilesExisting` (
   `storageFileID` int(10) unsigned NOT NULL,
   PRIMARY KEY (`storageFileID`)
@@ -511,6 +519,10 @@ ALTER TABLE `shards`
 
 ALTER TABLE `storageAccounts`
   ADD CONSTRAINT `storageAccounts_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `storageFileLibraries`
+  ADD CONSTRAINT `storageFileLibraries_ibfk_1` FOREIGN KEY (`storageFileID`) REFERENCES `storageFiles` (`storageFileID`),
+  ADD CONSTRAINT `storageFileLibraries_ibfk_2` FOREIGN KEY (`libraryID`) REFERENCES `libraries` (`libraryID`) ON DELETE CASCADE;
 
 ALTER TABLE `storageLastSync`
   ADD CONSTRAINT `storageLastSync_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE;
