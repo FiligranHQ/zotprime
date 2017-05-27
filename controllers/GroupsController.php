@@ -232,6 +232,10 @@ class GroupsController extends ApiController {
 				$title = "Groups";
 			}
 			
+			if ($this->queryParams['start'] > 1000) {
+				$this->e503();
+			}
+			
 			try {
 				$results = Zotero_Groups::getAllAdvanced($this->objectUserID, $this->queryParams, $this->permissions);
 			}
