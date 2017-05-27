@@ -185,10 +185,10 @@ class GroupsController extends ApiController {
 		
 		// Single group
 		if ($groupID) {
-			$group = Zotero_Groups::get($groupID);
 			if (!$this->permissions->canAccess($this->objectLibraryID)) {
 				$this->e403();
 			}
+			$group = Zotero_Groups::get($groupID);
 			if (!$group) {
 				$this->e404("Group not found");
 			}
