@@ -2458,13 +2458,19 @@ class Zotero_Item extends Zotero_DataObject {
 			}
 			
 			if (is_null($this->noteText)) {
-				$sql = "SELECT note, noteSanitized FROM itemNotes WHERE itemID=?";
+				$sql = "SELECT note, noteSanitized, serverDateModified FROM itemNotes "
+					. "JOIN items USING (itemID) WHERE itemID=?";
 				$row = Zotero_DB::rowQuery($sql, $this->id, Zotero_Shards::getByLibraryID($this->libraryID));
 				if (!$row) {
-					$row = array('note' => '', 'noteSanitized' => '');
+					$row = ['note' => '', 'noteSanitized' => '', 'serverDateModified' => null];
 				}
 				$this->noteText = $row['note'];
-				$this->noteTextSanitized = $row['noteSanitized'];
+				if (!$row['serverDateModified'] || $row['serverDateModified'] >= '2017-04-01') {
+					$this->noteTextSanitized = $row['noteSanitized'];
+				}
+				else {
+					$this->noteTextSanitized = Zotero_Notes::sanitize($row['note']);
+				}
 			}
 			// Empty string means the original note is sanitized
 			return $this->noteTextSanitized === '' ? $this->noteText : $this->noteTextSanitized;
