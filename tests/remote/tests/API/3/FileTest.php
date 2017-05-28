@@ -29,6 +29,9 @@ use API3 as API, HTTP, SimpleXMLElement, Sync, Z_Tests;
 require_once 'APITests.inc.php';
 require_once 'include/bootstrap.inc.php';
 
+/**
+ * @group s3
+ */
 class FileTests extends APITests {
 	private static $toDelete = array();
 	
@@ -291,7 +294,9 @@ class FileTests extends APITests {
 		);
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileFormDataFullParams() {
 		$json = API::createAttachmentItem("imported_file", [], false, $this, 'jsonData');
 		$attachmentKey = $json['key'];
@@ -466,6 +471,7 @@ class FileTests extends APITests {
 	
 	/**
 	 * @depends testAddFileExisting
+	 * @group attachments
 	 */
 	public function testGetFile($addFileData) {
 		$key = $addFileData['key'];
@@ -510,6 +516,7 @@ class FileTests extends APITests {
 	
 	/**
 	 * @depends testGetFile
+	 * @group classic-sync
 	 */
 	public function testAddFilePartial($getFileData) {
 		// Get serverDateModified
@@ -810,7 +817,9 @@ class FileTests extends APITests {
 		$this->assertEquals($contentType, $response->getHeader('Content-Type'));
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileClientV4() {
 		API::userClear(self::$config['userID']);
 		
@@ -1036,7 +1045,9 @@ class FileTests extends APITests {
 		Sync::logout($sessionID);
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileClientV4Zip() {
 		API::userClear(self::$config['userID']);
 		
@@ -1226,7 +1237,9 @@ class FileTests extends APITests {
 		$this->assertEquals(0, $xml->updated[0]->count());
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileClientV5() {
 		API::userClear(self::$config['userID']);
 		
@@ -1491,7 +1504,9 @@ class FileTests extends APITests {
 		Sync::logout($sessionID);
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileClientV5Zip() {
 		API::userClear(self::$config['userID']);
 		

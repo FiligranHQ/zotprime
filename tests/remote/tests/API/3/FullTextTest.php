@@ -29,6 +29,9 @@ use API3 as API;
 require_once 'APITests.inc.php';
 require_once 'include/api3.inc.php';
 
+/**
+ * @group fulltext
+ */
 class FullTextTests extends APITests {
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();

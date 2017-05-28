@@ -28,6 +28,9 @@ use API3 as API;
 require_once 'APITests.inc.php';
 require_once 'include/api3.inc.php';
 
+/**
+ * @group sns
+ */
 class NotificationsTests extends APITests {
 	public function testNewItemNotification() {
 		$response = API::createItem("book", false, $this, 'response');

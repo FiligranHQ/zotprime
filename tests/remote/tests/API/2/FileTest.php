@@ -29,6 +29,9 @@ use API2 as API, \HTTP, \SimpleXMLElement, \Sync, \Z_Tests, \ZipArchive;
 require_once 'APITests.inc.php';
 require_once 'include/bootstrap.inc.php';
 
+/**
+ * @group s3
+ */
 class FileTests extends APITests {
 	private static $toDelete = array();
 	
@@ -281,7 +284,9 @@ class FileTests extends APITests {
 		);
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileFullParams() {
 		$xml = API::createAttachmentItem("imported_file", [], false, $this);
 		$data = API::parseDataFromAtomEntry($xml);
@@ -461,6 +466,7 @@ class FileTests extends APITests {
 	
 	/**
 	 * @depends testAddFileExisting
+	 * @group attachments
 	 */
 	public function testGetFile($addFileData) {
 		$key = $addFileData['key'];
@@ -505,6 +511,7 @@ class FileTests extends APITests {
 	
 	/**
 	 * @depends testGetFile
+	 * @group classic-sync
 	 */
 	public function testAddFilePartial($getFileData) {
 		// Get serverDateModified
@@ -811,7 +818,9 @@ class FileTests extends APITests {
 		$this->assertEquals($contentType, $response->getHeader('Content-Type'));
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileClient() {
 		API::userClear(self::$config['userID']);
 		
@@ -1041,7 +1050,9 @@ class FileTests extends APITests {
 		Sync::logout($sessionID);
 	}
 	
-	
+	/**
+	 * @group classic-sync
+	 */
 	public function testAddFileClientZip() {
 		API::userClear(self::$config['userID']);
 		

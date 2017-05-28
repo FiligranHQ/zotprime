@@ -40,7 +40,9 @@ class TranslationTests extends APITests {
 		API::userClear(self::$config['userID']);
 	}
 	
-	
+	/**
+	 * @group translation
+	 */
 	public function testWebTranslationSingle() {
 		$response = API::userPost(
 			self::$config['userID'],

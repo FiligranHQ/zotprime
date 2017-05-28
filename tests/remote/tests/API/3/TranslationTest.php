@@ -60,7 +60,9 @@ class TranslationTests extends APITests {
 		$this->assertEquals($title, $data['title']);
 	}
 	
-	
+	/**
+	 * @group failing-translation
+	 */
 	public function testWebTranslationSingleWithChildItems() {
 		$title = 'A Clustering Approach to Identify Intergenic Non-coding RNA in Mouse Macrophages';
 		
@@ -93,7 +95,9 @@ class TranslationTests extends APITests {
 			. "complete PDF document.", $data['note']);
 	}
 	
-	
+	/**
+	 * @group failing-translation
+	 */
 	public function testWebTranslationMultiple() {
 		$title = 'Zotero: A Guide for Librarians, Researchers and Educators';
 		

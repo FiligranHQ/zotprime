@@ -29,6 +29,9 @@ use API3 as API, HTTP, Z_Tests;
 require_once 'APITests.inc.php';
 require_once 'include/api3.inc.php';
 
+/**
+ * @group s3
+ */
 class PublicationsTests extends APITests {
 	private static $toDelete = [];
 	
