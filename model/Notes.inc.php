@@ -87,7 +87,7 @@ class Zotero_Notes {
 			return $text;
 		}
 		
-		$url = "http://127.0.0.1:" . Z_CONFIG::$HTMLCLEAN_PORT;
+		$url = Z_CONFIG::$HTMLCLEAN_SERVER_URL;
 		
 		$start = microtime(true);
 		
