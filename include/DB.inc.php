@@ -92,13 +92,7 @@ class Zotero_DB {
 		$lastLinkFailed = !empty($options['lastLinkFailed']);
 		$writeInReadMode = !empty($options['writeInReadMode']);
 		
-		// TEMP
-		if (get_called_class() == 'Zotero_FullText_DB') {
-			$linkID = "FT" . $shardID;
-		}
-		else {
-			$linkID = $shardID;
-		}
+		$linkID = $shardID;
 		
 		if ($this->isReadOnly($shardID) && $isWriteQuery && !$writeInReadMode) {
 			throw new Exception("Cannot get link for writing to shard $shardID in read-only mode");
@@ -276,14 +270,8 @@ class Zotero_DB {
 			}
 		}
 		
-		// TEMP: For now, use separate host
-		if (get_called_class() == 'Zotero_FullText_DB') {
-			$auth = Zotero_DBConnectAuth('fulltext');
-			$config['host'] = $auth['host'];
-			$config['port'] = $auth['port'];
-		}
 		// For admin, use user/pass from master
-		else if (get_called_class() == 'Zotero_Admin_DB') {
+		if (get_called_class() == 'Zotero_Admin_DB') {
 			$auth = Zotero_DBConnectAuth($this->db);
 			$config['username'] = $auth['user'];
 			$config['password'] = $auth['pass'];
@@ -1342,15 +1330,6 @@ class Zotero_DB {
 		// Remove prepared statements for this connection
 		$conn->statements = [];
 		$conn->link->closeConnection();
-	}
-}
-
-
-class Zotero_FullText_DB extends Zotero_DB {
-	protected $db = 'fulltext';
-	
-	protected function __construct() {
-		parent::__construct();
 	}
 }
 

@@ -22,14 +22,6 @@ function Zotero_dbConnectAuth($db) {
 		$user = '';
 		$pass = '';
 	}
-	else if ($db == 'fulltext') {
-		$host = '';
-		$port = '';
-		$db = false;
-		$user = false;
-		$pass = false;
-		$charset = 'utf8mb4';
-	}
 	else if ($db == 'id1') {
 		$host = '';
 		$port = 3306;
