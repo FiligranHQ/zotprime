@@ -66,20 +66,6 @@ class Zotero_DB {
 		// Set up main link
 		$auth = Zotero_DBConnectAuth($this->db);
 		$this->connections[0] = $this->getConnection(0, $auth);
-		
-		// Read replicas
-		if (isset($auth['replicas'])) {
-			$this->replicaConnections[0] = [];
-			foreach ($auth['replicas'] as $replica) {
-				$connInfo = $auth;
-				$connInfo['host'] = $replica['host'];
-				$connInfo['port'] = !empty($replica['port']) ? $replica['port'] : null;
-				$connInfo['driver_options'] = [
-					'MYSQLI_OPT_CONNECT_TIMEOUT' => 2
-				];
-				$this->replicaConnections[0][] = $this->getConnection(0, $connInfo);
-			}
-		}
 	}
 	
 	
@@ -106,7 +92,7 @@ class Zotero_DB {
 		// Read-only mode
 		if ($this->isReadOnly($shardID) && !$writeInReadMode) {
 			// Use a cached replica link if available.
-			if (!empty($this->replicaConnections[$linkID])) {
+			if (isset($this->replicaConnections[$linkID])) {
 				// If the last link failed, try the next one. If no more, that's fatal.
 				if ($lastLinkFailed) {
 					$lastHost = $this->replicaConnections[$linkID][0]->host;
@@ -174,6 +160,13 @@ class Zotero_DB {
 					$connInfo['user'] = $authInfo['user'];
 					$connInfo['pass'] = $authInfo['pass'];
 					$connInfo['charset'] = !empty($authInfo['charset']) ? $authInfo['charset'] : null;
+					
+					// Use a lower connection timeout for read replicas
+					if ($connInfo['host'] != $writerAddress) {
+						$connInfo['driver_options'] = [
+							'MYSQLI_OPT_CONNECT_TIMEOUT' => 2
+						];
+					}
 					
 					$conn = $this->getConnection($linkID, $connInfo);
 					
