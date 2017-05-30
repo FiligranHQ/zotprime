@@ -29,7 +29,7 @@ class Zotero_Errors {
 	 * Extract from exception an error message, HTTP response code, and whether
 	 * the exception should be logged
 	 */
-	public static function parseException(Exception $e) {
+	public static function parseException(Throwable $e) {
 		$error = array(
 			'exception' => $e
 		);

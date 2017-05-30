@@ -1158,7 +1158,7 @@ class ApiController extends Controller {
     }
     
 	
-	public function handleException(Exception $e) {
+	public function handleException(Throwable $e) {
 		$error = Zotero_Errors::parseException($e);
 		
 		if (!empty($error['log'])) {
