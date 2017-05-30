@@ -4,10 +4,16 @@ function Zotero_dbConnectAuth($db) {
 	
 	if ($db == 'master') {
 		$host = '';
+		$replicas = [
+			[
+				'host' => ''
+			]
+		];
 		$port = 3306;
 		$db = '';
 		$user = '';
 		$pass = '';
+		$state = 'up'; // 'up', 'readonly', 'down'
 	}
 	else if ($db == 'shard') {
 		$host = false;
@@ -55,13 +61,15 @@ function Zotero_dbConnectAuth($db) {
 	else {
 		throw new Exception("Invalid db '$db'");
 	}
-	return array(
+	return [
 		'host' => $host,
+		'replicas' => !empty($replicas) ? $replicas : [],
 		'port' => $port,
 		'db' => $db,
 		'user' => $user,
 		'pass' => $pass,
-		'charset' => $charset
-	);
+		'charset' => $charset,
+		'state' => !empty($state) ? $state : 'up'
+	];
 }
 ?>

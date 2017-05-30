@@ -65,21 +65,21 @@ class Zotero_DB {
 	protected function __construct() {
 		// Set up main link
 		$auth = Zotero_DBConnectAuth($this->db);
-		$conn = new Zotero_DB_Connection;
-		$conn->shardID = 0;
-		$conn->host = $auth['host'];
-		$conn->link = new Zend_Db_Adapter_Mysqli([
-			'host'     => $auth['host'],
-			'port'     => $auth['port'],
-			'username' => $auth['user'],
-			'password' => $auth['pass'],
-			'dbname'   => $auth['db'],
-			'charset'  => !empty($auth['charset']) ? $auth['charset'] : 'utf8',
-			'driver_options' => array(
-				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
-			)
-		]);
-		$this->connections[0] = $conn;
+		$this->connections[0] = $this->getConnection(0, $auth);
+		
+		// Read replicas
+		if (isset($auth['replicas'])) {
+			$this->replicaConnections[0] = [];
+			foreach ($auth['replicas'] as $replica) {
+				$connInfo = $auth;
+				$connInfo['host'] = $replica['host'];
+				$connInfo['port'] = !empty($replica['port']) ? $replica['port'] : null;
+				$connInfo['driver_options'] = [
+					'MYSQLI_OPT_CONNECT_TIMEOUT' => 2
+				];
+				$this->replicaConnections[0][] = $this->getConnection(0, $connInfo);
+			}
+		}
 	}
 	
 	
@@ -104,12 +104,6 @@ class Zotero_DB {
 			throw new Exception("Cannot get link for writing to shard $shardID in read-only mode");
 		}
 		
-		// Master queries always use the cached link that was created at class construction
-		if ($shardID == 0) {
-			//error_log($this->connections[$linkID]->link->getConnection()->host_info);
-			return $this->connections[$linkID];
-		}
-		
 		// For read-only mode and read queries, use a cached link if available. Since this is
 		// done before checking the latest shard info, it's possible for subsequent read queries
 		// in a request to go through even if the shard was since disabled, but that's generally
@@ -118,7 +112,7 @@ class Zotero_DB {
 		// Read-only mode
 		if ($this->isReadOnly($shardID) && !$writeInReadMode) {
 			// Use a cached replica link if available.
-			if (isset($this->replicaConnections[$linkID])) {
+			if (!empty($this->replicaConnections[$linkID])) {
 				// If the last link failed, try the next one. If no more, that's fatal.
 				if ($lastLinkFailed) {
 					$lastHost = $this->replicaConnections[$linkID][0]->host;
@@ -140,7 +134,15 @@ class Zotero_DB {
 			return $this->connections[$linkID];
 		}
 		
-		$shardInfo = Zotero_Shards::getShardInfo($shardID);
+		// If not a shard, get info from config file
+		if ($shardID === 0) {
+			$shardInfo = Zotero_DBConnectAuth($this->db);
+			// Use DB name as shardHostID
+			$shardInfo['shardHostID'] = $this->db;
+		}
+		else {
+			$shardInfo = Zotero_Shards::getShardInfo($shardID);
+		}
 		if (!$shardInfo) {
 			throw new Exception("Invalid shard $shardID");
 		}
@@ -155,7 +157,12 @@ class Zotero_DB {
 		}
 		
 		if ($this->isReadOnly($shardID) && !$writeInReadMode) {
-			$replicas = Zotero_Shards::getReplicaInfo($shardInfo['shardHostID']);
+			if (isset($shardInfo['replicas'])) {
+				$replicas = $shardInfo['replicas'];
+			}
+			else {
+				$replicas = Zotero_Shards::getReplicaInfo($shardInfo['shardHostID']);
+			}
 			if ($replicas) {
 				$writerCacheKey = 'shardHostReplicasWriter_' . $shardInfo['shardHostID'];
 				$writerAddress = Z_Core::$MC->get($writerCacheKey);
@@ -164,16 +171,19 @@ class Zotero_DB {
 				// Randomize replica order
 				shuffle($replicas);
 				foreach ($replicas as $replica) {
-					$info = $shardInfo;
-					$info['address'] = $replica['address'];
-					$info['port'] = $replica['port'];
+					$connInfo = $shardInfo;
+					// TEMP: Remove 'address'
+					$connInfo['host'] = !empty($replica['host']) ? $replica['host'] : $replica['address'];
+					$connInfo['port'] = !empty($replica['port']) ? $replica['port'] : 3306;
 					
-					$conn = new Zotero_DB_Connection;
-					$conn->host = $info['address'];
-					$conn->shardID = $linkID;
-					$conn->link = $this->getLinkFromConnectionInfo($info);
+					$authInfo = $shardID === 0 ? $shardInfo : Zotero_DBConnectAuth('shard');
+					$connInfo['user'] = $authInfo['user'];
+					$connInfo['pass'] = $authInfo['pass'];
+					$connInfo['charset'] = !empty($authInfo['charset']) ? $authInfo['charset'] : null;
 					
-					if ($replica['address'] == $writerAddress) {
+					$conn = $this->getConnection($linkID, $connInfo);
+					
+					if ($connInfo['host'] == $writerAddress) {
 						$writerConn = $conn;
 					}
 					else {
@@ -229,30 +239,42 @@ class Zotero_DB {
 		// Host isn't read-only or down, so write queries can use a cached link if available.
 		// Otherwise, make a new link.
 		if (!isset($this->connections[$linkID])) {
-			$conn = new Zotero_DB_Connection;
-			$conn->host = $shardInfo['address'];
-			$conn->shardID = $linkID;
-			$conn->link = $this->getLinkFromConnectionInfo($shardInfo);
-			$this->connections[$linkID] = $conn;
+			// TEMP: Remove 'address'
+			$shardInfo['host'] = !empty($shardInfo['host']) ? $shardInfo['host'] : $shardInfo['address'];
+			
+			if ($linkID) {
+				$authInfo = Zotero_DBConnectAuth('shard');
+				$shardInfo['user'] = $authInfo['user'];
+				$shardInfo['pass'] = $authInfo['pass'];
+				$shardInfo['charset'] = !empty($authInfo['charset']) ? $authInfo['charset'] : null;
+			}
+			
+			$this->connections[$linkID] = $this->getConnection($linkID, $shardInfo);
 		}
 		//error_log($this->connections[$linkID]->link->getConnection()->host_info);
 		return $this->connections[$linkID];
 	}
 	
 	
-	private function getLinkFromConnectionInfo($connInfo) {
-		$auth = Zotero_DBConnectAuth('shard');
-		$config = array(
-			'host'     => $connInfo['address'],
-			'port'     => $connInfo['port'],
-			'username' => $auth['user'],
-			'password' => $auth['pass'],
-			'dbname'   => $connInfo['db'],
-			'charset'  => !empty($auth['charset']) ? $auth['charset'] : 'utf8',
-			'driver_options' => array(
+	private function getConnection($shardID, $info) {
+		$config = [
+			'host'     => $info['host'],
+			'port'     => $info['port'],
+			'username' => $info['user'],
+			'password' => $info['pass'],
+			'dbname'   => $info['db'],
+			'charset'  => !empty($info['charset']) ? $info['charset'] : 'utf8',
+			'driver_options' => [
 				"MYSQLI_OPT_CONNECT_TIMEOUT" => 5
-			)
-		);
+			]
+		];
+		
+		// Apply connection options
+		if (isset($info['driver_options'])) {
+			foreach ($info['driver_options'] as $key => $val) {
+				$config['driver_options'][$key] = $val;
+			}
+		}
 		
 		// TEMP: For now, use separate host
 		if (get_called_class() == 'Zotero_FullText_DB') {
@@ -267,14 +289,19 @@ class Zotero_DB {
 			$config['password'] = $auth['pass'];
 		}
 		
+		$conn = new Zotero_DB_Connection;
+		$conn->shardID = $shardID;
+		$conn->host = $info['host'];
+		
 		$link = new Zend_Db_Adapter_Mysqli($config);
 		
 		// If profile was previously enabled, enable it for this link
 		if ($this->profilerEnabled) {
 			$link->getProfiler()->setEnabled(true);
 		}
+		$conn->link = $link;
 		
-		return $link;
+		return $conn;
 	}
 	
 	
