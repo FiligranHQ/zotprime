@@ -154,7 +154,7 @@ class Zotero_FullText {
 				Zotero_DB::rollback();
 				
 				// If item key given, include that
-				$resultKey = isset($jsonObject->key) ? $jsonObject->$key : '';
+				$resultKey = isset($jsonObject->key) ? $jsonObject->key : '';
 				$results->addFailure($i, $resultKey, $e);
 			}
 			$i++;
