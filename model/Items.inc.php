@@ -69,7 +69,7 @@ class Zotero_Items {
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
 		
 		$isPublications = !empty($params['publications']);
-		if ($params['publications'] && Zotero_Libraries::getType($libraryID) == 'publications') {
+		if ($isPublications && Zotero_Libraries::getType($libraryID) == 'publications') {
 			$isPublications = false;
 		}
 		

@@ -52,6 +52,51 @@ class ItemsController extends ApiController {
 		$results = array();
 		$title = "";
 		
+		if ($this->objectGlobalItemID) {
+			$id = $this->objectGlobalItemID;
+			$libraryItems = Zotero_GlobalItems::getGlobalItemLibraryItems($id);
+			if (!$libraryItems) {
+				$this->e404();
+			}
+			// TODO: Improve pagination
+			// Pagination isn't reliable here, because we
+			// don't know if library and key exist and if we have permissions
+			// to access it, until we actually query specific library and key.
+			// Empty object placeholders should be returned where item
+			// retrieval fails, or otherwise all items before 'start' must be fetched
+			$start = $this->queryParams['start'];
+			$limit = $this->queryParams['limit'];
+			$libraryItems = array_slice($libraryItems, $start, $limit);
+			
+			// Group items by libraryID to later query all library's items at once
+			$groupedLibraryItems = [];
+			for ($i = 0, $len = sizeOf($libraryItems); $i < $len; $i++) {
+				list($libraryID, $key) = $libraryItems[$i];
+				$groupedLibraryItems[$libraryID][] = $key;
+			}
+			
+			$allResults = [];
+			foreach ($groupedLibraryItems as $libraryID => $keys) {
+				if (!$this->permissions->canAccess($libraryID)) {
+					continue;
+				}
+				// Do not pass $this->queryParams directly to prevent
+				// other query parameters from influencing Zotero_Items::search
+				$params = [
+					'format' => $this->queryParams['format'],
+					'itemKey' => $keys
+				];
+				$results = Zotero_Items::search(
+					$libraryID,
+					false,
+					$params
+				);
+				$allResults = array_merge($allResults, $results);
+			}
+			$this->generateMultiResponse($allResults);
+			$this->end();
+		}
+		
 		//
 		// Single item
 		//

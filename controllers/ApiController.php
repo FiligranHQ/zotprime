@@ -44,6 +44,7 @@ class ApiController extends Controller {
 	protected $objectUserID; // userID of object owner
 	protected $objectGroupID; // groupID of object owner
 	protected $objectLibraryID; // libraryID of object owner
+	protected $objectGlobalItemID;
 	protected $scopeObject;
 	protected $scopeObjectID;
 	protected $scopeObjectKey;
