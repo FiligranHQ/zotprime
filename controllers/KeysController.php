@@ -28,10 +28,16 @@ require('ApiController.php');
 
 class KeysController extends ApiController {
 	public function keys() {
+		$syncStart = false;
+		
 		$userID = $this->objectUserID;
 		$key = $this->objectName;
 		if ($key == 'current') {
 			$key = $this->apiKey;
+			
+			if (strpos($_SERVER['HTTP_USER_AGENT'], 'Zotero/') !== false) {
+				$syncStart = true;
+			}
 		}
 		
 		$this->allowMethods(['GET', 'POST', 'PUT', 'DELETE']);
@@ -80,6 +86,10 @@ class KeysController extends ApiController {
 					
 					header('application/json');
 					echo Zotero_Utilities::formatJSON($json);
+					
+					if ($syncStart) {
+						StatsD::increment("sync.start");
+					}
 				}
 				else {
 					$this->responseXML = $keyObj->toXML();
