@@ -42,9 +42,6 @@ class GlobalItemsController extends ApiController {
 		else if (!empty($_GET['isbn'])) {
 			$params['isbn'] = $_GET['isbn'];
 		}
-		else if (!empty($_GET['url'])) {
-			$params['url'] = $_GET['url'];
-		}
 		else {
 			$this->e400("One of the following query parameters must be used: q, doi, isbn, url");
 		}

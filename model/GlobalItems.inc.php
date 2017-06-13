@@ -49,9 +49,6 @@ class Zotero_GlobalItems {
 			else if (!empty($params['isbn'])) {
 				$requestURL .= '?isbn=' . rawurlencode($params['isbn']);
 			}
-			else if (!empty($params['url'])) {
-				$requestURL .= '?url=' . rawurlencode($params['url']);
-			}
 			else {
 				throw new Exception("Missing query parameter");
 			}
