@@ -113,6 +113,7 @@ class Zotero_GlobalItems {
 		$result = self::getGlobalItems($params);
 		if (!$result) return false;
 		$libraryItems = $result['data']['libraryItems'];
+		sort($libraryItems);
 		$parsedLibraryItems = [];
 		for ($i = 0, $len = sizeOf($libraryItems); $i < $len; $i++) {
 			list($libraryID, $key) = explode('/', $libraryItems[$i]);

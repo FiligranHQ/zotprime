@@ -64,9 +64,9 @@ class ItemsController extends ApiController {
 			// to access it, until we actually query specific library and key.
 			// Empty object placeholders should be returned where item
 			// retrieval fails, or otherwise all items before 'start' must be fetched
-			$start = $this->queryParams['start'];
+			//$start = $this->queryParams['start'];
+			$start = 0;
 			$limit = $this->queryParams['limit'];
-			$libraryItems = array_slice($libraryItems, $start, $limit);
 			
 			// Group items by libraryID to later query all library's items at once
 			$groupedLibraryItems = [];
@@ -75,11 +75,21 @@ class ItemsController extends ApiController {
 				$groupedLibraryItems[$libraryID][] = $key;
 			}
 			
-			$allResults = [];
+			$allResults = ['results' => [], 'total' => 0];
 			foreach ($groupedLibraryItems as $libraryID => $keys) {
 				if (!$this->permissions->canAccess($libraryID)) {
 					continue;
 				}
+				
+				$remaining = $limit - sizeOf($allResults['results']);
+				if (!$remaining) {
+					// If not adding more items, add approximate total based on number of items from
+					// libraryItems array. These might not all exist if they've been deleted recently,
+					// but we don't want to keep searching for all items after reaching the limit.
+					$allResults['total'] += sizeOf($keys);
+					continue;
+				}
+				
 				// Do not pass $this->queryParams directly to prevent
 				// other query parameters from influencing Zotero_Items::search
 				$params = [
@@ -91,7 +101,11 @@ class ItemsController extends ApiController {
 					false,
 					$params
 				);
-				$allResults = array_merge($allResults, $results);
+				$allResults['results'] = array_merge(
+					$allResults['results'],
+					array_slice($results['results'], 0, $remaining)
+				);
+				$allResults['total'] += $results['total'];
 			}
 			$this->generateMultiResponse($allResults);
 			$this->end();
