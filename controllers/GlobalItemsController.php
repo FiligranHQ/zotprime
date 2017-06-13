@@ -43,7 +43,7 @@ class GlobalItemsController extends ApiController {
 			$params['isbn'] = $_GET['isbn'];
 		}
 		else {
-			$this->e400("One of the following query parameters must be used: q, doi, isbn, url");
+			$this->e400("One of the following query parameters must be used: q, doi, isbn");
 		}
 		
 		$params['start'] = $this->queryParams['start'];
