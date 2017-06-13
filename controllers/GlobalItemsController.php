@@ -53,6 +53,8 @@ class GlobalItemsController extends ApiController {
 		for ($i = 0, $len = sizeOf($result['data']); $i < $len; $i++) {
 			unset($result['data'][$i]['libraryItems']);
 			unset($result['data'][$i]['meta']['instanceCount']);
+			$result['data'][$i]['meta']['numLibraries'] = $result['data'][$i]['meta']['librariesCount'];
+			unset($result['data'][$i]['meta']['librariesCount']);
 		}
 		
 		header('Content-Type: application/json');
