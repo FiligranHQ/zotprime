@@ -75,6 +75,10 @@ class ApiController extends Controller {
 			$this->e503(Z_CONFIG::$MAINTENANCE_MESSAGE);
 		}
 		
+		if (!empty(Z_CONFIG::$BACKOFF)) {
+			header("Backoff: " . Z_CONFIG::$BACKOFF);
+		}
+		
 		set_exception_handler(array($this, 'handleException'));
 		// TODO: Throw error on some notices but allow DB/Memcached/etc. failures?
 		//set_error_handler(array($this, 'handleError'), E_ALL | E_USER_ERROR | E_RECOVERABLE_ERROR);
@@ -284,6 +288,9 @@ class ApiController extends Controller {
 				$this->permissions->setAnonymous();
 			}
 		}
+		
+		// Request limiter needs initialized authentication parameters
+		$this->initRequestLimiter();
 		
 		$this->uri = Z_CONFIG::$API_BASE_URI . substr($_SERVER["REQUEST_URI"], 1);
 		
@@ -568,6 +575,113 @@ class ApiController extends Controller {
 	//
 	// Protected methods
 	//
+
+	protected function initRequestLimiter() {
+		$limits = $this->limits();
+		
+		// Skip request limiter if controller 'limits' functions doesn't return anything
+		if (empty($limits)) {
+			return;
+		}
+		
+		// Skip if neither rate nor concurrency limit isn't set
+		if (empty($limits['rate']) && empty($limits['concurrency'])) {
+			return;
+		}
+		
+		// Skip if logOnly parameter isn't set
+		// (other parameters are checked in Z_RequestLimiter)
+		if (!empty($limits['rate']) && !isset($limits['rate']['logOnly']) ||
+			!empty($limits['concurrency']) && !isset($limits['concurrency']['logOnly'])) {
+			Z_Core::logError('Warning: Missing logOnly parameter, skipping request limiter');
+			return;
+		}
+		
+		// Skip if failed to initialize (i.e. Redis error)
+		if (!Z_RequestLimiter::init()) return;
+		
+		// Initialize rate limiter
+		if (!empty($limits['rate'])) {
+			if (Z_RequestLimiter::checkBucketRate($limits['rate']) === false) {
+				StatsD::increment('api.request.limit.rate.rejected', 1);
+				Z_Core::logError('Request rate limit exceeded for' . $limits['rate']['bucket']);
+				if (!$limits['rate']['logOnly']) {
+					// Suggest to retry when the full capacity will be reached
+					header('Retry-After: ' . (int) $limits['rate']['capacity'] / $limits['rate']['replenishRate']);
+					$this->e429('Request rate limit exceeded');
+				}
+			}
+		}
+		
+		// Initialize concurrency limiter
+		if (!empty($limits['concurrency'])) {
+			if (Z_RequestLimiter::beginConcurrentRequest($limits['concurrency']) === false) {
+				StatsD::increment('api.request.limit.concurrency.rejected', 1);
+				Z_Core::logError('Concurrent request limit exceeded for ' . $limits['concurrency']['bucket']);
+				if (!$limits['concurrency']['logOnly']) {
+					// Randomize retry suggestion delay to spread future requests in a wider time interval
+					header('Retry-After: ' . rand(1, 30));
+					$this->e429('Concurrent request limit exceeded');
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Override this function on other controllers
+	 * to set different request limits
+	 * @return array ['rate'=>[], 'concurrency'=>[]]
+	 */
+	protected function limits() {
+		$limits = [];
+		// Rate limit
+		// For authorized request
+		if (!empty($this->userID)) {
+			// 10 requests per second, 100 requests burst
+			$limits['rate'] = [
+				'logOnly' => false,
+				'bucket' => $this->userID . '_' . $_SERVER['REMOTE_ADDR'],
+				'capacity' => 100,
+				'replenishRate' => 10
+			];
+		}
+		// For anonymous request
+		else {
+			// 30 requests per second, no burst
+			$limits['rate'] = [
+				'logOnly' => false,
+				'bucket' => $_SERVER['REMOTE_ADDR'],
+				'capacity' => 30,
+				'replenishRate' => 30
+			];
+		}
+		
+		// Concurrency limit
+		// For authorized request
+		if (!empty($this->userID)) {
+			// 5 concurrent requests
+			$limits['concurrency'] = [
+				'logOnly' => false,
+				'bucket' => $this->userID,
+				'capacity' => 5,
+				// Maximum possible time the request can take
+				'ttl' => 60
+			];
+		}
+		// For anonymous request
+		else {
+			// 20 concurrent requests
+			$limits['concurrency'] = [
+				'logOnly' => false,
+				'bucket' => $_SERVER['REMOTE_ADDR'],
+				'capacity' => 20,
+				// Maximum possible time the request can take
+				'ttl' => 60
+			];
+		}
+		return $limits;
+	}
+	
 	protected function getFeedNamePrefix($libraryID=false) {
 		$prefix = "Zotero / ";
 		if ($libraryID) {
@@ -981,6 +1095,10 @@ class ApiController extends Controller {
 	
 	
 	protected function end() {
+		if (Z_RequestLimiter::isConcurrentRequestActive()) {
+			Z_RequestLimiter::finishConcurrentRequest();
+		}
+		
 		if ($this->profile) {
 			Zotero_DB::profileEnd($this->objectLibraryID, true);
 		}
