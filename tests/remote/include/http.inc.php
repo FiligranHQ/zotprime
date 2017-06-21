@@ -44,7 +44,11 @@ class HTTP {
 			$req->setAuth($auth['username'], $auth['password']);
 		}
 		$req->setHeader("Expect:");
-		$req->setConfig('ssl_verify_peer', false);
+		$req->setConfig([
+			'ssl_verify_peer' => false,
+			'ssl_verify_host' => false
+		]);
+		
 		return $req;
 	}
 	
