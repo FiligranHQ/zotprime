@@ -139,9 +139,9 @@ class Zotero_Libraries {
 	
 	
 	public static function updateVersionAndTimestamp($libraryID) {
-		self::updateVersion($libraryID);
 		$timestamp = self::updateTimestamps($libraryID);
 		Zotero_DB::registerTransactionTimestamp($timestamp);
+		self::updateVersion($libraryID);
 	}
 	
 	
