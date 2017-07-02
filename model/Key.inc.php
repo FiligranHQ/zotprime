@@ -296,7 +296,7 @@ class Zotero_Key {
 					'add',
 					'apikey-library',
 					array_map(function ($libraryID) {
-						return $this->key . "-" . $libraryID;
+						return $this->id . "-" . $libraryID;
 					}, array_unique($librariesToAdd))
 				);
 			}
@@ -305,7 +305,7 @@ class Zotero_Key {
 					'remove',
 					'apikey-library',
 					array_map(function ($libraryID) {
-						return $this->key . "-" . $libraryID;
+						return $this->id . "-" . $libraryID;
 					}, array_unique($librariesToRemove))
 				);
 			}
@@ -442,6 +442,9 @@ class Zotero_Key {
 		}
 		
 		$json = [];
+		if (!empty($_GET['showid'])) {
+			$json['id'] = $this->id;
+		}
 		$json['key'] = $this->key;
 		$json['userID'] = $this->userID;
 		$json['username'] = Zotero_Users::getUsername($this->userID);

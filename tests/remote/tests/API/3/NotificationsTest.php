@@ -123,13 +123,14 @@ class NotificationsTests extends APITests {
 		];
 		
 		$response = API::superPost(
-			'users/' . self::$config['userID'] . '/keys',
+			'users/' . self::$config['userID'] . '/keys?showid=1',
 			json_encode($json)
 		);
 		$this->assert201($response);
 		try {
 			$json = API::getJSONFromResponse($response);
 			$apiKey = $json['key'];
+			$apiKeyID = $json['id'];
 			
 			// Add a group to the key, which should trigger topicAdded
 			$json['access']['groups'][self::$config['ownedPrivateGroupID']] = [
@@ -145,7 +146,7 @@ class NotificationsTests extends APITests {
 			$this->assertCountNotifications(1, $response);
 			$this->assertHasNotification([
 				'event' => 'topicAdded',
-				'apiKey' => $apiKey,
+				'apiKeyID' => $apiKeyID,
 				'topic' => '/groups/' . self::$config['ownedPrivateGroupID']
 			], $response);
 		}
@@ -181,6 +182,7 @@ class NotificationsTests extends APITests {
 			]
 		]);
 		$apiKey = $json['key'];
+		$apiKeyID = $json['id'];
 		
 		try {
 			// Remove group from the key, which should trigger topicRemoved
@@ -194,7 +196,7 @@ class NotificationsTests extends APITests {
 			$this->assertCountNotifications(1, $response);
 			$this->assertHasNotification([
 				'event' => 'topicRemoved',
-				'apiKey' => $apiKey,
+				'apiKeyID' => $apiKeyID,
 				'topic' => '/groups/' . self::$config['ownedPrivateGroupID']
 			], $response);
 		}
@@ -217,6 +219,7 @@ class NotificationsTests extends APITests {
 			]
 		]);
 		$apiKey = $json['key'];
+		$apiKeyID = $json['id'];
 		
 		try {
 			// Get list of available groups
@@ -239,7 +242,7 @@ class NotificationsTests extends APITests {
 			foreach ($groupIDs as $groupID) {
 				$this->assertHasNotification([
 					'event' => 'topicAdded',
-					'apiKey' => $apiKey,
+					'apiKeyID' => $apiKeyID,
 					'topic' => '/groups/' . $groupID
 				], $response);
 			}
@@ -268,6 +271,7 @@ class NotificationsTests extends APITests {
 			]
 		]);
 		$apiKey = $json['key'];
+		$apiKeyID = $json['id'];
 		
 		try {
 			// Get list of available groups
@@ -294,7 +298,7 @@ class NotificationsTests extends APITests {
 			foreach ($groupIDs as $groupID) {
 				$this->assertHasNotification([
 					'event' => 'topicAdded',
-					'apiKey' => $apiKey,
+					'apiKeyID' => $apiKeyID,
 					'topic' => '/groups/' . $groupID
 				], $response);
 			}
@@ -316,6 +320,7 @@ class NotificationsTests extends APITests {
 		
 		$json = $this->createKeyWithAllGroupAccess(self::$config['userID']);
 		$apiKey = $json['key'];
+		$apiKeyID = $json['id'];
 		
 		try {
 			// Get list of available groups
@@ -347,7 +352,7 @@ class NotificationsTests extends APITests {
 			foreach ($groupIDs as $groupID) {
 				$this->assertHasNotification([
 					'event' => 'topicRemoved',
-					'apiKey' => $apiKey,
+					'apiKeyID' => $apiKeyID,
 					'topic' => '/groups/' . $removedGroup
 				], $response);
 			}
@@ -379,9 +384,11 @@ class NotificationsTests extends APITests {
 			try {
 				$this->assertCountNotifications(sizeOf($allGroupsKeys), $response);
 				foreach ($allGroupsKeys as $key) {
+					$response2 = API::superGet("keys/$key?showid=1");
+					$json2 = API::getJSONFromResponse($response2);
 					$this->assertHasNotification([
 						'event' => 'topicAdded',
-						'apiKey' => $key,
+						'apiKeyID' => $json2['id'],
 						'topic' => '/groups/' . $groupID
 					], $response);
 				}
@@ -434,9 +441,11 @@ class NotificationsTests extends APITests {
 				$this->assert200($response);
 				$this->assertCountNotifications(sizeOf($allGroupsKeys), $response);
 				foreach ($allGroupsKeys as $key) {
+					$response2 = API::superGet("keys/$key?showid=1");
+					$json2 = API::getJSONFromResponse($response2);
 					$this->assertHasNotification([
 						'event' => 'topicAdded',
-						'apiKey' => $key,
+						'apiKeyID' => $json2['id'],
 						'topic' => '/groups/' . $groupID
 					], $response);
 				}
@@ -446,9 +455,11 @@ class NotificationsTests extends APITests {
 				$this->assert204($response);
 				$this->assertCountNotifications(sizeOf($allGroupsKeys), $response);
 				foreach ($allGroupsKeys as $key) {
+					$response2 = API::superGet("keys/$key?showid=1");
+					$json2 = API::getJSONFromResponse($response2);
 					$this->assertHasNotification([
 						'event' => 'topicRemoved',
-						'apiKey' => $key,
+						'apiKeyID' => $json2['id'],
 						'topic' => '/groups/' . $groupID
 					], $response);
 				}
@@ -487,7 +498,7 @@ class NotificationsTests extends APITests {
 			'access' => $access
 		];
 		$response = API::superPost(
-			"users/$userID/keys",
+			"users/$userID/keys?showid=1",
 			json_encode($json)
 		);
 		$this->assert201($response);

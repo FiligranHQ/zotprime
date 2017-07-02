@@ -324,7 +324,7 @@ class Zotero_Group {
 		// Send library add notification for all user's API keys with access to this group
 		$apiKeys = Zotero_Keys::getUserKeysWithLibrary($userID, $this->libraryID);
 		Zotero_Notifier::trigger('add', 'apikey-library', array_map(function ($key) {
-			return $key->key . "-" . $this->libraryID;
+			return $key->id . "-" . $this->libraryID;
 		}, $apiKeys));
 		
 		// If group is locked by a sync, flag for later timestamp update
@@ -434,7 +434,7 @@ class Zotero_Group {
 		// Send library removal notification for all user's API keys with access to this group
 		$apiKeys = Zotero_Keys::getUserKeysWithLibrary($userID, $this->libraryID);
 		Zotero_Notifier::trigger('remove', 'apikey-library', array_map(function ($key) {
-			return $key->key . "-" . $this->libraryID;
+			return $key->id . "-" . $this->libraryID;
 		}, $apiKeys));
 		
 		// If group is locked by a sync, flag for later timestamp update
@@ -665,14 +665,14 @@ class Zotero_Group {
 			// with access to this group
 			$apiKeys = Zotero_Keys::getUserKeysWithLibrary($currentOwner, $this->libraryID);
 			Zotero_Notifier::trigger('remove', 'apikey-library', array_map(function ($key) {
-				return $key->key . "-" . $this->libraryID;
+				return $key->id . "-" . $this->libraryID;
 			}, $apiKeys));
 			
 			// Send library add notification for all API keys belonging to the new owner
 			// with access to this group
 			$apiKeys = Zotero_Keys::getUserKeysWithLibrary($newOwner, $this->libraryID);
 			Zotero_Notifier::trigger('add', 'apikey-library', array_map(function ($key) {
-				return $key->key . "-" . $this->libraryID;
+				return $key->id . "-" . $this->libraryID;
 			}, $apiKeys));
 		}
 		

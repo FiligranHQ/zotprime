@@ -35,13 +35,14 @@ class Zotero_NotifierObserver {
 			"NotifierObserver"
 		);
 		
-		// Send notifications to SNS by default
+		// Send notifications to Redis by default
 		self::$messageReceivers[] = function ($topic, $message) {
-			$sns = Z_Core::$AWS->createSns();
-			$sns->publish([
-				'TopicArn' => $topic,
-				'Message' => $message
-			]);
+			$redis = Z_Redis::get('notifications');
+			if (!$redis) {
+				Z_Core::logError('Error: Failed to get Redis client for notifications');
+				return;
+			};
+			$redis->publish($topic, $message);
 		};
 	}
 	
@@ -55,12 +56,6 @@ class Zotero_NotifierObserver {
 	
 	
 	public static function notify($event, $type, $ids, $extraData) {
-		if (empty(Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS)) {
-			error_log('WARNING: Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS not set '
-				. '-- skipping stream notifications');
-			return;
-		}
-		
 		if ($type == "library" || $type == "publications") {
 			switch ($event) {
 			case "modify":
@@ -75,7 +70,6 @@ class Zotero_NotifierObserver {
 				return;
 			}
 			
-			$entries = [];
 			foreach ($ids as $id) {
 				$libraryID = $id;
 				// For most libraries, get topic from URI
@@ -108,12 +102,7 @@ class Zotero_NotifierObserver {
 						$message[$key] = $val;
 					}
 				}
-				foreach (self::$messageReceivers as $receiver) {
-					$receiver(
-						Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS,
-						json_encode($message, JSON_UNESCAPED_SLASHES)
-					);
-				}
+				self::send($topic, $message);
 			}
 		}
 		else if ($type == "apikey-library") {
@@ -130,16 +119,15 @@ class Zotero_NotifierObserver {
 				return;
 			}
 			
-			$entries = [];
 			foreach ($ids as $id) {
-				list($apiKey, $libraryID) = explode("-", $id);
+				list($apiKeyID, $libraryID) = explode("-", $id);
 				// Get topic from URI
 				$topic = str_replace(
 					Zotero_URI::getBaseURI(), "/", Zotero_URI::getLibraryURI($libraryID)
 				);
 				$message = [
 					"event" => $event,
-					"apiKey" => $apiKey,
+					"apiKeyID" => $apiKeyID,
 					"topic" => $topic
 				];
 				
@@ -152,17 +140,18 @@ class Zotero_NotifierObserver {
 						$message[$key] = $val;
 					}
 				}
-				self::send($message);
+				
+				self::send($apiKeyID, $message);
 			}
 		}
 	}
 	
-	
-	private static function send($message) {
-		$message = json_encode($message, JSON_UNESCAPED_SLASHES);
-		Z_Core::debug("Sending notification: " . $message);
+	private static function send($channel, $message) {
 		foreach (self::$messageReceivers as $receiver) {
-			$receiver(Z_CONFIG::$SNS_TOPIC_STREAM_EVENTS, $message);
+			$receiver(
+				$channel,
+				json_encode($message, JSON_UNESCAPED_SLASHES)
+			);
 		}
 	}
 }

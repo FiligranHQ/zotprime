@@ -28,7 +28,8 @@ class Z_CONFIG {
 	
 	public static $REDIS_HOSTS = [
 		'default' => 'redis1.localdomain',
-		'cache' => 'redis-cache.localdomain'
+		'cache' => 'redis-cache.localdomain',
+		'notifications' => 'redis-notifications.localdomain'
 	];
 	public static $REDIS_PREFIX = '';
 	
@@ -47,8 +48,6 @@ class Z_CONFIG {
 	
 	public static $SEARCH_HOSTS = [''];
 	
-	public static $SNS_TOPIC_STREAM_EVENTS = 'arn:aws:sns:...';
-
 	public static $GLOBAL_ITEMS_URL = '';
 
 	public static $ATTACHMENT_SERVER_HOSTS = array("files1.localdomain", "files2.localdomain");
