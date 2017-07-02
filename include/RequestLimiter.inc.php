@@ -106,7 +106,7 @@ class Z_RequestLimiter {
 			$res = self::evalLua(self::RATE_LIMITER_LUA, $keys, $args);
 		}
 		catch (Exception $e) {
-			Z_Core::logError($e);
+			Z_Core::logError("Warning: " . $e);
 			return null;
 		}
 		return !!$res[0];
@@ -135,7 +135,7 @@ class Z_RequestLimiter {
 			$res = self::evalLua(self::CONCURRENCY_LIMITER_LUA, [$key], $args);
 		}
 		catch (Exception $e) {
-			Z_Core::logError($e);
+			Z_Core::logError("Warning: " . $e);
 			return null;
 		}
 		
@@ -172,7 +172,7 @@ class Z_RequestLimiter {
 			Z_Core::logError('Warning: Failed to eval Lua script by SHA1');
 			$res = self::$redis->eval($lua, array_merge($keys, $args), count($keys));
 			if (!$res) {
-				throw new Exception('Failed to eval Lua script');
+				throw new Exception('Failed to eval Lua script: ' . self::$redis->getLastError());
 			}
 		}
 		return $res;
