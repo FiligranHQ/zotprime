@@ -35,7 +35,8 @@ class KeysController extends ApiController {
 		if ($key == 'current') {
 			$key = $this->apiKey;
 			
-			if (strpos($_SERVER['HTTP_USER_AGENT'], 'Zotero/') !== false) {
+			if (!empty($_SERVER['HTTP_USER_AGENT'])
+					&& strpos($_SERVER['HTTP_USER_AGENT'], 'Zotero/') !== false) {
 				$syncStart = true;
 			}
 		}
