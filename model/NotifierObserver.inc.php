@@ -141,7 +141,7 @@ class Zotero_NotifierObserver {
 					}
 				}
 				
-				self::send($apiKeyID, $message);
+				self::send("api-key:$apiKeyID", $message);
 			}
 		}
 	}
