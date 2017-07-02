@@ -77,7 +77,7 @@ class Z_RequestLimiter {
 	
 	public static function init() {
 		if (self::$initialized) return true;
-		self::$redis = Z_Redis::get();
+		self::$redis = Z_Redis::get('request-limiter');
 		if (!self::$redis) return false;
 		return self::$initialized = true;
 	}

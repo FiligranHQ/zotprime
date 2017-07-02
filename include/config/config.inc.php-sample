@@ -28,8 +28,8 @@ class Z_CONFIG {
 	
 	public static $REDIS_HOSTS = [
 		'default' => 'redis1.localdomain',
-		'cache' => 'redis-cache.localdomain',
-		'notifications' => 'redis-notifications.localdomain'
+		'request-limiter' => => 'redis-transient.localdomain',
+		'notifications' => 'redis-transient.localdomain'
 	];
 	public static $REDIS_PREFIX = '';
 	
