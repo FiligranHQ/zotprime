@@ -16,7 +16,11 @@
 */
 
 class Z_RequestLimiter {
-	const REDIS_PREFIX = '';
+	// If using Redis in cluster mode, '{hash_key}' must
+	// be added to all keys to always hash to the same slot.
+	// The value can be anywhere in the key.
+	// More information: https://redis.io/topics/cluster-spec#keys-hash-tags
+	const REDIS_PREFIX = '{1}';
 	// Lua script is from https://gist.github.com/ptarjan/e38f45f2dfe601419ca3af937fff574d
 	const RATE_LIMITER_LUA = '
 		local tokens_key = KEYS[1]
