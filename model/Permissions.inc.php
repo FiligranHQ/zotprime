@@ -178,6 +178,7 @@ class Zotero_Permissions {
 		}
 		
 		switch ($permission) {
+			case 'view':
 			case 'library':
 			case 'notes':
 			case 'files':

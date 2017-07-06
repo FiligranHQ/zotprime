@@ -174,9 +174,12 @@ class API3 {
 		
 		$response = self::userPost(
 			self::$config['userID'],
-			"items?key=" . self::$config['apiKey'],
+			"items",
 			json_encode([$json]),
-			array("Content-Type: application/json")
+			[
+				"Content-Type: application/json",
+				"Zotero-API-Key: " . self::$config['apiKey']
+			]
 		);
 		
 		return self::handleCreateResponse('item', $response, $returnFormat, $context);
@@ -754,14 +757,77 @@ class API3 {
 	}
 	
 	
-	public static function setKeyOption($userID, $key, $option, $val) {
+	public static function resetKey($key) {
 		$response = self::get(
-			"users/$userID/keys/$key",
-			array(),
-			array(
+			"keys/$key",
+			[],
+			[
 				"username" => self::$config['rootUsername'],
 				"password" => self::$config['rootPassword']
-			)
+			]
+		);
+		if ($response->getStatus() != 200) {
+			var_dump($response->getBody());
+			throw new Exception("GET returned " . $response->getStatus());
+		}
+		
+		$json = self::getJSONFromResponse($response, true);
+		
+		$resetLibrary = function ($lib) {
+			foreach ($lib as $permission => $value) {
+				$lib->$permission = false;
+			}
+		};
+		// Remove all individual library permissions and remove groups section
+		if (isset($json->access->user)) {
+			$resetLibrary($json->access->user);
+		}
+		unset($json->access->groups);
+		
+		$response = self::put(
+			"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+			json_encode($json),
+			[],
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
+		if ($response->getStatus() != 200) {
+			var_dump($response->getBody());
+			throw new Exception("PUT returned " . $response->getStatus());
+		}
+	}
+	
+	
+	/**
+	 * @deprecated
+	 */
+	public static function setKeyOption($userID, $key, $option, $val) {
+		error_log("setKeyOption() is deprecated -- use setKeyUserPermission()");
+		
+		switch ($option) {
+			case 'libraryNotes':
+				$option = 'notes';
+				break;
+				
+			case 'libraryWrite':
+				$option = 'write';
+				break;
+		}
+		
+		self::setKeyUserPermission($key, $option, $val);
+	}
+	
+	
+	public static function setKeyUserPermission($key, $permission, $value) {
+		$response = self::get(
+			"keys/$key",
+			[],
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
 		);
 		if ($response->getStatus() != 200) {
 			var_dump($response->getBody());
@@ -771,24 +837,31 @@ class API3 {
 		if (self::$apiVersion >= 3) {
 			$json = self::getJSONFromResponse($response);
 			
-			switch ($option) {
-			case 'libraryNotes':
-				if (!isset($json['access']['user']) || $val == !empty($json['access']['user']['notes'])) {
+			switch ($permission) {
+			case 'library':
+				if (isset($json['access']['user']) && $value == !empty($json['access']['user']['library'])) {
 					break;
 				}
-				$json['access']['user']['notes'] = $val;
+				$json['access']['user']['library'] = $value;
 				break;
-				
-			case 'libraryWrite':
-				if (!isset($json['access']['user']) || $val == !empty($json['access']['user']['write'])) {
+			
+			case 'write':
+				if (isset($json['access']['user']) && $value == !empty($json['access']['user']['write'])) {
 					break;
 				}
-				$json['access']['user']['write'] = $val;
+				$json['access']['user']['write'] = $value;
+				break;
+			
+			case 'notes':
+				if (isset($json['access']['user']) && $value == !empty($json['access']['user']['notes'])) {
+					break;
+				}
+				$json['access']['user']['notes'] = $value;
 				break;
 			}
 			
 			$response = self::put(
-				"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+				"keys/" . self::$config['apiKey'],
 				json_encode($json),
 				[],
 				[
@@ -806,39 +879,84 @@ class API3 {
 				throw $e;
 			}
 			foreach ($xml->access as $access) {
-				switch ($option) {
-				case 'libraryNotes':
-					if (!isset($access['library'])) {
-						break;
-					}
-					$current = (int) $access['notes'];
-					if ($current != $val) {
-						$access['notes'] = (int) $val;
+				switch ($permission) {
+				case 'library':
+					$current = (int) $access['library'];
+					if ($current != $value) {
+						$access['library'] = (int) $value;
 					}
 					break;
 				
-				case 'libraryWrite':
+				case 'write':
 					if (!isset($access['library'])) {
 						continue;
 					}
 					$current = (int) $access['write'];
-					if ($current != $val) {
-						$access['write'] = (int) $val;
+					if ($current != $value) {
+						$access['write'] = (int) $value;
+					}
+					break;
+				
+				case 'notes':
+					if (!isset($access['library'])) {
+						break;
+					}
+					$current = (int) $access['notes'];
+					if ($current != $value) {
+						$access['notes'] = (int) $value;
 					}
 					break;
 				}
 			}
 			
 			$response = self::put(
-				"users/" . self::$config['userID'] . "/keys/" . self::$config['apiKey'],
+				"keys/" . self::$config['apiKey'],
 				$xml->asXML(),
-				array(),
-				array(
+				[],
+				[
 					"username" => self::$config['rootUsername'],
 					"password" => self::$config['rootPassword']
-				)
+				]
 			);
 		}
+		if ($response->getStatus() != 200) {
+			var_dump($response->getBody());
+			throw new Exception("PUT returned " . $response->getStatus());
+		}
+	}
+	
+	
+	public static function setKeyGroupPermission($key, $groupID, $permission, $value) {
+		$response = self::get(
+			"keys/$key",
+			[],
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
+		if ($response->getStatus() != 200) {
+			var_dump($response->getBody());
+			throw new Exception("GET returned " . $response->getStatus());
+		}
+		
+		$json = self::getJSONFromResponse($response);
+		if (!isset($json['access'])) {
+			$json['access'] = [];
+		}
+		if (!isset($json['access']['groups'])) {
+			$json['access']['groups'] = [];
+		}
+		$json['access']['groups'][$groupID][$permission] = true;
+		$response = self::put(
+			"keys/" . $key,
+			json_encode($json),
+			[],
+			[
+				"username" => self::$config['rootUsername'],
+				"password" => self::$config['rootPassword']
+			]
+		);
 		if ($response->getStatus() != 200) {
 			var_dump($response->getBody());
 			throw new Exception("PUT returned " . $response->getStatus());

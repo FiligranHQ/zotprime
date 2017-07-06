@@ -576,8 +576,9 @@ class Zotero_Key {
 				// Key-based access to library provides file access as well
 				$this->permissions[$row['libraryID']]['files'] = !!$row['granted'];
 				
-				// Key-based access to group libraries provides note access as well
 				if ($row['libraryID'] === 0 || Zotero_Libraries::getType($row['libraryID']) == 'group') {
+					// Key-based access to group libraries implies view and note access
+					$this->permissions[$row['libraryID']]['view'] = !!$row['granted'];
 					$this->permissions[$row['libraryID']]['notes'] = !!$row['granted'];
 				}
 			}

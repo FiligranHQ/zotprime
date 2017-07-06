@@ -32,10 +32,12 @@ require_once 'include/api3.inc.php';
 class PermissionsTest extends APITests {
 	private static $publicGroupID;
 	
-	public function tearDown() {
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
-		);
+	public function setUp() {
+		parent::setUp();
+		API::resetKey(self::$config['apiKey']);
+		API::setKeyUserPermission(self::$config['apiKey'], 'library', true);
+		API::setKeyUserPermission(self::$config['apiKey'], 'write', true);
+		API::setKeyGroupPermission(self::$config['apiKey'], 0, 'write', true);
 	}
 	
 	
@@ -74,14 +76,39 @@ class PermissionsTest extends APITests {
 	
 	
 	public function testUserGroupsOwned() {
-		$response = API::get(
-			"users/" . self::$config['userID'] . "/groups?content=json"
-			. "&key=" . self::$config['apiKey']
-		);
+		API::useAPIKey(self::$config['apiKey']);
+		$response = API::userGet(self::$config['userID'], "groups");
 		$this->assert200($response);
 		
 		$this->assertNumResults(self::$config['numOwnedGroups'], $response);
 		$this->assertTotalResults(self::$config['numOwnedGroups'], $response);
+	}
+	
+	
+	public function test_should_see_private_group_listed_when_using_key_with_library_read_access() {
+		API::resetKey(self::$config['apiKey']);
+		$response = API::userGet(self::$config['userID'], "groups");
+		$this->assert200($response);
+		
+		$this->assertNumResults(self::$config['numPublicGroups'], $response);
+		
+		// Grant key read permission to library
+		API::setKeyGroupPermission(
+			self::$config['apiKey'],
+			self::$config['ownedPrivateGroupID'],
+			'library',
+			true
+		);
+		
+		$response = API::userGet(self::$config['userID'], "groups");
+		$this->assertNumResults(self::$config['numOwnedGroups'], $response);
+		$this->assertTotalResults(self::$config['numOwnedGroups'], $response);
+		
+		$json = API::getJSONFromResponse($response);
+		$groupIDs = array_map(function ($data) {
+			return $data['id'];
+		}, $json);
+		$this->assertContains(self::$config['ownedPrivateGroupID'], $groupIDs);
 	}
 	
 	
@@ -115,13 +142,37 @@ class PermissionsTest extends APITests {
 	}
 	
 	
+	public function test_shouldnt_be_able_to_write_to_group_using_key_with_library_read_access() {
+		API::resetKey(self::$config['apiKey']);
+		
+		// Grant key read (not write) permission to library
+		API::setKeyGroupPermission(
+			self::$config['apiKey'],
+			self::$config['ownedPrivateGroupID'],
+			'library',
+			true
+		);
+		
+		$response = API::get("items/new?itemType=book");
+		$json = json_decode($response->getBody(), true);
+		
+		$response = API::groupPost(
+			self::$config['ownedPrivateGroupID'],
+			"items",
+			json_encode([
+				"items" => [$json]
+			]),
+			["Content-Type: application/json"]
+		);
+		$this->assert403($response);
+	}
+	
+	
 	/**
 	 * A key without note access shouldn't be able to create a note
 	 */
 	/*public function testKeyNoteAccessWriteError() {
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 0
-		);
+		API::setKeyUserPermission(self::$config['apiKey'], 'notes', false);
 		
 		$response = API::get("items/new?itemType=note");
 		$json = json_decode($response->getBody());
@@ -142,9 +193,7 @@ class PermissionsTest extends APITests {
 	public function testKeyNoteAccess() {
 		API::userClear(self::$config['userID']);
 		
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
-		);
+		API::setKeyUserPermission(self::$config['apiKey'], 'notes', true);
 		
 		$keys = array();
 		$topLevelKeys = array();
@@ -254,9 +303,7 @@ class PermissionsTest extends APITests {
 		$this->assertCount(sizeOf($topKeys), explode("\n", trim($response->getBody())));
 		
 		// Remove notes privilege from key
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 0
-		);
+		API::setKeyUserPermission(self::$config['apiKey'], 'notes', false);
 		
 		//
 		// format=json
@@ -358,9 +405,7 @@ class PermissionsTest extends APITests {
 		
 		$libraryVersion = API::getLibraryVersion();
 		
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 0
-		);
+		API::setKeyUserPermission(self::$config['apiKey'], 'write', false);
 		
 		$response = API::userDelete(
 			self::$config['userID'],
@@ -368,9 +413,7 @@ class PermissionsTest extends APITests {
 		);
 		$this->assert403($response);
 		
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
-		);
+		API::setKeyUserPermission(self::$config['apiKey'], 'write', true);
 		
 		$response = API::userDelete(
 			self::$config['userID'],

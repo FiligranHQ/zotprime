@@ -46,12 +46,8 @@ class APITests extends \APITests {
 		
 		API::useAPIVersion(3);
 		
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryNotes', 1
-		);
-		API::setKeyOption(
-			self::$config['userID'], self::$config['apiKey'], 'libraryWrite', 1
-		);
+		API::setKeyUserPermission(self::$config['apiKey'], 'notes', true);
+		API::setKeyUserPermission(self::$config['apiKey'], 'write', true);
 	}
 	
 	
