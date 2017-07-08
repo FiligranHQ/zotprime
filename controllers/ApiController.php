@@ -604,7 +604,9 @@ class ApiController extends Controller {
 		if (!empty($limits['rate'])) {
 			if (Z_RequestLimiter::checkBucketRate($limits['rate']) === false) {
 				StatsD::increment('api.request.limit.rate.rejected', 1);
-				Z_Core::logError('Request rate limit exceeded for' . $limits['rate']['bucket']);
+				Z_Core::logError(($limits['rate']['logOnly'] ? '(WARN) ' : '')
+					. 'Request rate limit exceeded for ' . $limits['rate']['bucket']
+					. ' for ' . $this->method . ' to ' . $_SERVER['REQUEST_URI']);
 				if (!$limits['rate']['logOnly']) {
 					// Suggest to retry when the full capacity will be reached
 					header('Retry-After: ' . (int) $limits['rate']['capacity'] / $limits['rate']['replenishRate']);
@@ -617,7 +619,9 @@ class ApiController extends Controller {
 		if (!empty($limits['concurrency'])) {
 			if (Z_RequestLimiter::beginConcurrentRequest($limits['concurrency']) === false) {
 				StatsD::increment('api.request.limit.concurrency.rejected', 1);
-				Z_Core::logError('Concurrent request limit exceeded for ' . $limits['concurrency']['bucket']);
+				Z_Core::logError(($limits['concurrency']['logOnly'] ? '(WARN) ' : '')
+					. 'Concurrent request limit exceeded for ' . $limits['concurrency']['bucket']
+					. ' for ' . $this->method . ' to ' . $_SERVER['REQUEST_URI']);
 				if (!$limits['concurrency']['logOnly']) {
 					// Randomize retry suggestion delay to spread future requests in a wider time interval
 					header('Retry-After: ' . rand(1, 30));
