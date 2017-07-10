@@ -143,11 +143,15 @@ class Z_RequestLimiter {
 			return null;
 		}
 		
-		self::$concurrentRequest = [
-			'bucket' => $params['bucket'],
-			'id' => $id
-		];
-		return !!$res[0];
+		$allowed = !!$res[0];
+		if ($allowed) {
+			self::$concurrentRequest = [
+				'bucket' => $params['bucket'],
+				'id' => $id
+			];
+		}
+		
+		return $allowed;
 	}
 	
 	/**
@@ -166,6 +170,7 @@ class Z_RequestLimiter {
 			Z_Core::logError($e);
 			return null;
 		}
+		self::$concurrentRequest = null;
 		return true;
 	}
 	
