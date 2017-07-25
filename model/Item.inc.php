@@ -939,7 +939,7 @@ class Zotero_Item extends Zotero_DataObject {
 		}
 		
 		if ($this->cacheEnabled) {
-			$cacheVersion = 1;
+			$cacheVersion = 2;
 			$cacheKey = $this->getCacheKey("itemInPublications", $cacheVersion);
 			$inPublications = Z_Core::$MC->get($cacheKey);
 		}
@@ -947,9 +947,16 @@ class Zotero_Item extends Zotero_DataObject {
 			$inPublications = false;
 		}
 		if ($inPublications === false) {
-			$sql = "SELECT COUNT(*) FROM publicationsItems WHERE itemID=?";
-			$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
-			$inPublications = !!Zotero_DB::valueQueryFromStatement($stmt, $this->id);
+			// Only user items can be in My Publications
+			$libraryType = Zotero_Libraries::getType($this->libraryID);
+			if ($libraryType != 'user') {
+				$inPublications = false;
+			}
+			else {
+				$sql = "SELECT COUNT(*) FROM publicationsItems WHERE itemID=?";
+				$stmt = Zotero_DB::getStatement($sql, true, Zotero_Shards::getByLibraryID($this->libraryID));
+				$inPublications = !!Zotero_DB::valueQueryFromStatement($stmt, $this->id);
+			}
 			
 			// Memcache returns false for empty keys, so use integer
 			if ($this->cacheEnabled) {
