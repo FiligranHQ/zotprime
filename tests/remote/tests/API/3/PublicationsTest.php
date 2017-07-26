@@ -894,6 +894,18 @@ class PublicationsTests extends APITests {
 	}
 	
 	
+	public function test_shouldnt_allow_inPublications_in_group_library() {
+		API::useAPIKey(self::$config['apiKey']);
+		$json = API::getItemTemplate("book");
+		$json->inPublications = true;
+		$response = API::groupPost(
+			self::$config['ownedPrivateGroupID'],
+			"items",
+			json_encode([$json])
+		);
+		
+		$this->assert400ForObject($response, "Group items cannot be added to My Publications");
+	}
 	
 	
 	private function implodeParams($params, $exclude=array()) {
