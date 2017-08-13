@@ -234,9 +234,15 @@ class Zotero_Attachments {
 	
 	// Filenames are in Mozilla's getRelativeDescriptor() format
 	public static function decodeRelativeDescriptorString($str) {
-		$str = Z_Unicode::convertCharStr2CP($str, false, true, 'hex');
-		$str = Z_Unicode::convertUTF82Char($str);
-		return $str;
+		try {
+			$converted = Z_Unicode::convertCharStr2CP($str, false, true, 'hex');
+			$converted = Z_Unicode::convertUTF82Char($converted);
+		}
+		catch (Exception $e) {
+			Z_Core::logError("Warning: " . $e->getMessage());
+			return $str;
+		}
+		return $converted;
 	}
 	
 	
