@@ -191,6 +191,7 @@ CREATE TABLE `items` (
   PRIMARY KEY (`itemID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
   KEY `itemTypeID` (`itemTypeID`)
+  KEY `serverDateModified` (`serverDateModified`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
 
 
