@@ -179,6 +179,10 @@ class APITests extends \APITests {
 			$xml = new SimpleXMLElement($xml);
 			$this->assertEquals($num, count($xml->entry));
 		}
+		else if ($contentType == 'application/x-bibtex') {
+			$matched = preg_match_all('/^@[a-z]+{/m', $response->getBody());
+			$this->assertEquals($num, $matched);
+		}
 		else {
 			throw new Exception("Unknown content type '$contentType'");
 		}

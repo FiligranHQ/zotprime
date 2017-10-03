@@ -1008,6 +1008,7 @@ class Zotero_API {
 	
 	public static function multiResponse($options, $overrideFormat=false) {
 		$format = $overrideFormat ? $overrideFormat : $options['requestParams']['format'];
+		$isExportFormat = in_array($format, Zotero_Translate::$exportFormats);
 		
 		if (empty($options['results'])) {
 			$options['results'] = [
@@ -1024,17 +1025,16 @@ class Zotero_API {
 			}
 		}
 		
-		switch ($format) {
-		case 'atom':
-		case 'csljson':
-		case 'json':
-		case 'keys':
-		case 'versions':
-			$link = Zotero_API::buildLinkHeader($options['action'], $options['uri'], $totalResults, $options['requestParams']);
+		if (in_array($format, ['atom', 'csljson', 'json', 'keys', 'versions']) || $isExportFormat) {
+			$link = Zotero_API::buildLinkHeader(
+				$options['action'],
+				$options['uri'],
+				$totalResults,
+				$options['requestParams']
+			);
 			if ($link) {
 				header($link);
 			}
-			break;
 		}
 		
 		if (!empty($options['head'])) {
@@ -1085,7 +1085,14 @@ class Zotero_API {
 				break;
 			
 			default:
-				throw new Exception("Unexpected format '" . $options['requestParams']['format'] . "'");
+				if ($isExportFormat) {
+					$export = Zotero_Translate::doExport($options['results'], $options['requestParams']);
+					header("Content-Type: " . $export['mimeType']);
+					echo $export['body'];
+				}
+				else {
+					throw new Exception("Unexpected format '$format'");
+				}
 		}
 	}
 	

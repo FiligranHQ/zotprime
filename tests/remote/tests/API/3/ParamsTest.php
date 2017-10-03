@@ -271,6 +271,10 @@ class ParamsTests extends APITests {
 		}
 		
 		switch ($objectType) {
+		case 'item':
+			array_push($formats, 'bibtex');
+			break;
+			
 		case 'tag':
 			$formats = array_filter($formats, function ($val) { return !in_array($val, ['keys']); });
 			break;

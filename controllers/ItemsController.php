@@ -685,7 +685,9 @@ class ItemsController extends ApiController {
 			'permissions' => $this->permissions,
 			'head' => $this->method == 'HEAD'
 		];
-		switch ($this->queryParams['format']) {
+		$format = $this->queryParams['format'];
+		
+		switch ($format) {
 			case 'atom':
 				$this->responseXML = Zotero_API::multiResponse(
 					array_merge(
@@ -715,13 +717,13 @@ class ItemsController extends ApiController {
 				break;
 			
 			default:
-				if ($this->method == 'HEAD') {
-					break;
+				if (Zotero_Translate::isExportFormat($format)) {
+					Zotero_API::multiResponse($options);
+					$this->queryParams['format'] = null;
 				}
-				$export = Zotero_Translate::doExport($results['results'], $this->queryParams);
-				$this->queryParams['format'] = null;
-				header("Content-Type: " . $export['mimeType']);
-				echo $export['body'];
+				else {
+					throw new Exception("Unexpected format '$format'");
+				}
 		}
 	}
 	

@@ -224,5 +224,9 @@ class Zotero_Translate {
 		
 		return $obj;
 	}
+	
+	
+	public static function isExportFormat($format) {
+		return in_array($format, self::$exportFormats);
+	}
 }
-?>
