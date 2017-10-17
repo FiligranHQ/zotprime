@@ -237,7 +237,7 @@ CREATE TABLE `savedSearchConditions` (
 CREATE TABLE `savedSearches` (
   `searchID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
-  `searchName` varchar(255) NOT NULL,
+  `searchName` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,

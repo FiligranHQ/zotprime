@@ -249,6 +249,23 @@ class SearchTests extends APITests {
 	}
 	
 	
+	public function test_should_allow_a_search_with_an_emoji_in_the_name() {
+		$json = API::createSearch(
+			"🐶", // 4-byte character
+			[
+				[
+					"condition" => "title",
+					"operator" => "contains",
+					"value" => "test"
+				]
+			],
+			$this,
+			'responseJSON'
+		);
+		$this->assert200ForObject($json);
+	}
+	
+	
 	public function testNewSearchNoConditions() {
 		$json = API::createSearch("Test", array(), $this, 'responseJSON');
 		$this->assert400ForObject($json, "'conditions' cannot be empty");
