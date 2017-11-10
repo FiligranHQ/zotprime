@@ -446,6 +446,44 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function test_deleting_a_tag_should_update_a_linked_item() {
+		$tags = ["a", "aa", "b"];
+		
+		$itemKey = API::createItem("book", [
+			"tags" => array_map(function ($tag) {
+				return ["tag" => $tag];
+			}, $tags)
+		], $this, 'key');
+		
+		$libraryVersion = API::getLibraryVersion();
+		
+		// Make sure they're on the item
+		$json = API::getItem($itemKey, $this, 'json');
+		$this->assertEquals($tags, array_map(function ($tag) { return $tag['tag']; }, $json['data']['tags']));
+		
+		// Delete
+		$response = API::userDelete(
+			self::$config['userID'],
+			"tags?tag={$tags[0]}",
+			["If-Unmodified-Since-Version: $libraryVersion"]
+		);
+		$this->assert204($response);
+		
+		// Make sure they're gone from the item
+		$response = API::userGet(
+			self::$config['userID'],
+			"items?since=$libraryVersion"
+		);
+		$this->assert200($response);
+		$this->assertNumResults(1, $response);
+		$json = API::getJSONFromResponse($response);
+		$this->assertEquals(
+			array_map(function ($tag) { return $tag['tag']; }, $json[0]['data']['tags']),
+			array_slice($tags, 1)
+		);
+	}
+	
+	
 	/**
 	 * When modifying a tag on an item, only the item itself should have its
 	 * version updated, not other items that had (and still have) the same tag

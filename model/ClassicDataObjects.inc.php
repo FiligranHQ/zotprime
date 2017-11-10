@@ -516,7 +516,7 @@ class Zotero_ClassicDataObjects {
 	}
 	
 	
-	public static function delete($libraryID, $key) {
+	public static function delete($libraryID, $key, $userID=false) {
 		$table = static::field('table');
 		$id = static::field('id');
 		$type = static::field('object');
@@ -558,9 +558,12 @@ class Zotero_ClassicDataObjects {
 				$libraryID, $uri, array(Zotero_Relations::$deletedItemPredicate)
 			);
 		}
-		// Tag deletions need to stored by tag for the API
 		else if ($type == 'tag') {
+			// Tag deletions need to stored by tag for the API
 			$tagName = $obj->name;
+			
+			// Update linked items
+			Zotero_Items::updateVersions($obj->getLinkedItems(), $userID);
 		}
 		
 		if ($type == 'item' && $obj->isAttachment()) {

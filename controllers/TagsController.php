@@ -112,7 +112,7 @@ class TagsController extends ApiController {
 					$tagIDs = Zotero_Tags::getIDs($this->objectLibraryID, $tagName);
 					foreach ($tagIDs as $tagID) {
 						$tag = Zotero_Tags::get($this->objectLibraryID, $tagID, true);
-						Zotero_Tags::delete($this->objectLibraryID, $tag->key);
+						Zotero_Tags::delete($this->objectLibraryID, $tag->key, $this->objectUserID);
 					}
 				}
 				Zotero_DB::commit();

@@ -393,11 +393,8 @@ class Zotero_Tag {
 			return $this->linkedItems;
 		}
 		
-		// In PHP 5.4 $this->libraryID can be used directly in the closure
-		$libraryID = $this->libraryID;
-		
 		return array_map(function ($key) use ($libraryID) {
-			return Zotero_Items::getByLibraryAndKey($libraryID, $this->linkedItems);
+			return Zotero_Items::getByLibraryAndKey($this->libraryID, $key);
 		}, $this->linkedItems);
 	}
 	
