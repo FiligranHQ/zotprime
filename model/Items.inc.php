@@ -2382,6 +2382,10 @@ class Zotero_Items {
 					break;
 				
 				case 'inPublications':
+					if (!$val) {
+						break;
+					}
+					
 					if ($libraryType != 'user') {
 						throw new Exception(
 							ucwords($libraryType) . " items cannot be added to My Publications",
@@ -2389,14 +2393,14 @@ class Zotero_Items {
 						);
 					}
 					
-					if ($val && !$isChild && ($itemType == 'note' || $itemType == 'attachment')) {
+					if (!$isChild && ($itemType == 'note' || $itemType == 'attachment')) {
 						throw new Exception(
 							"Top-level notes and attachments cannot be added to My Publications",
 							Z_ERROR_INVALID_INPUT
 						);
 					}
 					
-					if ($val && $itemType == 'attachment') {
+					if ($itemType == 'attachment') {
 						$linkMode = isset($json->linkMode)
 							? strtolower($json->linkMode)
 							: $item->attachmentLinkMode;
