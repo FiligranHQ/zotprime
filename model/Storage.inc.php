@@ -860,12 +860,17 @@ class Zotero_Storage {
 	}
 	
 	public static function getUserUsage($userID) {
-		$usage = array();
+		$cacheKey = "userStorageUsage_" . $userID;
+		$usage = Z_Core::$MC->get($cacheKey);
+		if ($usage) {
+			return $usage;
+		}
 		
+		$usage = [];
 		$libraryID = Zotero_Users::getLibraryIDFromUserID($userID);
 		
-		$sql = "SELECT SUM(size) AS bytes FROM storageFileItems
-				JOIN items USING (itemID) WHERE libraryID=?";
+		$sql = "SELECT SUM(size) AS bytes FROM storageFileItems "
+				. "JOIN items USING (itemID) WHERE libraryID=?";
 		$libraryBytes = Zotero_DB::valueQuery($sql, $libraryID, Zotero_Shards::getByLibraryID($libraryID));
 		$usage['library'] = round($libraryBytes / 1024 / 1024, 1);
 		
@@ -901,6 +906,9 @@ class Zotero_Storage {
 		}
 		
 		$usage['total'] = round(($libraryBytes + $groupBytes) / 1024 / 1024, 1);
+		
+		Z_Core::$MC->set($cacheKey, $usage, 10);
+		
 		return $usage;
 	}
 	
