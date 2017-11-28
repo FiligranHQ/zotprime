@@ -1173,7 +1173,16 @@ class ApiController extends Controller {
 			if ($this->isWriteMethod()) {
 				if ($this->libraryVersion >
 						Zotero_Libraries::getOriginalVersion($this->objectLibraryID)) {
-					Zotero_Notifier::trigger('modify', 'library', $this->objectLibraryID);
+					Zotero_Notifier::trigger(
+						'modify',
+						'library',
+						$this->objectLibraryID,
+						[
+							$this->objectLibraryID => [
+								'version' => $this->libraryVersion
+							]
+						]
+					);
 				}
 			}
 		}
