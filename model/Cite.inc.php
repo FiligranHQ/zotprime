@@ -317,27 +317,27 @@ class Zotero_Cite {
 				if (Zotero_Date::isSQLDateTime($date)) {
 					$date = substr($date, 0, 10);
 				}
-				$cslItem[$key] = array("raw" => $date);
+				$cslItem[$key] = ["raw" => $date];
 				
 				$date = Zotero_Date::strToDate($date);
 				
-				if (!empty($date['part']) && !$date['month']) {
+				if (!empty($date['part']) && empty($date['month'])) {
 					// if there's a part but no month, interpret literally
-					$cslItem[$variable] = array("literal" => $date['part']);
+					$cslItem[$key] = ["literal" => $date['part']];
 				}
 				else {
 					// otherwise, use date-parts
-					$dateParts = array();
-					if ($date['year']) {
+					$dateParts = [];
+					if (!empty($date['year'])) {
 						$dateParts[] = $date['year'];
-						if ($date['month']) {
+						if (!empty($date['month'])) {
 							$dateParts[] = $date['month'] - 1; // Mimics JS
-							if ($date['day']) {
+							if (!empty($date['day'])) {
 								$dateParts[] = $date['day'];
 							}
 						}
 					}
-					$cslItem[$key] = array("date-parts" => array($dateParts));
+					$cslItem[$key] = ["date-parts" => [$dateParts]];
 				}
 			}
 		}
