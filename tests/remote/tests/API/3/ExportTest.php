@@ -32,7 +32,7 @@ require_once 'include/api3.inc.php';
 class ExportTests extends APITests {
 	private static $items;
 	private static $multiResponses = [];
-	private static $formats = ['bibtex', 'ris'];
+	private static $formats = ['bibtex', 'ris', 'csljson'];
 	
 	public static function setUpBeforeClass() {
 		parent::setUpBeforeClass();
@@ -52,7 +52,23 @@ class ExportTests extends APITests {
 		), null, 'key');
 		self::$items[$key] = [
 			'bibtex' => "\n@book{last_title_2014,\n	title = {Title},\n	author = {Last, First},\n	month = jan,\n	year = {2014}\n}",
-			'ris' => "TY  - BOOK\r\nTI  - Title\r\nAU  - Last, First\r\nDA  - 2014/01/01/\r\nPY  - 2014\r\nER  - \r\n\r\n"
+			'ris' => "TY  - BOOK\r\nTI  - Title\r\nAU  - Last, First\r\nDA  - 2014/01/01/\r\nPY  - 2014\r\nER  - \r\n\r\n",
+			'csljson' => [
+				'id' => self::$config['libraryID'] . "/$key",
+				'type' => 'book',
+				'title' => 'Title',
+				'author' => [
+					[
+						'family' => 'Last',
+						'given' => 'First'
+					]
+				],
+				'issued' => [
+					'date-parts' => [
+						['2014', 0, 1]
+					]
+				]
+			]
 		];
 		
 		$key = API::createItem("book", array(
@@ -73,7 +89,29 @@ class ExportTests extends APITests {
 		), null, 'key');
 		self::$items[$key] = [
 			'bibtex' => "\n@book{last_title_2014,\n	title = {Title 2},\n	author = {Last, First},\n	editor = {McEditor, Ed},\n	month = jun,\n	year = {2014}\n}",
-			'ris' => "TY  - BOOK\r\nTI  - Title 2\r\nAU  - Last, First\r\nA3  - McEditor, Ed\r\nDA  - 2014/06/24/\r\nPY  - 2014\r\nER  - \r\n\r\n"
+			'ris' => "TY  - BOOK\r\nTI  - Title 2\r\nAU  - Last, First\r\nA3  - McEditor, Ed\r\nDA  - 2014/06/24/\r\nPY  - 2014\r\nER  - \r\n\r\n",
+			'csljson' => [
+				'id' => self::$config['libraryID'] . "/$key",
+				'type' => 'book',
+				'title' => 'Title 2',
+				'author' => [
+					[
+						'family' => 'Last',
+						'given' => 'First'
+					]
+				],
+				'editor' => [
+					[
+						'family' => 'McEditor',
+						'given' => 'Ed'
+					]
+				],
+				'issued' => [
+					'date-parts' => [
+						['2014', 5, 24]
+					]
+				]
+			]
 		];
 		
 		self::$multiResponses = [
@@ -84,6 +122,51 @@ class ExportTests extends APITests {
 			'ris' => [
 				"contentType" => "application/x-research-info-systems",
 				"content" => "TY  - BOOK\r\nTI  - Title 2\r\nAU  - Last, First\r\nA3  - McEditor, Ed\r\nDA  - 2014/06/24/\r\nPY  - 2014\r\nER  - \r\n\r\nTY  - BOOK\r\nTI  - Title\r\nAU  - Last, First\r\nDA  - 2014/01/01/\r\nPY  - 2014\r\nER  - \r\n\r\n"
+			],
+			'csljson' => [
+				"contentType" => "application/vnd.citationstyles.csl+json",
+				"content" => [
+					'items' => [
+						[
+							'id' => self::$config['libraryID'] . "/" . array_keys(self::$items)[1],
+							'type' => 'book',
+							'title' => 'Title 2',
+							'author' => [
+								[
+									'family' => 'Last',
+									'given' => 'First'
+								]
+							],
+							'editor' => [
+								[
+									'family' => 'McEditor',
+									'given' => 'Ed'
+								]
+							],
+							'issued' => [
+								'date-parts' => [
+									['2014', 5, 24]
+								]
+							]
+						],
+						[
+							'id' => self::$config['libraryID'] . "/"  . array_keys(self::$items)[0],
+							'type' => 'book',
+							'title' => 'Title',
+							'author' => [
+								[
+									'family' => 'Last',
+									'given' => 'First'
+								]
+							],
+							'issued' => [
+								'date-parts' => [
+									['2014', 0, 1]
+								]
+							]
+						]
+					]
+				]
 			]
 		];
 	}
@@ -118,7 +201,11 @@ class ExportTests extends APITests {
 					"items/$key?format=$format"
 				);
 				$this->assert200($response);
-				$this->assertEquals($expected[$format], $response->getBody());
+				$body = $response->getBody();
+				if (is_array($expected[$format])) {
+					$body = json_decode($body, true);
+				}
+				$this->assertEquals($expected[$format], $body);
 			}
 		}
 	}
@@ -132,7 +219,11 @@ class ExportTests extends APITests {
 			);
 			$this->assert200($response);
 			$this->assertContentType(self::$multiResponses[$format]['contentType'], $response);
-			$this->assertEquals(self::$multiResponses[$format]['content'], $response->getBody());
+			$body = $response->getBody();
+			if (is_array(self::$multiResponses[$format]['content'])) {
+				$body = json_decode($body, true);
+			}
+			$this->assertEquals(self::$multiResponses[$format]['content'], $body);
 		}
 	}
 }

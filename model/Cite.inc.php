@@ -318,8 +318,6 @@ class Zotero_Cite {
 					$date = substr($date, 0, 10);
 				}
 				$cslItem[$key] = array("raw" => $date);
-				continue;
-				
 				
 				$date = Zotero_Date::strToDate($date);
 				
@@ -333,7 +331,7 @@ class Zotero_Cite {
 					if ($date['year']) {
 						$dateParts[] = $date['year'];
 						if ($date['month']) {
-							$dateParts[] = $date['month'] + 1; // Mimics JS
+							$dateParts[] = $date['month'] - 1; // Mimics JS
 							if ($date['day']) {
 								$dateParts[] = $date['day'];
 							}
