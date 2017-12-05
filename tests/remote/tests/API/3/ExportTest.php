@@ -205,6 +205,10 @@ class ExportTests extends APITests {
 				if (is_array($expected[$format])) {
 					$body = json_decode($body, true);
 				}
+				// TODO: Remove in APIv4
+				if ($format == 'csljson') {
+					$body = $body['items'][0];
+				}
 				$this->assertEquals($expected[$format], $body);
 			}
 		}

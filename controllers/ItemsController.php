@@ -238,6 +238,8 @@ class ItemsController extends ApiController {
 					break;
 				
 				case 'csljson':
+					// TODO: Use in APIv4
+					//$json = Zotero_Cite::getJSONFromItems([$item], true)['items'][0];
 					$json = Zotero_Cite::getJSONFromItems(array($item), true);
 					echo Zotero_Utilities::formatJSON($json);
 					break;
