@@ -65,7 +65,7 @@ class ExportTests extends APITests {
 				],
 				'issued' => [
 					'date-parts' => [
-						['2014', 0, 1]
+						['2014', 1, 1]
 					]
 				]
 			]
@@ -108,7 +108,7 @@ class ExportTests extends APITests {
 				],
 				'issued' => [
 					'date-parts' => [
-						['2014', 5, 24]
+						['2014', 6, 24]
 					]
 				]
 			]
@@ -127,44 +127,8 @@ class ExportTests extends APITests {
 				"contentType" => "application/vnd.citationstyles.csl+json",
 				"content" => [
 					'items' => [
-						[
-							'id' => self::$config['libraryID'] . "/" . array_keys(self::$items)[1],
-							'type' => 'book',
-							'title' => 'Title 2',
-							'author' => [
-								[
-									'family' => 'Last',
-									'given' => 'First'
-								]
-							],
-							'editor' => [
-								[
-									'family' => 'McEditor',
-									'given' => 'Ed'
-								]
-							],
-							'issued' => [
-								'date-parts' => [
-									['2014', 5, 24]
-								]
-							]
-						],
-						[
-							'id' => self::$config['libraryID'] . "/"  . array_keys(self::$items)[0],
-							'type' => 'book',
-							'title' => 'Title',
-							'author' => [
-								[
-									'family' => 'Last',
-									'given' => 'First'
-								]
-							],
-							'issued' => [
-								'date-parts' => [
-									['2014', 0, 1]
-								]
-							]
-						]
+						self::$items[array_keys(self::$items)[1]]['csljson'],
+						self::$items[array_keys(self::$items)[0]]['csljson']
 					]
 				]
 			]

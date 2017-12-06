@@ -331,7 +331,7 @@ class Zotero_Cite {
 					if (!empty($date['year'])) {
 						$dateParts[] = $date['year'];
 						if (!empty($date['month'])) {
-							$dateParts[] = $date['month'] - 1; // Mimics JS
+							$dateParts[] = $date['month'];
 							if (!empty($date['day'])) {
 								$dateParts[] = $date['day'];
 							}
