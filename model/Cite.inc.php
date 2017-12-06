@@ -325,7 +325,10 @@ class Zotero_Cite {
 					// add year, month, and day, if they exist
 					$dateParts[] = $dateObj['year'];
 					if (isset($dateObj['month']) && is_integer($dateObj['month'])) {
-						$dateParts[] = $dateObj['month'] + 1;
+						// Note: As of Zotero 5.0.30, the client's strToDate() returns a JS-style
+						// 0-indexed month. The dataserver version doesn't do that, so we don't
+						// add one to this.
+						$dateParts[] = $dateObj['month'];
 						if (!empty($dateObj['day'])) {
 							$dateParts[] = $dateObj['day'];
 						}

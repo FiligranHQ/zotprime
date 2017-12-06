@@ -46,7 +46,7 @@ class Zotero_Date {
 	/*
 	 * converts a string to an object containing:
 	 *    day: integer form of the day
-	 *    month: integer form of the month (indexed from 0, not 1)
+	 *    month: integer form of the month
 	 *    year: 4 digit year (or, year + BC/AD/etc.)
 	 *    part: anything that does not fall under any of the above categories
 	 *          (e.g., "Summer," etc.)

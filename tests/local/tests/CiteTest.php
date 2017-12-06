@@ -26,6 +26,24 @@
 require_once 'include/bootstrap.inc.php';
 
 class DateTests extends PHPUnit_Framework_TestCase {
+	public function test_retrieveItem_should_return_correct_date_parts() {
+		$item = new Zotero_Item('book');
+		$item->setField('date', '2017-04-06T07:11:44Z');
+		$cslItem = Zotero_Cite::retrieveItem($item);
+		// "issued": {
+		//     "date-parts": [
+		//         ["2017", 4, 6]
+		//     ]
+		// }
+		$this->assertArrayHasKey('issued', $cslItem);
+		$this->assertArrayHasKey('date-parts', $cslItem['issued']);
+		$this->assertCount(1, $cslItem['issued']['date-parts']);
+		$this->assertCount(3, $cslItem['issued']['date-parts'][0]);
+		$this->assertEquals("2017", $cslItem['issued']['date-parts'][0][0]);
+		$this->assertEquals(4, $cslItem['issued']['date-parts'][0][1]);
+		$this->assertEquals(6, $cslItem['issued']['date-parts'][0][2]);
+	}
+	
 	public function test_retrieveItem_should_use_first_year_from_range() {
 		$item = new Zotero_Item('book');
 		$item->setField('date', '2011-2012');
