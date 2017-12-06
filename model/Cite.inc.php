@@ -324,7 +324,7 @@ class Zotero_Cite {
 				if (isset($dateObj['year'])) {
 					// add year, month, and day, if they exist
 					$dateParts[] = $dateObj['year'];
-					if (isset($dateObj['month']) && is_integer($date['month'])) {
+					if (isset($dateObj['month']) && is_integer($dateObj['month'])) {
 						$dateParts[] = $dateObj['month'] + 1;
 						if (!empty($dateObj['day'])) {
 							$dateParts[] = $dateObj['day'];
@@ -334,7 +334,7 @@ class Zotero_Cite {
 					
 					// if no month, use season as month
 					if (!empty($dateObj['part'])
-							&& (!isset($dateObj['month']) || !is_integer($date['month']))) {
+							&& (!isset($dateObj['month']) || !is_integer($dateObj['month']))) {
 						$cslItem[$key]['season'] = $dateObj['part'];
 					}
 				}
