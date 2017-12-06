@@ -314,30 +314,33 @@ class Zotero_Cite {
 		foreach (self::$zoteroDateMap as $key=>$val) {
 			$date = $zoteroItem->getField($val, false, true, true);
 			if ($date) {
-				if (Zotero_Date::isSQLDateTime($date)) {
+				/*if (Zotero_Date::isSQLDateTime($date)) {
 					$date = substr($date, 0, 10);
 				}
-				$cslItem[$key] = ["raw" => $date];
+				$cslItem[$key] = ["raw" => $date];*/
 				
-				$date = Zotero_Date::strToDate($date);
-				
-				if (!empty($date['part']) && empty($date['month'])) {
-					// if there's a part but no month, interpret literally
-					$cslItem[$key] = ["literal" => $date['part']];
-				}
-				else {
-					// otherwise, use date-parts
-					$dateParts = [];
-					if (!empty($date['year'])) {
-						$dateParts[] = $date['year'];
-						if (!empty($date['month'])) {
-							$dateParts[] = $date['month'];
-							if (!empty($date['day'])) {
-								$dateParts[] = $date['day'];
-							}
+				$dateObj = Zotero_Date::strToDate($date);
+				$dateParts = [];
+				if (isset($dateObj['year'])) {
+					// add year, month, and day, if they exist
+					$dateParts[] = $dateObj['year'];
+					if (isset($dateObj['month']) && is_integer($date['month'])) {
+						$dateParts[] = $dateObj['month'] + 1;
+						if (!empty($dateObj['day'])) {
+							$dateParts[] = $dateObj['day'];
 						}
 					}
 					$cslItem[$key] = ["date-parts" => [$dateParts]];
+					
+					// if no month, use season as month
+					if (!empty($dateObj['part'])
+							&& (!isset($dateObj['month']) || !is_integer($date['month']))) {
+						$cslItem[$key]['season'] = $dateObj['part'];
+					}
+				}
+				else {
+					// if no year, pass date literally
+					$cslItem[$key] = ["literal" => $date];
 				}
 			}
 		}
