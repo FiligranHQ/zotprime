@@ -575,6 +575,7 @@ class Zotero_Storage {
 		}
 		$item->save();
 		
+		self::clearUserUsage(Zotero_Libraries::getOwner($item->libraryID));
 		self::addFileLibraryReference($storageFileID, $item->libraryID);
 		
 		Zotero_DB::commit();
@@ -907,9 +908,15 @@ class Zotero_Storage {
 		
 		$usage['total'] = round(($libraryBytes + $groupBytes) / 1024 / 1024, 1);
 		
-		Z_Core::$MC->set($cacheKey, $usage, 10);
+		Z_Core::$MC->set($cacheKey, $usage, 60);
 		
 		return $usage;
+	}
+	
+	
+	private static function clearUserUsage($userID) {
+		$cacheKey = "userStorageUsage_" . $userID;
+		Z_Core::$MC->delete($cacheKey);
 	}
 	
 	
