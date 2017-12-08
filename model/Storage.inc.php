@@ -547,17 +547,6 @@ class Zotero_Storage {
 			Zotero_Libraries::updateVersionAndTimestamp($item->libraryID);
 		}
 		
-		self::updateLastAdded($storageFileID);
-		
-		// Note: We set the size on the shard so that usage queries are instantaneous
-		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?)
-				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?, size=?";
-		Zotero_DB::query(
-			$sql,
-			array($storageFileID, $item->id, $info->mtime, $info->size, $storageFileID, $info->mtime, $info->size),
-			Zotero_Shards::getByLibraryID($item->libraryID)
-		);
-		
 		// 4.0 client doesn't set filename for ZIP files
 		if (!$info->zip || !empty($info->itemFilename)) {
 			$item->attachmentFilename = !empty($info->itemFilename) ? $info->itemFilename : $info->filename;
@@ -575,11 +564,51 @@ class Zotero_Storage {
 		}
 		$item->save();
 		
+		// Note: We set the size on the shard so that usage queries are instantaneous
+		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?)
+				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?, size=?";
+		Zotero_DB::query(
+			$sql,
+			[
+				$storageFileID,
+				$item->id,
+				$info->mtime,
+				$info->size,
+				$storageFileID,
+				$info->mtime,
+				$info->size
+			],
+			Zotero_Shards::getByLibraryID($item->libraryID)
+		);
 		self::clearUserUsage(Zotero_Libraries::getOwner($item->libraryID));
 		self::addFileLibraryReference($storageFileID, $item->libraryID);
 		
 		Zotero_DB::commit();
 	}
+	
+	
+	public static function deleteFileItemInfo($item) {
+		
+		$libraryID = $item->libraryID;
+		$itemID = $item->id;
+		$shardID = Zotero_Shards::getByLibraryID($libraryID);
+		
+		$sql = "SELECT storageFileID FROM storageFileItems WHERE itemID=?";
+		$storageFileID = Zotero_DB::valueQuery($sql, $itemID, $shardID);
+		if (!$storageFileID) {
+			return;
+		}
+		
+		Zotero_DB::beginTransaction();
+		
+		$sql = "DELETE FROM storageFileItems WHERE storageFileID=?";
+		Zotero_DB::query($sql, $storageFileID, $shardID);
+		
+		self::deleteFileLibraryReference($storageFileID, $libraryID);
+		
+		Zotero_DB::commit();
+	}
+	
 	
 	public static function addFileLibraryReference($storageFileID, $libraryID) {
 		$sql = "INSERT IGNORE INTO storageFileLibraries (storageFileID, libraryID) VALUES (?,?)";

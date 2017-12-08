@@ -1796,6 +1796,195 @@ class FileTests extends APITests {
 	}
 	
 	
+	public function test_updating_attachment_hash_should_clear_associated_storage_file() {
+		$file = "work/file";
+		$fileContents = self::getRandomUnicodeString();
+		$contentType = "text/html";
+		$charset = "utf-8";
+		file_put_contents($file, $fileContents);
+		$hash = md5_file($file);
+		$filename = "test_" . $fileContents;
+		$mtime = filemtime($file) * 1000;
+		$size = filesize($file);
+		
+		$json = API::createAttachmentItem("imported_file", [
+			'contentType' => $contentType,
+			'charset' => $charset
+		], false, $this, 'jsonData');
+		$itemKey = $json['key'];
+		
+		// Get upload authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$itemKey/file",
+			$this->implodeParams([
+				"md5" => $hash,
+				"mtime" => $mtime,
+				"filename" => $filename,
+				"filesize" => $size
+			]),
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			]
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		self::$toDelete[] = "$hash";
+		
+		// Upload to S3
+		$response = HTTP::post(
+			$json['url'],
+			$json['prefix'] . $fileContents . $json['suffix'],
+			[
+				"Content-Type: {$json['contentType']}"
+			]
+		);
+		$this->assert201($response);
+		
+		// Register upload
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$itemKey/file",
+			"upload=" . $json['uploadKey'],
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			]
+		);
+		$this->assert204($response);
+		$newVersion = $response->getHeader('Last-Modified-Version');
+		
+		$filename = "test.pdf";
+		$mtime = time();
+		$hash = md5(uniqid());
+		
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey",
+			json_encode([
+				"filename" => $filename,
+				"mtime" => $mtime,
+				"md5" => $hash,
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $newVersion"
+			]
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$itemKey/file"
+		);
+		$this->assert404($response);
+	}
+	
+	
+	public function test_updating_compressed_attachment_hash_should_clear_associated_storage_file() {
+		// Create initial file
+		$fileContents = self::getRandomUnicodeString();
+		$contentType = "text/html";
+		$charset = "utf-8";
+		$filename = "file.html";
+		$mtime = time();
+		$hash = md5($fileContents);
+		
+		$json = API::createAttachmentItem("imported_file", [
+			'contentType' => $contentType,
+			'charset' => $charset
+		], false, $this, 'jsonData');
+		$itemKey = $json['key'];
+		
+		// Create initial ZIP file
+		$zip = new \ZipArchive();
+		$file = "work/$itemKey.zip";
+		if ($zip->open($file, \ZIPARCHIVE::CREATE) !== TRUE) {
+			throw new Exception("Cannot open ZIP file");
+		}
+		$zip->addFromString($filename, $fileContents);
+		$zip->addFromString("file.css", self::getRandomUnicodeString());
+		$zip->close();
+		$zipHash = md5_file($file);
+		$zipFilename = $itemKey . ".zip";
+		$zipSize = filesize($file);
+		$zipFileContents = file_get_contents($file);
+		
+		// Get upload authorization
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$itemKey/file",
+			$this->implodeParams([
+				"md5" => $hash,
+				"mtime" => $mtime,
+				"filename" => $filename,
+				"filesize" => $zipSize,
+				"zipMD5" => $zipHash,
+				"zipFilename" => $zipFilename
+			]),
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			]
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		
+		self::$toDelete[] = "$zipHash";
+		
+		// Upload to S3
+		$response = HTTP::post(
+			$json['url'],
+			$json['prefix'] . $zipFileContents . $json['suffix'],
+			[
+				"Content-Type: {$json['contentType']}"
+			]
+		);
+		$this->assert201($response);
+		
+		// Register upload
+		$response = API::userPost(
+			self::$config['userID'],
+			"items/$itemKey/file",
+			"upload=" . $json['uploadKey'],
+			[
+				"Content-Type: application/x-www-form-urlencoded",
+				"If-None-Match: *"
+			]
+		);
+		$this->assert204($response);
+		$newVersion = $response->getHeader('Last-Modified-Version');
+		
+		// Set new attachment file info
+		$hash = md5(uniqid());
+		$mtime = time();
+		$zipHash = md5(uniqid());
+		$zipSize++;
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/$itemKey",
+			json_encode([
+				"md5" => $hash,
+				"mtime" => $mtime,
+				"filename" => $filename
+			]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $newVersion"
+			]
+		);
+		$this->assert204($response);
+		
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/$itemKey/file"
+		);
+		$this->assert404($response);
+	}
+	
+	
 	// TODO: Reject for keys not owned by user, even if public library
 	public function testLastStorageSyncNoAuthorization() {
 		API::useAPIKey(false);

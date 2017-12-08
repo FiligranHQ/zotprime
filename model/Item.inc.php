@@ -1742,6 +1742,13 @@ class Zotero_Item extends Zotero_DataObject {
 						$storageHash ? $storageHash : null
 					);
 					Zotero_DB::query($sql, $bindParams, $shardID);
+					
+					// If the storage hash changed, clear the file association. We can't just
+					// associate with an existing file if one exists because the file might be
+					// stored in WebDAV, and we don't want to affect the user's quota.
+					if (!empty($this->changed['attachmentData']['storageHash'])) {
+						Zotero_Storage::deleteFileItemInfo($this);
+					}
 				}
 				
 				// Sort fields
