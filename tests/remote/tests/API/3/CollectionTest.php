@@ -465,5 +465,12 @@ class CollectionTests extends APITests {
 		);
 		$this->assert204($response);
 	}
+	
+	
+	public function test_should_allow_emoji_in_name() {
+		$name = "🐶"; // 4-byte character
+		$json = API::createCollection($name, false, $this, 'json');
+		$this->assertEquals($name, (string) $json['data']['name']);
+	}
 }
 ?>

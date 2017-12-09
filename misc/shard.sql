@@ -42,7 +42,7 @@ CREATE TABLE `collectionItems` (
 CREATE TABLE `collections` (
   `collectionID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
-  `collectionName` varchar(255) NOT NULL,
+  `collectionName` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `parentCollectionID` int(10) unsigned DEFAULT NULL,
   `key` char(8) NOT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -61,8 +61,8 @@ CREATE TABLE `creators` (
   `creatorID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
   `creatorDataHash` char(32) CHARACTER SET ascii DEFAULT NULL,
-  `firstName` varchar(255) DEFAULT NULL,
-  `lastName` varchar(255) DEFAULT NULL,
+  `firstName` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `lastName` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `fieldMode` tinyint(1) unsigned DEFAULT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -132,7 +132,7 @@ CREATE TABLE `itemData` (
   `itemID` int(10) unsigned NOT NULL,
   `fieldID` smallint(5) unsigned NOT NULL,
   `itemDataValueHash` char(32) CHARACTER SET ascii DEFAULT NULL,
-  `value` text,
+  `value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci,
   PRIMARY KEY (`itemID`,`fieldID`),
   KEY `fieldID` (`fieldID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -149,10 +149,10 @@ CREATE TABLE `itemFulltext` (
 CREATE TABLE `itemNotes` (
   `itemID` int(10) unsigned NOT NULL,
   `sourceItemID` int(10) unsigned DEFAULT NULL,
-  `note` mediumtext NOT NULL,
-  `noteSanitized` mediumtext NULL,
-  `title` varchar(80) NOT NULL,
-  `hash` varchar(32) NOT NULL,
+  `note` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `noteSanitized` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci mediumtext NULL,
+  `title` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `hash` varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`itemID`),
   KEY `sourceItemID` (`sourceItemID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -170,8 +170,8 @@ CREATE TABLE `itemRelated` (
 
 CREATE TABLE `itemSortFields` (
   `itemID` int(10) unsigned NOT NULL,
-  `sortTitle` varchar(79) DEFAULT NULL,
-  `creatorSummary` varchar(50) DEFAULT NULL,
+  `sortTitle` varchar(79) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NULL DEFAULT NULL,
+  `creatorSummary` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NULL DEFAULT NULL,
   PRIMARY KEY (`itemID`),
   KEY `sortTitle` (`sortTitle`),
   KEY `creatorSummary` (`creatorSummary`)
@@ -227,7 +227,7 @@ CREATE TABLE `savedSearchConditions` (
   `condition` varchar(50) NOT NULL,
   `mode` varchar(50) NOT NULL,
   `operator` varchar(25) NOT NULL,
-  `value` varchar(255) NOT NULL,
+  `value` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `required` tinyint(1) unsigned NOT NULL,
   PRIMARY KEY (`searchID`,`searchConditionID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -237,7 +237,7 @@ CREATE TABLE `savedSearchConditions` (
 CREATE TABLE `savedSearches` (
   `searchID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
-  `searchName` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `searchName` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `key` char(8) NOT NULL,
@@ -251,7 +251,7 @@ CREATE TABLE `savedSearches` (
 CREATE TABLE `settings` (
   `libraryID` int(10) unsigned NOT NULL,
   `name` varchar(25) NOT NULL,
-  `value` varchar(1000) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `value` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `version` int(10) unsigned NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`libraryID`,`name`)
@@ -294,7 +294,7 @@ CREATE TABLE `syncDeleteLogIDs` (
 CREATE TABLE `syncDeleteLogKeys` (
   `libraryID` int(10) unsigned NOT NULL,
   `objectType` enum('collection','creator','item','relation','search','setting','tag','tagName') NOT NULL,
-  `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` int(10) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`libraryID`,`objectType`,`key`),
@@ -306,7 +306,7 @@ CREATE TABLE `syncDeleteLogKeys` (
 CREATE TABLE `tags` (
   `tagID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
-  `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `type` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',

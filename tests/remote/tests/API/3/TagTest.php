@@ -109,6 +109,23 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function test_utf8mb4_tag() {
+		$json = API::getItemTemplate("book");
+		$json->tags[] = [
+			"tag" => "🐻", // 4-byte character
+			"type" => 0
+		];
+		
+		$response = API::postItem($json);
+		$this->assert200ForObject($response);
+		
+		$newJSON = API::getJSONFromResponse($response);
+		$newJSON = $newJSON['successful'][0]['data'];
+		$this->assertCount(1, $newJSON['tags']);
+		$this->assertEquals($json->tags[0]['tag'], $newJSON['tags'][0]['tag']);
+	}
+	
+	
 	public function testTagTooLong() {
 		$tag = \Zotero_Utilities::randomString(300);
 		$json = API::getItemTemplate("book");

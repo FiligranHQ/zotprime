@@ -115,7 +115,7 @@ class Zotero_Tags extends Zotero_ClassicDataObjects {
 		
 		$sql = "SELECT tagID FROM tags WHERE libraryID=? AND name";
 		if ($caseInsensitive) {
-			$sql .= " COLLATE utf8_general_ci ";
+			$sql .= " COLLATE utf8mb4_unicode_ci ";
 		}
 		$sql .= "=?";
 		$tagIDs = Zotero_DB::columnQuery($sql, array($libraryID, $name), Zotero_Shards::getByLibraryID($libraryID));
@@ -203,7 +203,7 @@ class Zotero_Tags extends Zotero_ClassicDataObjects {
 			$order = $params['sort'];
 			if ($order == 'title') {
 				// Force a case-insensitive sort
-				$sql .= "ORDER BY name COLLATE utf8_unicode_ci ";
+				$sql .= "ORDER BY name COLLATE utf8mb4_unicode_ci ";
 			}
 			else if ($order == 'numItems') {
 				$sql .= "GROUP BY tags.tagID ORDER BY COUNT(tags.tagID)";

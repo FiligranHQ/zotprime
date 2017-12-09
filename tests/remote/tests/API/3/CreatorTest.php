@@ -177,4 +177,18 @@ class CreatorTests extends APITests {
 		), $this, 'json');
 		$this->assertEquals('Smith', $json['data']['creators'][0]['name']);
 	}
+	
+	
+	public function test_should_allow_emoji_in_creator_name() {
+		$char = "🐻"; // 4-byte character
+		$json = API::createItem("book", [
+			"creators" => [
+				[
+					"creatorType" => "author",
+					"name" => $char
+				]
+			]
+		], $this, 'json');
+		$this->assertEquals($char, $json['data']['creators'][0]['name']);
+	}
 }

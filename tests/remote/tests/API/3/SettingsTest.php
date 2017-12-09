@@ -638,4 +638,26 @@ class SettingsTests extends APITests {
 		);
 		$this->assert400($response, "'value' cannot be longer than 10000 characters");
 	}
+	
+	
+	public function test_should_allow_emoji_character() {
+		$settingKey = "tagColors";
+		$value = [
+			[
+				"name" => "🐶",
+				"color" => "#990000"
+			]
+		];
+		$json = [
+			"value" => $value,
+			"version" => 0
+		];
+		$response = API::userPut(
+			self::$config['userID'],
+			"settings/$settingKey",
+			json_encode($json),
+			["Content-Type: application/json"]
+		);
+		$this->assert204($response);
+	}
 }

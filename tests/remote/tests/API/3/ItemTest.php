@@ -2447,8 +2447,8 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function testUnicodeTitle() {
-		$title = "Tést";
+	public function test_should_allow_emoji_in_title() {
+		$title = "🐶"; // 4-byte character
 		
 		$key = API::createItem("book", array("title" => $title), $this, 'key');
 		
@@ -2457,27 +2457,27 @@ class ItemTests extends APITests {
 			self::$config['userID'],
 			"items/$key"
 		);
-		$this->assertContains('"title": "Tést"', $response->getBody());
+		$this->assertContains("\"title\": \"$title\"", $response->getBody());
 		
 		// Test feed (JSON)
 		$response = API::userGet(
 			self::$config['userID'],
 			"items"
 		);
-		$this->assertContains('"title": "Tést"', $response->getBody());
+		$this->assertContains("\"title\": \"$title\"", $response->getBody());
 		
 		// Test entry (Atom)
 		$response = API::userGet(
 			self::$config['userID'],
 			"items/$key?content=json"
 		);
-		$this->assertContains('"title": "Tést"', $response->getBody());
+		$this->assertContains("\"title\": \"$title\"", $response->getBody());
 		
 		// Test feed (Atom)
 		$response = API::userGet(
 			self::$config['userID'],
 			"items?content=json"
 		);
-		$this->assertContains('"title": "Tést"', $response->getBody());
+		$this->assertContains("\"title\": \"$title\"", $response->getBody());
 	}
 }

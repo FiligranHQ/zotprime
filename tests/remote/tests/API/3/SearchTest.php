@@ -249,14 +249,14 @@ class SearchTests extends APITests {
 	}
 	
 	
-	public function test_should_allow_a_search_with_an_emoji_in_the_name() {
+	public function test_should_allow_a_search_with_emoji_values() {
 		$json = API::createSearch(
 			"🐶", // 4-byte character
 			[
 				[
 					"condition" => "title",
 					"operator" => "contains",
-					"value" => "test"
+					"value" => "🐶" // 4-byte character
 				]
 			],
 			$this,

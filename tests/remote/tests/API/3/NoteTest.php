@@ -58,6 +58,26 @@ class NoteTests extends APITests {
 	}
 	
 	
+	public function test_utf8mb4_note() {
+		$note = "<p>🐻</p>"; // 4-byte character
+		$json = API::getItemTemplate('note');
+		$json->note = $note;
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$json]),
+			["Content-Type: application/json"]
+		);
+		
+		$this->assert200ForObject($response);
+		
+		$json = API::getJSONFromResponse($response);
+		$json = $json['successful'][0]['data'];
+		$this->assertSame($note, $json['note']);
+	}
+	
+	
 	public function testNoteTooLong() {
 		$response = API::userPost(
 			self::$config['userID'],

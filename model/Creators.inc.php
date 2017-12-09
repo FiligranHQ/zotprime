@@ -86,8 +86,8 @@ class Zotero_Creators extends Zotero_ClassicDataObjects {
 		if ($sortByItemCountDesc) {
 			$sql .= "LEFT JOIN itemCreators USING (creatorID) ";
 		}
-		$sql .= "WHERE libraryID=? AND firstName COLLATE utf8_bin = ? "
-			. "AND lastName COLLATE utf8_bin = ? AND fieldMode=?";
+		$sql .= "WHERE libraryID=? AND firstName COLLATE utf8mb4_bin = ? "
+			. "AND lastName COLLATE utf8mb4_bin = ? AND fieldMode=?";
 		if ($sortByItemCountDesc) {
 			$sql .= " ORDER BY IFNULL(COUNT(*), 0) DESC";
 		}
