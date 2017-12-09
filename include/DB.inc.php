@@ -256,18 +256,29 @@ class Zotero_DB {
 			]
 		];
 		
-		// Apply connection options
-		if (isset($info['driver_options'])) {
-			foreach ($info['driver_options'] as $key => $val) {
-				$config['driver_options'][$key] = $val;
-			}
-		}
-		
 		// For admin, use user/pass from master
 		if (get_called_class() == 'Zotero_Admin_DB') {
 			$auth = Zotero_DBConnectAuth($this->db);
 			$config['username'] = $auth['user'];
 			$config['password'] = $auth['pass'];
+			
+			// Don't time out during long maintenance operations. It's not clear which of these
+			// are necessary. mysqlnd.net_read_timeout=3600 is also necessary, and as of 7.0.21
+			// isn't working via ini_set (even though it's supposed to), so it has to be set with
+			// php -d in the migration script).
+			$timeout = 3600;
+			$info['driver_options'] = [
+				'MYSQL_OPT_READ_TIMEOUT' => $timeout,
+				'MYSQL_OPT_WRITE_TIMEOUT' => $timeout
+			];
+			ini_set('default_socket_timeout', $timeout);
+		}
+		
+		// Apply connection options
+		if (isset($info['driver_options'])) {
+			foreach ($info['driver_options'] as $key => $val) {
+				$config['driver_options'][$key] = $val;
+			}
 		}
 		
 		$conn = new Zotero_DB_Connection;

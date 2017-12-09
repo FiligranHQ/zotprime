@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/bin/php -d mysqlnd.net_read_timeout=3600
 <?
 set_include_path("../../../include");
 require("header.inc.php");
