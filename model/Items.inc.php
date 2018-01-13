@@ -2511,10 +2511,11 @@ class Zotero_Items {
 						}
 						// Don't allow dateAdded to change
 						if ($val != $item->$key) {
-							// If passed dateAdded is exactly one hour off, assume it's from a DST bug
-							// we haven't yet tracked down (https://github.com/zotero/zotero/issues/1201)
-							// and ignore it
-							if ((abs(strtotime($val) - strtotime($item->$key)) == 3600)
+							// If passed dateAdded is exactly one hour or one day off, assume it's from
+							// a DST bug we haven't yet tracked down
+							// (https://github.com/zotero/zotero/issues/1201) and ignore it
+							$absTimeDiff = abs(strtotime($val) - strtotime($item->$key));
+							if ($absTimeDiff == 3600 || $absTimeDiff == 86400
 									// Allow for Quick Start Guide items from <=4.0
 									|| $item->key == 'ABCD2345' || $item->key == 'ABCD3456') {
 								$json->$key = $item->$key;
