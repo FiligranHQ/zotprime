@@ -77,6 +77,7 @@ class Zotero_Errors {
 				if ($errorCode == Z_ERROR_COLLECTION_NOT_FOUND) {
 					preg_match("/Collection \d+\/([^ ]+) doesn't exist/", $msg, $matches);
 					if ($matches) {
+						$error['code'] = 409;
 						$error['message'] = "Collection {$matches[1]} not found";
 						$error['data']['collection'] = $matches[1];
 					}
@@ -92,6 +93,7 @@ class Zotero_Errors {
 				else if ($errorCode == Z_ERROR_ITEM_NOT_FOUND) {
 					preg_match("/Parent item \d+\/([^ ]+) doesn't exist/", $msg, $matches);
 					if ($matches) {
+						$error['code'] = 409;
 						$error['message'] = "Parent item {$matches[1]} not found";
 						$error['data']['parentItem'] = $matches[1];
 					}
