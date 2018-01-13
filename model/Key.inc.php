@@ -548,7 +548,7 @@ class Zotero_Key {
 			error_log("WARNING: " . $e);
 		}
 		
-		Z_Core::$MC->set($cacheKey, "1", 60);
+		Z_Core::$MC->set($cacheKey, "1", 600);
 	}
 	
 	
