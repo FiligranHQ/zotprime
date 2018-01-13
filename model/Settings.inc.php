@@ -25,7 +25,7 @@
 */
 
 class Zotero_Settings extends Zotero_ClassicDataObjects {
-	public static $MAX_VALUE_LENGTH = 10000;
+	public static $MAX_VALUE_LENGTH = 20000;
 	
 	public static $allowedSettings = ['feeds', 'tagColors'];
 	
