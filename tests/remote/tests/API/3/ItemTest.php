@@ -2431,18 +2431,70 @@ class ItemTests extends APITests {
 	}
 	
 	
-	public function test_should_return_400_on_missing_parent() {
+	public function test_should_return_409_on_missing_parent() {
 		$missingParentKey = "BDARG2AV";
 		$json = API::createNoteItem("<p>test</p>", $missingParentKey, $this);
-		$this->assert400ForObject($json, "Parent item $missingParentKey not found");
+		$this->assert409ForObject($json, "Parent item $missingParentKey not found");
 		$this->assertEquals($missingParentKey, $json['failed'][0]['data']['parentItem']);
 	}
 	
 	
-	public function test_should_return_400_on_missing_collection() {
+	public function test_should_return_409_on_missing_parent_if_parent_failed() {
+		$version = API::getLibraryVersion();
+		$parentKey = "BDARG2AV";
+		$tag = \Zotero_Utilities::randomString(300);
+		
+		// Parent item
+		$item1JSON = API::getItemTemplate("book");
+		$item1JSON->key = $parentKey;
+		$item1JSON->creators = [
+			[
+                "firstName" => "A.",
+                "lastName" => "Nespola",
+                "creatorType" => "author"
+            ]
+		];
+		$item1JSON->tags = [
+			[
+				"tag" => "A"
+			],
+			[
+				"tag" => $tag
+			]
+		];
+		// Child note
+		$item2JSON = API::getItemTemplate("note");
+		$item2JSON->parentItem = $parentKey;
+		// Child attachment with note
+		// TODO: Use template function
+		$response = API::get("items/new?itemType=attachment&linkMode=linked_url");
+		$item3JSON = json_decode($response->getBody());
+		$item3JSON->parentItem = $parentKey;
+		$item3JSON->note = "Test";
+		
+		$response = API::userPost(
+			self::$config['userID'],
+			"items",
+			json_encode([$item1JSON, $item2JSON, $item3JSON]),
+			[
+				"Content-Type: application/json",
+				"If-Unmodified-Since-Version: $version"
+			]
+		);
+		$this->assert200($response);
+		$json = API::getJSONFromResponse($response);
+		$this->assert413ForObject($json, null, 0);
+		$this->assert409ForObject($json, "Parent item $parentKey not found", 1);
+		$this->assertEquals($parentKey, $json['failed'][1]['data']['parentItem']);
+		$this->assert409ForObject($json, "Parent item $parentKey not found", 2);
+		$this->assertEquals($parentKey, $json['failed'][2]['data']['parentItem']);
+	}
+	
+	
+	public function test_should_return_409_on_missing_collection() {
 		$missingCollectionKey = "BDARG2AV";
 		$json = API::createItem("book", [ 'collections' => [$missingCollectionKey] ], $this);
-		$this->assert400ForObject($json, "Collection $missingCollectionKey not found");
+		$this->assert409ForObject($json, "Collection $missingCollectionKey not found");
 		$this->assertEquals($missingCollectionKey, $json['failed'][0]['data']['collection']);
 	}
 	
