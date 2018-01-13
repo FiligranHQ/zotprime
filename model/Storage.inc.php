@@ -588,7 +588,6 @@ class Zotero_Storage {
 	
 	
 	public static function deleteFileItemInfo($item) {
-		
 		$libraryID = $item->libraryID;
 		$itemID = $item->id;
 		$shardID = Zotero_Shards::getByLibraryID($libraryID);
@@ -604,6 +603,7 @@ class Zotero_Storage {
 		$sql = "DELETE FROM storageFileItems WHERE storageFileID=?";
 		Zotero_DB::query($sql, $storageFileID, $shardID);
 		
+		self::clearUserUsage(Zotero_Libraries::getOwner($libraryID));
 		self::deleteFileLibraryReference($storageFileID, $libraryID);
 		
 		Zotero_DB::commit();
@@ -937,13 +937,13 @@ class Zotero_Storage {
 		
 		$usage['total'] = round(($libraryBytes + $groupBytes) / 1024 / 1024, 1);
 		
-		Z_Core::$MC->set($cacheKey, $usage, 60);
+		Z_Core::$MC->set($cacheKey, $usage, 600);
 		
 		return $usage;
 	}
 	
 	
-	private static function clearUserUsage($userID) {
+	public static function clearUserUsage($userID) {
 		$cacheKey = "userStorageUsage_" . $userID;
 		Z_Core::$MC->delete($cacheKey);
 	}
