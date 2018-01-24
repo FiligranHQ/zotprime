@@ -833,10 +833,17 @@ class Zotero_Storage {
 		$databaseName = "zotero_www{$dev}";
 		
 		// Get maximum institutional quota by e-mail domain
-		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email
-				JOIN $databaseName.storage_institutions
-				ON (SUBSTR(email, LENGTH(domain) * -1)=domain AND domain!='')
-				WHERE userID=?";
+		$sql = "SELECT IFNULL(MAX(storageQuota), 0) FROM $databaseName.users_email "
+			. "JOIN $databaseName.storage_institutions "
+			. "ON (domain != '' "
+				// Domain is treated as a fully matching regexp with an implied optional
+				// subdomain prefix. 'mail.school.edu' will match 'school.edu' or
+				// '(school.edu|school.org)', but 'abcd.edu' won't match 'bcd.edu'.
+				. "AND SUBSTRING_INDEX(email, '@', -1) REGEXP CONCAT('^(.+\\.)?', domain, '$')"
+				// Email doesn't match blacklist if one exists for domain
+				. "AND (domainBlacklist = '' "
+					. "OR SUBSTRING_INDEX(email, '@', -1) NOT REGEXP domainBlacklist)"
+			. ") WHERE userID=?";
 		try {
 			$institutionalDomainQuota = Zotero_WWW_DB_2::valueQuery($sql, $userID);
 		}
