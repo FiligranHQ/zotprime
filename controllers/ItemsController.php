@@ -308,7 +308,8 @@ class ItemsController extends ApiController {
 								if ($collection) {
 									$qs = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
 									$base = Zotero_API::getCollectionURI($collection);
-									$this->redirect($base . "/items" . $qs, 301);
+									$suffix = $this->subset == 'top' ? '/top' : '';
+									$this->redirect($base . "/items$suffix" . $qs, 301);
 								}
 							}
 							
