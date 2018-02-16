@@ -151,6 +151,72 @@ class RelationTests extends APITests {
 	}
 	
 	
+	public function test_should_add_a_URL_to_a_relation_with_PATCH() {
+		$relations = [
+			"dc:replaces" => [
+				"http://zotero.org/users/" . self::$config['userID'] . "/items/AAAAAAAA"
+			]
+		];
+		
+		$itemJSON = API::createItem("book", [
+			"relations" => $relations
+		], $this, 'jsonData');
+		
+		$relations["dc:replaces"][] = "http://zotero.org/users/" . self::$config['userID'] . "/items/BBBBBBBB";
+		
+		$patchJSON = [
+			"version" => $itemJSON['version'],
+			"relations" => $relations
+		];
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/{$itemJSON['key']}",
+			json_encode($patchJSON)
+		);
+		$this->assert204($response);
+		
+		// Make sure the array was updated
+		$json = API::getItem($itemJSON['key'], $this, 'json')['data'];
+		$this->assertCount(sizeOf($relations), $json['relations']);
+		$this->assertCount(sizeOf($relations['dc:replaces']), $json['relations']['dc:replaces']);
+		$this->assertContains($relations['dc:replaces'][0], $json['relations']['dc:replaces']);
+		$this->assertContains($relations['dc:replaces'][1], $json['relations']['dc:replaces']);
+	}
+	
+	
+	public function test_should_remove_a_URL_from_a_relation_with_PATCH() {
+		$userID = self::$config['userID'];
+		
+		$relations = [
+			"dc:replaces" => [
+				"http://zotero.org/users/$userID/items/AAAAAAAA",
+				"http://zotero.org/users/$userID/items/BBBBBBBB"
+			]
+		];
+		
+		$itemJSON = API::createItem("book", [
+			"relations" => $relations
+		], $this, 'jsonData');
+		
+		$relations["dc:replaces"] = array_slice($relations["dc:replaces"], 0, 1);
+		
+		$patchJSON = [
+			"version" => $itemJSON['version'],
+			"relations" => $relations
+		];
+		$response = API::userPatch(
+			self::$config['userID'],
+			"items/{$itemJSON['key']}",
+			json_encode($patchJSON)
+		);
+		$this->assert204($response);
+		
+		// Make sure the value (now a string) was updated
+		$json = API::getItem($itemJSON['key'], $this, 'json')['data'];
+		$this->assertEquals($relations['dc:replaces'][0], $json['relations']['dc:replaces']);
+	}
+	
+	
 	public function testInvalidItemRelation() {
 		$response = API::createItem("book", array(
 			"relations" => array(
