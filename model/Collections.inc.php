@@ -451,7 +451,8 @@ class Zotero_Collections {
 					}
 					
 					if (mb_strlen($val) > 255) {
-						throw new Exception("Collection name cannot be longer than 255 characters", Z_ERROR_FIELD_TOO_LONG);
+						throw new Exception("=Collection name '" . mb_substr($val, 0, 50) . "…' "
+							. "too long", Z_ERROR_COLLECTION_TOO_LONG);
 					}
 					break;
 					

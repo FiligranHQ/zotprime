@@ -52,10 +52,44 @@ class Zotero_Errors {
 				$error['log'] = true;
 				break;
 			
-			case Z_ERROR_NOTE_TOO_LONG:
 			case Z_ERROR_FIELD_TOO_LONG:
+				$error['code'] = 413;
+				preg_match("/([A-Za-z ]+) field value '(.+)' too long/", $msg, $matches);
+				if ($matches) {
+					$name = $matches[1];
+					$value = $matches[2];
+					$error['data']['field'] = $name;
+					$error['data']['value'] = $value;
+				}
+				$error['log'] = true;
+				break;
+			
 			case Z_ERROR_CREATOR_TOO_LONG:
+				$error['code'] = 413;
+				preg_match("/Creator value '(.+)' too long/", $msg, $matches);
+				if ($matches) {
+					$name = $matches[1];
+					// TODO: Replace with simpler message after client version 5.0.36,
+					// which includes this locally
+					$error['message'] = "The creator name ‘{$name}…’ is too long to sync. "
+						. "Shorten the name and sync again.\n\n"
+						. "If you receive this message repeatedly for items saved from a "
+						. "particular site, you can report this issue in the Zotero Forums.";
+					$error['data']['field'] = 'creator';
+					$error['data']['value'] = $name;
+				}
+				$error['log'] = true;
+				break;
+				
 			case Z_ERROR_COLLECTION_TOO_LONG:
+				$error['code'] = 413;
+				preg_match("/Collection name '(.+)' too long/", $msg, $matches);
+				if ($matches) {
+					$error['data']['value'] = $matches[1];
+				}
+				break;
+				
+			case Z_ERROR_NOTE_TOO_LONG:
 				$error['code'] = 413;
 				$error['log'] = true;
 				break;

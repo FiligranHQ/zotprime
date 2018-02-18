@@ -1131,7 +1131,7 @@ class Zotero_Item extends Zotero_DataObject {
 								$this->_itemTypeID, $fieldID
 							);
 							$msg = "=$fieldName field value " .
-								 "'" . mb_substr($value, 0, 50) . "...' too long";
+								 "'" . mb_substr($value, 0, 50) . "…' too long";
 							if ($this->_key) {
 								$msg .= " for item '" . $this->_libraryID . "/" . $key . "'";
 							}

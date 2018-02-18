@@ -441,10 +441,7 @@ class CollectionTests extends APITests {
 			json_encode([$json]),
 			array("Content-Type: application/json")
 		);
-		$this->assert413ForObject(
-			$response,
-			"Collection name cannot be longer than 255 characters"
-		);
+		$this->assert413ForObject($response);
 	}
 	
 	

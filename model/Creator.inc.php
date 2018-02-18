@@ -215,12 +215,10 @@ class Zotero_Creator {
 						throw $e;
 					}
 					$name = mb_substr($name, 0, 50);
-					throw new Exception("=The creator name ‘{$name}…’ is too long to sync.\n\n"
-						. "Search for the item with this creator and shorten it. "
-						. "Note that the item may be in the trash or in a group library.\n\n"
-						. "If you receive this message repeatedly for items saved from a "
-						. "particular site, you can report this issue in the Zotero Forums.",
-						Z_ERROR_CREATOR_TOO_LONG);
+					throw new Exception(
+						"=Creator value '{$name}…' too long",
+						Z_ERROR_CREATOR_TOO_LONG
+					);
 				}
 				
 				throw $e;
