@@ -243,15 +243,17 @@ Z_Core::$AWS = new Aws\Sdk($awsConfig);
 unset($awsConfig);
 
 // Elastica
-Z_Core::$Elastica = new \Elastica\Client(array(
-	'connections' => array_map(function ($hostAndPort) {
-		preg_match('/^([^:]+)(:[0-9]+)?$/', $hostAndPort, $matches);
-		return [
-			'host' => $matches[1],
-			'port' => isset($matches[2]) ? $matches[2] : 9200
-		];
-	}, Z_CONFIG::$SEARCH_HOSTS)
-));
+$searchHosts = array_map(function ($hostAndPort) {
+	preg_match('/^([^:]+)(:[0-9]+)?$/', $hostAndPort, $matches);
+	return [
+		'host' => $matches[1],
+		'port' => isset($matches[2]) ? $matches[2] : 9200
+	];
+}, Z_CONFIG::$SEARCH_HOSTS);
+shuffle($searchHosts);
+Z_Core::$Elastica = new \Elastica\Client([
+	'connections' => $searchHosts
+]);
 
 require('interfaces/IAuthenticationPlugin.inc.php');
 
