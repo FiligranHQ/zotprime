@@ -32,6 +32,10 @@ class IPAddress {
 		return($exit_c);
 	}
 	
+	public static function isPrivateAddress($ip) {
+		return self::isIPInNetArray($ip, self::$ip_private_list);
+	}
+	
 	// Building the IP array with the HTTP_X_FORWARDED_FOR and REMOTE_ADDR HTTP vars.
 	// With this function we get an array where first are the IP's listed in
 	// HTTP_X_FORWARDED_FOR and the last ip is the REMOTE_ADDR.
@@ -63,8 +67,15 @@ class IPAddress {
 		$ip_array = self::getIPArray();
 		
 		foreach ( $ip_array as $ip_s ) {
-			
-			if ( $ip_s != "" && $ip_s != 'unknown' && !self::isIPInNetArray($ip_s, self::$ip_private_list)) {
+			if ( $ip_s != "" && $ip_s != 'unknown') {
+				// Allow private IPs to set the client IP
+				if (self::isIPInNetArray($ip_s, self::$ip_private_list)) {
+					if (!empty($_SERVER['HTTP_ZOTERO_FORWARDED_FOR'])) {
+						$ip = $_SERVER['HTTP_ZOTERO_FORWARDED_FOR'];
+						break;
+					}
+					continue;
+				}
 				$ip = $ip_s;
 				break;
 			}
