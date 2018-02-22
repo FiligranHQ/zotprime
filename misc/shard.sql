@@ -150,7 +150,7 @@ CREATE TABLE `itemNotes` (
   `itemID` int(10) unsigned NOT NULL,
   `sourceItemID` int(10) unsigned DEFAULT NULL,
   `note` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
-  `noteSanitized` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci mediumtext NULL,
+  `noteSanitized` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NULL,
   `title` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `hash` varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   PRIMARY KEY (`itemID`),
@@ -190,7 +190,7 @@ CREATE TABLE `items` (
   `version` int(10) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`itemID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
-  KEY `itemTypeID` (`itemTypeID`)
+  KEY `itemTypeID` (`itemTypeID`),
   KEY `serverDateModified` (`serverDateModified`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
 
