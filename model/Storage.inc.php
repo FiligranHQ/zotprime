@@ -615,9 +615,16 @@ class Zotero_Storage {
 		return Zotero_DB::query($sql, [$storageFileID, $libraryID]);
 	}
 	
+	
+	/**
+	 * Delete a file's library reference if it's not associated with any other items in the library
+	 */
 	public static function deleteFileLibraryReference($storageFileID, $libraryID) {
-		$sql = "SELECT 1 FROM storageFileItems WHERE storageFileID = ? LIMIT 1";
-		$exists = Zotero_DB::valueQuery($sql, $storageFileID, Zotero_Shards::getByLibraryID($libraryID));
+		$sql = "SELECT 1 FROM storageFileItems JOIN items USING (itemID) "
+			. "WHERE storageFileID = ? AND libraryID=? LIMIT 1";
+		$exists = Zotero_DB::valueQuery(
+			$sql, [$storageFileID, $libraryID], Zotero_Shards::getByLibraryID($libraryID)
+		);
 		if (!$exists) {
 			$sql = "DELETE FROM storageFileLibraries WHERE storageFileID = ? AND libraryID = ?";
 			Zotero_DB::query($sql, [$storageFileID, $libraryID]);
