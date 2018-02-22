@@ -61,7 +61,6 @@ class Zotero_Errors {
 					$error['data']['field'] = $name;
 					$error['data']['value'] = $value;
 				}
-				$error['log'] = true;
 				break;
 			
 			case Z_ERROR_CREATOR_TOO_LONG:
@@ -78,7 +77,6 @@ class Zotero_Errors {
 					$error['data']['field'] = 'creator';
 					$error['data']['value'] = $name;
 				}
-				$error['log'] = true;
 				break;
 				
 			case Z_ERROR_COLLECTION_TOO_LONG:
@@ -91,7 +89,6 @@ class Zotero_Errors {
 				
 			case Z_ERROR_NOTE_TOO_LONG:
 				$error['code'] = 413;
-				$error['log'] = true;
 				break;
 			
 			case Z_ERROR_TAG_TOO_LONG:
@@ -102,7 +99,6 @@ class Zotero_Errors {
 					$error['message'] = "Tag '" . mb_substr($name, 0, 50) . "…' too long";
 					$error['data']['tag'] = $name;
 				}
-				$error['log'] = true;
 				break;
 			
 			case Z_ERROR_COLLECTION_NOT_FOUND:
