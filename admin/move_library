@@ -8,11 +8,7 @@ if (empty($argv[1])) {
 }
 
 $libraryID = $argv[1];
-
-if (empty($argv[2])) {
-	$shardID = Zotero_Shards::getNextShard();
-}
+$shardID = $argv[2] ?? Zotero_Shards::getNextShard();
 
 echo "Moving library $libraryID to shard $shardID\n";
 Zotero_Shards::moveLibrary($libraryID, $shardID);
-?>

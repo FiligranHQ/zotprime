@@ -241,6 +241,7 @@ class Zotero_Shards {
 			'items',
 			'relations',
 			'savedSearches',
+			'settings',
 			'tags',
 			'collectionItems',
 			'deletedItems',
@@ -252,6 +253,7 @@ class Zotero_Shards {
 			'itemRelated',
 			'itemSortFields',
 			'itemTags',
+			'publicationsItems',
 			'savedSearchConditions',
 			'storageFileItems',
 			'syncDeleteLogIDs',
@@ -270,6 +272,7 @@ class Zotero_Shards {
 				case 'items':
 				case 'relations':
 				case 'savedSearches':
+				case 'settings':
 				case 'shardLibraries':
 				case 'syncDeleteLogIDs':
 				case 'syncDeleteLogKeys':
@@ -278,10 +281,6 @@ class Zotero_Shards {
 					break;
 				
 				case 'collectionItems':
-					$sql = "SELECT CI.* FROM collectionItems CI
-							JOIN collections USING (collectionID) WHERE libraryID=?";
-					break;
-				
 				case 'deletedItems':
 				case 'groupItems':
 				case 'itemAttachments':
@@ -291,6 +290,7 @@ class Zotero_Shards {
 				case 'itemRelated':
 				case 'itemSortFields':
 				case 'itemTags':
+				case 'publicationsItems':
 				case 'storageFileItems':
 					$sql = "SELECT T.* FROM $table T JOIN items USING (itemID) WHERE libraryID=?";
 					break;
