@@ -89,7 +89,7 @@ class Zotero_Creators extends Zotero_ClassicDataObjects {
 		$sql .= "WHERE libraryID=? AND firstName COLLATE utf8mb4_bin = ? "
 			. "AND lastName COLLATE utf8mb4_bin = ? AND fieldMode=?";
 		if ($sortByItemCountDesc) {
-			$sql .= " ORDER BY IFNULL(COUNT(*), 0) DESC";
+			$sql .= " GROUP BY creatorID ORDER BY IFNULL(COUNT(*), 0) DESC";
 		}
 		$ids = Zotero_DB::columnQuery(
 			$sql,
