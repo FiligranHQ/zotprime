@@ -1,20 +1,20 @@
 universal:
 
-character_set_database = utf8
-character_set_server = utf8
-collation_server = utf8_general_ci
-event_scheduler = ON
+character_set_database = utf8mb4
+character_set_server = utf8mb4
+collation_server = utf8mb4_unicode_ci
 innodb_flush_log_at_trx_commit = 1
+innodb_file_format = Barracuda
+innodb_large_prefix = 1
 log_bin_trust_function_creators = 1
 max_allowed_packet = 33554432
 max_connect_errors = 10000
 sql_mode = STRICT_ALL_TABLES
 skip_name_resolve = 1
-sync_binlog = 0
-#wait_timeout = 300
 
 master:
 
+event_scheduler = ON
 max_allowed_packet = 134217728
 table_open_cache = 128
 wait_timeout = 1800
