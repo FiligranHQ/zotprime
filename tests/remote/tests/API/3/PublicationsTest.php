@@ -211,12 +211,14 @@ class PublicationsTests extends APITests {
 		// Create item
 		API::useAPIKey(self::$config['apiKey']);
 		$response = API::createItem("book", ['inPublications' => true], $this, 'response');
+		$version = API::getJSONFromResponse($response)['successful'][0]['version'];
 		
 		// Test notification for publications topic (in addition to regular library)
 		$this->assertCountNotifications(2, $response);
 		$this->assertHasNotification([
 			'event' => 'topicUpdated',
-			'topic' => '/users/' . self::$config['userID']
+			'topic' => '/users/' . self::$config['userID'],
+			'version' => $version
 		], $response);
 		$this->assertHasNotification([
 			'event' => 'topicUpdated',

@@ -34,10 +34,12 @@ require_once 'include/api3.inc.php';
 class NotificationsTests extends APITests {
 	public function testNewItemNotification() {
 		$response = API::createItem("book", false, $this, 'response');
+		$version = API::getJSONFromResponse($response)['successful'][0]['version'];
 		$this->assertCountNotifications(1, $response);
 		$this->assertHasNotification([
 			'event' => 'topicUpdated',
-			'topic' => '/users/' . self::$config['userID']
+			'topic' => '/users/' . self::$config['userID'],
+			'version' => $version
 		], $response);
 	}
 	
@@ -50,10 +52,12 @@ class NotificationsTests extends APITests {
 			"items/{$json['key']}",
 			json_encode($json)
 		);
+		$version = $response->getHeader('Last-Modified-Version');
 		$this->assertCountNotifications(1, $response);
 		$this->assertHasNotification([
 			'event' => 'topicUpdated',
-			'topic' => '/users/' . self::$config['userID']
+			'topic' => '/users/' . self::$config['userID'],
+			'version' => $version
 		], $response);
 	}
 	
@@ -67,10 +71,12 @@ class NotificationsTests extends APITests {
 				"If-Unmodified-Since-Version: {$json['version']}"
 			]
 		);
+		$version = $response->getHeader('Last-Modified-Version');
 		$this->assertCountNotifications(1, $response);
 		$this->assertHasNotification([
 			'event' => 'topicUpdated',
-			'topic' => '/users/' . self::$config['userID']
+			'topic' => '/users/' . self::$config['userID'],
+			'version' => $version
 		], $response);
 	}
 	

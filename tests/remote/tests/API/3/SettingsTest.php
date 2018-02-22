@@ -620,7 +620,7 @@ class SettingsTests extends APITests {
 		$settingKey = "tagColors";
 		$value = array(
 			array(
-				"name" => $this->content = str_repeat("abcdefghij", 1001),
+				"name" => $this->content = str_repeat("abcdefghij", 2001),
 				"color" => "#990000"
 			)
 		);
@@ -636,7 +636,7 @@ class SettingsTests extends APITests {
 			json_encode($json),
 			array("Content-Type: application/json")
 		);
-		$this->assert400($response, "'value' cannot be longer than 10000 characters");
+		$this->assert400($response, "'value' cannot be longer than 20000 characters");
 	}
 	
 	
