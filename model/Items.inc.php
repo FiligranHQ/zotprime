@@ -1709,6 +1709,8 @@ class Zotero_Items {
 			// APIv1
 			else {
 				for ($i = 0, $len = sizeOf($items); $i < $len; $i++) {
+					unset($items[$i]->key);
+					unset($items[$i]->version);
 					unset($items[$i]->itemKey);
 					unset($items[$i]->itemVersion);
 				}
