@@ -52,6 +52,11 @@ class Zotero_Errors {
 				$error['log'] = true;
 				break;
 			
+			case Z_ERROR_LIBRARY_ACCESS_DENIED:
+				$error['code'] = 403;
+				$error['log'] = true;
+				break;
+			
 			case Z_ERROR_FIELD_TOO_LONG:
 				$error['code'] = 413;
 				preg_match("/([A-Za-z ]+) field value '(.+)' too long/", $msg, $matches);
