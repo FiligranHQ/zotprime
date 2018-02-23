@@ -1308,7 +1308,7 @@ class ApiController extends Controller {
 			}
 			
 			if (!Z_ENV_TESTING_SITE) {
-				file_put_contents(Z_CONFIG::$API_ERROR_PATH . $id, $str);
+				file_put_contents(Z_CONFIG::$ERROR_PATH . $id, $str);
 			}
 			
 			error_log($str);

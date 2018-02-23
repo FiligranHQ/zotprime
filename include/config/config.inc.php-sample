@@ -84,7 +84,7 @@ class Z_CONFIG {
 	public static $CLI_PHP_PATH = '/usr/bin/php';
 	
 	public static $SYNC_ERROR_PATH = '/var/log/httpd/sync-errors/';
-	public static $API_ERROR_PATH = '/var/log/httpd/api-errors/';
+	public static $ERROR_PATH = '/var/log/httpd/errors/';
 	
 	public static $CACHE_VERSION_ATOM_ENTRY = 1;
 	public static $CACHE_VERSION_BIB = 1;

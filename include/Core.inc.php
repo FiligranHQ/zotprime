@@ -49,6 +49,51 @@ class Z_Core {
 		Z_Log::log(Z_CONFIG::$LOG_TARGET_DEFAULT, $message);
 	}
 	
+	/**
+	 * Log errors and save an error report to disk with optional additional text
+	 */
+	public static function reportErrors($errors, $text = '') {
+		try {
+			$write = !Z_ENV_TESTING_SITE && !empty(Z_CONFIG::$ERROR_PATH);
+			$id = substr(md5(uniqid(rand(), true)), 0, 10);
+			$logStr = "";
+			$fileStr = date("D M j G:i:s T Y") . "\n";
+			if (!empty($_SERVER)) {
+				$fileStr .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
+				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
+					$str = "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'];
+					$logStr .= $str . "  ";
+					$fileStr .= $str . "\n";
+				}
+				$str = $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'];
+				$logStr .= $str;
+				$fileStr .= $str . "\n\n";
+			}
+			foreach ($errors as $e) {
+				// Log each error as a separate line
+				Z_Core::logError(
+					$e->getMessage()
+						. ' in ' . $e->getFile() . ':' . $e->getLine()
+						. ($logStr ? ' (' . $logStr . ')' : '')
+						. ($write ? " ($id)" : '')
+				);
+				
+				// And add to report
+				$fileStr .= $e . "\n\n";
+			}
+			if ($text) {
+				$fileStr .= $text . "\n";
+			}
+			
+			if ($write) {
+				file_put_contents(Z_CONFIG::$ERROR_PATH . $id, $fileStr);
+			}
+		}
+		catch (Exception $e) {
+			self::logError($e);
+		}
+	}
+	
 	public static function getBacktrace() {
 		ob_start();
 		debug_print_backtrace();

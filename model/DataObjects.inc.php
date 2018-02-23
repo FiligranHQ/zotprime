@@ -312,6 +312,7 @@ trait Zotero_DataObjects {
 		}
 		
 		$i = 0;
+		$loggableErrors = [];
 		foreach ($json as $prop => $jsonObject) {
 			Zotero_DB::beginTransaction();
 			
@@ -356,9 +357,17 @@ trait Zotero_DataObjects {
 				$resultKey = isset($jsonObject->$keyProp)
 					? $jsonObject->$keyProp : '';
 				
-				$results->addFailure($i, $resultKey, $e);
+				$parsed = $results->addFailure($i, $resultKey, $e);
+				if (!empty($parsed['log'])) {
+					$loggableErrors[] = $e;
+				}
 			}
 			$i++;
+		}
+		
+		if ($loggableErrors) {
+			$text = mb_substr(Zotero_Utilities::formatJSON($json), 0, 100000);
+			Z_Core::reportErrors($loggableErrors, $text);
 		}
 		
 		return $results->generateReport();
