@@ -1294,24 +1294,7 @@ class ApiController extends Controller {
 		$error = Zotero_Errors::parseException($e);
 		
 		if (!empty($error['log'])) {
-			$id = substr(md5(uniqid(rand(), true)), 0, 10);
-			$str = date("D M j G:i:s T Y") . "  \n";
-			$str .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "  \n";
-			if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
-				$str .= "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'] . "  \n";
-			}
-			$str .= $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'] . "  \n";
-			$str .= $error['exception'] . "  \n";
-			// Show request body unless it's too big
-			if ($error['code'] != 413) {
-				$str .= $this->body;
-			}
-			
-			if (!Z_ENV_TESTING_SITE) {
-				file_put_contents(Z_CONFIG::$ERROR_PATH . $id, $str);
-			}
-			
-			error_log($str);
+			Z_Core::reportErrors([$error['exception']], $error['code'] != 413 ? $this->body : '');
 		}
 		
 		if ($error['code'] != '500') {
