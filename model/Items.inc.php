@@ -440,7 +440,7 @@ class Zotero_Items {
 		}
 		
 		if ($itemIDs) {
-			$sql .= "AND I.itemID IN ("
+			$sql .= "AND $itemIDSelector IN ("
 					. implode(', ', array_fill(0, sizeOf($itemIDs), '?'))
 					. ") ";
 			$sqlParams = array_merge($sqlParams, $itemIDs);
