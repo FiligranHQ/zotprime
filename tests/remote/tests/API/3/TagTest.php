@@ -266,6 +266,38 @@ class TagTests extends APITests {
 	}
 	
 	
+	public function test_should_handle_negation_in_top_requests() {
+		API::userClear(self::$config['userID']);
+		
+		// Create items with tags
+		$key1 = API::createItem("book", array(
+			"tags" => [
+				["tag" => "a"],
+				["tag" => "b"]
+			]
+		), $this, 'key');
+		
+		$key2 = API::createItem("book", array(
+			"tags" => [
+				["tag" => "a"],
+				["tag" => "c"]
+			]
+		), $this, 'key');
+		API::createAttachmentItem("imported_url", [], $key1, $this, 'jsonData');
+		API::createAttachmentItem("imported_url", [], $key2, $this, 'jsonData');
+		
+		// not b in /top (#2)
+		$response = API::userGet(
+			self::$config['userID'],
+			"items/top?format=keys&tag=-b"
+		);
+		$this->assert200($response);
+		$keys = explode("\n", trim($response->getBody()));
+		$this->assertCount(1, $keys);
+		$this->assertContains($key2, $keys);
+	}
+	
+	
 	public function testKeyedItemWithTags() {
 		API::userClear(self::$config['userID']);
 		
