@@ -62,10 +62,10 @@ class Z_Core {
 				$fileStr .= "IP address: " . $_SERVER['REMOTE_ADDR'] . "\n";
 				if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 					$str = "Version: " . $_SERVER['HTTP_X_ZOTERO_VERSION'];
-					$logStr .= $str . "  ";
+					$logStr .= $str . " ";
 					$fileStr .= $str . "\n";
 				}
-				$str = $_SERVER['REQUEST_METHOD'] . " " . $_SERVER['REQUEST_URI'];
+				$str = $_SERVER['REQUEST_METHOD'] . " " . self::getCleanRequestURI();
 				$logStr .= $str;
 				$fileStr .= $str . "\n\n";
 			}
@@ -92,6 +92,10 @@ class Z_Core {
 		catch (Exception $e) {
 			self::logError($e);
 		}
+	}
+	
+	public static function getCleanRequestURI() {
+		return preg_replace('/key=[A-Za-z0-9]+/', 'key=xxx', $_SERVER['REQUEST_URI']);
 	}
 	
 	public static function getBacktrace() {
