@@ -41,12 +41,19 @@ class Zotero_Cite {
 	
 	
 	public static function getBibliographyFromCitationServer($items, array $queryParams) {
+		// Check cache first
+		$key = self::getBibCacheKey($items, $queryParams);
+		$cachedResponse = Z_Core::$MC->get($key);
+		if ($cachedResponse) {
+			return $cachedResponse;
+		}
+		
+		// Otherwise get from citeserver and cache
 		$json = self::getJSONFromItems($items);
 		$response = self::makeRequest($queryParams, 'bibliography', $json);
 		$response = self::processBibliographyResponse($response);
-		if ($response && sizeOf($items) == 1) {
-			$key = self::getCacheKey('bib', $items[0], $queryParams);
-			Z_Core::$MC->set($key, $response, 3600);
+		if ($response) {
+			Z_Core::$MC->set($key, $response, 900);
 		}
 		return $response;
 	}
@@ -392,6 +399,28 @@ class Zotero_Cite {
 				. (isset(Z_CONFIG::$CACHE_VERSION_BIB)
 					? "_" . Z_CONFIG::$CACHE_VERSION_BIB
 					: "");
+	}
+	
+	
+	private static function getBibCacheKey(array $items, array $queryParams) {
+		// Any query parameters that have an effect on the output
+		// need to be added here
+		$allowedParams = array(
+			'style',
+			'css',
+			'linkwrap'
+		);
+		$cachedParams = Z_Array::filterKeys($queryParams, $allowedParams);
+		
+		$itemStr = implode('_', array_map(function ($item) {
+			return $item->id . '/' . $item->version;
+		}, $items));
+		
+		return "bib_"
+			. md5($itemStr . json_encode($cachedParams))
+			. (isset(Z_CONFIG::$CACHE_VERSION_BIB)
+				? "_" . Z_CONFIG::$CACHE_VERSION_BIB
+				: "");
 	}
 	
 	
