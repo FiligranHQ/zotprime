@@ -281,7 +281,7 @@ CREATE TABLE `storageFiles` (
 CREATE TABLE `storageFileLibraries` (
   `storageFileID` int(10) unsigned NOT NULL,
   `libraryID` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`storageFileID`,`libraryID`)
+  PRIMARY KEY (`storageFileID`,`libraryID`),
   KEY `libraryID` (`libraryID`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
 
