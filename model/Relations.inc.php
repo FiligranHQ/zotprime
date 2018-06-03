@@ -27,7 +27,6 @@
 class Zotero_Relations extends Zotero_ClassicDataObjects {
 	public static $allowedCollectionPredicates = [
 		'owl:sameAs',
-		'mendeleyDB:folderID',
 		'mendeleyDB:remoteFolderUUID'
 	];
 	
@@ -46,7 +45,6 @@ class Zotero_Relations extends Zotero_ClassicDataObjects {
 		'mendeleyDB:remoteDocumentUUID',
 		'mendeleyDB:fileHash',
 		'mendeleyDB:fileUUID',
-		'mendeleyDB:folderID',
 		'mendeleyDB:remoteFolderUUID'
 	];
 	
