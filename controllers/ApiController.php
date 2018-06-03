@@ -1304,7 +1304,7 @@ class ApiController extends Controller {
 		
 		// On testing site, display unexpected error messages
 		if (Z_ENV_TESTING_SITE) {
-			$this->e500($str);
+			$this->e500($error['message']);
 		}
 		
 		$this->e500();
