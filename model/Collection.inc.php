@@ -436,10 +436,6 @@ class Zotero_Collection extends Zotero_DataObject {
 	 * separately.
 	 */
 	public function addItem($itemID) {
-		if (!Zotero_Items::get($this->libraryID, $itemID)) {
-			throw new Exception("Item does not exist");
-		}
-		
 		if ($this->hasItem($itemID)) {
 			Z_Core::debug("Item $itemID is already a child of collection $this->id");
 			return;
