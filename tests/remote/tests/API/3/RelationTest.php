@@ -381,4 +381,39 @@ class RelationTests extends APITests {
 			$this->assertEquals($object, $data['relations'][$predicate]);
 		}
 	}
+	
+	
+	public function test_should_return_200_for_values_for_mendeleyDB_collection_relations() {
+		$relations = [
+			"mendeleyDB:folderID" => 6,
+			"mendeleyDB:remoteFolderUUID" => "b95b84b9-8b27-4a55-b5ea-5b98c1cac205"
+		];
+		$data = API::createCollection(
+			"Test",
+			[
+				"relations" => $relations
+			],
+			$this,
+			'jsonData'
+		);
+		$this->assertEquals($relations['mendeleyDB:folderID'], $data['relations']['mendeleyDB:folderID']);
+		$this->assertEquals($relations['mendeleyDB:remoteFolderUUID'], $data['relations']['mendeleyDB:remoteFolderUUID']);
+	}
+	
+	
+	public function test_should_return_200_for_arrays_for_mendeleyDB_collection_relations() {
+		$json = [
+			"name" => "Test",
+			"relations" => [
+				"mendeleyDB:folderID" => [6],
+				"mendeleyDB:remoteFolderUUID" => ["b95b84b9-8b27-4a55-b5ea-5b98c1cac205"]
+			]
+        ];
+		$response = API::userPost(
+			self::$config['userID'],
+			"collections",
+			json_encode([$json])
+		);
+		$this->assert200ForObject($response);
+	}
 }

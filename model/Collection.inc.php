@@ -40,6 +40,9 @@ class Zotero_Collection extends Zotero_DataObject {
 	
 	public function __get($field) {
 		switch ($field) {
+		case 'relations':
+			return $this->getRelations();
+		
 		case 'etag':
 			return $this->getETag();
 		
@@ -170,6 +173,61 @@ class Zotero_Collection extends Zotero_DataObject {
 						$this->_libraryID, $this->previousData['parentKey']
 					);
 					$objectsClass::unregisterChildCollection($parentCollectionID, $collectionID);
+				}
+			}
+			
+			// Related items
+			if (!empty($this->changed['relations'])) {
+				$removed = [];
+				$new = [];
+				$current = $this->relations;
+				
+				foreach ($this->previousData['relations'] as $rel) {
+					if (array_search($rel, $current) === false) {
+						$removed[] = $rel;
+					}
+				}
+				
+				foreach ($current as $rel) {
+					if (array_search($rel, $this->previousData['relations']) !== false) {
+						continue;
+					}
+					$new[] = $rel;
+				}
+				
+				$uri = Zotero_URI::getCollectionURI($this);
+				
+				if ($removed) {
+					$sql = "DELETE FROM relations WHERE libraryID=? AND `key`=?";
+					$deleteStatement = Zotero_DB::getStatement($sql, false, $shardID);
+					
+					foreach ($removed as $rel) {
+						$params = [
+							$this->_libraryID,
+							Zotero_Relations::makeKey($uri, $rel[0], $rel[1])
+						];
+						$deleteStatement->execute($params);
+					}
+				}
+				
+				if ($new) {
+					$sql = "INSERT IGNORE INTO relations "
+						 . "(relationID, libraryID, `key`, subject, predicate, object) "
+						 . "VALUES (?, ?, ?, ?, ?, ?)";
+					$insertStatement = Zotero_DB::getStatement($sql, false, $shardID);
+					
+					foreach ($new as $rel) {
+						$insertStatement->execute(
+							array(
+								Zotero_ID::get('relations'),
+								$this->_libraryID,
+								Zotero_Relations::makeKey($uri, $rel[0], $rel[1]),
+								$uri,
+								$rel[0],
+								$rel[1]
+							)
+						);
+					}
 				}
 			}
 		}
@@ -552,67 +610,6 @@ class Zotero_Collection extends Zotero_DataObject {
 	
 	
 	/**
-	 * Updates the collection's relations. No separate save of the collection is required.
-	 *
-	 * @param object $newRelations Object with predicates as keys and URIs as values
-	 * @param int $userID User making the change
-	 */
-	public function setRelations($newRelations, $userID) {
-		if (!$this->_id) {
-			throw new Exception('collectionID not set');
-		}
-		
-		// An empty array is allowed by updateFromJSON()
-		if (is_array($newRelations) && empty($newRelations)) {
-			$newRelations = new stdClass;
-		}
-		
-		Zotero_DB::beginTransaction();
-		
-		// Get arrays from objects
-		$oldRelations = get_object_vars($this->getRelations());
-		$newRelations = get_object_vars($newRelations);
-		
-		$toAdd = array_diff($newRelations, $oldRelations);
-		$toRemove = array_diff($oldRelations, $newRelations);
-		
-		if (!$toAdd && !$toRemove) {
-			Zotero_DB::commit();
-			return false;
-		}
-		
-		$subject = Zotero_URI::getCollectionURI($this);
-		
-		foreach ($toAdd as $predicate => $object) {
-			Zotero_Relations::add(
-				$this->libraryID,
-				$subject,
-				$predicate,
-				$object
-			);
-		}
-		
-		foreach ($toRemove as $predicate => $object) {
-			$relations = Zotero_Relations::getByURIs(
-				$this->libraryID,
-				$subject,
-				$predicate,
-				$object
-			);
-			foreach ($relations as $relation) {
-				Zotero_Relations::delete($this->libraryID, $relation->key);
-			}
-		}
-		
-		$this->updateVersion($userID);
-		
-		Zotero_DB::commit();
-		
-		return true;
-	}
-	
-	
-	/**
 	 * Returns all tags assigned to items in this collection
 	 */
 	public function getTags($asIDs=false) {
@@ -851,6 +848,32 @@ class Zotero_Collection extends Zotero_DataObject {
 			}
 			$this->_hasChildItems = !!$this->childItems;
 		}
+	}
+	
+	
+	protected function loadRelations($reload = false) {
+		if ($this->loaded['relations'] && !$reload) return;
+		
+		if (!$this->id) {
+			return;
+		}
+		
+		Z_Core::debug("Loading relations for collection $this->id");
+		
+		if (!$this->loaded) {
+			$this->load();
+		}
+		
+		$collectionURI = Zotero_URI::getCollectionURI($this);
+		
+		$relations = Zotero_Relations::getByURIs($this->libraryID, $collectionURI);
+		$relations = array_map(function ($rel) {
+			return [$rel->predicate, $rel->object];
+		}, $relations);
+		
+		$this->relations = $relations;
+		$this->loaded['relations'] = true;
+		$this->clearChanged('relations');
 	}
 	
 	

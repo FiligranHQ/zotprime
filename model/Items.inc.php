@@ -2241,14 +2241,13 @@ class Zotero_Items {
 						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
 					}
 					foreach ($val as $predicate => $object) {
-						switch ($predicate) {
-						case 'owl:sameAs':
-						case 'dc:replaces':
-						case 'dc:relation':
-							break;
-						
-						default:
+						if (!in_array($predicate, Zotero_Relations::$allowedItemPredicates)) {
 							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
+						}
+						
+						// Certain predicates allow values other than Zotero URIs
+						if (in_array($predicate, Zotero_Relations::$externalPredicates)) {
+							continue;
 						}
 						
 						$arr = is_string($object) ? [$object] : $object;

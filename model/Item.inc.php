@@ -66,9 +66,8 @@ class Zotero_Item extends Zotero_DataObject {
 	private $numNotes;
 	private $numAttachments;
 	
-	private $collections = [];
-	private $tags = [];
-	private $relations = [];
+	protected $collections = [];
+	protected $tags = [];
 	
 	private $cacheEnabled = false;
 	
@@ -1945,10 +1944,6 @@ class Zotero_Item extends Zotero_DataObject {
 				}
 				
 				// Related items
-				if ($userID == 1867969) {
-					error_log($this->key);
-					error_log(json_encode($this->changed));
-				}
 				if (!empty($this->changed['relations'])) {
 					$removed = [];
 					$new = [];
@@ -3136,106 +3131,6 @@ class Zotero_Item extends Zotero_DataObject {
 	}
 	
 	
-	//
-	// Methods dealing with relations
-	//
-	/**
-	 * Returns all relations of the item
-	 *
-	 * @return object Object with predicates as keys and URIs as values
-	 */
-	public function getRelations() {
-		if (!$this->loaded['relations']) {
-			$this->loadRelations();
-		}
-		
-		$toReturn = new stdClass;
-		foreach ($this->relations as $relation) {
-			// Relations are stored internally as predicate-object pairs
-			$predicate = $relation[0];
-			if (isset($toReturn->$predicate)) {
-				// If object with predicate exists, convert to an array
-				if (is_string($toReturn->$predicate)) {
-					$toReturn->$predicate = array($toReturn->$predicate);
-				}
-				// Add new object to array
-				$toReturn->{$predicate}[] = $relation[1];
-			}
-			// Add first object as a string
-			else {
-				$toReturn->$predicate = $relation[1];
-			}
-		}
-		return $toReturn;
-	}
-	
-	
-	/**
-	 * Updates the item's relations
-	 *
-	 * @param object $newRelations Object with predicates as keys and URIs/arrays-of-URIs as values
-	 */
-	public function setRelations($newRelations) {
-		if (!$this->loaded['relations']) {
-			$this->loadRelations();
-		}
-		
-		// An empty array is allowed by updateFromJSON()
-		if (is_array($newRelations) && empty($newRelations)) {
-			$newRelations = new stdClass;
-		}
-		
-		// There can be more than one object for a given predicate, so build
-		// flat arrays with individual predicate-object pairs converted to
-		// JSON strings so we can use array_diff to determine what changed
-		$oldRelations = $this->relations;
-		
-		$sortFunc = function ($a, $b) {
-			if ($a[0] < $b[0]) return -1;
-			if ($a[0] > $b[0]) return 1;
-			return strcmp($a[1], $b[1]);
-		};
-		
-		$newRelationsFlat = [];
-		foreach ($newRelations as $predicate => $object) {
-			if (is_array($object)) {
-				foreach ($object as $o) {
-					$newRelationsFlat[] = [$predicate, $o];
-				}
-			}
-			else {
-				$newRelationsFlat[] = [$predicate, $object];
-			}
-		}
-		
-		$changed = false;
-		if (sizeOf($oldRelations) != sizeOf($newRelationsFlat)) {
-			$changed = true;
-		}
-		else {
-			usort($oldRelations, $sortFunc);
-			usort($newRelationsFlat, $sortFunc);
-			
-			for ($i=0; $i<sizeOf($oldRelations); $i++) {
-				if (!isset($newRelationsFlat) || $oldRelations[$i] != $newRelationsFlat[$i]) {
-					$changed = true;
-					break;
-				}
-			}
-		}
-		
-		if (!$changed) {
-			Z_Core::debug("Relations have not changed for item $this->id");
-			return false;
-		}
-		
-		$this->storePreviousData('relations');
-		// Store relations internally as array of predicate-object pairs
-		$this->relations = $newRelationsFlat;
-		$this->changed['relations'] = true;
-	}
-	
-	
 	public function toHTML($asSimpleXML = false, $requestParams) {
 		$html = new SimpleXMLElement('<table/>');
 		
@@ -4306,15 +4201,6 @@ class Zotero_Item extends Zotero_DataObject {
 			$this->loadPrimaryData();
 		}
 		return md5($this->serverDateModified . $this->version);
-	}
-	
-	
-	private function storePreviousData($field) {
-		// Don't overwrite previous data already stored
-		if (isset($this->previousData[$field])) {
-			return;
-		}
-		$this->previousData[$field] = $this->$field;
 	}
 	
 	

@@ -25,6 +25,31 @@
 */
 
 class Zotero_Relations extends Zotero_ClassicDataObjects {
+	public static $allowedCollectionPredicates = [
+		'owl:sameAs',
+		'mendeleyDB:folderID',
+		'mendeleyDB:remoteFolderUUID'
+	];
+	
+	public static $allowedItemPredicates = [
+		'owl:sameAs',
+		'dc:replaces',
+		'dc:relation',
+		'mendeleyDB:documentUUID',
+		'mendeleyDB:remoteDocumentUUID',
+		'mendeleyDB:fileHash',
+		'mendeleyDB:fileUUID'
+	];
+	
+	public static $externalPredicates = [
+		'mendeleyDB:documentUUID',
+		'mendeleyDB:remoteDocumentUUID',
+		'mendeleyDB:fileHash',
+		'mendeleyDB:fileUUID',
+		'mendeleyDB:folderID',
+		'mendeleyDB:remoteFolderUUID'
+	];
+	
 	protected static $ZDO_object = 'relation';
 	
 	protected static $primaryFields = array(
@@ -42,7 +67,8 @@ class Zotero_Relations extends Zotero_ClassicDataObjects {
 	
 	private static $namespaces = array(
 		"dc" => 'http://purl.org/dc/elements/1.1/',
-		"owl" => 'http://www.w3.org/2002/07/owl#'
+		"owl" => 'http://www.w3.org/2002/07/owl#',
+		"mendeleyDB" => 'http://zotero.org/namespaces/mendeleyDB#'
 	);
 	
 	public static function get($libraryID, $relationID, $existsCheck=false) {
@@ -297,8 +323,8 @@ class Zotero_Relations extends Zotero_ClassicDataObjects {
 	private static function _getPrefixAndValue($uri) {
 		$parts = explode(':', $uri);
 		if (isset($parts[1])) {
-			if (!self::$namespaces[$parts[0]]) {
-				throw ("Invalid prefix '{$parts[0]}'");
+			if (!isset(self::$namespaces[$parts[0]])) {
+				throw new Exception("Invalid prefix '{$parts[0]}'");
 			}
 			return $parts;
 		}

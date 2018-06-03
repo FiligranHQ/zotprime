@@ -367,8 +367,6 @@ class Zotero_Collections {
 			$collection->parentKey = false;
 		}
 		
-		$changed = $collection->save() || $changed;
-		
 		if ($requestParams['v'] >= 2) {
 			if (isset($json->relations)) {
 				$changed = $collection->setRelations($json->relations, $userID) || $changed;
@@ -377,6 +375,8 @@ class Zotero_Collections {
 				$changed = $collection->setRelations(new stdClass(), $userID) || $changed;
 			}
 		}
+		
+		$changed = $collection->save() || $changed;
 		
 		if ($transactionStarted) {
 			Zotero_DB::commit();
@@ -485,16 +485,20 @@ class Zotero_Collections {
 						throw new Exception("'$key' property must be an object", Z_ERROR_INVALID_INPUT);
 					}
 					foreach ($val as $predicate => $object) {
-						switch ($predicate) {
-						case 'owl:sameAs':
-							break;
-						
-						default:
+						if (!in_array($predicate, Zotero_Relations::$allowedCollectionPredicates)) {
 							throw new Exception("Unsupported predicate '$predicate'", Z_ERROR_INVALID_INPUT);
 						}
 						
-						if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/(publications\/)?collections\/[A-Z0-9]{8}$/', $object)) {
-							throw new Exception("'$key' values currently must be Zotero collection URIs", Z_ERROR_INVALID_INPUT);
+						// Certain predicates allow values other than Zotero URIs
+						if (in_array($predicate, Zotero_Relations::$externalPredicates)) {
+							continue;
+						}
+						
+						$arr = is_string($object) ? [$object] : $object;
+						foreach ($arr as $uri) {
+							if (!preg_match('/^http:\/\/zotero.org\/(users|groups)\/[0-9]+\/(publications\/)?collections\/[A-Z0-9]{8}$/', $uri)) {
+								throw new Exception("'$key' values currently must be Zotero collection URIs", Z_ERROR_INVALID_INPUT);
+							}
 						}
 					}
 					break;
