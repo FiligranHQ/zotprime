@@ -2440,6 +2440,9 @@ class ItemTests extends APITests {
 	
 	
 	public function test_should_return_409_on_missing_parent_if_parent_failed() {
+		// Collection
+		$collectionKey = API::createCollection("A", null, $this, 'key');
+		
 		$version = API::getLibraryVersion();
 		$parentKey = "BDARG2AV";
 		$tag = \Zotero_Utilities::randomString(300);
@@ -2462,6 +2465,7 @@ class ItemTests extends APITests {
 				"tag" => $tag
 			]
 		];
+		$item1JSON->collections = [$collectionKey];
 		// Child note
 		$item2JSON = API::getItemTemplate("note");
 		$item2JSON->parentItem = $parentKey;
