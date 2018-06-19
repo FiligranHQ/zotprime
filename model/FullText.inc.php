@@ -24,6 +24,7 @@
     ***** END LICENSE BLOCK *****
 */
 
+// Todo: move S3 code outside of transactions
 class Zotero_FullText {
 	private static $elasticsearchType = "item_fulltext";
 	public static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
@@ -52,58 +53,37 @@ class Zotero_FullText {
 			. implode(', ', array_fill(0, sizeOf($params), '?')) . ")";
 		Zotero_DB::query($sql, $params, Zotero_Shards::getByLibraryID($libraryID));
 		
-		// Add to Elasticsearch
-		self::indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $data);
-		
-		Zotero_DB::commit();
-	}
-	
-	private static function indexItemInElasticsearch($libraryID, $key, $version, $timestamp, $data) {
-		$type = self::getWriteType();
-		
-		$id = $libraryID . "/" . $key;
-		$doc = [
-			'id' => $id,
+		// Add to S3
+		$json = [
 			'libraryID' => $libraryID,
-			'content' => (string) $data->content,
-			// We don't seem to be able to search on _version, so we duplicate it here
+			'key' => $key,
 			'version' => $version,
-			// Add "T" between date and time for Elasticsearch
+			'content' => (string) $data->content,
 			'timestamp' => str_replace(" ", "T", $timestamp)
 		];
+		
 		foreach (self::$metadata as $prop) {
 			if (isset($data->$prop)) {
-				$doc[$prop] = (int) $data->$prop;
+				$json[$prop] = (int)$data->$prop;
 			}
 		}
+		
+		$json = json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		
+		$s3Client = Z_Core::$AWS->createS3();
 		$start = microtime(true);
-		$doc = new \Elastica\Document($id, $doc, self::$elasticsearchType);
-		$doc->setVersion($version);
-		$doc->setVersionType('external');
-		try {
-			$response = $type->addDocument($doc);
-		}
-		catch (Exception $e) {
-			$msg = $e->getMessage();
-			if (preg_match('/version conflict, current \[([0-9]+)\], provided \[([0-9]+)\]/', $msg, $matches)) {
-				if ($matches[1] == $matches[2]) {
-					error_log("WARNING: " . $msg);
-					return;
-				}
-			}
-			throw $e;
-		}
-		StatsD::timing("elasticsearch.client.item_fulltext.add", (microtime(true) - $start) * 1000);
-		if ($response->hasError()) {
-			$msg = $response->getError();
-			if (preg_match('/version conflict, current \[([0-9]+)\], provided \[([0-9]+)\]/', $msg, $matches)) {
-				if ($matches[1] == $matches[2]) {
-					error_log("WARNING: " . $msg);
-					return;
-				}
-			}
-			throw new Exception($response->getError());
-		}
+		$s3Client->putObject([
+			'Bucket' => Z_CONFIG::$S3_BUCKET_FULLTEXT,
+			'Key' => $libraryID . "/" . $key,
+			'Body' => $json
+		]);
+		StatsD::timing("s3.fulltext.put", (microtime(true) - $start) * 1000);
+		
+		Zotero_DB::commit();
+		
+		// Todo: Remove fall back code after migration
+		$redis = Z_Redis::get('fulltext-migration');
+		$redis->set('s3:' . $libraryID . "/" . $key, '1');
 	}
 	
 	
@@ -174,14 +154,10 @@ class Zotero_FullText {
 		}
 	}
 	
-	
-	/**
-	 * Get item full-text data from Elasticsearch by libraryID and key
-	 *
-	 * Since the request to Elasticsearch is by id, it will return results even if the document
-	 * hasn't yet been indexed
+	/*
+	 * TODO: Remove fall back code after migration
 	 */
-	public static function getItemData($libraryID, $key) {
+	public static function getItemDataES($libraryID, $key) {
 		$index = self::getReadIndex();
 		$type = self::getReadType();
 		$id = $libraryID . "/" . $key;
@@ -197,6 +173,8 @@ class Zotero_FullText {
 		
 		$esData = $document->getData();
 		$itemData = array(
+			"libraryID" => $libraryID,
+			"key" => $key,
 			"content" => $esData['content'],
 			"version" => $esData['version'],
 		);
@@ -207,6 +185,56 @@ class Zotero_FullText {
 			$itemData[$prop] = isset($esData[$prop]) ? $esData[$prop] : 0;
 		}
 		return $itemData;
+	}
+	
+	/**
+	 * Get item full-text data from S3 by libraryID and key
+	 */
+	public static function getItemDataS3($libraryID, $key) {
+		$s3Client = Z_Core::$AWS->createS3();
+		
+		try {
+			$start = microtime(true);
+			$result = $s3Client->getObject([
+				'Bucket' => Z_CONFIG::$S3_BUCKET_FULLTEXT,
+				'Key' => $libraryID . "/" . $key
+			]);
+			StatsD::timing("s3.fulltext.get", (microtime(true) - $start) * 1000);
+		}
+		catch (Aws\S3\Exception\S3Exception $e) {
+			if ($e->getAwsErrorCode() == 'NoSuchKey') {
+				return false;
+			}
+			throw $e;
+		}
+		
+		$json = (string) $result['Body'];
+		$json = json_decode($json);
+		
+		$itemData = array(
+			"libraryID" => $libraryID,
+			"key" => $key,
+			"content" => $json->content,
+			"version" => $json->version
+		);
+		if (isset($json->language)) {
+			$itemData['language'] = $json->language;
+		}
+		foreach (self::$metadata as $prop) {
+			$itemData[$prop] = isset($json->$prop) ? $json->$prop : 0;
+		}
+		return $itemData;
+	}
+	
+	/*
+	 * TODO: Remove fall back code after migration
+	 */
+	public static function getItemData($libraryID, $key) {
+		$data = self::getItemDataS3($libraryID, $key);
+		if (!$data) {
+			$data = self::getItemDataES($libraryID, $key);
+		}
+		return $data;
 	}
 	
 	
@@ -255,76 +283,34 @@ class Zotero_FullText {
 		
 		$maxChars = 1000000;
 		
-		$index = self::getReadIndex();
-		$type = self::getReadType();
 		$first = true;
 		$stop = false;
 		$chars = 0;
 		$data = [];
 		
-		while (($chars < $maxChars) && ($batchRows = array_splice($rows, 0, 5)) && !$stop) {
-			// Make a raw query, since Elastica doesn't yet support mget
-			$json = [
-				"docs" => []
-			];
-			foreach ($batchRows as $row) {
-				$json['docs'][] = [
-					"_id" => $row['libraryID'] . "/" . $row['key'],
-					"_routing" => $row['libraryID']
-				];
-			}
-			$path = $index->getName() . '/' . $type->getName() . '/_mget';
-			$response = Z_Core::$Elastica->request($path, \Elastica\Request::GET, json_encode($json));
-			if ($response->hasError()) {
-				throw new Exception($response->getError());
-			}
-			$responseData = $response->getData();
-			if (!isset($responseData['docs'])) {
-				throw new Exception("Invalid response from mget");
-			}
-			if (sizeOf($responseData['docs']) != sizeOf($batchRows)) {
-				throw new Exception("MySQL and Elasticsearch do not match "
-					. "(" . sizeOf($responseData['docs']) . ", " . sizeOf($batchRows) . ")");
+		while (($chars < $maxChars) && ($row = array_shift($rows)) && !$stop) {
+			$libraryID = $row['libraryID'];
+			$key = $row['key'];
+			
+			$data[$key] = self::getItemData($libraryID, $key);
+			if (!$data[$key]) {
+				error_log("WARNING: JSON " . $libraryID . "/" . $key . " not found in S3 bucket");
+				continue;
 			}
 			
-			foreach ($responseData['docs'] as $doc) {
-				list($libraryID, $key) = explode("/", $doc['_id']);
-				// This shouldn't happen
-				if (empty($doc["found"])) {
-					error_log("WARNING: Item {$doc['_id']} not found in Elasticsearch");
-					continue;
-				}
-				$source = $doc['_source'];
-				if (!$source) {
-					throw new Exception("_source not found in Elasticsearch for item {$doc['_id']}");
-				}
-				
-				$data[$key] = [
-					"libraryID" => $libraryID,
-					"key" => $key,
-					"version" => $source['version']
-				];
-				
-				// If the current item would put us over max characters,
-				// leave it empty, unless it's the first one
-				$currentChars = strlen($source['content']);
-				if (!$first && (($chars + $currentChars) > $maxChars)) {
-					$data[$key]['empty'] = true;
-					$stop = true;
-				}
-				else {
-					$data[$key]['content'] = $source['content'];
-					$data[$key]['empty'] = false;
-					$chars += $currentChars;
-				}
-				$first = false;
-				
-				foreach (self::$metadata as $prop) {
-					if (isset($source[$prop])) {
-						$data[$key][$prop] = (int) $source[$prop];
-					}
-				}
+			// If the current item would put us over max characters,
+			// leave it empty, unless it's the first one
+			$currentChars = strlen($data['content']);
+			if (!$first && (($chars + $currentChars) > $maxChars)) {
+				unset($data[$key]['content']);
+				$data[$key]['empty'] = true;
+				$stop = true;
 			}
+			else {
+				$data[$key]['empty'] = false;
+				$chars += $currentChars;
+			}
+			$first = false;
 		}
 		
 		// Add unprocessed rows as empty
@@ -335,7 +321,6 @@ class Zotero_FullText {
 				"version" => 0,
 				"indexedChars" => 0,
 				"totalChars" => 0,
-				"indexedPages" => 0,
 				"indexedPages" => 0,
 				"empty" => true
 			];
@@ -395,34 +380,22 @@ class Zotero_FullText {
 			Zotero_Shards::getByLibraryID($libraryID)
 		);
 		
-		self::deleteItemContentFromElasticsearch($libraryID, $key);
+		// Delete from S3
+		$s3Client = Z_Core::$AWS->createS3();
+		$start = microtime(true);
+		$s3Client->deleteObject([
+			'Bucket' => Z_CONFIG::$S3_BUCKET_FULLTEXT,
+			'Key' => $libraryID . '/' . $key
+		]);
+		StatsD::timing("s3.fulltext.delete", (microtime(true) - $start) * 1000);
 		
 		Zotero_DB::commit();
-	}
-	
-	
-	public static function deleteItemContentFromElasticsearch($libraryID, $key) {
-		// Delete from Elasticsearch
-		$type = self::getWriteType();
 		
-		try {
-			$start = microtime(true);
-			$response = $type->deleteById($libraryID . "/" . $key, [
-				'routing' => $libraryID
-			]);
-			StatsD::timing("elasticsearch.client.item_fulltext.delete_item", (microtime(true) - $start) * 1000);
-		}
-		catch (Elastica\Exception\NotFoundException $e) {
-			// Ignore if not found
-		}
-		catch (Exception $e) {
-			throw $e;
-		}
-		if (isset($response) && $response->hasError()) {
-			throw new Exception($response->getError());
-		}
+		// Todo: Remove after migration
+		// Make sure the full-text won't be recreated when doing migration
+		$redis = Z_Redis::get('fulltext-migration');
+		$redis->set('s3:' . $libraryID . "/" . $key, '1');
 	}
-	
 	
 	public static function deleteByLibrary($libraryID) {
 		Zotero_DB::beginTransaction();
@@ -430,20 +403,19 @@ class Zotero_FullText {
 		// Delete from MySQL
 		self::deleteByLibraryMySQL($libraryID);
 		
-		// Delete from Elasticsearch
-		$type = self::getWriteType();
-		
-		$libraryQuery = new \Elastica\Query\Term();
-		$libraryQuery->setTerm("libraryID", $libraryID);
-		$query = new \Elastica\Query($libraryQuery);
+		// Delete from S3
+		$s3Client = Z_Core::$AWS->createS3();
 		$start = microtime(true);
-		$response = $type->deleteByQuery($query);
-		StatsD::timing("elasticsearch.client.item_fulltext.delete_library", (microtime(true) - $start) * 1000);
-		if ($response->hasError()) {
-			throw new Exception($response->getError());
-		}
+		// Potentially slow, because internally it lists objects and then deletes by batches of 1000
+		$s3Client->deleteMatchingObjects(Z_CONFIG::$S3_BUCKET_FULLTEXT, $libraryID . '/');
+		StatsD::timing("s3.fulltext.bulk_delete", (microtime(true) - $start) * 1000);
 		
 		Zotero_DB::commit();
+		
+		// Todo: Remove after migration
+		// Make sure the library full-texts won't be recreated when doing migration
+		$redis = Z_Redis::get('fulltext-migration');
+		$redis->set('s3:' . $libraryID, '1');
 	}
 	
 	
