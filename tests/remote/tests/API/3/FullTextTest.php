@@ -293,8 +293,8 @@ class FullTextTests extends APITests {
 		
 		$this->assert204($response);
 		
-		// Wait for refresh
-		sleep(1);
+		// Wait for indexing via Lambda
+		sleep(3);
 		
 		// Search for a word
 		$response = API::userGet(
