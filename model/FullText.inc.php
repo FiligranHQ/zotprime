@@ -75,7 +75,8 @@ class Zotero_FullText {
 		$s3Client->putObject([
 			'Bucket' => Z_CONFIG::$S3_BUCKET_FULLTEXT,
 			'Key' => $libraryID . "/" . $key,
-			'Body' => $json
+			'Body' => $json,
+			'StorageClass' => 'STANDARD_IA'
 		]);
 		StatsD::timing("s3.fulltext.put", (microtime(true) - $start) * 1000);
 		
