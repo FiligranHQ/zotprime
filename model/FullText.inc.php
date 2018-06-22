@@ -26,6 +26,7 @@
 
 // Todo: move S3 code outside of transactions
 class Zotero_FullText {
+	private static $minFileSizeStandardIA = 75 * 1024;
 	private static $elasticsearchType = "item_fulltext";
 	public static $metadata = array('indexedChars', 'totalChars', 'indexedPages', 'totalPages');
 	
@@ -69,6 +70,7 @@ class Zotero_FullText {
 		}
 		
 		$json = json_encode($json, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$json = gzencode($json);
 		
 		$s3Client = Z_Core::$AWS->createS3();
 		$start = microtime(true);
@@ -76,7 +78,8 @@ class Zotero_FullText {
 			'Bucket' => Z_CONFIG::$S3_BUCKET_FULLTEXT,
 			'Key' => $libraryID . "/" . $key,
 			'Body' => $json,
-			'StorageClass' => 'STANDARD_IA'
+			'ContentType' => 'application/gzip',
+			'StorageClass' => strlen($json) < self::$minFileSizeStandardIA ? 'STANDARD' : 'STANDARD_IA'
 		]);
 		StatsD::timing("s3.fulltext.put", (microtime(true) - $start) * 1000);
 		
@@ -209,7 +212,12 @@ class Zotero_FullText {
 			throw $e;
 		}
 		
-		$json = (string) $result['Body'];
+		$json = $result['Body'];
+		
+		if ($result['ContentType'] == 'application/gzip') {
+			$json = gzdecode($json);
+		}
+		
 		$json = json_decode($json);
 		
 		$itemData = array(
