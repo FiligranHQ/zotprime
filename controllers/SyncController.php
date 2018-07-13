@@ -231,6 +231,12 @@ class SyncController extends Controller {
 		
 		$this->sessionCheck();
 		
+		if (!Z_Core::$MC->get('z4_eol_' . $this->userID)) {
+			Z_Core::$MC->set('z4_eol_' . $this->userID, 1, 86400);
+			$upgradeMessage = "Zotero 4 will no longer sync after August 1, 2018. Please upgrade to Zotero 5 to continue syncing.";
+			$this->error(500, 'UPGRADE_REQUIRED', $upgradeMessage);
+		}
+		
 		if (isset($_SERVER['HTTP_X_ZOTERO_VERSION'])) {
 			require_once('../model/ToolkitVersionComparator.inc.php');
 			
