@@ -232,7 +232,30 @@ class SyncController extends Controller {
 		$this->sessionCheck();
 		
 		if (!Z_Core::$MC->get('z4_eol_' . $this->userID)) {
-			Z_Core::$MC->set('z4_eol_' . $this->userID, 1, 86400);
+			$date = date('Y-m-d');
+			if ($date >= '2018-07-17') {
+				$ttl = 43200; // 12 hours
+			}
+			else if ($date >= '2018-07-20') {
+				$ttl = 7200; // 6 hours
+			}
+			else if ($date >= '2018-07-25') {
+				$ttl = 3600; // 1 hour
+			}
+			else if ($date >= '2018-07-27') {
+				$ttl = 300; // 5 minutes
+			}
+			else if ($date >= '2018-08-01') {
+				$ttl = 60; // 1 minute
+			}
+			else if ($date >= '2018-08-02') {
+				$upgradeMessage = "Zotero 4 syncing is no longer supported. Please upgrade to Zotero 5 to continue syncing.";
+				$this->error(400, 'UPGRADE_REQUIRED', $upgradeMessage);
+			}
+			else {
+				$ttl = 86400; // 1 day
+			}
+			Z_Core::$MC->set('z4_eol_' . $this->userID, 1, $ttl);
 			$upgradeMessage = "Zotero 4 will no longer sync after August 1, 2018. Please upgrade to Zotero 5 to continue syncing.";
 			$this->error(500, 'UPGRADE_REQUIRED', $upgradeMessage);
 		}
