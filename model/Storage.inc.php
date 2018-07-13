@@ -88,18 +88,22 @@ class Zotero_Storage {
 			// http://docs.aws.amazon.com/aws-sdk-php/v3/api/api-s3-2006-03-01.html#headobject,
 			// but returning NotFound
 			if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
-				// Try legacy key format, with zip flag and filename
+				// Try to find a legacy file: hash/filename or hash/c/filename
 				try {
-					$key = self::getPathPrefix($info['hash'], $info['zip']) . $info['filename'];
-					$s3Client->headObject([
+					$result = $s3Client->listObjects([
 						'Bucket' => Z_CONFIG::$S3_BUCKET,
-						'Key' => $key
+						'MaxKeys' => 1,
+						'Prefix' => $info['hash'],
 					]);
-				}
-				catch (\Aws\S3\Exception\S3Exception $e) {
-					if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+					
+					$contents = $result->get('Contents');
+					if (!$contents || count($contents) < 1) {
 						return false;
 					}
+					
+					$key = $contents[0]['Key'];
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
 					throw $e;
 				}
 			}
@@ -136,19 +140,36 @@ class Zotero_Storage {
 		}
 		catch (\Aws\S3\Exception\S3Exception $e) {
 			if ($e->getAwsErrorCode() == 'NoSuchKey') {
-				// Try legacy key format, with zip flag and filename
+				// Try to find a legacy file: hash/filename or hash/c/filename
 				try {
-					return $s3Client->getObject([
+					$result = $s3Client->listObjects([
 						'Bucket' => Z_CONFIG::$S3_BUCKET,
-						'Key' => self::getPathPrefix($localFileItemInfo['hash'], $localFileItemInfo['zip'])
-							. $localFileItemInfo['filename'],
-						'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
+						'MaxKeys' => 1,
+						'Prefix' => $localFileItemInfo['hash'],
 					]);
-				}
-				catch (\Aws\S3\Exception\S3Exception $e) {
-					if ($e->getAwsErrorCode() == 'NoSuchKey') {
+					
+					$contents = $result->get('Contents');
+					if (!$contents || count($contents) < 1) {
 						return false;
 					}
+					$key = $contents[0]['Key'];
+					
+					try {
+						return $s3Client->getObject([
+							'Bucket' => Z_CONFIG::$S3_BUCKET,
+							'Key' => $key,
+							'SaveAs' => $savePath . "/" . ($filename ? $filename : $localFileItemInfo['filename'])
+						]);
+					}
+					catch (\Aws\S3\Exception\S3Exception $e) {
+						if ($e->getAwsErrorCode() == 'NoSuchKey') {
+							return false;
+						}
+						throw $e;
+					}
+					
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
 					throw $e;
 				}
 			}
@@ -412,23 +433,41 @@ class Zotero_Storage {
 		// If file doesn't already exist named with just hash, copy it over
 		catch (\Aws\S3\Exception\S3Exception $e) {
 			if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+				// Try to find a legacy file: hash/filename or hash/c/filename
 				try {
-					$s3Client->copyObject([
+					$result = $s3Client->listObjects([
 						'Bucket' => Z_CONFIG::$S3_BUCKET,
-						'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
-							. urlencode(self::getPathPrefix($localInfo['hash'], $localInfo['zip'])
-								. $localInfo['filename']),
-						'Key' => $localInfo['hash'],
-						'ACL' => 'private'
+						'MaxKeys' => 1,
+						'Prefix' => $localInfo['hash'],
 					]);
-				}
-				catch (\Aws\S3\Exception\S3Exception $e) {
-					if ($e->getAwsErrorCode() == 'NoSuchKey') {
+					
+					$contents = $result->get('Contents');
+					if (!$contents || count($contents) < 1) {
 						return false;
 					}
-					else {
-						throw $e;
+					
+					$key = $contents[0]['Key'];
+					
+					try {
+						$s3Client->copyObject([
+							'Bucket' => Z_CONFIG::$S3_BUCKET,
+							'CopySource' => Z_CONFIG::$S3_BUCKET . '/'
+								. urlencode($key),
+							'Key' => $localInfo['hash'],
+							'ACL' => 'private'
+						]);
 					}
+					catch (\Aws\S3\Exception\S3Exception $e) {
+						if ($e->getAwsErrorCode() == 'NoSuchKey') {
+							return false;
+						}
+						else {
+							throw $e;
+						}
+					}
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
+					throw $e;
 				}
 			}
 			else {
@@ -467,20 +506,26 @@ class Zotero_Storage {
 				'Bucket' => Z_CONFIG::$S3_BUCKET,
 				'Key' => $info->hash
 			]);
+			$size = $result['ContentLength'];
 		}
 		catch (\Aws\S3\Exception\S3Exception $e) {
 			if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
-				// Try legacy key format, with zip flag and filename
+				// Try to find a legacy file: hash/filename or hash/c/filename
 				try {
-					$result = $s3Client->headObject([
+					$result = $s3Client->listObjects([
 						'Bucket' => Z_CONFIG::$S3_BUCKET,
-						'Key' => self::getPathPrefix($info->hash, $info->zip) . $info->filename
+						'MaxKeys' => 1,
+						'Prefix' => $info->hash,
 					]);
-				}
-				catch (\Aws\S3\Exception\S3Exception $e) {
-					if ($e->getAwsErrorCode() == 'NoSuchKey' || $e->getAwsErrorCode() == 'NotFound') {
+					
+					$contents = $result->get('Contents');
+					if (!$contents || count($contents) < 1) {
 						return false;
 					}
+					
+					$size = $contents[0]['Size'];
+				}
+				catch (\Aws\S3\Exception\S3Exception $e) {
 					throw $e;
 				}
 			}
@@ -490,7 +535,7 @@ class Zotero_Storage {
 		}
 		
 		$storageFileInfo = new Zotero_StorageFileInfo;
-		$storageFileInfo->size = $result['ContentLength'];
+		$storageFileInfo->size = $size;
 		
 		return $storageFileInfo;
 	}
@@ -629,11 +674,6 @@ class Zotero_Storage {
 			$sql = "DELETE FROM storageFileLibraries WHERE storageFileID = ? AND libraryID = ?";
 			Zotero_DB::query($sql, [$storageFileID, $libraryID]);
 		}
-	}
-	
-	
-	public static function getPathPrefix($hash, $zip=false) {
-		return "$hash/" . ($zip ? "c/" : '');
 	}
 	
 	
