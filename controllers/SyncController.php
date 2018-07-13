@@ -231,7 +231,7 @@ class SyncController extends Controller {
 		
 		$this->sessionCheck();
 		
-		if (!Z_Core::$MC->get('z4_eol_' . $this->userID)) {
+		if (!Z_ENV_DEV_SITE && !Z_Core::$MC->get('z4_eol_' . $this->userID)) {
 			$date = date('Y-m-d');
 			if ($date >= '2018-07-17') {
 				$ttl = 43200; // 12 hours
