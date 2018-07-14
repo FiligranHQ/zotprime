@@ -1,0 +1,62 @@
+#!/usr/bin/php -d mysqlnd.net_read_timeout=3600
+<?
+set_include_path("../../../include");
+require("header.inc.php");
+
+$startShard = !empty($argv[1]) ? $argv[1] : 1;
+
+$shardIDs = Zotero_DB::columnQuery("SELECT shardID FROM shards WHERE shardID >= ? ORDER BY shardID", $startShard);
+foreach ($shardIDs as $shardID) {
+	echo "Shard: $shardID\n";
+	
+	$lastLibraryID = 0;
+	$lastStorageFileID = 0;
+	$batchSize = 1000;
+	
+	while (true) {
+		// Get storageFileID/library mappings from shard in batches
+		$rows = Zotero_DB::query(
+			"SELECT storageFileID, libraryID FROM storageFileItems JOIN items USING (itemID) "
+				. "WHERE storageFileID >= ? AND libraryID >= ? "
+				. "ORDER BY storageFileID, libraryID LIMIT ?",
+			[$lastStorageFileID, $lastLibraryID, $batchSize],
+			$shardID
+		);
+		if (!$rows) {
+			break;
+		}
+		
+		// Populate storageFileLibraries
+		try {
+			$affectedRows = Zotero_DB::query(
+				"INSERT IGNORE INTO storageFileLibraries (storageFileID, libraryID) VALUES "
+					. implode(", ", array_map(function ($row) {
+						return "({$row['storageFileID']}, {$row['libraryID']})";
+					}, $rows))
+			);
+		}
+		catch (Exception $e) {
+			// If storageFileID is missing on master, delete offending storageFileItems rows and continue
+			if (strpos($e->getMessage(), "FOREIGN KEY (`storageFileID`)") !== false) {
+				foreach ($rows as $row) {
+					if (!Zotero_DB::valueQuery("SELECT COUNT(*) FROM storageFiles WHERE storageFileID=?", $row['storageFileID'])) {
+						echo "Storage file {$row['storageFileID']} not found on master -- deleting from storageFileItems\n";
+						Zotero_DB::query("DELETE FROM storageFileItems WHERE storageFileID=?", $row['storageFileID'], $shardID);
+						continue 2;
+					}
+				}
+			}
+			throw $e;
+		}
+		if ($affectedRows) {
+			echo "Added $affectedRows rows\n";
+		}
+		
+		$lastRow = $rows[sizeOf($rows) - 1];
+		if ($lastRow['libraryID'] == $lastLibraryID && $lastRow['storageFileID'] == $lastStorageFileID) {
+			break;
+		}
+		$lastLibraryID = $lastRow['libraryID'];
+		$lastStorageFileID = $lastRow['storageFileID'];
+	}
+}
