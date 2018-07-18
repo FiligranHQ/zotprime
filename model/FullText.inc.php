@@ -309,7 +309,7 @@ class Zotero_FullText {
 			
 			// If the current item would put us over max characters,
 			// leave it empty, unless it's the first one
-			$currentChars = strlen($data['content']);
+			$currentChars = strlen($data[$key]['content']);
 			if (!$first && (($chars + $currentChars) > $maxChars)) {
 				unset($data[$key]['content']);
 				$data[$key]['empty'] = true;
