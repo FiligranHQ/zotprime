@@ -3053,6 +3053,14 @@ class Zotero_Item extends Zotero_DataObject {
 			$this->loadTags();
 		}
 		
+		// Ignore empty tags
+		$newTags = array_filter($newTags, function ($tag) {
+			if (is_string($tag)) {
+				return trim($tag) !== "";
+			}
+			return trim($tag->tag) !== "";
+		});
+		
 		if (!$newTags && !$this->tags) {
 			return false;
 		}

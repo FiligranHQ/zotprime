@@ -49,17 +49,37 @@ class TagTests extends APITests {
 		API::userClear(self::$config['userID']);
 	}
 	
-	public function testEmptyTag() {
+	public function test_empty_tag_should_be_ignored() {
 		$json = API::getItemTemplate("book");
-		$json->tags[] = array(
+		$json->tags[] = [
+			"tag" => "A"
+		];
+		$json->tags[] = [
 			"tag" => "",
 			"type" => 1
-		);
-		
+		];
 		$response = API::postItem($json);
-		$this->assert400ForObject($response, "Tag cannot be empty");
+		$this->assert200ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		$json = $json['successful'][0]['data'];
+		$this->assertSame($json['tags'], [['tag' => 'A']]);
 	}
 	
+	public function test_empty_tag_with_whitespace_should_be_ignored() {
+		$json = API::getItemTemplate("book");
+		$json->tags[] = [
+			"tag" => "A"
+		];
+		$json->tags[] = [
+			"tag" => " ",
+			"type" => 1
+		];
+		$response = API::postItem($json);
+		$this->assert200ForObject($response);
+		$json = API::getJSONFromResponse($response);
+		$json = $json['successful'][0]['data'];
+		$this->assertSame($json['tags'], [['tag' => 'A']]);
+	}
 	
 	public function testInvalidTagObject() {
 		$json = API::getItemTemplate("book");

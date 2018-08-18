@@ -2175,13 +2175,6 @@ class Zotero_Items {
 					foreach ($val as $tag) {
 						$empty = true;
 						
-						if (is_string($tag)) {
-							if ($tag === "") {
-								throw new Exception("Tag cannot be empty", Z_ERROR_INVALID_INPUT);
-							}
-							continue;
-						}
-						
 						if (!is_object($tag)) {
 							throw new Exception("Tag must be an object", Z_ERROR_INVALID_INPUT);
 						}
@@ -2191,9 +2184,6 @@ class Zotero_Items {
 								case 'tag':
 									if (!is_scalar($v)) {
 										throw new Exception("Invalid tag name", Z_ERROR_INVALID_INPUT);
-									}
-									if ($v === "") {
-										throw new Exception("Tag cannot be empty", Z_ERROR_INVALID_INPUT);
 									}
 									break;
 									
