@@ -753,7 +753,17 @@ class Zotero_Group {
 			Z_Core::logError($e);
 		}
 		
-		Zotero_Notifier::trigger('delete', 'library', $this->libraryID);
+		Zotero_Notifier::trigger(
+			'delete',
+			'library',
+			$this->libraryID,
+			[
+				$this->libraryID => [
+					'type' => 'group',
+					'libraryTypeID' => $this->id
+				]
+			]
+		);
 		
 		Zotero_DB::commit();
 		

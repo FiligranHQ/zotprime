@@ -85,8 +85,13 @@ class Zotero_NotifierObserver {
 				// For deleted libraries (groups), the URI-based method fails,
 				// so just build from parts
 				else {
-					$topic = '/' . Zotero_Libraries::getType($libraryID) . "s/"
-					. Zotero_Libraries::getLibraryTypeID($libraryID);
+					if (!isset($extraData) || !isset($extraData[$libraryID])) {
+						error_log("Extra data isn't set for $event");
+						continue;
+					}
+					// /groups/1234
+					$topic = '/' . $extraData[$libraryID]['type'] . "s/"
+						. $extraData[$libraryID]['libraryTypeID'];
 				}
 				$message = [
 					"event" => $event,
