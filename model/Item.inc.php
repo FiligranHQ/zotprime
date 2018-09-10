@@ -3530,11 +3530,27 @@ class Zotero_Item extends Zotero_DataObject {
 			$lastModifiedByUserID = $this->lastModifiedByUserID;
 			
 			if ($createdByUserID) {
-				$json['meta']->createdByUser = Zotero_Users::toJSON($createdByUserID);
+				try {
+					$json['meta']->createdByUser = Zotero_Users::toJSON($createdByUserID);
+				}
+				// If user no longer exists, this will fail
+				catch (Exception $e) {
+					if (Zotero_Users::exists($createdByUserID)) {
+						throw $e;
+					}
+				}
 			}
 			
 			if ($lastModifiedByUserID && $lastModifiedByUserID != $createdByUserID) {
-				$json['meta']->lastModifiedByUser = Zotero_Users::toJSON($lastModifiedByUserID);
+				try {
+					$json['meta']->lastModifiedByUser = Zotero_Users::toJSON($lastModifiedByUserID);
+				}
+				// If user no longer exists, this will fail
+				catch (Exception $e) {
+					if (Zotero_Users::exists($lastModifiedByUserID)) {
+						throw $e;
+					}
+				}
 			}
 		}
 		

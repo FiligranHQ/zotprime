@@ -1275,8 +1275,20 @@ class Zotero_Items {
 				break;
 		}
 		if ($createdByUserID) {
-			$author->name = Zotero_Users::getUsername($createdByUserID);
-			$author->uri = Zotero_URI::getUserURI($createdByUserID);
+			try {
+				$author->name = Zotero_Users::getUsername($createdByUserID);
+				$author->uri = Zotero_URI::getUserURI($createdByUserID);
+			}
+			// If user no longer exists, use library for author instead
+			catch (Exception $e) {
+				if (!Zotero_Users::exists($createdByUserID)) {
+					$author->name = Zotero_Libraries::getName($item->libraryID);
+					$author->uri = Zotero_URI::getLibraryURI($item->libraryID);
+				}
+				else {
+					throw $e;
+				}
+			}
 		}
 		else {
 			$author->name = Zotero_Libraries::getName($item->libraryID);
@@ -1340,11 +1352,19 @@ class Zotero_Items {
 		$xml->addChild('zapi:version', $item->version, Zotero_Atom::$nsZoteroAPI);
 		
 		if ($lastModifiedByUserID) {
-			$xml->addChild(
-				'zapi:lastModifiedByUser',
-				Zotero_Users::getUsername($lastModifiedByUserID),
-				Zotero_Atom::$nsZoteroAPI
-			);
+			try {
+				$xml->addChild(
+					'zapi:lastModifiedByUser',
+					Zotero_Users::getUsername($lastModifiedByUserID),
+					Zotero_Atom::$nsZoteroAPI
+				);
+			}
+			// If user no longer exists, this will fail
+			catch (Exception $e) {
+				if (Zotero_Users::exists($lastModifiedByUserID)) {
+					throw $e;
+				}
+			}
 		}
 		
 		$xml->addChild(
