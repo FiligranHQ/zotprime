@@ -180,7 +180,7 @@ class Zotero_Users {
 		}
 		
 		self::$usernamesByID[$userID] = $username;
-		Z_Core::$MC->set($cacheKey, $username);
+		Z_Core::$MC->set($cacheKey, $username, 43200);
 		
 		return $username;
 	}
