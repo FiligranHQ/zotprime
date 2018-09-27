@@ -163,20 +163,19 @@ class Zotero_Users {
 			return $username;
 		}
 		
-		$sql = "SELECT username FROM users WHERE userID=?";
-		$username = Zotero_DB::valueQuery($sql, $userID);
-		if (!$username && !$skipAutoAdd) {
+		if (!$skipAutoAdd) {
 			if (!self::exists($userID)) {
 				self::addFromWWW($userID);
 			}
 			else {
 				self::updateFromWWW($userID);
 			}
-			$sql = "SELECT username FROM users WHERE userID=?";
-			$username = Zotero_DB::valueQuery($sql, $userID);
-			if (!$username) {
-				throw new Exception("Username for userID $userID not found after fetching from API", Z_ERROR_USER_NOT_FOUND);
-			}
+		}
+		
+		$sql = "SELECT username FROM users WHERE userID=?";
+		$username = Zotero_DB::valueQuery($sql, $userID);
+		if (!$username) {
+			throw new Exception("Username for userID $userID not found", Z_ERROR_USER_NOT_FOUND);
 		}
 		
 		self::$usernamesByID[$userID] = $username;
@@ -310,7 +309,17 @@ class Zotero_Users {
 	
 	public static function updateUsername($userID, $username) {
 		$sql = "UPDATE users SET username=? WHERE userID=?";
-		return Zotero_DB::query($sql, array($username, $userID));
+		return Zotero_DB::query(
+			$sql,
+			[
+				$username,
+				$userID
+			],
+			0,
+			[
+				'writeInReadMode' => true
+			]
+		);
 	}
 	
 	
