@@ -11,24 +11,24 @@ class Z_Redis {
 			return self::$links[$name];
 		}
 		
-		if (!isset(Z_CONFIG::$REDIS_CONFIG)) {
-			Z_Core::logError('Warning: $REDIS_CONFIG is not set');
+		if (!isset(Z_CONFIG::$REDIS_HOSTS)) {
+			Z_Core::logError('Warning: $REDIS_HOSTS is not set');
 			return null;
 		}
 		
-		if (!isset(Z_CONFIG::$REDIS_CONFIG[$name])) {
+		if (!isset(Z_CONFIG::$REDIS_HOSTS[$name])) {
 			return null;
 		}
 		
 		// Set up new phpredis instance
 		try {
 			$redis = null;
-			if (isset(Z_CONFIG::$REDIS_CONFIG[$name]['cluster']) &&
-				Z_CONFIG::$REDIS_CONFIG[$name]['cluster']) {
+			// Redis Cluster
+			if (!empty(Z_CONFIG::$REDIS_HOSTS[$name]['cluster'])) {
 				// Create cluster with 1s timeout and persistent connection
 				$redis = new RedisCluster(
 					NULL,
-					[Z_CONFIG::$REDIS_CONFIG[$name]['host']],
+					[Z_CONFIG::$REDIS_HOSTS[$name]['host']],
 					1,
 					1,
 					true
@@ -40,9 +40,10 @@ class Z_Redis {
 					$redis->setOption(RedisCluster::OPT_PREFIX, Z_CONFIG::$REDIS_PREFIX);
 				}
 			}
+			// Non-cluster mode
 			else {
 				// Host format can be "host" or "host:port"
-				$parts = explode(':', Z_CONFIG::$REDIS_CONFIG[$name]['host']);
+				$parts = explode(':', Z_CONFIG::$REDIS_HOSTS[$name]['host']);
 				$host = $parts[0];
 				$port = isset($parts[1]) ? $parts[1] : 6379;
 				

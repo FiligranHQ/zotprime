@@ -27,7 +27,7 @@ class Z_CONFIG {
 	public static $S3_BUCKET_CACHE = '';
 	public static $S3_BUCKET_FULLTEXT = '';
 
-	public static $REDIS_CONFIG = [
+	public static $REDIS_HOSTS = [
 		'default' => [
 			'host' => 'redis1.localdomain'
 		],
