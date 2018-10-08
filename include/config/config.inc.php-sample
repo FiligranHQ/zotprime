@@ -27,12 +27,22 @@ class Z_CONFIG {
 	public static $S3_BUCKET_CACHE = '';
 	public static $S3_BUCKET_FULLTEXT = '';
 
-	public static $REDIS_HOSTS = [
-		'default' => 'redis1.localdomain',
-		'request-limiter' => => 'redis-transient.localdomain',
-		'notifications' => 'redis-transient.localdomain'
-		'fulltext-migration' => 'redis-transient.localdomain'
+	public static $REDIS_CONFIG = [
+		'default' => [
+			'host' => 'redis1.localdomain'
+		],
+		'request-limiter' => [
+			'host' => 'redis-transient.localdomain'
+		],
+		'notifications' => [
+			'host' => 'redis-transient.localdomain'
+		],
+		'fulltext-migration' => [
+			'host' => 'redis-transient.localdomain',
+			'cluster' => true
+		]
 	];
+
 	public static $REDIS_PREFIX = '';
 	
 	public static $MEMCACHED_ENABLED = true;
