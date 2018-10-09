@@ -29,16 +29,16 @@ class Z_CONFIG {
 
 	public static $REDIS_HOSTS = [
 		'default' => [
-			'host' => 'redis1.localdomain'
+			'host' => 'redis1.localdomain:6379'
 		],
 		'request-limiter' => [
-			'host' => 'redis-transient.localdomain'
+			'host' => 'redis-transient.localdomain:6379'
 		],
 		'notifications' => [
-			'host' => 'redis-transient.localdomain'
+			'host' => 'redis-transient.localdomain:6379'
 		],
 		'fulltext-migration' => [
-			'host' => 'redis-transient.localdomain',
+			'host' => 'redis-transient.localdomain:6379',
 			'cluster' => true
 		]
 	];
