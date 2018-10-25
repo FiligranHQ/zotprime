@@ -27,12 +27,6 @@ $ git submodule update
 $ cd ../../
 ```
 
-*Configure the future usage*:
-```bash
-$ cd docker
-$ ./bin/config.sh
-```
-
 *Run*:
 ```bash
 $ docker-compose up -d
@@ -51,7 +45,9 @@ For [m|l|w]: m=Mac, w=Windows, l=Linux
 
 *Run*:
 ```bash
-$ cd client/zotero
+$ cd client
+$ ./config.sh
+$ cd zotero
 $ npm install && npm run build
 $ cd ../zotero-standalone-build
 $ ./fetch_xulrunner.sh -p [m|l|w]
@@ -61,4 +57,19 @@ $ ./scripts/dir_build -p [m|l|w]
 
 ## First usage
 
+*Run*:
+```bash
+$ ./staging/zotero(.exe)
+```
 
+*Available endpoints*:
+* API : http://localhost:8080
+* Stream Server : ws://localhost:8081
+* PHPMyAdmin : http://localhost:8082
+* S3 Service : http://localhost:8083
+
+*Default login/password*:
+* Login : admin
+* Password: admin
+
+*Create a user*:
