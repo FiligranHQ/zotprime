@@ -1,0 +1,16 @@
+#!/usr/bin/php
+<?
+set_include_path("../include");
+require("header.inc.php");
+
+if (empty($argv[1]) || empty($argv[2])) {
+	echo "Usage: $argv[0] username password\n";
+	exit(1);
+}
+
+$username = (string) $argv[1];
+$password = (string) $argv[2];
+
+Zotero_Users::deleteUser($userID);
+
+echo "User '$username' deleted\n";

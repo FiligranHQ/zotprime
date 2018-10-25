@@ -1,3 +1,9 @@
 [submodule "include/Elastica"]
 	path = include/Elastica
 	url = https://github.com/ruflin/Elastica.git
+[submodule "tinymce-clean-server"]
+	path = tinymce-clean-server
+	url = https://github.com/zotero/tinymce-clean-server
+[submodule "stream-server"]
+	path = stream-server
+	url = https://github.com/zotero/stream-server

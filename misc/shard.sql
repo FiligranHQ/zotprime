@@ -294,7 +294,7 @@ CREATE TABLE `syncDeleteLogIDs` (
 CREATE TABLE `syncDeleteLogKeys` (
   `libraryID` int(10) unsigned NOT NULL,
   `objectType` enum('collection','creator','item','relation','search','setting','tag','tagName') NOT NULL,
-  `key` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` int(10) unsigned NOT NULL DEFAULT '1',
   PRIMARY KEY (`libraryID`,`objectType`,`key`),
@@ -302,11 +302,10 @@ CREATE TABLE `syncDeleteLogKeys` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
-
 CREATE TABLE `tags` (
   `tagID` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
-  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   `type` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
   `dateModified` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',

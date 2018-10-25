@@ -1,0 +1,64 @@
+version: '3'
+services:
+  db-zotero-mysql:
+    image: mysql:5.6
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_ROOT_PASSWORD=zotero
+  db-zotero-elasticsearch:
+   image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
+   environment:
+     - cluster.name=zotero
+     - xpack.security.enabled=false
+  db-zotero-redis:
+     image: redis:5.0
+  db-zotero-memcached:
+     image: memcached:1.5
+  db-zotero-localstack:
+    image: atlassianlabs/localstack
+    environment:
+      - SERVICES=sns,sqs,apigateway
+  db-zotero-minio:
+    image: minio/minio
+    build:
+      context: ./minio
+    environment:
+      - MINIO_ACCESS_KEY=zotero
+      - MINIO_SECRET_KEY=zoterodocker
+    ports:
+      - "8083:9000"
+    command: server /data
+  app-zotero:
+    image: amr-devop:5000/app-zotero-develop
+    build:
+      context: .
+      dockerfile: Dockerfile_local
+    ports:
+      - "8080:80"
+      - "8081:81"
+    volumes:
+      - "../:/var/www/zotero:rw"
+    environment:
+      - RUN_USER=www-data
+      - RUN_GROUP=www-data
+    depends_on:
+      - db-zotero-mysql
+      - db-zotero-elasticsearch
+      - db-zotero-redis
+      - db-zotero-memcached 
+    links:
+      - db-zotero-mysql:mysql
+      - db-zotero-elasticsearch:elasticsearch
+      - db-zotero-redis:redis
+      - db-zotero-memcached:memcached
+      - db-zotero-localstack:localstack
+      - db-zotero-minio:minio
+    restart: always
+  app-zotero-phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8082:80"
+    environment:
+      - PMA_HOST=mysql
+    links:
+      - db-zotero-mysql:mysql
