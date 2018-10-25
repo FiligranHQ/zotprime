@@ -33,7 +33,7 @@ echo "INSERT INTO groupUsers VALUES (1, 1, 'owner', '0000-00-00 00:00:00', '0000
 # Load in www schema
 $MYSQL zotero_www < www.sql
 
-echo "INSERT INTO users VALUES (1, 'admin', MD5('admin')" | $MYSQL zotero_www
+echo "INSERT INTO users VALUES (1, 'admin', MD5('admin'))" | $MYSQL zotero_www
 echo "INSERT INTO users_email (userID, email) VALUES (1, 'admin@zotero.org')" | $MYSQL zotero_www
 echo "INSERT INTO storage_institutions (institutionID, domain, storageQuota) VALUES (1, 'zotero.org', 10000)" | $MYSQL zotero_www
 echo "INSERT INTO storage_institution_email (institutionID, email) VALUES (1, 'contact@zotero.org')" | $MYSQL zotero_www
@@ -43,6 +43,9 @@ cat shard.sql | $MYSQL zotero_shard_1
 cat triggers.sql | $MYSQL zotero_shard_1
 cat shard.sql | $MYSQL zotero_shard_2
 cat triggers.sql | $MYSQL zotero_shard_2
+
+echo "INSERT INTO shardLibraries VALUES (1, 'user', 0, 0)" | $MYSQL zotero_shard_1
+echo "INSERT INTO shardLibraries VALUES (2, 'group', 0, 0)" | $MYSQL zotero_shard_2
 
 # Load in schema on id servers
 $MYSQL zotero_ids < ids.sql

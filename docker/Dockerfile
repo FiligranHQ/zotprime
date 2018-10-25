@@ -9,7 +9,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install software-properties-common
 RUN DEBIAN_FRONTEND=noninteractive add-apt-repository ppa:ondrej/php
 RUN DEBIAN_FRONTEND=noninteractive apt-get update
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install apache2 libapache2-mod-php7.0 sudo rsyslog wget mysql-client curl nodejs
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y install php7.0-cli php7.0-xml php7.0-mysql php7.0-pgsql php7.0-json php7.0-curl php7.0-mbstring php7.0-intl php7.0-redis php7.0-dev php-pear
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install php7.0-cli php7.0-xml php7.0-mysql php7.0-pgsql php7.0-json php7.0-curl php7.0-mbstring php7.0-intl php7.0-redis php7.0-dev php-pear composer
 
 RUN sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php/7.0/apache2/php.ini
 RUN sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php/7.0/apache2/php.ini
@@ -35,7 +35,7 @@ RUN ln -s /etc/php/7.0/mods-available/memcached.ini /etc/php/7.0/apache2/conf.d/
 RUN DEBIAN_FRONTEND=noninteractive pear install HTTP_Request2
 
 # Setup awscli
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y install python python-pip git wget
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install python python-pip git wget npm
 RUN DEBIAN_FRONTEND=noninteractive pip install awscli
 
 # Setup Apache2

@@ -1,8 +1,10 @@
 # Zotero Prime - On-premise Zotero platform
 
-Zotero Prime is a full packaged repository aimed to make on-premise [Zotero](https://www.zotero.org) deployment easier with the last versions of both Zotero client and server. This is the result of sleepness nights spent to deploy Zotero within my organization on a disconnected network. Feel free to open issues or pull requests if you did not managed to use it.
+Zotero Prime is a full packaged repository aimed to make on-premise [Zotero](https://www.zotero.org) deployment easier with the last versions of both Zotero client and server. This is the result of sleepness nights spent to deploy Zotero within my organization on a disconnected network. Feel free to open issues or pull requests if you did not manage to use it.
 
 ## Installation
+
+### Dependencies and source code
 
 *Install dependencies for client build*:
 ```bash
@@ -21,18 +23,23 @@ $ cd zotero-prime
 $ cd client/zotero 
 $ git submodule init
 $ git submodule update
+$ cd ../zotero-build
+$ git submodule init
+$ git submodule update
 $ cd ../zotero-standalone-build
 $ git submodule init
 $ git submodule update
 $ cd ../../
 ```
 
-*Run*:
+*Configure and run*:
 ```bash
-$ docker-compose up -d
+$ ./config.sh
+$ cd docker
+$ sudo docker-compose up -d
 ```
 
-## Initialize installation
+### Initialize databases
 
 *Initialize databases*:
 ```bash
@@ -46,7 +53,6 @@ For [m|l|w]: m=Mac, w=Windows, l=Linux
 *Run*:
 ```bash
 $ cd client
-$ ./config.sh
 $ cd zotero
 $ npm install && npm run build
 $ cd ../zotero-standalone-build
@@ -59,17 +65,21 @@ $ ./scripts/dir_build -p [m|l|w]
 
 *Run*:
 ```bash
-$ ./staging/zotero(.exe)
+$ ./staging/Zotero_VERSION/zotero(.exe)
 ```
 
 *Available endpoints*:
-* API : http://localhost:8080
-* Stream Server : ws://localhost:8081
-* PHPMyAdmin : http://localhost:8082
-* S3 Service : http://localhost:8083
+| Name          | URL                                           |
+| ------------- | --------------------------------------------- |
+| Zotero API    | http://localhost:8080                         |
+| PHPMyAdmin    | http://localhost:8082                         |
+| S3 Web UI     | http://localhost:8083                         |
 
 *Default login/password*:
-* Login : admin
-* Password: admin
+| Name          | Login                    | Password           |
+| ------------- | --------------------------------------------- |
+| Zotero API    | admin                    | admin              |
+| PHPMyAdmin    | root                     | zotero             |
+| S3 Web UI     | zotero                   | zoterodocker       |
 
 *Create a user*:
