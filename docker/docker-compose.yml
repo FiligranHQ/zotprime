@@ -29,7 +29,7 @@ services:
       - "8083:9000"
     command: server /data
   app-zotero:
-    image: amr-devop:5000/app-zotero-develop
+    image: app-zotero
     build:
       context: .
       dockerfile: Dockerfile_local
