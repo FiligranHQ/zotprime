@@ -69,6 +69,7 @@ $ ./staging/Zotero_VERSION/zotero(.exe)
 ```
 
 *Available endpoints*:
+
 | Name          | URL                                           |
 | ------------- | --------------------------------------------- |
 | Zotero API    | http://localhost:8080                         |
@@ -76,6 +77,7 @@ $ ./staging/Zotero_VERSION/zotero(.exe)
 | S3 Web UI     | http://localhost:8083                         |
 
 *Default login/password*:
+
 | Name          | Login                    | Password           |
 | ------------- | --------------------------------------------- |
 | Zotero API    | admin                    | admin              |
