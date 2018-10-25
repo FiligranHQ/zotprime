@@ -215,6 +215,8 @@ $awsConfig = [
 	'region' => !empty(Z_CONFIG::$AWS_REGION) ? Z_CONFIG::$AWS_REGION : 'us-east-1',
 	'version' => 'latest',
 	'signature' => 'v4',
+	'endpoint' => 'http://Z_CONFIG::$S3_ENDPOINT',
+	'scheme' => 'http',
 	'http' => [
 		'timeout' => 3
 	],

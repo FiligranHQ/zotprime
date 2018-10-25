@@ -32,7 +32,7 @@ services:
     image: app-zotero
     build:
       context: .
-      dockerfile: Dockerfile_local
+      dockerfile: Dockerfile
     ports:
       - "8080:80"
       - "8081:81"

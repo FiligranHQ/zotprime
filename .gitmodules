@@ -7,3 +7,9 @@
 [submodule "stream-server"]
 	path = stream-server
 	url = https://github.com/zotero/stream-server
+[submodule "client/zotero"]
+	path = client/zotero
+	url = https://github.com/zotero/zotero
+[submodule "client/zotero-standalone-build"]
+	path = client/zotero-standalone-build
+	url = https://github.com/zotero/zotero-standalone-build

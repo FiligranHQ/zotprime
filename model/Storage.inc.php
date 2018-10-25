@@ -302,7 +302,8 @@ class Zotero_Storage {
 	
 	
 	public static function getUploadBaseURL() {
-		return "https://" . Z_CONFIG::$S3_BUCKET . ".s3.amazonaws.com/";
+                return "http://" . Z_CONFIG::$S3_ENDPOINT . "/" . $S3_BUCKET . "/";
+		//return "https://" . Z_CONFIG::$S3_BUCKET . ".s3.amazonaws.com/";
 	}
 	
 	
