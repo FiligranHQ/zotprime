@@ -4,24 +4,61 @@ Zotero Prime is a full packaged repository aimed to make on-premise [Zotero](htt
 
 ## Installation
 
+*Install dependencies for client build*:
+```bash
+$ sudo apt install npm
+```
+
 *Clone the repository*:
 ```bash
 $ mkdir /path/to/your/app && cd /path/to/your/app
-$ git clone https://github.com/SamuelHassine/zotero-prime.git
+$ git clone --recursive https://github.com/SamuelHassine/zotero-prime.git
 $ cd zotero-prime
 ```
 
 *Initialize all submodules*:
 ```bash
+$ cd client/zotero 
 $ git submodule init
 $ git submodule update
+$ cd ../zotero-standalone-build
+$ git submodule init
+$ git submodule update
+$ cd ../../
+```
+
+*Configure the future usage*:
+```bash
+$ cd docker
+$ ./bin/config.sh
 ```
 
 *Run*:
 ```bash
-$ ./bin/run.sh
+$ docker-compose up -d
 ```
 
-## First use
+## Initialize installation
+
+*Initialize databases*:
+```bash
+$ ./bin/init.sh
+```
+
+## Compile the client
+
+For [m|l|w]: m=Mac, w=Windows, l=Linux
+
+*Run*:
+```bash
+$ cd client/zotero
+$ npm install && npm run build
+$ cd ../zotero-standalone-build
+$ ./fetch_xulrunner.sh -p [m|l|w]
+$ ./fetch_pdftools
+$ ./scripts/dir_build -p [m|l|w]
+```
+
+## First usage
 
 
