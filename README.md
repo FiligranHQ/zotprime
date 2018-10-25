@@ -79,7 +79,7 @@ $ ./staging/Zotero_VERSION/zotero(.exe)
 *Default login/password*:
 
 | Name          | Login                    | Password           |
-| ------------- | --------------------------------------------- |
+| ------------- | ------------------------ | ------------------ |
 | Zotero API    | admin                    | admin              |
 | PHPMyAdmin    | root                     | zotero             |
 | S3 Web UI     | zotero                   | zoterodocker       |
