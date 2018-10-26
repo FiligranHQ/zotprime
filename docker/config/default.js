@@ -17,7 +17,7 @@ var config = {
 		host: 'redis',
 		prefix: ''
 	},
-	apiURL: 'http://localhost:8080',
+	apiURL: 'http://127.0.0.1/',
 	apiVersion: 3,
 	apiRequestHeaders: {},
 	longStackTraces: false,

@@ -215,13 +215,14 @@ $awsConfig = [
 	'region' => !empty(Z_CONFIG::$AWS_REGION) ? Z_CONFIG::$AWS_REGION : 'us-east-1',
 	'version' => 'latest',
 	'signature' => 'v4',
-	'endpoint' => 'http://Z_CONFIG::$S3_ENDPOINT',
+	'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT,
 	'scheme' => 'http',
 	'http' => [
 		'timeout' => 3
 	],
 	'retries' => 2
 ];
+
 // IAM role authentication
 if (empty(Z_CONFIG::$AWS_ACCESS_KEY)) {
 	// If APC cache is available, use that to cache temporary credentials
