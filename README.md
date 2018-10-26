@@ -2,7 +2,7 @@
 
 Zotero Prime is a full packaged repository aimed to make on-premise [Zotero](https://www.zotero.org) deployment easier with the last versions of both Zotero client and server. This is the result of sleepness nights spent to deploy Zotero within my organization on a disconnected network. Feel free to open issues or pull requests if you did not manage to use it.
 
-## Installation
+## Server installation
 
 ### Dependencies and source code
 
@@ -32,30 +32,6 @@ $ ./bin/init.sh
 $ cd ..
 ```
 
-## Compile the client
-
-For [m|l|w]: m=Mac, w=Windows, l=Linux
-
-*Run*:
-```bash
-$ cd client
-$ ./config.sh
-$ cd zotero-client
-$ npm install
-$ npm run build
-$ cd ../zotero-standalone-build
-$ ./fetch_xulrunner.sh -p [m|l|w]
-$ ./fetch_pdftools
-$ ./scripts/dir_build -p [m|l|w]
-```
-
-## First usage
-
-*Run*:
-```bash
-$ ./staging/Zotero_VERSION/zotero(.exe)
-```
-
 *Available endpoints*:
 
 | Name          | URL                                           |
@@ -72,4 +48,36 @@ $ ./staging/Zotero_VERSION/zotero(.exe)
 | S3 Web UI     | zotero                   | zoterodocker       |
 | PHPMyAdmin    | root                     | zotero             |
 
-*Create a user*:
+## Client installation
+
+### Dependencies and source code
+
+For [m|l|w]: m=Mac, w=Windows, l=Linux
+
+*Run*:
+```bash
+$ cd client
+$ ./config.sh
+$ cd zotero-client
+$ npm install
+$ npm run build
+$ cd ../zotero-standalone-build
+$ ./fetch_xulrunner.sh -p [m|l|w]
+$ ./fetch_pdftools
+$ ./scripts/dir_build -p [m|l|w]
+```
+
+### First usage
+
+*Run*:
+```bash
+$ ./staging/Zotero_VERSION/zotero(.exe)
+```
+
+*Connect with the default user and password*:
+
+| Name          | Login                    | Password           |
+| ------------- | ------------------------ | ------------------ |
+| Zotero        | admin                    | admin              |
+
+![Sync](doc/sync.png)
