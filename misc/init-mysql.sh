@@ -19,7 +19,7 @@ $MYSQL zotero_master < master.sql
 $MYSQL zotero_master < coredata.sql
 
 # Set up shard info
-echo "INSERT INTO shardHosts VALUES (1, 'amr-db-02', 20070, 'up');" | $MYSQL zotero_master
+echo "INSERT INTO shardHosts VALUES (1, 'mysql', 3306, 'up');" | $MYSQL zotero_master
 echo "INSERT INTO shards VALUES (1, 1, 'zotero_shard_1', 'up', '1');" | $MYSQL zotero_master
 echo "INSERT INTO shards VALUES (2, 1, 'zotero_shard_2', 'up', '1');" | $MYSQL zotero_master
 

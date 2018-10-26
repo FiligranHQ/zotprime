@@ -35,7 +35,7 @@ RUN ln -s /etc/php/7.0/mods-available/memcached.ini /etc/php/7.0/apache2/conf.d/
 RUN DEBIAN_FRONTEND=noninteractive pear install HTTP_Request2
 
 # Setup awscli
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y install python python-pip git wget npm
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install python python-pip git wget npm rinetd
 RUN DEBIAN_FRONTEND=noninteractive pip install awscli
 
 # Setup Apache2
@@ -56,11 +56,15 @@ RUN mkdir ~/.aws  && bash -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/c
 # Chown log directory
 RUN chown 33:33 /var/log/apache2
 
+# Rinetd
+RUN echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
+
 # Expose and entrypoint
 COPY entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 VOLUME /var/www/zotero
 EXPOSE 80/tcp
 EXPOSE 81/TCP
+EXPOSE 82/TCP
 ENTRYPOINT ["/entrypoint.sh"]
 

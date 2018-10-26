@@ -20,7 +20,6 @@ $ cd zotero-prime
 
 *Configure and run*:
 ```bash
-$ ./config.sh
 $ cd docker
 $ sudo docker-compose up -d
 ```
@@ -39,8 +38,11 @@ For [m|l|w]: m=Mac, w=Windows, l=Linux
 
 *Run*:
 ```bash
-$ cd client/zotero-client
-$ npm install && npm run build
+$ cd client
+$ ./config.sh
+$ cd zotero-client
+$ npm install
+$ npm run build
 $ cd ../zotero-standalone-build
 $ ./fetch_xulrunner.sh -p [m|l|w]
 $ ./fetch_pdftools
@@ -59,15 +61,15 @@ $ ./staging/Zotero_VERSION/zotero(.exe)
 | Name          | URL                                           |
 | ------------- | --------------------------------------------- |
 | Zotero API    | http://localhost:8080                         |
-| PHPMyAdmin    | http://localhost:8082                         |
-| S3 Web UI     | http://localhost:8083                         |
+| S3 Web UI     | http://localhost:8082                         |
+| PHPMyAdmin    | http://localhost:8083                         |
 
 *Default login/password*:
 
 | Name          | Login                    | Password           |
 | ------------- | ------------------------ | ------------------ |
 | Zotero API    | admin                    | admin              |
-| PHPMyAdmin    | root                     | zotero             |
 | S3 Web UI     | zotero                   | zoterodocker       |
+| PHPMyAdmin    | root                     | zotero             |
 
 *Create a user*:

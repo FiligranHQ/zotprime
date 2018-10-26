@@ -11,6 +11,9 @@ export APACHE_LOG_DIR=/var/log/apache2
 # Start log
 /etc/init.d/rsyslog start
 
+# Start rinetd
+/etc/init.d/rinetd start
+
 # NPM
 cd /var/www/zotero/stream-server && npm install
 cd /var/www/zotero/tinymce-clean-server && npm install
