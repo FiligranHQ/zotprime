@@ -14,8 +14,8 @@ $ sudo apt install npm
 *Clone the repository (with **--recursive**)*:
 ```bash
 $ mkdir /path/to/your/app && cd /path/to/your/app
-$ git clone --recursive https://github.com/SamuelHassine/zotero-server.git
-$ cd zotero-server
+$ git clone --recursive https://github.com/SamuelHassine/zotero-prime.git
+$ cd zotero-prime
 ```
 
 *Configure and run*:
