@@ -32,7 +32,7 @@ RUN ln -s /etc/php/7.0/mods-available/memcached.ini /etc/php/7.0/cli/conf.d/20-m
 RUN ln -s /etc/php/7.0/mods-available/memcached.ini /etc/php/7.0/apache2/conf.d/20-memcached.ini
 
 # HTTP_Request2
-RUN DEBIAN_FRONTEND=noninteractive pear install HTTP_Request2
+RUN DEBIAN_FRONTEND=noninteractive composer require --no-plugins --no-scripts HTTP_Request2
 
 # Setup awscli
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install python python-pip git wget npm rinetd
