@@ -34,9 +34,11 @@ echo "INSERT INTO groupUsers VALUES (1, 1, 'owner', '0000-00-00 00:00:00', '0000
 $MYSQL zotero_www < www.sql
 
 echo "INSERT INTO users VALUES (1, 'admin', MD5('admin'))" | $MYSQL zotero_www
-echo "INSERT INTO users_email (userID, email) VALUES (1, 'admin@zotero.org')" | $MYSQL zotero_www
-echo "INSERT INTO storage_institutions (institutionID, domain, storageQuota) VALUES (1, 'zotero.org', 10000)" | $MYSQL zotero_www
-echo "INSERT INTO storage_institution_email (institutionID, email) VALUES (1, 'contact@zotero.org')" | $MYSQL zotero_www
+echo "INSERT INTO users_email (userID, email) VALUES (1, 'root@localhost')" | $MYSQL zotero_www
+# 10000 MB quota for users with email in institution "localhost"
+echo "INSERT INTO storage_institutions (institutionID, domain, storageQuota) VALUES (1, 'localhost', 10000)" | $MYSQL zotero_www
+# other emails in institution "localhost"
+echo "INSERT INTO storage_institution_email (institutionID, email) VALUES (1, 'root@localhost')" | $MYSQL zotero_www
 
 # Load in shard schema
 cat shard.sql | $MYSQL zotero_shard_1
