@@ -26,6 +26,10 @@ RUN echo "extension=igbinary.so" > /etc/php/7.0/mods-available/igbinary.ini
 
 # Setup Memcached
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install libmemcached11 libmemcachedutil2 build-essential libmemcached-dev libz-dev libxml2-dev zlib1g-dev libicu-dev g++
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install apt-utils
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y upgrade
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y install pkg-config re2c
+RUN DEBIAN_FRONTEND=noninteractive pecl channel-update pecl.php.net
 RUN DEBIAN_FRONTEND=noninteractive pecl download memcached-3.0.4 && tar xvzf memcached-3.0.4.tgz && cd memcached-3.0.4 && phpize && ./configure --enable-memcached-igbinary && make && make install
 RUN echo "extension=memcached.so" > /etc/php/7.0/mods-available/memcached.ini
 RUN ln -s /etc/php/7.0/mods-available/memcached.ini /etc/php/7.0/cli/conf.d/20-memcached.ini
