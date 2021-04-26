@@ -20,8 +20,9 @@ services:
       - SERVICES=sns,sqs,apigateway
   db-zotero-minio:
     image: minio/minio
-    build:
-      context: ./minio
+    ## ignore minio customizations
+    # build:
+    #   context: ./minio
     environment:
       - MINIO_ACCESS_KEY=zotero
       - MINIO_SECRET_KEY=zoterodocker
