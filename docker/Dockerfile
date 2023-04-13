@@ -46,15 +46,17 @@ RUN echo "extension=memcached.so" >> /etc/php/7.4/mods-available/memcached.ini
 RUN ln -s /etc/php/7.4/mods-available/memcached.ini /etc/php/7.4/cli/conf.d/20-memcached.ini
 RUN ln -s /etc/php/7.4/mods-available/memcached.ini /etc/php/7.4/apache2/conf.d/20-memcached.ini
 
-# HTTP_Request2
-RUN pear install HTTP_Request2
-
 # Setup awscli
 #RUN apt-get -y install python3 python3-pip npm rinetd
 #RUN pip install awscli
 RUN apt-get install -y awscli
-#RUN apt-get install -y npm
 #RUN apt-get install -y rinetd
+
+
+# HTTP_Request2
+#RUN pear install HTTP_Request2
+#RUN apt-get install -y php-http-request2
+RUN apt-get install -y php-http
 
 # Setup Apache2
 RUN a2enmod rewrite
@@ -67,6 +69,31 @@ RUN a2ensite zotero
 # Override gzip configuration
 COPY gzip.conf /etc/apache2/conf-available/
 RUN a2enconf gzip
+
+
+# Install npm
+#RUN apt-get install -y npm
+
+# Install rsyslog
+RUN apt-get install -y rsyslog
+
+# Install rinetd
+RUN apt-get install -y rinetd
+
+#RUN apt-get install -y sudo
+
+RUN apt-get purge --auto-remove -y nodejs
+
+#Install Nodejs
+RUN rm -rf /var/lib/apt/lists/*
+RUN rm -rf /etc/apt/sources.list.d/*
+RUN apt-get update
+#RUN wget https://deb.nodesource.com/setup_19.x && bash -x setup_19.x
+RUN curl -fsSL https://deb.nodesource.com/setup_19.x | bash -
+RUN apt-get install -y nodejs
+
+RUN apt-get install -y libc6
+
 
 # AWS local credentials
 RUN mkdir ~/.aws  && bash -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/config' && bash -c 'echo -e "[default]\naws_access_key_id = zotero\naws_secret_access_key = zoterodocker" > ~/.aws/credentials'

@@ -19,10 +19,10 @@ cd /var/www/zotero/stream-server && npm install
 cd /var/www/zotero/tinymce-clean-server && npm install
 
 # Start Stream server
-cd /var/www/zotero/stream-server && nodejs index.js &
+cd /var/www/zotero/stream-server && node index.js &
 
 # Start Clean server
-cd /var/www/zotero/tinymce-clean-server && nodejs server.js &
+cd /var/www/zotero/tinymce-clean-server && node server.js &
 
 # Chown
 chown -R ${RUN_USER}:${RUN_GROUP} /var/log/apache2
