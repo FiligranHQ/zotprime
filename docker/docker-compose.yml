@@ -1,10 +1,15 @@
-version: '3'
+version: '3.9'
 services:
   db-zotero-mysql:
-    image: mysql:5.6
-    command: --default-authentication-plugin=mysql_native_password
+    image: mariadb:10
+   # command: --default-authentication-plugin=mysql_native_password
     environment:
-      - MYSQL_ROOT_PASSWORD=zotero
+      - MYSQL_ROOT_PASSWORD=${MYSQLROOTPASSWORD}
+      - MYSQL_DATABASE=${MYSQLDATABASE}
+      - MYSQL_USER=${MYSQLUSER}
+      - MYSQL_PASSWORD=${MYSQLPASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
   db-zotero-elasticsearch:
    image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
    environment:
@@ -64,3 +69,8 @@ services:
       - PMA_HOST=mysql
     links:
       - db-zotero-mysql:mysql
+
+volumes:
+  dbdata:
+   driver: local
+
