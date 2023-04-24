@@ -6,22 +6,30 @@ ZotPrime is a full packaged repository aimed to make on-premise [Zotero](https:/
 
 ### Dependencies and source code
 
+*Install latest docker compose plugin*:
+```bash
+$ sudo apt update
+$ sudo apt install docker-compose-plugin
+```
+
 *Install dependencies for client build*:
 ```bash
-$ sudo apt install npm
+$ sudo apt install nodejs npm
+$ npm install -g n 
+$ n 16.20.0
 ```
 
 *Clone the repository (with **--recursive**)*:
 ```bash
 $ mkdir /path/to/your/app && cd /path/to/your/app
-$ git clone --recursive https://github.com/SamuelHassine/zotero-prime.git
-$ cd zotero-prime
+$ git clone --recursive https://github.com/uniuuu/zotprime.git
+$ cd zotprime
 ```
 
 *Configure and run*:
 ```bash
 $ cd docker
-$ sudo docker-compose up -d
+$ sudo docker compose up -d
 ```
 
 ### Initialize databases

@@ -27,6 +27,10 @@ services:
 #   command: "sysctl -w vm.max_map_count=262144"
   db-zotero-redis:
      image: redis:5.0
+ #   privileged: true
+ #    user: root
+ #    sysctls:
+ #      - sysctl vm.overcommit_memory=1
   db-zotero-memcached:
      image: memcached:1.5
   db-zotero-localstack:
@@ -48,7 +52,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:80"
-      - "8081:81"
+#      - "8081:81"
       - "8082:8082"
     volumes:
       - "../:/var/www/zotero:rw"
@@ -63,6 +67,8 @@ services:
       - db-zotero-elasticsearch
       - db-zotero-redis
       - db-zotero-memcached 
+      - app-zotero-tinymceclean
+      - app-zotero-streamserver
     links:
       - db-zotero-mysql:mysql
       - db-zotero-elasticsearch:elasticsearch
@@ -70,7 +76,41 @@ services:
       - db-zotero-memcached:memcached
       - db-zotero-localstack:localstack
       - db-zotero-minio:minio
+      - app-zotero-tinymceclean:tinymceclean
+      - app-zotero-streamserver:streamserver
     restart: always
+  app-zotero-tinymceclean:
+    image: app-zotero-tinymceclean
+    build:
+      context: ../tinymce-clean-server/
+      dockerfile: Dockerfile
+#      ports:
+#      - "16342:16342"
+    depends_on:
+      - db-zotero-mysql
+      - db-zotero-elasticsearch
+      - db-zotero-redis
+      - db-zotero-memcached
+    links:
+      - db-zotero-redis:redis 
+    restart: always
+  app-zotero-streamserver:
+    image: app-zotero-streamserver
+    build:
+      context: ../stream-server/
+      dockerfile: Dockerfile
+    ports:
+      - "8081:81"
+    volumes:
+      - "./config/default.js:/usr/src/app/config/default.js:ro"
+    restart: always
+    depends_on:
+      - db-zotero-mysql
+      - db-zotero-elasticsearch
+      - db-zotero-redis
+      - db-zotero-memcached 
+    links:
+      - db-zotero-redis:redis
   app-zotero-phpmyadmin:
     image: phpmyadmin/phpmyadmin
     ports:
