@@ -58,6 +58,7 @@ services:
       - "../dataserver/:/var/www/zotero:rw"
       - "./config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
       - "./config/dbconnect.inc.php:/var/www/zotero/include/config/dbconnect.inc.php:ro"
+      - "../Zend/:/var/www/zotero/include/Zend:rw"
 #      - "./config/default.js:/var/www/zotero/stream-server/config/default.js:ro"
     environment:
       - RUN_USER=www-data
