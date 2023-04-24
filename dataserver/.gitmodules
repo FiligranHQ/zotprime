@@ -1,0 +1,3 @@
+[submodule "include/Elastica"]
+	path = include/Elastica
+	url = https://github.com/ruflin/Elastica.git

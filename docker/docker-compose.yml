@@ -55,10 +55,10 @@ services:
 #      - "8081:81"
       - "8082:8082"
     volumes:
-      - "../:/var/www/zotero:rw"
+      - "../dataserver/:/var/www/zotero:rw"
       - "./config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
       - "./config/dbconnect.inc.php:/var/www/zotero/include/config/dbconnect.inc.php:ro"
-      - "./config/default.js:/var/www/zotero/stream-server/config/default.js:ro"
+#      - "./config/default.js:/var/www/zotero/stream-server/config/default.js:ro"
     environment:
       - RUN_USER=www-data
       - RUN_GROUP=www-data
