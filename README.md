@@ -23,6 +23,7 @@ $ n 16.20.0
 ```bash
 $ mkdir /path/to/your/app && cd /path/to/your/app
 $ git clone --recursive https://github.com/FiligranHQ/zotprime.git
+$ git checkout tags/<tag> -b <somename>   
 $ cd zotprime
 ```
 
