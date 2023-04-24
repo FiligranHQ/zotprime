@@ -1,9 +1,9 @@
 [submodule "tinymce-clean-server"]
 	path = tinymce-clean-server
-	url = https://github.com/zotero/tinymce-clean-server
+	url = https://github.com/uniuuu/tinymce-clean-server
 [submodule "stream-server"]
 	path = stream-server
-	url = https://github.com/zotero/stream-server
+	url = https://github.com/uniuuu/stream-server
 [submodule "client/zotero-client"]
 	path = client/zotero-client
 	url = https://github.com/zotero/zotero
