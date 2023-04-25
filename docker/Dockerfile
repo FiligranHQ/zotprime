@@ -30,8 +30,8 @@ RUN apt-get update && apt-get install -y \
     mariadb-server \
     memcached \
     net-tools \
-    nodejs \
-    npm \
+#    nodejs \
+#    npm \
     php7.4-cli \
     php7.4-curl \
     php7.4-memcached \
@@ -127,9 +127,9 @@ RUN apt-get update && apt-get install ncdu -y
 RUN apt-get install php7.4-redis -y
 
 #Install Nodejs
-RUN npm install -g n
+#RUN npm install -g n
 #RUN n 16.20.0
-RUN n 6.17.1
+#RUN n 6.17.1
 #RUN npm install -g npm@9.6.5
 #RUN apt-get purge --auto-remove -y nodejs
 #RUN rm -rf /var/lib/apt/lists/*
