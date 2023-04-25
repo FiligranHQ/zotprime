@@ -11,7 +11,7 @@ FROM debian:bullseye-slim
 #RUN DEBIAN_FRONTEND=noninteractive apt-get -y install apache2 libapache2-mod-php7.0 sudo rsyslog wget mysql-client curl nodejs
 #RUN DEBIAN_FRONTEND=noninteractive apt-get -y install php7.0-cli php7.0-xml php7.0-mysql php7.0-pgsql php7.0-json php7.0-curl php7.0-mbstring php7.0-intl php7.0-redis php7.0-dev php-pear composer
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     apache2 \
     awscli \
     composer \
