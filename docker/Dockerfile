@@ -22,13 +22,13 @@ RUN set -eux; \
             libapache2-mod-php \
             libapache2-mod-uwsgi \
 #    libc6 \
-            libdigest-hmac-perl \
-            libfile-util-perl \
-            libjson-xs-perl \
-            libplack-perl \
-            libswitch-perl \
+#            libdigest-hmac-perl \
+#            libfile-util-perl \
+#            libjson-xs-perl \
+#            libplack-perl \
+#            libswitch-perl \
             mariadb-client \
-            mariadb-server \
+#            mariadb-server \
             memcached \
             net-tools \
 #    nodejs \
@@ -37,16 +37,19 @@ RUN set -eux; \
             php7.4-curl \
             php7.4-memcached \
             php7.4-mysql \
+            php7.4-redis \
             php-http \
             php-igbinary \
             php-pear \
             php-zend-code \
+            php-zip \
             rinetd \
             rsyslog \
             runit \
+            unzip \
             uwsgi \
             uwsgi-plugin-psgi \
-            vim \
+#            vim \
             wget \
             && rm -rf /var/lib/apt/lists/*    
 
@@ -124,11 +127,11 @@ COPY gzip.conf /etc/apache2/conf-available/
 #RUN apt-get install -y sudo
 
 #RUN apt-get update && apt-get install g++ 
-RUN set -eux; \
-            apt-get update && apt-get install ncdu -y
+#RUN set -eux; \
+#            apt-get update && apt-get install ncdu -y
 #RUN apt-get install libc6-dev unzip -y
-RUN set -eux; \
-        apt-get install php7.4-redis -y
+#RUN set -eux; \
+#        apt-get install php7.4-redis -y
 
 #Install Nodejs
 #RUN npm install -g n
@@ -166,9 +169,9 @@ RUN set -eux; \
 # Chown log directory
         chown 33:33 /var/log/apache2; \
 # Apache logs print docker logs
-         ln -sfT /dev/stdout /var/log/apache2/access.log; \
-         ln -sfT /dev/stderr /var/log/apache2/error.log; \
-         ln -sfT /dev/stdout /var/log/apache2/other_vhosts_access.log; \
+        ln -sfT /dev/stdout /var/log/apache2/access.log; \
+        ln -sfT /dev/stderr /var/log/apache2/error.log; \
+        ln -sfT /dev/stdout /var/log/apache2/other_vhosts_access.log; \
 # Chown log directory
         chown -R --no-dereference 33:33 /var/log/apache2 
 
