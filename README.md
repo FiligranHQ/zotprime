@@ -22,7 +22,7 @@ $ n 16.20.0
 *Clone the repository (with **--recursive**)*:
 ```bash
 $ mkdir /path/to/your/app && cd /path/to/your/app
-$ git clone --recursive https://github.com/FiligranHQ/zotprime.git
+$ git clone --recursive https://github.com/uniuuu/zotprime.git
 $ git checkout tags/<tag> -b <somename>   
 $ cd zotprime
 ```
