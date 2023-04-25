@@ -1,5 +1,5 @@
 #!/bin/sh
-set -x
+set -eux
 # Env vars
 export APACHE_RUN_USER=${RUN_USER}
 export APACHE_RUN_GROUP=${RUN_GROUP}
@@ -37,7 +37,7 @@ a2enconf gzip
 #cd /var/www/zotero/tinymce-clean-server && node server.js &
 
 # Chown
-chown -R ${RUN_USER}:${RUN_GROUP} /var/log/apache2
+#chown -R --no-dereference ${RUN_USER}:${RUN_GROUP} /var/log/apache2
 
 # Chmod
 chmod 777 /var/www/zotero/tmp
@@ -55,4 +55,5 @@ cd /var/www/zotero && composer -vv install
 
 
 # Start Apache2
-exec apache2 -e debug -DNO_DETACH -k start
+#exec apache2 -e debug -DNO_DETACH -k start
+exec apache2 -e debug -DFOREGROUND -k start

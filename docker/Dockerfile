@@ -11,43 +11,44 @@ FROM debian:bullseye-slim
 #RUN DEBIAN_FRONTEND=noninteractive apt-get -y install apache2 libapache2-mod-php7.0 sudo rsyslog wget mysql-client curl nodejs
 #RUN DEBIAN_FRONTEND=noninteractive apt-get -y install php7.0-cli php7.0-xml php7.0-mysql php7.0-pgsql php7.0-json php7.0-curl php7.0-mbstring php7.0-intl php7.0-redis php7.0-dev php-pear composer
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    apache2 \
-    awscli \
-    composer \
-    curl \
-    git \
-    gnutls-bin \
-    libapache2-mod-php \
-    libapache2-mod-uwsgi \
+RUN set -eux; \
+        apt-get update && apt-get install -y --no-install-recommends \
+            apache2 \
+            awscli \
+            composer \
+            curl \
+            git \
+            gnutls-bin \
+            libapache2-mod-php \
+            libapache2-mod-uwsgi \
 #    libc6 \
-    libdigest-hmac-perl \
-    libfile-util-perl \
-    libjson-xs-perl \
-    libplack-perl \
-    libswitch-perl \
-    mariadb-client \
-    mariadb-server \
-    memcached \
-    net-tools \
+            libdigest-hmac-perl \
+            libfile-util-perl \
+            libjson-xs-perl \
+            libplack-perl \
+            libswitch-perl \
+            mariadb-client \
+            mariadb-server \
+            memcached \
+            net-tools \
 #    nodejs \
 #    npm \
-    php7.4-cli \
-    php7.4-curl \
-    php7.4-memcached \
-    php7.4-mysql \
-    php-http \
-    php-igbinary \
-    php-pear \
-    php-zend-code \
-    rinetd \
-    rsyslog \
-    runit \
-    uwsgi \
-    uwsgi-plugin-psgi \
-    vim \
-    wget \
-    && rm -rf /var/lib/apt/lists/*    
+            php7.4-cli \
+            php7.4-curl \
+            php7.4-memcached \
+            php7.4-mysql \
+            php-http \
+            php-igbinary \
+            php-pear \
+            php-zend-code \
+            rinetd \
+            rsyslog \
+            runit \
+            uwsgi \
+            uwsgi-plugin-psgi \
+            vim \
+            wget \
+            && rm -rf /var/lib/apt/lists/*    
 
 
 #RUN apt-get install vim -y
@@ -55,7 +56,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 #RUN apt-get install -y php-pear composer nodejs
 
-RUN sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php/7.4/apache2/php.ini
+RUN set -eux; \
+        sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php/7.4/apache2/php.ini
 RUN sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php/7.4/apache2/php.ini
 RUN sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/apache2/php.ini
 RUN sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/cli/php.ini
@@ -122,9 +124,11 @@ COPY gzip.conf /etc/apache2/conf-available/
 #RUN apt-get install -y sudo
 
 #RUN apt-get update && apt-get install g++ 
-RUN apt-get update && apt-get install ncdu -y
+RUN set -eux; \
+            apt-get update && apt-get install ncdu -y
 #RUN apt-get install libc6-dev unzip -y
-RUN apt-get install php7.4-redis -y
+RUN set -eux; \
+        apt-get install php7.4-redis -y
 
 #Install Nodejs
 #RUN npm install -g n
@@ -151,13 +155,26 @@ RUN apt-get install php7.4-redis -y
 #sed -i  "/'signature' => 'v4',/a 'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT," include/header.inc.php
 
 # AWS local credentials
-RUN mkdir ~/.aws  && bash -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/config' && bash -c 'echo -e "[default]\naws_access_key_id = zotero\naws_secret_access_key = zoterodocker" > ~/.aws/credentials'
+RUN set -eux; \
+             mkdir ~/.aws  && bash -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/config' && bash -c 'echo -e "[default]\naws_access_key_id = zotero\naws_secret_access_key = zoterodocker" > ~/.aws/credentials'
 
+
+
+RUN set -eux; \
+        rm -rvf /var/log/apache2; \
+        mkdir -p /var/log/apache2; \
 # Chown log directory
-RUN chown 33:33 /var/log/apache2
+        chown 33:33 /var/log/apache2; \
+# Apache logs print docker logs
+         ln -sfT /dev/stdout /var/log/apache2/access.log; \
+         ln -sfT /dev/stderr /var/log/apache2/error.log; \
+         ln -sfT /dev/stdout /var/log/apache2/other_vhosts_access.log; \
+# Chown log directory
+        chown -R --no-dereference 33:33 /var/log/apache2 
 
 # Rinetd
-RUN echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
+RUN set -eux; \
+        echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
 
 #Install uws
 #WORKDIR /var/
