@@ -59,6 +59,12 @@ services:
       - "./config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
       - "./config/dbconnect.inc.php:/var/www/zotero/include/config/dbconnect.inc.php:ro"
       - "../Zend/:/var/www/zotero/include/Zend:rw"
+      - "./config/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
+      - "./config/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"
+      - "./dbinit/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
+      - "./dbinit/www.sql:/var/www/zotero/misc/www.sql:ro"
+      - "./dbinit/shard.sql:/var/www/zotero/misc/shard.sql:ro"
+      - "./config/create-user.sh:/var/www/zotero/admin/create-user.sh:ro"
 #      - "./config/default.js:/var/www/zotero/stream-server/config/default.js:ro"
     environment:
       - RUN_USER=www-data

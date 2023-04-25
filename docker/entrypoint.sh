@@ -42,6 +42,10 @@ chown -R ${RUN_USER}:${RUN_GROUP} /var/log/apache2
 # Chmod
 chmod 777 /var/www/zotero/tmp
 
+#sed -i "/'signature' => 'v4',/a \    'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT," /var/www/zotero/include/header.inc.php
+
+
+
 # Elastica Composer
 #cd /var/www/zotero/include/Elastica && composer -v install
 

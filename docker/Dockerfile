@@ -148,6 +148,8 @@ RUN n 6.17.1
 #Debug Rsyslog
 #RUN sed -i '/^DAEMON=\/usr\/sbin\/rsyslogd/a RSYSLOGD_OPTIONS="-dn"' /etc/init.d/rsyslog
 
+#sed -i  "/'signature' => 'v4',/a 'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT," include/header.inc.php
+
 # AWS local credentials
 RUN mkdir ~/.aws  && bash -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/config' && bash -c 'echo -e "[default]\naws_access_key_id = zotero\naws_secret_access_key = zoterodocker" > ~/.aws/credentials'
 
