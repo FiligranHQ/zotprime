@@ -13,3 +13,6 @@
 [submodule "client/zotero-build"]
 	path = client/zotero-build
 	url = https://github.com/zotero/zotero-build
+[submodule "dataserver"]
+	path = dataserver
+	url = https://github.com/uniuuu/dataserver.git
