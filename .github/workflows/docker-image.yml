@@ -2,7 +2,12 @@ name: Docker Image CI
 
 on:
   push:
+    paths:
+      - docker/**
+      - Dockerfile
+      - .github/workflows/docker-image.yml
     branches: [ "new_dev" ]
+
   pull_request:
     branches: [ "new_dev" ]
 
@@ -15,4 +20,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build ./docker --file Dockerfile --tag app-zotprime_dataserver:$(date +%s)
+      run: docker build . --file Dockerfile --tag app-zotprime_dataserver:$(date +%s)
