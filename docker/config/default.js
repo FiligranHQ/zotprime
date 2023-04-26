@@ -17,7 +17,7 @@ var config = {
 		host: 'redis',
 		prefix: ''
 	},
-	apiURL: 'http://app-zotero/',
+	apiURL: 'http://app-zotprime-dataserver/',
 	apiVersion: 3,
 	apiRequestHeaders: {},
 	longStackTraces: false,

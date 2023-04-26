@@ -80,7 +80,7 @@ class Z_CONFIG {
 	public static $LOG_TIMEZONE = 'US/Eastern';
 	public static $LOG_TARGET_DEFAULT = 'errors';
 	
-	public static $HTMLCLEAN_SERVER_URL = 'http://app-zotero-tinymceclean:16342';
+	public static $HTMLCLEAN_SERVER_URL = 'http://app-zotprime-tinymceclean:16342';
 	
 	public static $PROCESSOR_PORT_DOWNLOAD = 3455;
 	public static $PROCESSOR_PORT_UPLOAD = 3456;
