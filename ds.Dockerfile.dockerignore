@@ -1,9 +1,11 @@
 .git
 .github
+bin
 client
 dataserver
 doc
-#docker
+docker/stream-server
+docker/minio
 stream-server
 tinymce-clean-server
 Zend

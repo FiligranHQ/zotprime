@@ -29,7 +29,6 @@ $ cd zotprime
 
 *Configure and run*:
 ```bash
-$ cd docker
 $ sudo docker compose up -d
 ```
 

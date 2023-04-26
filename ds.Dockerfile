@@ -106,12 +106,12 @@ RUN sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_report
 #RUN a2enmod rewrite
 
 # Enable the new virtualhost
-COPY docker/zotero.conf /etc/apache2/sites-available/
+COPY docker/dataserver/zotero.conf /etc/apache2/sites-available/
 #RUN a2dissite 000-default
 #RUN a2ensite zotero
 
 # Override gzip configuration
-COPY docker/gzip.conf /etc/apache2/conf-available/
+COPY docker/dataserver/gzip.conf /etc/apache2/conf-available/
 #
 
 
@@ -192,7 +192,7 @@ ENV APACHE_RUN_DIR=/var/run/apache2
 ENV APACHE_LOG_DIR=/var/log/apache2
 
 # Expose and entrypoint
-COPY docker/entrypoint.sh /
+COPY docker/dataserver/entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 VOLUME /var/www/zotero
 EXPOSE 80/tcp

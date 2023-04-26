@@ -40,7 +40,8 @@ services:
   db-zotprime-minio:
     image: minio/minio
     build:
-      context: ./minio
+      context: .
+      dockerfile: minio.Dockerfile
     environment:
       - MINIO_ACCESS_KEY=zotero
       - MINIO_SECRET_KEY=zoterodocker
@@ -49,22 +50,22 @@ services:
     image: app-zotprime-dataserver
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ds.Dockerfile
     ports:
       - "8080:80"
 #      - "8081:81"
       - "8082:8082"
     volumes:
       - "./dataserver/:/var/www/zotero:rw"
-      - "./docker/config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
-      - "./docker/config/dbconnect.inc.php:/var/www/zotero/include/config/dbconnect.inc.php:ro"
+      - "./docker/dataserver/config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
+      - "./docker/dataserver/config/dbconnect.inc.php:/var/www/zotero/include/config/dbconnect.inc.php:ro"
       - "./Zend/:/var/www/zotero/include/Zend:rw"
-      - "./docker/config/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
-      - "./docker/config/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"
-      - "./docker/dbinit/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
-      - "./docker/dbinit/www.sql:/var/www/zotero/misc/www.sql:ro"
-      - "./docker/dbinit/shard.sql:/var/www/zotero/misc/shard.sql:ro"
-      - "./docker/config/create-user.sh:/var/www/zotero/admin/create-user.sh:ro"
+      - "./docker/dataserver/config/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
+      - "./docker/dataserver/config/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"
+      - "./docker/dataserver/dbinit/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
+      - "./docker/dataserver/dbinit/www.sql:/var/www/zotero/misc/www.sql:ro"
+      - "./docker/dataserver/dbinit/shard.sql:/var/www/zotero/misc/shard.sql:ro"
+      - "./docker/dataserver/config/create-user.sh:/var/www/zotero/admin/create-user.sh:ro"
     environment:
       - RUN_USER=www-data
       - RUN_GROUP=www-data
@@ -88,10 +89,8 @@ services:
   app-zotprime-tinymceclean:
     image: app-zotprime-tinymceclean
     build:
-      context: ./tinymce-clean-server/
-      dockerfile: Dockerfile
-#      ports:
-#      - "16342:16342"
+      context: .
+      dockerfile: tmcs.Dockerfile
     depends_on:
       - db-zotprime-mysql
       - db-zotprime-elasticsearch
@@ -103,12 +102,12 @@ services:
   app-zotprime-streamserver:
     image: app-zotprime-streamserver
     build:
-      context: ./stream-server/
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: sts.Dockerfile
     ports:
       - "8081:81"
     volumes:
-      - "./docker/config/default.js:/usr/src/app/config/default.js:ro"
+      - "./docker/stream-server/default.js:/usr/src/app/config/default.js:ro"
     restart: always
     depends_on:
       - db-zotprime-mysql

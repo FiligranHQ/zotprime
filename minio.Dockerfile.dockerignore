@@ -1,0 +1,12 @@
+.git
+.github
+bin
+client
+dataserver
+doc
+docker/dataserver
+docker/stream-server
+stream-server
+tinymce-clean-server
+Zend
+docker-compose.yml

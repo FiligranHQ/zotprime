@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - stream-server/**
+      - docker/stream-server/**
       - .github/workflows/streamserver-image.yml
     branches: [ "new_dev" ]
 
@@ -11,12 +12,9 @@ on:
     branches: [ "new_dev" ]
     paths:
       - stream-server/**
+      - docker/stream-server/**
       - .github/workflows/streamserver-image.yml
 
-
-#defaults:
-#  run:
-#    working-directory: ./stream-server
 
 jobs:
 
@@ -30,7 +28,7 @@ jobs:
       run: git submodule update --init stream-server
     - name: Build the Docker image
       working-directory: ./stream-server
-      run: docker build . --tag app-zotprime-streamserver:$(date +%s)
+      run: docker build . --file sts.Dockerfile --tag app-zotprime-streamserver:$(date +%s)
 #      uses: docker/build-push-action@v2
 #      with:
 #        context: .
