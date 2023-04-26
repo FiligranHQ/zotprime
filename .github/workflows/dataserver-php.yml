@@ -1,0 +1,82 @@
+name: Dataserver PHP Composer
+
+on:
+  push:
+    branches: [ "new_dev" ]
+    paths:
+      - dataserver/**
+      - .github/workflows/dataserver-php.yml
+  pull_request:
+    branches: [ "new_dev" ]
+    paths:
+      - dataserver/**
+      - .github/workflows/dataserver-php.yml
+permissions:
+  contents: read
+
+
+
+#defaults:
+#  run:
+#    working-directory: ./dataserver
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php-version:
+          - "7.4"
+
+        dependencies:
+          - "locked"
+
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-version }}
+
+    - name: Checkout submodules
+      run: git submodule update --init dataserver
+
+    - name: Validate composer.json and composer.lock
+      working-directory: ./dataserver
+      run: composer validate --strict
+
+
+    - name: "Determine composer cache directory"
+      id: "determine-composer-cache-directory"
+      working-directory: ./dataserver
+      run: "echo \"::set-output name=directory::$(composer config cache-dir)\""
+
+    - name: "Cache dependencies installed with composer"
+      uses: "actions/cache@v3"
+      with:
+        path: "dataserver${{ steps.determine-composer-cache-directory.outputs.directory }}"
+        key: "php-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-${{ hashFiles('composer.lock') }}"
+        restore-keys: "php-${{ matrix.php-version }}-composer-${{ matrix.dependencies }}-"
+
+
+#    - name: Cache Composer packages
+#      id: composer-cache
+#      uses: actions/cache@v3
+#      with:
+#        path: vendor
+#        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+#        restore-keys: |
+#          ${{ runner.os }}-php-
+
+    - name: Install dependencies
+      working-directory: ./dataserver
+      run: composer install --prefer-dist --no-progress
+
+    # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
+    # Docs: https://getcomposer.org/doc/articles/scripts.md
+
+    # - name: Run test suite

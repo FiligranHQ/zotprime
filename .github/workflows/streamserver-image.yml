@@ -1,0 +1,37 @@
+name: Streamserver Image CI
+
+on:
+  push:
+    paths:
+      - stream-server/**
+      - .github/workflows/streamserver-image.yml
+    branches: [ "new_dev" ]
+
+  pull_request:
+    branches: [ "new_dev" ]
+    paths:
+      - stream-server/**
+      - .github/workflows/streamserver-image.yml
+
+
+#defaults:
+#  run:
+#    working-directory: ./stream-server
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Checkout submodules
+      run: git submodule update --init stream-server
+    - name: Build the Docker image
+      working-directory: ./stream-server
+      run: docker build . --tag app-zotprime-streamserver:$(date +%s)
+#      uses: docker/build-push-action@v2
+#      with:
+#        context: .
+#        file: Dockerfile

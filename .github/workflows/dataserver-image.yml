@@ -1,0 +1,27 @@
+name: Dataserver Image CI
+
+on:
+  push:
+    paths:
+      - docker/**
+      - Dockerfile
+      - .github/workflows/dataserver-image.yml
+    branches: [ "new_dev" ]
+
+  pull_request:
+    branches: [ "new_dev" ]
+    paths:
+      - docker/**
+      - Dockerfile
+      - .github/workflows/dataserver-image.yml
+      
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag app-zotprime-dataserver:$(date +%s)
