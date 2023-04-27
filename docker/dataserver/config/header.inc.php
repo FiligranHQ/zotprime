@@ -73,13 +73,6 @@ function zotero_autoload($className) {
 		require_once $className . '.inc.php';
 		return;
 	}
-	
-	// Elastica
-	if (strpos($className, 'Elastica\\') === 0) {
-		$className = str_replace('\\', '/', $className);
-		require_once 'Elastica/lib/' . $className . '.php';
-		return;
-	}
 }
 
 spl_autoload_register('zotero_autoload');
@@ -89,7 +82,7 @@ require('config/config.inc.php');
 
 if (Z_Core::isCommandLine()) {
 	$_SERVER['DOCUMENT_ROOT'] = realpath(dirname(dirname(__FILE__))) . '/';
-	$_SERVER['SERVER_NAME'] = Z_CONFIG::$SYNC_DOMAIN;
+	$_SERVER['SERVER_NAME'] = parse_url(Z_CONFIG::$API_BASE_URI)['host'];
 	$_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'];
 	$_SERVER['REQUEST_URI'] = "/";
 }
@@ -156,6 +149,7 @@ if (Z_CONFIG::$TESTING_SITE) {
 	ini_set("display_errors", "1");
 	//error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE | E_STRICT);
 	error_reporting(-1);
+	ini_set('html_errors', '0');
 	
 	define('Z_ENV_DEV_SITE', !empty(Z_CONFIG::$DEV_SITE));
 }
@@ -198,7 +192,7 @@ Zotero_NotifierObserver::init();
 // Memcached
 require('Memcached.inc.php');
 Z_Core::$MC = new Z_MemcachedClientLocal(
-	Z_CONFIG::$SYNC_DOMAIN,
+	Z_CONFIG::$API_BASE_URI,
 	array(
 		'disabled' => !Z_CONFIG::$MEMCACHED_ENABLED,
 		'servers' => Z_CONFIG::$MEMCACHED_SERVERS
@@ -222,7 +216,6 @@ $awsConfig = [
 	],
 	'retries' => 2
 ];
-
 // IAM role authentication
 if (empty(Z_CONFIG::$AWS_ACCESS_KEY)) {
 	// If APC cache is available, use that to cache temporary credentials
@@ -245,18 +238,11 @@ else {
 Z_Core::$AWS = new Aws\Sdk($awsConfig);
 unset($awsConfig);
 
-// Elastica
-$searchHosts = array_map(function ($hostAndPort) {
-	preg_match('/^([^:]+)(:[0-9]+)?$/', $hostAndPort, $matches);
-	return [
-		'host' => $matches[1],
-		'port' => isset($matches[2]) ? $matches[2] : 9200
-	];
-}, Z_CONFIG::$SEARCH_HOSTS);
-shuffle($searchHosts);
-Z_Core::$Elastica = new \Elastica\Client([
-	'connections' => $searchHosts
-]);
+// Elasticsearch
+$esConfig = [
+	'hosts' => Z_CONFIG::$SEARCH_HOSTS
+];
+Z_Core::$ES = \Elasticsearch\ClientBuilder::fromConfig($esConfig, true);
 
 require('interfaces/IAuthenticationPlugin.inc.php');
 

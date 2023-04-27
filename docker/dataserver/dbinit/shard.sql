@@ -22,16 +22,13 @@
 --  ***** END LICENSE BLOCK *****
 
 
-SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";
-
-
 --
--- IMPORTANT: All tables added here must be added to Zotero_Shards::moveLibrary()!
+-- IMPORTANT: All tables added here must be added to Zotero_Shards::copyLibrary()!
 --
 
 CREATE TABLE `collectionItems` (
   `collectionID` int(10) unsigned NOT NULL,
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `orderIndex` mediumint(8) unsigned DEFAULT NULL,
   PRIMARY KEY (`collectionID`,`itemID`),
   KEY `itemID` (`itemID`)
@@ -58,7 +55,7 @@ CREATE TABLE `collections` (
 
 
 CREATE TABLE `creators` (
-  `creatorID` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `creatorID` bigint unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
   `creatorDataHash` char(32) CHARACTER SET ascii DEFAULT NULL,
   `firstName` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -71,21 +68,35 @@ CREATE TABLE `creators` (
   `serverDateModifiedMS` smallint(4) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`creatorID`),
   UNIQUE KEY `key` (`libraryID`,`key`),
-  KEY `hash` (`libraryID`,`creatorDataHash`(5))
+  KEY `hash` (`libraryID`,`creatorDataHash`(5)),
+  KEY `name` (`libraryID`,`lastName`(7),`firstName`(6))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 
+CREATE TABLE `deletedCollections` (
+  `collectionID` int(10) unsigned NOT NULL,
+  `dateDeleted` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`collectionID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 CREATE TABLE `deletedItems` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `dateDeleted` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`itemID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+CREATE TABLE `deletedSearches` (
+  `searchID` int(10) unsigned NOT NULL,
+  `dateDeleted` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`searchID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 CREATE TABLE `groupItems` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `createdByUserID` int(10) unsigned DEFAULT NULL,
   `lastModifiedByUserID` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`itemID`),
@@ -95,15 +106,15 @@ CREATE TABLE `groupItems` (
 
 
 CREATE TABLE `publicationsItems` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   PRIMARY KEY (`itemID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
 CREATE TABLE `itemAttachments` (
-  `itemID` int(10) unsigned NOT NULL,
-  `sourceItemID` int(10) unsigned DEFAULT NULL,
-  `linkMode` enum('IMPORTED_FILE','IMPORTED_URL','LINKED_FILE','LINKED_URL') NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
+  `sourceItemID` bigint unsigned DEFAULT NULL,
+  `linkMode` enum('IMPORTED_FILE','IMPORTED_URL','LINKED_FILE','LINKED_URL','EMBEDDED_IMAGE'),
   `mimeType` varchar(255) NOT NULL,
   `charsetID` tinyint(3) unsigned DEFAULT NULL,
   `path` blob NOT NULL,
@@ -115,10 +126,25 @@ CREATE TABLE `itemAttachments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+CREATE TABLE `itemAnnotations` (
+  `itemID` bigint unsigned NOT NULL,
+  `parentItemID` bigint unsigned NOT NULL,
+  `type` enum('highlight','note','image', 'ink') CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `authorName` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL DEFAULT '',
+  `text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `comment` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
+  `color` char(6) CHARACTER SET ascii NOT NULL,
+  `pageLabel` varchar(50) NOT NULL,
+  `sortIndex` varchar(18) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `position` text CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  PRIMARY KEY (`itemID`),
+  KEY `parentItemID` (`parentItemID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 CREATE TABLE `itemCreators` (
-  `itemID` int(10) unsigned NOT NULL,
-  `creatorID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
+  `creatorID` bigint unsigned NOT NULL,
   `creatorTypeID` smallint(5) unsigned NOT NULL,
   `orderIndex` smallint(5) unsigned NOT NULL,
   PRIMARY KEY (`itemID`,`creatorID`,`orderIndex`),
@@ -129,7 +155,7 @@ CREATE TABLE `itemCreators` (
 
 
 CREATE TABLE `itemData` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `fieldID` smallint(5) unsigned NOT NULL,
   `itemDataValueHash` char(32) CHARACTER SET ascii DEFAULT NULL,
   `value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci,
@@ -139,16 +165,18 @@ CREATE TABLE `itemData` (
 
 
 CREATE TABLE `itemFulltext` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
+  `libraryID` int(10) unsigned NOT NULL,
   `version` int(10) unsigned NOT NULL DEFAULT '0',
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`itemID`)
+  PRIMARY KEY (`itemID`),
+  KEY `libraryVersion` (`libraryID`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 CREATE TABLE `itemNotes` (
-  `itemID` int(10) unsigned NOT NULL,
-  `sourceItemID` int(10) unsigned DEFAULT NULL,
+  `itemID` bigint unsigned NOT NULL,
+  `sourceItemID` bigint unsigned DEFAULT NULL,
   `note` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
   `noteSanitized` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NULL,
   `title` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NOT NULL,
@@ -160,8 +188,8 @@ CREATE TABLE `itemNotes` (
 
 
 CREATE TABLE `itemRelated` (
-  `itemID` int(10) unsigned NOT NULL,
-  `linkedItemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
+  `linkedItemID` bigint unsigned NOT NULL,
   PRIMARY KEY (`itemID`,`linkedItemID`),
   KEY `linkedItemID` (`linkedItemID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -169,7 +197,7 @@ CREATE TABLE `itemRelated` (
 
 
 CREATE TABLE `itemSortFields` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `sortTitle` varchar(79) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NULL DEFAULT NULL,
   `creatorSummary` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci NULL DEFAULT NULL,
   PRIMARY KEY (`itemID`),
@@ -180,7 +208,7 @@ CREATE TABLE `itemSortFields` (
 
 
 CREATE TABLE `items` (
-  `itemID` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `itemID` bigint unsigned NOT NULL AUTO_INCREMENT,
   `libraryID` int(10) unsigned NOT NULL,
   `itemTypeID` smallint(5) unsigned NOT NULL,
   `dateAdded` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -197,11 +225,19 @@ CREATE TABLE `items` (
 
 
 CREATE TABLE `itemTags` (
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `tagID` int(10) unsigned NOT NULL,
   PRIMARY KEY (`itemID`,`tagID`),
   KEY `tagID` (`tagID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
+
+CREATE TABLE `itemTopLevel` (
+  `itemID` bigint unsigned NOT NULL,
+  `topLevelItemID` bigint unsigned NOT NULL,
+  PRIMARY KEY (`itemID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 
@@ -250,7 +286,7 @@ CREATE TABLE `savedSearches` (
 
 CREATE TABLE `settings` (
   `libraryID` int(10) unsigned NOT NULL,
-  `name` varchar(25) NOT NULL,
+  `name` varchar(35) NOT NULL,
   `value` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `version` int(10) unsigned NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -259,10 +295,11 @@ CREATE TABLE `settings` (
 
 
 CREATE TABLE `shardLibraries` (
-  `libraryID` int(10) unsigned NOT NULL,
+  `libraryID` int unsigned NOT NULL,
   `libraryType` enum('user','group','publications') NOT NULL,
   `lastUpdated` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
-  `version` int(10) unsigned NOT NULL DEFAULT '1',
+  `version` int unsigned NOT NULL DEFAULT '1',
+  `storageUsage` bigint NOT NULL DEFAULT '0',
   PRIMARY KEY (`libraryID`),
   KEY `libraryType` (`libraryType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -270,7 +307,7 @@ CREATE TABLE `shardLibraries` (
 
 CREATE TABLE `storageFileItems` (
   `storageFileID` int(10) unsigned NOT NULL,
-  `itemID` int(10) unsigned NOT NULL,
+  `itemID` bigint unsigned NOT NULL,
   `mtime` bigint(13) unsigned NOT NULL,
   `size` int(10) unsigned NOT NULL,
   PRIMARY KEY (`storageFileID`,`itemID`),
@@ -297,9 +334,11 @@ CREATE TABLE `syncDeleteLogKeys` (
   `key` varchar(255) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `version` int(10) unsigned NOT NULL DEFAULT '1',
+  `data` varchar(255) NOT NULL DEFAULT '',
   PRIMARY KEY (`libraryID`,`objectType`,`key`),
   KEY `objectType` (`objectType`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 
 CREATE TABLE `tags` (
@@ -349,14 +388,24 @@ ALTER TABLE `collections`
 ALTER TABLE `creators`
   ADD CONSTRAINT `creators_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
+ALTER TABLE `deletedCollections`
+  ADD CONSTRAINT `deletedCollections_ibfk_1` FOREIGN KEY (`collectionID`) REFERENCES `collections` (`collectionID`) ON DELETE CASCADE;
+
 ALTER TABLE `deletedItems`
   ADD CONSTRAINT `deletedItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
+
+ALTER TABLE `deletedSearches`
+  ADD CONSTRAINT `deletedSearches_ibfk_1` FOREIGN KEY (`searchID`) REFERENCES `savedSearches` (`searchID`) ON DELETE CASCADE;
 
 ALTER TABLE `groupItems`
   ADD CONSTRAINT `groupItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
 
 ALTER TABLE `publicationsItems`
   ADD CONSTRAINT `publicationsItems_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
+
+ALTER TABLE `itemAnnotations`
+  ADD CONSTRAINT `itemAnnotations_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `itemAnnotations_ibfk_2` FOREIGN KEY (`parentItemID`) REFERENCES `itemAttachments` (`itemID`);
 
 ALTER TABLE `itemAttachments`
   ADD CONSTRAINT `itemAttachments_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
@@ -390,6 +439,10 @@ ALTER TABLE `itemTags`
   ADD CONSTRAINT `itemTags_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
   ADD CONSTRAINT `itemTags_ibfk_2` FOREIGN KEY (`tagID`) REFERENCES `tags` (`tagID`) ON DELETE CASCADE;
 
+ALTER TABLE `itemTopLevel`
+  ADD CONSTRAINT `itemTopLevel_ibfk_1` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE,
+  ADD CONSTRAINT `itemTopLevel_ibfk_2` FOREIGN KEY (`topLevelItemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE;
+
 ALTER TABLE `relations`
   ADD CONSTRAINT `relations_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
@@ -399,6 +452,7 @@ ALTER TABLE `savedSearchConditions`
 ALTER TABLE `savedSearches`
   ADD CONSTRAINT `savedSearches_ibfk_1` FOREIGN KEY (`libraryID`) REFERENCES `shardLibraries` (`libraryID`) ON DELETE CASCADE;
 
+-- Keep in sync with fkd_items_storageUsage trigger
 ALTER TABLE `storageFileItems`
   ADD CONSTRAINT `storageFileItems_ibfk_2` FOREIGN KEY (`itemID`) REFERENCES `items` (`itemID`) ON DELETE CASCADE ON UPDATE CASCADE;
 
