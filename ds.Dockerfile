@@ -60,14 +60,12 @@ RUN set -eux; \
 #RUN apt-get install -y php-pear composer nodejs
 
 RUN set -eux; \
-        sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php/7.4/apache2/php.ini
-RUN sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php/7.4/apache2/php.ini
-RUN sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/apache2/php.ini
-RUN sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/cli/php.ini
-RUN sed -i 's/display_errors = On/display_errors = Off/g' /etc/php/7.4/apache2/php.ini
-RUN sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE \& ~E_STRICT \& ~E_DEPRECATED/g' /etc/php/7.4/apache2/php.ini
-
-
+        sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php/7.4/apache2/php.ini; \
+        sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php/7.4/apache2/php.ini; \
+        sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/apache2/php.ini; \
+        sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/cli/php.ini; \
+        sed -i 's/display_errors = On/display_errors = Off/g' /etc/php/7.4/apache2/php.ini; \
+        sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE \& ~E_STRICT \& ~E_DEPRECATED/g' /etc/php/7.4/apache2/php.ini
 
 # Setup igbinary
 #RUN apt-get install -y php-igbinary

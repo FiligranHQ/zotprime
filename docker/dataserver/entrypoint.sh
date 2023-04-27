@@ -44,7 +44,7 @@ chmod 777 /var/www/zotero/tmp
 
 #sed -i "/'signature' => 'v4',/a \    'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT," /var/www/zotero/include/header.inc.php
 
-
+sed -i 's/AGPL-3.0/AGPL-3.0-only/g' /var/www/zotero/composer.json
 
 # Elastica Composer
 #cd /var/www/zotero/include/Elastica && composer -v install
