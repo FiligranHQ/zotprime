@@ -14,6 +14,7 @@ export APACHE_LOG_DIR=/var/log/apache2
 # Start rinetd
 /etc/init.d/rinetd start
 
+a2enmod headers 
 a2enmod rewrite
 a2dissite 000-default
 a2ensite zotero
@@ -44,7 +45,7 @@ chmod 777 /var/www/zotero/tmp
 
 #sed -i "/'signature' => 'v4',/a \    'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT," /var/www/zotero/include/header.inc.php
 
-sed -i 's/AGPL-3.0/AGPL-3.0-only/g' /var/www/zotero/composer.json
+sed -i 's/AGPL-3.0"/AGPL-3.0-only"/g' /var/www/zotero/composer.json
 
 # Elastica Composer
 #cd /var/www/zotero/include/Elastica && composer -v install
