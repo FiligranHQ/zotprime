@@ -63,6 +63,7 @@ services:
       - "./docker/dataserver/config/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
       - "./docker/dataserver/config/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"
       - "./docker/dataserver/dbinit/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
+#      - "./docker/dataserver/dbinit/db_update.sh:/var/www/zotero/misc/db_update.sh:ro"
       - "./docker/dataserver/dbinit/www.sql:/var/www/zotero/misc/www.sql:ro"
       - "./docker/dataserver/dbinit/shard.sql:/var/www/zotero/misc/shard.sql:ro"
       - "./docker/dataserver/config/create-user.sh:/var/www/zotero/admin/create-user.sh:ro"
