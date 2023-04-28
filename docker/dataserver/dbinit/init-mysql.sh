@@ -1,5 +1,8 @@
 #!/bin/sh
 
+set -ux
+
+
 MYSQL="mysql -h mysql -P 3306 -u root -pzotero"
 
 echo "DROP DATABASE IF EXISTS zotero_master" | $MYSQL
@@ -26,7 +29,7 @@ echo "INSERT INTO shards VALUES (2, 1, 'zotero_shard_2', 'up', '1');" | $MYSQL z
 # Create first group & user
 echo "INSERT INTO libraries VALUES (1, 'user', '0000-00-00 00:00:00', 0, 1)" | $MYSQL zotero_master
 echo "INSERT INTO libraries VALUES (2, 'group', '0000-00-00 00:00:00', 0, 2)" | $MYSQL zotero_master
-echo "INSERT INTO users VALUES (1, 1, 'admin', '0000-00-00 00:00:00', '0000-00-00 00:00:00')" | $MYSQL zotero_master
+echo "INSERT INTO users VALUES (1, 1, 'admin')" | $MYSQL zotero_master
 echo "INSERT INTO groups VALUES (1, 2, 'Shared', 'shared', 'Private', 'members', 'all', 'members', '', '', 0, '0000-00-00 00:00:00', '0000-00-00 00:00:00', 1)" | $MYSQL zotero_master
 echo "INSERT INTO groupUsers VALUES (1, 1, 'owner', '0000-00-00 00:00:00', '0000-00-00 00:00:00')" | $MYSQL zotero_master
 
@@ -44,8 +47,8 @@ cat triggers.sql | $MYSQL zotero_shard_1
 cat shard.sql | $MYSQL zotero_shard_2
 cat triggers.sql | $MYSQL zotero_shard_2
 
-echo "INSERT INTO shardLibraries VALUES (1, 'user', 0, 0)" | $MYSQL zotero_shard_1
-echo "INSERT INTO shardLibraries VALUES (2, 'group', 0, 0)" | $MYSQL zotero_shard_2
+echo "INSERT INTO shardLibraries VALUES (1, 'user', '0000-00-00 00:00:00', 0, 0)" | $MYSQL zotero_shard_1
+echo "INSERT INTO shardLibraries VALUES (2, 'group', '0000-00-00 00:00:00', 0, 0)" | $MYSQL zotero_shard_2
 
 # Load in schema on id servers
 $MYSQL zotero_ids < ids.sql
