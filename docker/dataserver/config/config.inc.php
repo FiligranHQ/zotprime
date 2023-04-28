@@ -1,6 +1,7 @@
 <?
 class Z_CONFIG {
 	public static $API_ENABLED = true;
+	public static $READ_ONLY = false;
 	public static $SYNC_ENABLED = true;
 	public static $PROCESSORS_ENABLED = true;
 	public static $MAINTENANCE_MESSAGE = 'Server updates in progress. Please try again in a few minutes.';
@@ -23,10 +24,12 @@ class Z_CONFIG {
 	public static $AWS_REGION = 'us-east-1';
 	public static $AWS_ACCESS_KEY = 'zotero'; // leave credentials empty to use IAM role
 	public static $AWS_SECRET_KEY = 'zoterodocker';
-        public static $S3_ENDPOINT = 'localhost:8082';
+    public static $S3_ENDPOINT = 'localhost:8082';
 	public static $S3_BUCKET = 'zotero';
 	public static $S3_BUCKET_CACHE = '';
 	public static $S3_BUCKET_FULLTEXT = 'zotero-fulltext';
+//	public static $S3_BUCKET_ERRORS = '';
+//	public static $SNS_ALERT_TOPIC = '';
 
 	public static $REDIS_HOSTS = [
 		'default' => [
@@ -102,5 +105,7 @@ class Z_CONFIG {
 	public static $CACHE_VERSION_ATOM_ENTRY = 1;
 	public static $CACHE_VERSION_BIB = 1;
 	public static $CACHE_VERSION_ITEM_DATA = 1;
+//	public static $CACHE_VERSION_RESPONSE_JSON_COLLECTION = 1;
+//	public static $CACHE_VERSION_RESPONSE_JSON_ITEM = 1;
 }
 ?>
