@@ -1,6 +1,6 @@
 FROM node:8.9-alpine
 
-RUN apk add --update \
+RUN apk add --update --no-cache \
 libc6-compat
 
 WORKDIR /usr/src/app

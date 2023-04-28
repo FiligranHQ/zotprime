@@ -38,7 +38,7 @@ services:
     environment:
       - SERVICES=sns,sqs,apigateway
   db-zotprime-minio:
-    image: minio/minio
+#    image: minio/minio
     build:
       context: .
       dockerfile: minio.Dockerfile

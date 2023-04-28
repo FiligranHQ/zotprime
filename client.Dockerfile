@@ -1,23 +1,27 @@
 
 FROM node:16-alpine as intermediate
 
+RUN set -eux; \ 
+    apk add --update --no-cache git
 WORKDIR /usr/src/app
 #RUN mkdir -p /build
 COPY ./client .
 RUN set -eux; \
     ./config.sh
-WORKDIR /usr/src/app/zotero-client
+#WORKDIR /usr/src/app/zotero-client
 RUN set -eux; \
-    npm install
+    npx browserslist@latest --update-db
 RUN set -eux; \
-    npm run build
-WORKDIR /usr/src/app/zotero-standalone-build
+    cd /usr/src/app/zotero-client && npm install
 RUN set -eux; \
-    ./fetch_xulrunner.sh -p l
+    cd /usr/src/app/zotero-client && npm run build
+#WORKDIR /usr/src/app/zotero-standalone-build
 RUN set -eux; \
-    ./fetch_pdftools
+    cd /usr/src/app/zotero-standalone-build && ./fetch_xulrunner.sh -p l
 RUN set -eux; \
-    ./scripts/dir_build -p l
+    cd /usr/src/app/zotero-standalone-build && ./fetch_pdftools
+RUN set -eux; \
+    cd /usr/src/app/zotero-standalone-build && ./scripts/dir_build -p l
 
 
 FROM scratch AS export-stage
