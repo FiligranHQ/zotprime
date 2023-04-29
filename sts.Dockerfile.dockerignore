@@ -1,6 +1,7 @@
 .git
 .github
 bin
+build
 client
 dataserver
 doc

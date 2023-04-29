@@ -14,6 +14,7 @@ clinet/zotero-standalone-build/xulrunner
 clinet/zotero-standalone-build/pdftools
 .github
 bin
+build
 dataserver
 doc
 docker

@@ -58,6 +58,19 @@ $ cd ..
 
 ## Client installation
 
+
+### BETA: Build client via Docker.  
+
+*Run*:
+```bash
+$ DOCKER_BUILDKIT=1 docker build --progress=plain --file client.Dockerfile --output build .
+```
+*Run*:
+```bash
+$ ./build/staging/Zotero_VERSION/zotero)
+```
+
+
 ### Dependencies and source code
 
 For [m|l|w]: m=Mac, w=Windows, l=Linux

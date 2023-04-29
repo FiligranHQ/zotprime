@@ -1,5 +1,6 @@
 .github
 bin
+build
 dataserver
 doc
 docker

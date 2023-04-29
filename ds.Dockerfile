@@ -57,7 +57,7 @@ RUN set -eux; \
         apk add --update --no-cache \
             aws-cli \
             apache2 \
-            apache2-http2 \
+#            apache2-http2 \
             apache2-utils \
 #            ca-certificates \
             composer \
