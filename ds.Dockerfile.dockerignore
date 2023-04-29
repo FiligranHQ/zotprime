@@ -7,7 +7,9 @@ dataserver
 doc
 docker/stream-server
 docker/minio
+docker-compose.yml
 stream-server
 tinymce-clean-server
 Zend
-docker-compose.yml
+zotprime-k8s
+

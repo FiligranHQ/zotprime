@@ -1,43 +1,32 @@
 #FROM debian:bullseye-slim
-
-FROM alpine:3 AS builder
-
-
-RUN set -eux; \
-        apk update && apk upgrade
-
-RUN set -eux \
-    && apk add --no-cache \
-        python3 \
-        py3-pip \
-        build-base \
-        git \
-        autoconf \
-        automake \ 
-#        util-linux \
-    && cd /tmp \
-    && git clone --depth=1 "https://github.com/samhocevar/rinetd" \
-    && cd rinetd \
-    && ./bootstrap \
-    && ./configure --prefix=/usr \
-    && make -j $(nproc) \
-    && strip rinetd \
-#    && pip3 install --upgrade pip \
-#    && pip3 install -v --no-cache-dir \
-#    awscli \
-    && rm -rf /var/cache/apk/*
-
-#RUN aws --version 
-#RUN whereis aws
-#RUN find / -name aws*
-#RUN find / -name .aws
-#RUN ls -lha /etc/
-
-
+#FROM alpine:3 AS builder
+#RUN set -eux; \
+#        apk update && apk upgrade
+#RUN set -eux \
+#    && apk add --no-cache \
+#        python3 \
+#        py3-pip \
+#        build-base \
+#        git \
+#        autoconf \
+#        automake \ 
+##        util-linux \
+#    && cd /tmp \
+#    && git clone --depth=1 "https://github.com/samhocevar/rinetd" \
+#    && cd rinetd \
+#    && ./bootstrap \
+#    && ./configure --prefix=/usr \
+#    && make -j $(nproc) \
+#    && strip rinetd \
+##    && pip3 install --upgrade pip \
+##    && pip3 install -v --no-cache-dir \
+##    awscli \
+#    && rm -rf /var/cache/apk/*
 
 FROM alpine:3
 
-COPY --from=builder /tmp/rinetd/rinetd /usr/sbin/rinetd
+#COPY --from=builder /tmp/rinetd/rinetd /usr/sbin/rinetd
+
 #COPY --from=builder /usr/bin/aws /usr/bin/aws
 #FROM php:8.1-alpine
 
@@ -60,6 +49,7 @@ RUN set -eux; \
 #            apache2-http2 \
             apache2-utils \
 #            ca-certificates \
+            bash \
             composer \
             curl \
             git \
@@ -75,6 +65,9 @@ RUN set -eux; \
             php-cli \
             php-curl \
             php-dom \
+            php81-dev \
+            php-iconv \
+            php-intl \
             php-mbstring \
             php-mysqli \
             php-pear \
@@ -84,6 +77,8 @@ RUN set -eux; \
             php-xmlwriter \
             php-zip \
             php81-pecl-memcached \
+#            php81-pecl-mcrypt \
+            php81-pecl-msgpack \
             php81-pecl-redis \
 #            php81-pecl-http \
             php81-pecl-igbinary \
@@ -97,21 +92,21 @@ RUN set -eux; \
 #            uwsgi-plugin-psgi \
             wget \
             && rm -rf /var/cache/apk/*
-RUN php -v
-RUN php --ini
+#RUN php -v
+#RUN php --ini
 
-RUN php -m
+#RUN php -m
 
-RUN composer show -p
+#RUN composer show -p
 
-RUN aws --version 
-
-
-RUN set -eux; \ 
-    ls -lha /etc/php81
+#RUN aws --version 
 
 
-RUN ls -lha /etc/php81/conf.d
+#RUN set -eux; \ 
+#    ls -lha /etc/php81
+
+
+#RUN ls -lha /etc/php81/conf.d
 #RUN ls -lha /usr/local/etc/php
 
 
@@ -126,11 +121,11 @@ RUN sed -i "s/#LoadModule\ rewrite_module/LoadModule\ rewrite_module/" /etc/apac
     && printf "\n<Directory \"/var/www/zotero/htdocs\">\n\tAllowOverride All\n</Directory>\n" >> /etc/apache2/httpd.conf
 
 
-RUN grep -R 'LoadModule' /etc/
+#RUN grep -R 'LoadModule' /etc/
 
-RUN ls -lha /etc/apache2/
+#RUN ls -lha /etc/apache2/
 
-RUN ls -lha /etc/apache2/conf.d/
+#RUN ls -lha /etc/apache2/conf.d/
 
 #RUN ls -lha /usr/local/etc/php/conf.d/
 
@@ -164,12 +159,12 @@ RUN set -eux; \
         sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE \& ~E_STRICT \& ~E_DEPRECATED/g' /etc/php81/php.ini
 #        sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE/g' /etc/php81/php.ini
 
-RUN ls -lha /etc/php81/php.ini
+#RUN ls -lha /etc/php81/php.ini
 
-RUN grep -R  'display_errors' /etc/
-RUN grep -R  'log_errors' /etc/
-RUN grep -R  'display_startup_errors' /etc/
-RUN grep -R -A 10 -B 10 'error_reporting' /etc/
+#RUN grep -R  'display_errors' /etc/
+#RUN grep -R  'log_errors' /etc/
+#RUN grep -R  'display_startup_errors' /etc/
+#RUN grep -R -A 10 -B 10 'error_reporting' /etc/
 
 # Setup igbinary
 #RUN apt-get install -y php-igbinary
@@ -271,25 +266,23 @@ RUN set -eux; \
         rm -rvf /var/log/apache2; \
         mkdir -p /var/log/apache2; \
 # Chown log directory
-        chown 33:33 /var/log/apache2; \
+        chown 100:101 /var/log/apache2; \
 # Apache logs print docker logs
         ln -sfT /dev/stdout /var/log/apache2/access.log; \
         ln -sfT /dev/stderr /var/log/apache2/error.log; \
         ln -sfT /dev/stdout /var/log/apache2/other_vhosts_access.log; \
 # Chown log directory
-        chown -R --no-dereference 33:33 /var/log/apache2 
+        chown -R --no-dereference 100:101 /var/log/apache2 
 
 # Rinetd
-RUN set -eux; \
-        echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
+#RUN set -eux; \
+#        echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
 
 #Install uws
 #WORKDIR /var/
 
-#ENV APACHE_RUN_USER=${RUN_USER}true
-#ENV APACHE_RUN_GROUP=${RUN_GROUP}
-ENV APACHE_RUN_USER=www-data
-ENV APACHE_RUN_GROUP=www-data
+ENV APACHE_RUN_USER=apache
+ENV APACHE_RUN_GROUP=apache
 ENV APACHE_LOCK_DIR=/var/lock/apache2
 ENV APACHE_PID_FILE=/var/run/apache2/apache2.pid
 ENV APACHE_RUN_DIR=/var/run/apache2
@@ -300,7 +293,7 @@ COPY docker/dataserver/entrypoint.sh /
 RUN chmod +x /entrypoint.sh
 VOLUME /var/www/zotero
 EXPOSE 80/tcp
-EXPOSE 81/TCP
-EXPOSE 82/TCP
+#EXPOSE 81/TCP
+#EXPOSE 82/TCP
 ENTRYPOINT ["/entrypoint.sh"]
 

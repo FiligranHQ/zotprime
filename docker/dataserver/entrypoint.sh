@@ -12,8 +12,8 @@ export APACHE_LOG_DIR=/var/log/apache2
 #/etc/init.d/rsyslog start
 
 # Start rinetd
-echo "logfile /dev/stdout" >> /etc/rinetd.conf
-rinetd -f -c /etc/rinetd.conf &
+#echo "logfile /dev/stdout" >> /etc/rinetd.conf
+#rinetd -f -c /etc/rinetd.conf &
 #/etc/init.d/rinetd start
 
 #a2enmod headers 

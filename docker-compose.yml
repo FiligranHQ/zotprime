@@ -10,15 +10,18 @@ services:
       - MYSQL_PASSWORD=${MYSQLPASSWORD}
     volumes:
       - dbdata:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
   db-zotprime-elasticsearch:
 #   image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
-   image: docker.elastic.co/elasticsearch/elasticsearch:8.7.0
-   environment:
-     - cluster.name=zotero
-     - xpack.security.enabled=false
-     - cluster.routing.allocation.disk.threshold_enabled=false 
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.7.0
+    environment:
+      - cluster.name=zotero
+      - xpack.security.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false 
        #     - cluster.routing.allocation.disk.watermark.flood_stage=500mb
-     - discovery.type=single-node
+      - discovery.type=single-node
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
 #   privileged: true
    #user: root
    #command: "sysctl -w vm.max_map_count=262144 && su elasticsearch -c bin/elasticsearch"
@@ -26,19 +29,24 @@ services:
  #           - vm.max_map_count=262144
 #   command: "sysctl -w vm.max_map_count=262144"
   db-zotprime-redis:
-     image: redis:5.0
+    image: redis:5.0
  #   privileged: true
  #    user: root
  #    sysctls:
  #      - sysctl vm.overcommit_memory=1
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
   db-zotprime-memcached:
-     image: memcached:1.5
+    image: memcached:1.5
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
   db-zotprime-localstack:
     image: atlassianlabs/localstack
     environment:
       - SERVICES=sns,sqs,apigateway
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
   db-zotprime-minio:
-#    image: minio/minio
     build:
       context: .
       dockerfile: minio.Dockerfile
@@ -46,6 +54,10 @@ services:
       - MINIO_ACCESS_KEY=zotero
       - MINIO_SECRET_KEY=zoterodocker
     command: server /data
+    ports:
+      - "8082:9000"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
   app-zotprime-dataserver:
     image: app-zotprime-dataserver
     build:
@@ -53,7 +65,7 @@ services:
       dockerfile: ds.Dockerfile
     ports:
       - "8080:80"
-      - "8082:8082"
+#      - "8082:8082"
     volumes:
       - "./dataserver/:/var/www/zotero:rw"
       - "./docker/dataserver/config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
@@ -62,13 +74,14 @@ services:
       - "./docker/dataserver/config/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
       - "./docker/dataserver/config/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"
       - "./docker/dataserver/dbinit/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
-#      - "./docker/dataserver/dbinit/db_update.sh:/var/www/zotero/misc/db_update.sh:ro"
+      - "./docker/dataserver/dbinit/db_update.sh:/var/www/zotero/misc/db_update.sh:ro"
       - "./docker/dataserver/dbinit/www.sql:/var/www/zotero/misc/www.sql:ro"
       - "./docker/dataserver/dbinit/shard.sql:/var/www/zotero/misc/shard.sql:ro"
       - "./docker/dataserver/config/create-user.sh:/var/www/zotero/admin/create-user.sh:ro"
+      - /etc/localtime:/etc/localtime:ro
     environment:
-      - RUN_USER=www-data
-      - RUN_GROUP=www-data
+      - RUN_USER=apache
+      - RUN_GROUP=apache
     depends_on:
       - db-zotprime-mysql
       - db-zotprime-elasticsearch
@@ -98,6 +111,8 @@ services:
       - db-zotprime-memcached
     links:
       - db-zotprime-redis:redis 
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
     restart: always
   app-zotprime-streamserver:
     image: app-zotprime-streamserver
@@ -108,6 +123,7 @@ services:
       - "8081:81"
     volumes:
       - "./docker/stream-server/default.js:/usr/src/app/config/default.js:ro"
+      - /etc/localtime:/etc/localtime:ro
     restart: always
     depends_on:
       - db-zotprime-mysql
@@ -124,6 +140,8 @@ services:
       - PMA_HOST=mysql
     links:
       - db-zotprime-mysql:mysql
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
 
 volumes:
   dbdata:

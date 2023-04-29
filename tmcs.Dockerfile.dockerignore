@@ -6,7 +6,9 @@ client
 dataserver
 doc
 docker
+docker-compose.yml
 stream-server
 #tinymce-clean-server
 Zend
-docker-compose.yml
+zotprime-k8s
+
