@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    move2kube.konveyor.io/service: app-tinymce-clean-server
+  name: app-tinymce-clean-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      move2kube.konveyor.io/service: app-tinymce-clean-server
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        move2kube.konveyor.io/service: app-tinymce-clean-server
+      name: app-tinymce-clean-server
+    spec:
+      containers:
+        - image: localhost:32000/zotprime-k8s/app-tinymce-clean-server:latest
+          imagePullPolicy: Always
+          name: app-tinymce-clean-server
+          ports:
+            - containerPort: 16342
+          resources: {}
+      restartPolicy: Always
+      securityContext: {}
+status: {}

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    move2kube.konveyor.io/service: app-zotero-stream-server
+  name: app-zotero-stream-server
+spec:
+  ports:
+    - name: port-8081
+      port: 8081
+      targetPort: 81
+  selector:
+    move2kube.konveyor.io/service: app-zotero-stream-server
+  type: ClusterIP
+status:
+  loadBalancer: {}

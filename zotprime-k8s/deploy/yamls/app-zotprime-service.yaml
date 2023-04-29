@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    move2kube.konveyor.io/service: app-zotprime
+  name: app-zotprime
+spec:
+  ports:
+    - name: port-8080
+      port: 8080
+      targetPort: 80
+    - name: port-8082
+      port: 8082
+      targetPort: 8082
+  selector:
+    move2kube.konveyor.io/service: app-zotprime
+  type: ClusterIP
+status:
+  loadBalancer: {}

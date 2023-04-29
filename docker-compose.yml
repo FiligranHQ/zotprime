@@ -53,7 +53,6 @@ services:
       dockerfile: ds.Dockerfile
     ports:
       - "8080:80"
-#      - "8081:81"
       - "8082:8082"
     volumes:
       - "./dataserver/:/var/www/zotero:rw"
