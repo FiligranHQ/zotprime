@@ -10,7 +10,7 @@ class Z_CONFIG {
 	public static $TESTING_SITE = false;
 	public static $DEV_SITE = false;
 	
-	public static $DEBUG_LOG = true;
+	public static $DEBUG_LOG = false;
 	
 	public static $BASE_URI = 'http://localhost:8080/';
 	public static $API_BASE_URI = 'http://localhost:8080/';

@@ -1,5 +1,45 @@
-# Use the official Docker Hub Ubuntu 18.04 base image
-FROM debian:bullseye-slim
+#FROM debian:bullseye-slim
+
+FROM alpine:3 AS builder
+
+
+RUN set -eux; \
+        apk update && apk upgrade
+
+RUN set -eux \
+    && apk add --no-cache \
+        python3 \
+        py3-pip \
+        build-base \
+        git \
+        autoconf \
+        automake \ 
+#        util-linux \
+    && cd /tmp \
+    && git clone --depth=1 "https://github.com/samhocevar/rinetd" \
+    && cd rinetd \
+    && ./bootstrap \
+    && ./configure --prefix=/usr \
+    && make -j $(nproc) \
+    && strip rinetd \
+#    && pip3 install --upgrade pip \
+#    && pip3 install -v --no-cache-dir \
+#    awscli \
+    && rm -rf /var/cache/apk/*
+
+#RUN aws --version 
+#RUN whereis aws
+#RUN find / -name aws*
+#RUN find / -name .aws
+#RUN ls -lha /etc/
+
+
+
+FROM alpine:3
+
+COPY --from=builder /tmp/rinetd/rinetd /usr/sbin/rinetd
+#COPY --from=builder /usr/bin/aws /usr/bin/aws
+#FROM php:8.1-alpine
 
 # Update the base image
 #RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get -y upgrade && apt-get -y dist-upgrade
@@ -11,48 +51,104 @@ FROM debian:bullseye-slim
 #RUN DEBIAN_FRONTEND=noninteractive apt-get -y install apache2 libapache2-mod-php7.0 sudo rsyslog wget mysql-client curl nodejs
 #RUN DEBIAN_FRONTEND=noninteractive apt-get -y install php7.0-cli php7.0-xml php7.0-mysql php7.0-pgsql php7.0-json php7.0-curl php7.0-mbstring php7.0-intl php7.0-redis php7.0-dev php-pear composer
 
+
 RUN set -eux; \
-        apt-get update && apt-get install -y --no-install-recommends \
+        apk update && apk upgrade && \
+        apk add --update --no-cache \
+            aws-cli \
             apache2 \
-            awscli \
+            apache2-http2 \
+            apache2-utils \
+#            ca-certificates \
             composer \
             curl \
             git \
-            gnutls-bin \
-            libapache2-mod-php \
-            libapache2-mod-uwsgi \
+            gnutls-utils \
+#            libapache2-mod-php \
+#            libapache2-mod-uwsgi \
+            mariadb-client \
+            memcached \
+            net-tools \
+            php \
+            php-apache2 \
+            php-common \
+            php-cli \
+            php-curl \
+            php-dom \
+            php-mbstring \
+            php-mysqli \
+            php-pear \
+            php-simplexml \
+            php-tokenizer \
+            php-xml \
+            php-xmlwriter \
+            php-zip \
+            php81-pecl-memcached \
+            php81-pecl-redis \
+#            php81-pecl-http \
+            php81-pecl-igbinary \
+            php81-pecl-xdebug \
+#            php81-pecl-zend-code \
+#            rinetd \
+            rsyslog \
+            runit \
+            unzip \
+            uwsgi \
+#            uwsgi-plugin-psgi \
+            wget \
+            && rm -rf /var/cache/apk/*
+RUN php -v
+RUN php --ini
+
+RUN php -m
+
+RUN composer show -p
+
+RUN aws --version 
+
+
+RUN set -eux; \ 
+    ls -lha /etc/php81
+
+
+RUN ls -lha /etc/php81/conf.d
+#RUN ls -lha /usr/local/etc/php
+
+
+RUN sed -i "s/#LoadModule\ rewrite_module/LoadModule\ rewrite_module/" /etc/apache2/httpd.conf \
+        && sed -i "s/#LoadModule\ headers_module/LoadModule\ headers_module/" /etc/apache2/httpd.conf \
+#    && sed -i "s/#LoadModule\ session_module/LoadModule\ session_module/" /etc/apache2/httpd.conf \
+#    && sed -i "s/#LoadModule\ session_cookie_module/LoadModule\ session_cookie_module/" /etc/apache2/httpd.conf \
+#    && sed -i "s/#LoadModule\ session_crypto_module/LoadModule\ session_crypto_module/" /etc/apache2/httpd.conf \
+    && sed -i "s/#LoadModule\ deflate_module/LoadModule\ deflate_module/" /etc/apache2/httpd.conf \
+    && sed -i "s#^DocumentRoot \".*#DocumentRoot \"/var/www/zotero/htdocs\"#g" /etc/apache2/httpd.conf \
+    && sed -i "s#/var/www/localhost/htdocs#/var/www/zotero/htdocs#" /etc/apache2/httpd.conf \
+    && printf "\n<Directory \"/var/www/zotero/htdocs\">\n\tAllowOverride All\n</Directory>\n" >> /etc/apache2/httpd.conf
+
+
+RUN grep -R 'LoadModule' /etc/
+
+RUN ls -lha /etc/apache2/
+
+RUN ls -lha /etc/apache2/conf.d/
+
+#RUN ls -lha /usr/local/etc/php/conf.d/
+
+
+#RUN whereis php
+
+
 #    libc6 \
 #            libdigest-hmac-perl \
 #            libfile-util-perl \
 #            libjson-xs-perl \
 #            libplack-perl \
-#            libswitch-perl \
-            mariadb-client \
+#            libswitch-perl 
 #            mariadb-server \
-            memcached \
-            net-tools \
 #    nodejs \
 #    npm \
-            php7.4-cli \
-            php7.4-curl \
-            php7.4-memcached \
-            php7.4-mysql \
-            php7.4-redis \
-            php-http \
-            php-igbinary \
-            php-pear \
-            php-zend-code \
-            php-zip \
-            rinetd \
-            rsyslog \
-            runit \
-            unzip \
-            uwsgi \
-            uwsgi-plugin-psgi \
 #            vim \
-            wget \
-            && rm -rf /var/lib/apt/lists/*    
-
+#            awscli \
 
 #RUN apt-get install vim -y
 #build-essential
@@ -60,12 +156,20 @@ RUN set -eux; \
 #RUN apt-get install -y php-pear composer nodejs
 
 RUN set -eux; \
-        sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php/7.4/apache2/php.ini; \
-        sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php/7.4/apache2/php.ini; \
-        sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/apache2/php.ini; \
-        sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/cli/php.ini; \
-        sed -i 's/display_errors = On/display_errors = Off/g' /etc/php/7.4/apache2/php.ini; \
-        sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE \& ~E_STRICT \& ~E_DEPRECATED/g' /etc/php/7.4/apache2/php.ini
+        sed -i 's/memory_limit = 128M/memory_limit = 1G/g' /etc/php81/php.ini; \
+        sed -i 's/max_execution_time = 30/max_execution_time = 300/g' /etc/php81/php.ini; \
+        sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php81/php.ini; \
+#        sed -i 's/short_open_tag = Off/short_open_tag = On/g' /etc/php/7.4/cli/php.ini; \
+        sed -i 's/display_errors = On/display_errors = Off/g' /etc/php81/php.ini; \
+        sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE \& ~E_STRICT \& ~E_DEPRECATED/g' /etc/php81/php.ini
+#        sed -i 's/error_reporting = E_ALL \& ~E_DEPRECATED \& ~E_STRICT/error_reporting = E_ALL \& ~E_NOTICE/g' /etc/php81/php.ini
+
+RUN ls -lha /etc/php81/php.ini
+
+RUN grep -R  'display_errors' /etc/
+RUN grep -R  'log_errors' /etc/
+RUN grep -R  'display_startup_errors' /etc/
+RUN grep -R -A 10 -B 10 'error_reporting' /etc/
 
 # Setup igbinary
 #RUN apt-get install -y php-igbinary
@@ -104,12 +208,12 @@ RUN set -eux; \
 #RUN a2enmod rewrite
 
 # Enable the new virtualhost
-COPY docker/dataserver/zotero.conf /etc/apache2/sites-available/
+#COPY docker/dataserver/zotero.conf /etc/apache2/sites-available/
 #RUN a2dissite 000-default
 #RUN a2ensite zotero
 
 # Override gzip configuration
-COPY docker/dataserver/gzip.conf /etc/apache2/conf-available/
+#COPY docker/dataserver/gzip.conf /etc/apache2/conf-available/
 #
 
 
@@ -157,7 +261,9 @@ COPY docker/dataserver/gzip.conf /etc/apache2/conf-available/
 
 # AWS local credentials
 RUN set -eux; \
-             mkdir ~/.aws  && bash -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/config' && bash -c 'echo -e "[default]\naws_access_key_id = zotero\naws_secret_access_key = zoterodocker" > ~/.aws/credentials'
+             mkdir ~/.aws  \
+             && /bin/sh -c 'echo -e "[default]\nregion = us-east-1" > ~/.aws/config' \
+             && /bin/sh -c 'echo -e "[default]\naws_access_key_id = zotero\naws_secret_access_key = zoterodocker" > ~/.aws/credentials'
 
 
 
@@ -180,7 +286,7 @@ RUN set -eux; \
 #Install uws
 #WORKDIR /var/
 
-#ENV APACHE_RUN_USER=${RUN_USER}
+#ENV APACHE_RUN_USER=${RUN_USER}true
 #ENV APACHE_RUN_GROUP=${RUN_GROUP}
 ENV APACHE_RUN_USER=www-data
 ENV APACHE_RUN_GROUP=www-data

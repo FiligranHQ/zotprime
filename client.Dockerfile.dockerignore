@@ -21,4 +21,5 @@ stream-server
 tinymce-clean-server
 Zend
 docker-compose.yml
-
+*.Dockerfile
+README.md

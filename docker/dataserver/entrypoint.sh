@@ -12,13 +12,15 @@ export APACHE_LOG_DIR=/var/log/apache2
 #/etc/init.d/rsyslog start
 
 # Start rinetd
-/etc/init.d/rinetd start
+echo "logfile /dev/stdout" >> /etc/rinetd.conf
+rinetd -f -c /etc/rinetd.conf &
+#/etc/init.d/rinetd start
 
-a2enmod headers 
-a2enmod rewrite
-a2dissite 000-default
-a2ensite zotero
-a2enconf gzip
+#a2enmod headers 
+#a2enmod rewrite
+#a2dissite 000-default
+#a2ensite zotero
+#a2enconf gzip
 
 # NPM
 #cd /var/www/zotero/stream-server 
@@ -57,4 +59,5 @@ cd /var/www/zotero && composer -vv install
 
 # Start Apache2
 #exec apache2 -e debug -DNO_DETACH -k start
-exec apache2 -e debug -DFOREGROUND -k start
+exec httpd -e debug -DFOREGROUND -k start
+#exec httpd -DFOREGROUND -k start

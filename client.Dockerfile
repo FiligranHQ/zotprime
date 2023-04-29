@@ -23,6 +23,7 @@ RUN set -eux; \
     #cd /usr/src/app/zotero-client && 
     npm run build
 WORKDIR /usr/src/app/client/zotero-standalone-build
+RUN ls -lha
 RUN set -eux; \
     #cd /usr/src/app/zotero-standalone-build && 
     ./fetch_xulrunner.sh -p l
