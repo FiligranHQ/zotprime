@@ -6,9 +6,15 @@ RUN set -eux; \
     && rm -rf /var/cache/apk/*
 
 WORKDIR /usr/src/app
-
-COPY . .
+RUN mkdir client
+RUN cd client
+RUN git init
+RUN git remote add -f origin https://github.com/uniuuu/zotprime
+RUN echo "client/" >> .git/info/sparse-checkout
+RUN git pull origin new_dev
 RUN git submodule update --init --recursive
+
+#COPY . .
 WORKDIR /usr/src/app/client/
 RUN set -eux; \
     ./config.sh

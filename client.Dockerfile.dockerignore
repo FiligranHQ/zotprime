@@ -12,13 +12,11 @@ clinet/zotero-standalone-build/dist
 clinet/zotero-standalone-build/staging
 clinet/zotero-standalone-build/xulrunner
 clinet/zotero-standalone-build/pdftools
-.git
 .github
 bin
 dataserver
 doc
-docker/dataserver
-docker/minio
+docker
 stream-server
 tinymce-clean-server
 Zend
