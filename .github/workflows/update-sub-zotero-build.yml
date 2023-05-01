@@ -1,0 +1,80 @@
+name: Push updated submodule to ZotPrime CI
+
+on: [repository_dispatch]
+
+
+jobs:
+  commitntag:
+    runs-on: ubuntu-latest
+#    outputs:
+#      output1: ${{ steps.receiver.outputs.SEMVER }}
+#      output2: ${{ steps.receiver.outputs.commit }}
+    steps:
+
+      - name: A event received
+        id: receiver
+        run: |
+          echo "payload Foo '${{ github.event.client_payload.semver }}'"
+          echo "payload '${{ toJson(github.event.client_payload) }}'"
+          echo "SEMVER=${{ github.event.client_payload.semver }}" >> $GITHUB_ENV
+          if [ $SEMVER="path" ]; then commit=fix; else if [ $SEMVER="minor" ]; then commit=feat; else commit='BREAKING CHANGE'; fi fi;
+          echo "message=$commit" >> $GITHUB_ENV
+      
+ #     - name: Set Semver env
+ #       run: echo "$SEMVER" >> $GITHUB_ENV
+     
+      - name: Print 
+        run: |
+          echo $SEMVER
+          echo ${{ env.SEMVER }}
+
+#      - name: Set commit env
+#        run: echo "$commit" >> $GITHUB_ENV         
+      
+      - name: print
+        run: | 
+           echo $message
+           echo ${{ env.message }}
+
+            
+#  push_to_remote:
+#    needs: check_tag
+#    runs-on: ubuntu-latest
+#    container: pandoc/latex 
+
+#    if: startsWith(github.event.ref, 'refs/tags/v')
+#    steps:
+
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.API_TOKEN_GITHUB }}
+#        with:
+#          ref: refs/heads/release
+
+
+      - name: Checkout submodules
+        run: |
+          git submodule update --init --recursive --remote client/zotero-build
+
+
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          # Optional. Commit message for the created commit.
+          # Defaults to "Apply automatic changes"
+          commit_message: ${{ env.message }}
+
+  #    - name: Push tag
+  #      uses: 'rui-costa/action-automatic-semver-releases@1.1.1'
+  #      with:
+  #        TOKEN: '${{ secrets.API_TOKEN_GITHUB }}'
+  #        SEMVER: '${{ needs.check_tag.outputs.output1 }}'
+#          LABEL: '${{ github.event.inputs.label }}'
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          github_token: ${{ secrets.API_TOKEN_GITHUB }}
+          default_bump: ${{ env.SEMVER }}
+          release_branches: new_dev
+          append_to_pre_release_tag: false
