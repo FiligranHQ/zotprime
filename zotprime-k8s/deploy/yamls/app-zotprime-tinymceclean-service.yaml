@@ -3,15 +3,15 @@ kind: Service
 metadata:
   creationTimestamp: null
   labels:
-    move2kube.konveyor.io/service: app-zotprime-tinymceclean
-  name: app-zotprime-tinymceclean
+    move2kube.konveyor.io/service: zotprime-tinymceclean
+  name: zotprime-tinymceclean
 spec:
 # ports:
 #    - name: port-16342
 #      port: 16342
 #      targetPort: 16342
   selector:
-    move2kube.konveyor.io/service: app-zotprime-tinymceclean
+    move2kube.konveyor.io/service: zotprime-tinymceclean
   type: ClusterIP
 status:
   loadBalancer: {}

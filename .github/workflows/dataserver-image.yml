@@ -24,4 +24,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file ds.Dockerfile --tag app-zotprime-dataserver:$(date +%s)
+      run: docker build . --file ds.Dockerfile --tag zotprime-dataserver:$(date +%s)

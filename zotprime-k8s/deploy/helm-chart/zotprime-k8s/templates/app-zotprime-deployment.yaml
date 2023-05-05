@@ -5,25 +5,25 @@ kind: Deployment
 metadata:
     creationTimestamp: null
     labels:
-        move2kube.konveyor.io/service: app-zotprime
-    name: app-zotprime
+        move2kube.konveyor.io/service: zotprime-dataserver
+    name: zotprime-dataserver
 spec:
     replicas: {{ index .Values "common" "replicas" }}
     selector:
         matchLabels:
-            move2kube.konveyor.io/service: app-zotprime
+            move2kube.konveyor.io/service: zotprime-dataserver
     strategy: {}
     template:
         metadata:
             creationTimestamp: null
             labels:
-                move2kube.konveyor.io/service: app-zotprime
-            name: app-zotprime
+                move2kube.konveyor.io/service: zotprime-dataserver
+            name: zotprime-dataserver
         spec:
             containers:
-                - image: localhost:32000/zotprime-k8s/app-zotprime:latest
+                - image: localhost:32000/zotprime-k8s/zotprime-dataserver:latest
                   imagePullPolicy: Always
-                  name: app-zotprime
+                  name: zotprime-dataserver
                   ports:
                     - containerPort: 8080
                   resources: {}

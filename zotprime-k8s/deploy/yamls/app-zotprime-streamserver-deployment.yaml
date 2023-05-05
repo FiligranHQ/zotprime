@@ -3,25 +3,25 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    move2kube.konveyor.io/service: app-zotprime-streamserver
-  name: app-zotprime-streamserver
+    move2kube.konveyor.io/service: zotprime-streamserver
+  name: zotprime-streamserver
 spec:
   replicas: 1
   selector:
     matchLabels:
-      move2kube.konveyor.io/service: app-zotprime-streamserver
+      move2kube.konveyor.io/service: zotprime-streamserver
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        move2kube.konveyor.io/service: app-zotprime-streamserver
-      name: app-zotprime-streamserver
+        move2kube.konveyor.io/service: zotprime-streamserver
+      name: zotprime-streamserver
     spec:
       containers:
-        - image: localhost:32000/zotprime-k8s/app-zotprime-streamserver:latest
+        - image: localhost:32000/zotprime-k8s/zotprime-streamserver:latest
           imagePullPolicy: Always
-          name: app-zotprime-streamserver
+          name: zotprime-streamserver
           ports:
             - containerPort: 81
           resources: {}

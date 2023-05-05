@@ -3,8 +3,8 @@ kind: Service
 metadata:
   creationTimestamp: null
   labels:
-    move2kube.konveyor.io/service: app-zotprime-dataserver
-  name: app-zotprime-dataserver
+    move2kube.konveyor.io/service: zotprime-dataserver
+  name: zotprime-dataserver
 spec:
   ports:
     - name: port-8080
@@ -14,7 +14,7 @@ spec:
       port: 8082
       targetPort: 8082
   selector:
-    move2kube.konveyor.io/service: app-zotprime-dataserver
+    move2kube.konveyor.io/service: zotprime-dataserver
   type: ClusterIP
 status:
   loadBalancer: {}

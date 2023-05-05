@@ -12,28 +12,28 @@ spec:
         paths:
           - backend:
               service:
-                name: app-zotero-stream-server
+                name: zotprime-streamserver
                 port:
                   name: port-8081
             path: /stream-server
             pathType: Prefix
 #          - backend:
 #              service:
-#                name: app-tinymce-clean-server
+#                name: zotprime-tinymceclean
 #                port:
 #                  name: port-16342
-#            path: /app-tinymce-clean-server
+#            path: /zotprime-tinymceclean
 #            pathType: Prefix
 #          - backend:
 #              service:
-#                name: db-zotprime-minio
+#                name: zotprime-minio
 #                port:
 #                  name: port-8080
 #            path: /
 #            pathType: Prefix
           - backend:
               service:
-                name: app-zotprime
+                name: zotprime-dataserver
                 port:
                   name: port-8080
             path: /

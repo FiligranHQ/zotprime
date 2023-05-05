@@ -28,7 +28,7 @@ jobs:
       run: git submodule update --init stream-server
     - name: Build the Docker image
 #      working-directory: ./stream-server
-      run: docker build . --file sts.Dockerfile --tag app-zotprime-streamserver:$(date +%s)
+      run: docker build . --file sts.Dockerfile --tag zotprime-streamserver:$(date +%s)
 #      uses: docker/build-push-action@v2
 #      with:
 #        context: .

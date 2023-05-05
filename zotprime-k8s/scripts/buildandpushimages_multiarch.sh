@@ -39,24 +39,24 @@ fi
 # Uncomment the below line if you want to enable login before pushing
 # docker login ${REGISTRY_URL}
 
-echo 'building and pushing image app-zotprime-dataserver'
+echo 'building and pushing image zotprime-dataserver'
 
-docker buildx build --platform ${PLATFORMS} -f ds.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-dataserver .
-
-
-echo 'building and pushing image db-zotprime-minio'
-
-docker buildx build --platform ${PLATFORMS} -f minio.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/db-zotprime-minio .
+docker buildx build --platform ${PLATFORMS} -f ds.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-dataserver .
 
 
-echo 'building and pushing image app-zotprime-tinymceclean'
+echo 'building and pushing image zotprime-minio'
 
-docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-tinymceclean .
+docker buildx build --platform ${PLATFORMS} -f minio.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-minio .
 
 
-echo 'building and pushing image app-zotprime-streamserver'
+echo 'building and pushing image zotprime-tinymceclean'
 
-docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-streamserver .
+docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-tinymceclean .
+
+
+echo 'building and pushing image zotprime-streamserver'
+
+docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-streamserver .
 
 
 echo 'done'

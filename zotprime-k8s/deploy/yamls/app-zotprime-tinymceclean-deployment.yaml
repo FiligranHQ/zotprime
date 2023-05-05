@@ -3,25 +3,25 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    move2kube.konveyor.io/service: app-zotprime-tinymceclean
-  name: app-zotprime-tinymceclean
+    move2kube.konveyor.io/service: zotprime-tinymceclean
+  name: zotprime-tinymceclean
 spec:
   replicas: 1
   selector:
     matchLabels:
-      move2kube.konveyor.io/service: app-zotprime-tinymceclean
+      move2kube.konveyor.io/service: zotprime-tinymceclean
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        move2kube.konveyor.io/service: app-zotprime-tinymceclean
-      name: app-zotprime-tinymceclean
+        move2kube.konveyor.io/service: zotprime-tinymceclean
+      name: zotprime-tinymceclean
     spec:
       containers:
-        - image: localhost:32000/zotprime-k8s/app-zotprime-tinymceclean:latest
+        - image: localhost:32000/zotprime-k8s/zotprime-tinymceclean:latest
           imagePullPolicy: Always
-          name: app-zotprime-tinymceclean
+          name: zotprime-tinymceclean
           ports:
             - containerPort: 16342
           resources: {}

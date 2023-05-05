@@ -1,6 +1,6 @@
 version: '3.9'
 services:
-  db-zotprime-mysql:
+  zotprime-db:
     image: mariadb:10
    # command: --default-authentication-plugin=mysql_native_password
     environment:
@@ -11,7 +11,7 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
       - /etc/localtime:/etc/localtime:ro
-  db-zotprime-elasticsearch:
+  zotprime-elasticsearch:
 #   image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
     image: docker.elastic.co/elasticsearch/elasticsearch:8.7.0
     environment:
@@ -28,7 +28,7 @@ services:
  #  sysctls:
  #           - vm.max_map_count=262144
 #   command: "sysctl -w vm.max_map_count=262144"
-  db-zotprime-redis:
+  zotprime-redis:
     image: redis:5.0
  #   privileged: true
  #    user: root
@@ -36,17 +36,17 @@ services:
  #      - sysctl vm.overcommit_memory=1
     volumes:
       - /etc/localtime:/etc/localtime:ro
-  db-zotprime-memcached:
+  zotprime-memcached:
     image: memcached:1.5
     volumes:
       - /etc/localtime:/etc/localtime:ro
-  db-zotprime-localstack:
+  zotprime-localstack:
     image: atlassianlabs/localstack
     environment:
       - SERVICES=sns,sqs,apigateway
     volumes:
       - /etc/localtime:/etc/localtime:ro
-  db-zotprime-minio:
+  zotprime-minio:
     build:
       context: .
       dockerfile: minio.Dockerfile
@@ -58,8 +58,8 @@ services:
       - "8082:9000"
     volumes:
       - /etc/localtime:/etc/localtime:ro
-  app-zotprime-dataserver:
-    image: app-zotprime-dataserver
+  zotprime-dataserver:
+    image: zotprime-dataserver
     build:
       context: .
       dockerfile: ds.Dockerfile
@@ -83,39 +83,39 @@ services:
       - RUN_USER=apache
       - RUN_GROUP=apache
     depends_on:
-      - db-zotprime-mysql
-      - db-zotprime-elasticsearch
-      - db-zotprime-redis
-      - db-zotprime-memcached 
-      - app-zotprime-tinymceclean
-      - app-zotprime-streamserver
+      - zotprime-db
+      - zotprime-elasticsearch
+      - zotprime-redis
+      - zotprime-memcached 
+      - zotprime-tinymceclean
+      - zotprime-streamserver
     links:
-      - db-zotprime-mysql:mysql
-      - db-zotprime-elasticsearch:elasticsearch
-      - db-zotprime-redis:redis
-      - db-zotprime-memcached:memcached
-      - db-zotprime-localstack:localstack
-      - db-zotprime-minio:minio
-      - app-zotprime-tinymceclean:tinymceclean
-      - app-zotprime-streamserver:streamserver
+      - zotprime-db:mysql
+      - zotprime-elasticsearch:elasticsearch
+      - zotprime-redis:redis
+      - zotprime-memcached:memcached
+      - zotprime-localstack:localstack
+      - zotprime-minio:minio
+      - zotprime-tinymceclean:tinymceclean
+      - zotprime-streamserver:streamserver
     restart: always
-  app-zotprime-tinymceclean:
-    image: app-zotprime-tinymceclean
+  zotprime-tinymceclean:
+    image: zotprime-tinymceclean
     build:
       context: .
       dockerfile: tmcs.Dockerfile
     depends_on:
-      - db-zotprime-mysql
-      - db-zotprime-elasticsearch
-      - db-zotprime-redis
-      - db-zotprime-memcached
+      - zotprime-db
+      - zotprime-elasticsearch
+      - zotprime-redis
+      - zotprime-memcached
     links:
-      - db-zotprime-redis:redis 
+      - zotprime-redis:redis 
     volumes:
       - /etc/localtime:/etc/localtime:ro
     restart: always
-  app-zotprime-streamserver:
-    image: app-zotprime-streamserver
+  zotprime-streamserver:
+    image: zotprime-streamserver
     build:
       context: .
       dockerfile: sts.Dockerfile
@@ -126,13 +126,13 @@ services:
       - /etc/localtime:/etc/localtime:ro
     restart: always
     depends_on:
-      - db-zotprime-mysql
-      - db-zotprime-elasticsearch
-      - db-zotprime-redis
-      - db-zotprime-memcached 
+      - zotprime-db
+      - zotprime-elasticsearch
+      - zotprime-redis
+      - zotprime-memcached 
     links:
-      - db-zotprime-redis:redis
-  app-zotprime-phpmyadmin:
+      - zotprime-redis:redis
+  zotprime-phpmyadmin:
     image: phpmyadmin/phpmyadmin
     ports:
       - "8083:80"
