@@ -139,7 +139,7 @@ services:
     environment:
       - PMA_HOST=mysql
     links:
-      - db-zotprime-mysql:mysql
+      - zotprime-db:mysql
     volumes:
       - /etc/localtime:/etc/localtime:ro
 
