@@ -1,31 +1,30 @@
-#FROM debian:bullseye-slim
-#FROM alpine:3 AS builder
-#RUN set -eux; \
-#        apk update && apk upgrade
-#RUN set -eux \
-#    && apk add --no-cache \
-#        python3 \
-#        py3-pip \
-#        build-base \
-#        git \
-#        autoconf \
-#        automake \ 
-##        util-linux \
-#    && cd /tmp \
-#    && git clone --depth=1 "https://github.com/samhocevar/rinetd" \
-#    && cd rinetd \
-#    && ./bootstrap \
-#    && ./configure --prefix=/usr \
-#    && make -j $(nproc) \
-#    && strip rinetd \
-##    && pip3 install --upgrade pip \
-##    && pip3 install -v --no-cache-dir \
-##    awscli \
-#    && rm -rf /var/cache/apk/*
+FROM alpine:3 AS builder
+RUN set -eux; \
+        apk update && apk upgrade
+RUN set -eux \
+    && apk add --no-cache \
+        python3 \
+        py3-pip \
+        build-base \
+        git \
+        autoconf \
+        automake \ 
+#        util-linux \
+    && cd /tmp \
+    && git clone --depth=1 "https://github.com/samhocevar/rinetd" \
+    && cd rinetd \
+    && ./bootstrap \
+    && ./configure --prefix=/usr \
+    && make -j $(nproc) \
+    && strip rinetd \
+#    && pip3 install --upgrade pip \
+#    && pip3 install -v --no-cache-dir \
+#    awscli \
+    && rm -rf /var/cache/apk/*
 
 FROM alpine:3
 
-#COPY --from=builder /tmp/rinetd/rinetd /usr/sbin/rinetd
+COPY --from=builder /tmp/rinetd/rinetd /usr/sbin/rinetd
 
 #COPY --from=builder /usr/bin/aws /usr/bin/aws
 #FROM php:8.1-alpine
@@ -63,6 +62,7 @@ RUN set -eux; \
             php-apache2 \
             php-common \
             php-cli \
+            php-ctype \
             php-curl \
             php-dom \
             php81-dev \
@@ -275,8 +275,8 @@ RUN set -eux; \
         chown -R --no-dereference 100:101 /var/log/apache2 
 
 # Rinetd
-#RUN set -eux; \
-#        echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
+RUN set -eux; \
+        echo "0.0.0.0		8082		minio		9000" >> /etc/rinetd.conf
 
 #Install uws
 #WORKDIR /var/

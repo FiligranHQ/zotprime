@@ -53,9 +53,10 @@ services:
     environment:
       - MINIO_ACCESS_KEY=zotero
       - MINIO_SECRET_KEY=zoterodocker
+      - MINIO_HTTP_TRACE=/dev/stderr
     command: server /data
-    ports:
-      - "8082:9000"
+#    ports:
+#      - "8082:9000"
     volumes:
       - /etc/localtime:/etc/localtime:ro
   zotprime-dataserver:
@@ -65,7 +66,7 @@ services:
       dockerfile: ds.Dockerfile
     ports:
       - "8080:80"
-#      - "8082:8082"
+      - "8082:8082"
     volumes:
       - "./dataserver/:/var/www/zotero:rw"
       - "./docker/dataserver/config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
