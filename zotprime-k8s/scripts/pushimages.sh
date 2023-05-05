@@ -36,17 +36,17 @@ fi
 # Uncomment the below line if you want to enable login before pushing
 # ${CONTAINER_RUNTIME} login ${REGISTRY_URL}
 
-echo 'pushing image app-zotero-stream-server'
-${CONTAINER_RUNTIME} tag app-zotero-stream-server ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotero-stream-server
-${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotero-stream-server
+echo 'pushing image app-zotprime-streamserver'
+${CONTAINER_RUNTIME} tag app-zotprime-streamserver ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-streamserver
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-streamserver
 
-echo 'pushing image app-zotprime'
-${CONTAINER_RUNTIME} tag app-zotprime ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime
-${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime
+echo 'pushing image app-zotprime-dataserver'
+${CONTAINER_RUNTIME} tag app-zotprime-dataserver ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-dataserver
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-dataserver
 
-echo 'pushing image app-tinymce-clean-server'
-${CONTAINER_RUNTIME} tag app-tinymce-clean-server ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-tinymce-clean-server
-${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-tinymce-clean-server
+echo 'pushing image app-zotprime-tinymceclean'
+${CONTAINER_RUNTIME} tag app-zotprime-tinymceclean ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-tinymceclean
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-tinymceclean
 
 echo 'pushing image db-zotprime-minio'
 ${CONTAINER_RUNTIME} tag db-zotprime-minio ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/db-zotprime-minio

@@ -24,7 +24,7 @@ if [[ "$(basename "$PWD")" != 'scripts' ]] ; then
   exit 1
 fi
 
-cd .. # go to the parent directory so that all the relative paths will be correct
+cd ../../ # go to the parent directory so that all the relative paths will be correct
 
 REGISTRY_URL=localhost:32000
 REGISTRY_NAMESPACE=zotprime-k8s
@@ -39,24 +39,24 @@ fi
 # Uncomment the below line if you want to enable login before pushing
 # docker login ${REGISTRY_URL}
 
-echo 'building and pushing image app-zotprime'
-cd source
-docker buildx build --platform ${PLATFORMS} -f ds.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime .
-cd -
+echo 'building and pushing image app-zotprime-dataserver'
+
+docker buildx build --platform ${PLATFORMS} -f ds.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-dataserver .
+
 
 echo 'building and pushing image db-zotprime-minio'
-cd source
+
 docker buildx build --platform ${PLATFORMS} -f minio.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/db-zotprime-minio .
-cd -
 
-echo 'building and pushing image app-tinymce-clean-server'
-cd source/tinymce-clean-server
-docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-tinymce-clean-server .
-cd -
 
-echo 'building and pushing image app-zotero-stream-server'
-cd source/stream-server
-docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotero-stream-server .
-cd -
+echo 'building and pushing image app-zotprime-tinymceclean'
+
+docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-tinymceclean .
+
+
+echo 'building and pushing image app-zotprime-streamserver'
+
+docker buildx build --platform ${PLATFORMS} -f Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/app-zotprime-streamserver .
+
 
 echo 'done'

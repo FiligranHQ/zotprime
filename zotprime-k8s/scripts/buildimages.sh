@@ -30,26 +30,26 @@ if [ "${CONTAINER_RUNTIME}" != "docker" ] && [ "${CONTAINER_RUNTIME}" != "podman
    echo 'Unsupported container runtime passed as an argument for building the images: '"${CONTAINER_RUNTIME}"
    exit 1
 fi
-cd .. # go to the parent directory so that all the relative paths will be correct
+cd ../../ # go to the parent directory so that all the relative paths will be correct
 
-echo 'building image app-zotprime'
-cd source
-${CONTAINER_RUNTIME} build -f ds.Dockerfile -t app-zotprime .
-cd -
+echo 'building image app-zotprime-dataserver'
+
+${CONTAINER_RUNTIME} build -f ds.Dockerfile -t app-zotprime-dataserver .
+
 
 echo 'building image db-zotprime-minio'
-cd source
+
 ${CONTAINER_RUNTIME} build -f minio.Dockerfile -t db-zotprime-minio .
-cd -
 
-echo 'building image app-tinymce-clean-server'
-cd source/tinymce-clean-server
-${CONTAINER_RUNTIME} build -f Dockerfile -t app-tinymce-clean-server .
-cd -
 
-echo 'building image app-zotero-stream-server'
+echo 'building image app-zotprime-tinymceclean'
+
+${CONTAINER_RUNTIME} build -f tmcs.Dockerfile -t app-zotprime-tinymceclean .
+
+
+echo 'building image app-zotprime-streamserver'
 cd source/stream-server
-${CONTAINER_RUNTIME} build -f Dockerfile -t app-zotero-stream-server .
+${CONTAINER_RUNTIME} build -f sts.Dockerfile -t app-zotprime-streamserver .
 cd -
 
 echo 'done'
