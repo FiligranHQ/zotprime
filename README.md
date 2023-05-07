@@ -45,8 +45,9 @@ $ cd ..
 | Name          | URL                                           |
 | ------------- | --------------------------------------------- |
 | Zotero API    | http://localhost:8080                         |
-| S3 Web UI     | http://localhost:8082                         |
+| S3            | http://localhost:8082                         |
 | PHPMyAdmin    | http://localhost:8083                         |
+| S3 Web UI     | http://localhost:9001                         |
 
 *Default login/password*:
 
