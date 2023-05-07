@@ -45,6 +45,11 @@ jobs:
     - name: Checkout submodules
       run: git submodule update --init dataserver
 
+    - name: Update composer.json AGPL version
+      working-directory: ./dataserver
+      run: sed -i 's/AGPL-3.0/AGPL-3.0-only/g' composer.json
+
+
     - name: Validate composer.json and composer.lock
       working-directory: ./dataserver
       run: composer validate --strict
