@@ -8,6 +8,7 @@ doc
 docker/dataserver
 docker/stream-server
 docker-compose.yml
+logs
 stream-server
 tinymce-clean-server
 Zend

@@ -20,6 +20,7 @@ dataserver
 doc
 docker
 docker-compose.yml
+logs
 README.md
 stream-server
 tinymce-clean-server
