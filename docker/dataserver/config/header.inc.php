@@ -210,6 +210,7 @@ $awsConfig = [
 	'version' => 'latest',
 	'signature' => 'v4',
 	'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT,
+	'use_path_style_endpoint' => true,
 	'scheme' => 'http',
 	'http' => [
 		'timeout' => 3
