@@ -80,9 +80,9 @@ RUN set -eux; \
         icu-libs \
         libmemcached \
         libxslt \
-#        mariadb-client \
+        mariadb-client \
         memcached \
-        mysql-client \
+#        mysql-client \
         net-tools \
         php81 \
         php81-apache2 \

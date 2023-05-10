@@ -45,19 +45,16 @@ rinetd -f -c /etc/rinetd.conf &
 # Chmod
 chmod 777 /var/www/zotero/tmp
 
-#sed -i "/'signature' => 'v4',/a \    'endpoint' => 'http://' . Z_CONFIG::$S3_ENDPOINT," /var/www/zotero/include/header.inc.php
-
 sed -i 's/AGPL-3.0"/AGPL-3.0-only"/g' /var/www/zotero/composer.json
 
 # Elastica Composer
 #cd /var/www/zotero/include/Elastica && composer -v install
 
 # Composer
-#cd /var/www/zotero && composer update && composer -vv install
-cd /var/www/zotero && composer -vv install
-
+cd /var/www/zotero && composer update && composer -vv install
+#cd /var/www/zotero && composer -vv install
 
 # Start Apache2
-#exec apache2 -e debug -DNO_DETACH -k start
+#exec httpd -e debug -DNO_DETACH -k start
 exec httpd -e debug -DFOREGROUND -k start
 #exec httpd -DFOREGROUND -k start
