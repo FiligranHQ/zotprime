@@ -11,7 +11,7 @@ RUN cd client
 RUN git init
 RUN git remote add -f origin https://github.com/uniuuu/zotprime
 RUN echo "client/" >> .git/info/sparse-checkout
-RUN git pull origin new_dev
+RUN git pull origin development
 RUN git submodule update --init --recursive
 WORKDIR /usr/src/app/client/
 RUN set -eux; \
