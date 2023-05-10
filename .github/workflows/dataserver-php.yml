@@ -2,12 +2,12 @@ name: Dataserver PHP Composer
 
 on:
   push:
-    branches: [ "new_dev" ]
+    branches: [ "development" ]
     paths:
       - dataserver/**
       - .github/workflows/dataserver-php.yml
   pull_request:
-    branches: [ "new_dev" ]
+    branches: [ "development" ]
     paths:
       - dataserver/**
       - .github/workflows/dataserver-php.yml

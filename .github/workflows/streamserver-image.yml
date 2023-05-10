@@ -6,10 +6,10 @@ on:
       - stream-server/**
       - docker/stream-server/**
       - .github/workflows/streamserver-image.yml
-    branches: [ "new_dev" ]
+    branches: [ "development" ]
 
   pull_request:
-    branches: [ "new_dev" ]
+    branches: [ "development" ]
     paths:
       - stream-server/**
       - docker/stream-server/**
