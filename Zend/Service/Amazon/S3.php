@@ -56,7 +56,7 @@ class Zend_Service_Amazon_S3 extends Zend_Service_Amazon_Abstract
      */
     protected $_endpoint;
 
-    const S3_ENDPOINT = 'localhost:8083';
+    const S3_ENDPOINT = 'localhost:9000';
 
     const S3_ACL_PRIVATE = 'private';
     const S3_ACL_PUBLIC_READ = 'public-read';

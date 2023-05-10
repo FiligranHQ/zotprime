@@ -565,13 +565,16 @@ class Zotero_Storage {
 		$item->save();
 		
 		// Note: We set the size on the shard so that usage queries are instantaneous
-		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?) AS new
-				ON DUPLICATE KEY UPDATE storageFileID=new.storageFileID, mtime=new.mtime, size=new.size";
+		$sql = "INSERT INTO storageFileItems (storageFileID, itemID, mtime, size) VALUES (?,?,?,?)
+				ON DUPLICATE KEY UPDATE storageFileID=?, mtime=?, size=?";
 		Zotero_DB::query(
 			$sql,
 			[
 				$storageFileID,
 				$item->id,
+				$info->mtime,
+				$info->size,
+				$storageFileID,
 				$info->mtime,
 				$info->size
 			],
