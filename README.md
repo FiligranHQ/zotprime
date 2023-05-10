@@ -23,7 +23,7 @@ $ n 16.20.0
 ```bash
 $ mkdir /path/to/your/app && cd /path/to/your/app
 $ git clone --recursive https://github.com/uniuuu/zotprime.git
-$ git checkout tags/<tag> -b <somename>   
+$ git checkout production
 $ cd zotprime
 ```
 
@@ -66,7 +66,6 @@ $ cd ..
 ```bash
 $ DOCKER_BUILDKIT=1 docker build --progress=plain --file client.Dockerfile --output build .
 ```
-*Run*:
 ```bash
 $ ./build/staging/Zotero_VERSION/zotero)
 ```
