@@ -1,16 +1,25 @@
 version: '3.9'
 services:
   zotprime-db:
-    image: mariadb:10
-   # command: --default-authentication-plugin=mysql_native_password
+#    image: mariadb:10
+    image: mysql:5.6
+    restart: always
+#    build:
+#      context: .
+#      dockerfile: db.Dockerfile
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQLROOTPASSWORD}
-      - MYSQL_DATABASE=${MYSQLDATABASE}
-      - MYSQL_USER=${MYSQLUSER}
-      - MYSQL_PASSWORD=${MYSQLPASSWORD}
+#      - MYSQL_DATABASE=${MYSQLDATABASE}
+#      - MYSQL_USER=${MYSQLUSER}
+#      - MYSQL_PASSWORD=${MYSQLPASSWORD}
     volumes:
       - dbdata:/var/lib/mysql
       - /etc/localtime:/etc/localtime:ro
+    ulimits:
+      nofile:
+         soft: 262144
+         hard: 262144
   zotprime-elasticsearch:
 #   image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
     image: docker.elastic.co/elasticsearch/elasticsearch:8.7.0
@@ -52,15 +61,12 @@ services:
 #    image: minio/minio:RELEASE.2021-06-14T01-29-23Z
 #    image: minio/minio:RELEASE.2021-10-02T16-31-05Z
     image: minio/minio
-#    build:
-#      context: .
-#      dockerfile: minio.Dockerfile
     environment:
 #      - MINIO_ACCESS_KEY=zotero
 #      - MINIO_SECRET_KEY=zoterodocker
+#      - MINIO_HTTP_TRACE=/dev/stderr
       - MINIO_ROOT_USER=${MINIOROOTUSER}
       - MINIO_ROOT_PASSWORD=${MINIOROOTPASSWORD}
-#      - MINIO_HTTP_TRACE=/dev/stderr
 #    command: server /data
     command: server /data --console-address ":9001"
     ports:
@@ -75,20 +81,25 @@ services:
     entrypoint: >
          /bin/sh -c "
          /usr/bin/mc config host add minio http://zotprime-minio:9000 ${MINIOROOTUSER} ${MINIOROOTPASSWORD}; 
-         exec sleep inf;
+         exec mc admin trace -v -a minio;
          "
+#          exec sleep inf;
     volumes:
       - /etc/localtime:/etc/localtime:ro
     depends_on:
       - zotprime-minio
   zotprime-dataserver:
-    image: zotprime-dataserver
+    image: zotprime-dataserver:mysqlclinet
     build:
       context: .
       dockerfile: ds.Dockerfile
+#    extra_hosts:
+#      - "zotero.localhost:127.0.0.1"
+#      - "zotero-fulltext.localhost:127.0.0.1"
     ports:
       - "8080:80"
       - "8082:8082"
+#      - "9000:9000"
     volumes:
       - "./dataserver/:/var/www/zotero:rw"
       - "./docker/dataserver/config/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
@@ -96,6 +107,7 @@ services:
       - "./Zend/:/var/www/zotero/include/Zend:rw"
       - "./docker/dataserver/config/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
       - "./docker/dataserver/config/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"
+#      - "./docker/dataserver/config/FullText.inc.php:/var/www/zotero/model/FullText.inc.php:ro"     # DEBUG
       - "./docker/dataserver/dbinit/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
       - "./docker/dataserver/dbinit/db_update.sh:/var/www/zotero/misc/db_update.sh:ro"
       - "./docker/dataserver/dbinit/www.sql:/var/www/zotero/misc/www.sql:ro"

@@ -80,9 +80,9 @@ RUN set -eux; \
         icu-libs \
         libmemcached \
         libxslt \
-        mariadb-client \
+#        mariadb-client \
         memcached \
-#        mysql-client \
+        mysql-client \
         net-tools \
         php81 \
         php81-apache2 \
@@ -223,10 +223,10 @@ RUN set -eux; \
 
 #DEBUGGING
 #RUN php -i
-#RUN php -v
-#RUN php --ini
-#RUN php -m
-#RUN composer show -p
+RUN php -v
+RUN php --ini
+RUN php -m
+RUN composer show -p
 #RUN aws --version 
 #RUN set -eux; \ 
 #    ls -lha /etc/php81
@@ -250,9 +250,9 @@ RUN set -eux; \
 #RUN grep -R  'log_errors' /etc/
 #RUN grep -R  'display_startup_errors' /etc/
 #RUN grep -R -A 10 -B 10 'error_reporting' /etc/
-#RUN php --ri iconv 
+RUN php --ri iconv 
 #RUN ls -lha /usr/bin/php 
-#RUN php -i | grep iconv
+RUN php -i | grep iconv
 
 
 
