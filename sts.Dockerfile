@@ -1,4 +1,5 @@
 FROM node:8.9-alpine
+ARG ZOTPRIME_VERSION=2
 
 RUN apk add --update --no-cache \
 libc6-compat

@@ -1,0 +1,21 @@
+---
+# Source: localstack/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: localstack
+  namespace: "default"
+  labels:
+    helm.sh/chart: localstack-0.6.0
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: Helm
+subjects:
+# You can specify more than one "subject"
+- kind: ServiceAccount
+  name: localstack
+roleRef:
+  kind: Role
+  name: localstack
+  apiGroup: rbac.authorization.k8s.io

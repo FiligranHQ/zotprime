@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    apps: zotprime-tinymceclean
+  name: zotprime-tinymceclean
+  namespace: zotprime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-tinymceclean
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-tinymceclean
+      name: zotprime-tinymceclean
+    spec:
+      containers:
+        - image: localhost:32000/zotprime-k8s/zotprime-tinymceclean:latest
+          imagePullPolicy: Always
+          name: zotprime-tinymceclean
+          ports:
+            - containerPort: 16342
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "0.1"
+      restartPolicy: Always
+      securityContext: {}
+status: {}

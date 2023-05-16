@@ -79,7 +79,7 @@ class Zotero_FullText {
 			'Key' => $libraryID . "/" . $key,
 			'Body' => $json,
 			'ContentType' => 'application/gzip',
-			'StorageClass' => strlen($json) < self::$minFileSizeStandardIA ? 'STANDARD' : 'STANDARD_IA'
+			'StorageClass' => 'STANDARD'
 		]);
 		StatsD::timing("s3.fulltext.put", (microtime(true) - $start) * 1000);
 		

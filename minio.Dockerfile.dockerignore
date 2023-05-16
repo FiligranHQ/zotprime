@@ -1,12 +1,15 @@
+**/secret.json
+**/secret.txt
+**/secret.yaml
 .git
 .github
+.env
 bin
 build
 client
 dataserver
 doc
-docker/dataserver
-docker/stream-server
+docker
 docker-compose.yml
 logs
 stream-server

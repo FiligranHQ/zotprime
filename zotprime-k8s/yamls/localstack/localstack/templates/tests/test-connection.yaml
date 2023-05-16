@@ -1,0 +1,21 @@
+---
+# Source: localstack/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "localstack-test-connection"
+  labels:
+    app.kubernetes.io/name: localstack
+    helm.sh/chart: localstack-0.6.0
+    app.kubernetes.io/instance: localstack
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  containers:
+    - name: wget-edge
+      image: busybox
+      command: ['wget']
+      args: ['-q', '--server-response', '--output-document', '-', 'localstack:4566/_localstack/health']
+  restartPolicy: Never

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    apps: streamserver
+  name: streamserver
+  namespace: zotprime
+spec:
+  ports:
+    - name: port-8081
+      port: 8081
+      targetPort: 81
+  selector:
+    apps: zotprime-streamserver
+  type: ClusterIP
+#status:
+#  loadBalancer: {}

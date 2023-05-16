@@ -50,6 +50,6 @@ ${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-tinymce
 
 echo 'pushing image db-zotprime-minio'
 ${CONTAINER_RUNTIME} tag zotprime-minio ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-minio
-${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/db-zotprime-minio
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-minio
 
 echo 'done'

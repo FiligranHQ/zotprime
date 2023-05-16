@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zotprime-db
+  namespace: zotprime
+  labels:
+    apps: zotprime-db
+spec:
+  serviceName: "db-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-db
+  template:
+    metadata:
+      labels:
+        apps: zotprime-db
+    spec:
+      containers:
+      - name: mariadb
+        image: localhost:32000/zotprime-db:dev
+        ports:
+        - containerPort: 3306
+          name: mariadb-port
+        resources:
+          limits:
+            memory: 512Mi
+#            cpu: "1"
+            cpu: "0.5"
+        command:
+          - /bin/bash
+          - -c
+        args: 
+          -  set -o allexport && source tmp/_key/secret.txt && set +o allexport && /usr/local/bin/docker-entrypoint.sh mysqld         
+        env:
+        - name: MARIADB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: db-config
+              key: mariadb-user
+        - name: MARIADB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: db-config
+              key: mariadb-databasename
+        volumeMounts:
+        - name: datadir
+          mountPath: /var/lib/mysql/
+        - name: db-secret
+          mountPath: "/tmp/_key"
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+      volumes:
+        - name: db-secret
+          secret:
+            secretName: db-secret
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 300M
