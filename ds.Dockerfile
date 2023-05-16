@@ -1,5 +1,5 @@
 FROM alpine:3 AS builder
-
+ARG ZOTPRIME_VERSION=2
 #RUN apk add gnu-libiconv --update-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ --allow-untrusted
 #ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
 
@@ -28,6 +28,8 @@ RUN set -eux \
 
 
 FROM alpine:3
+ARG ZOTPRIME_VERSION=2
+
 #FROM php:8.1-alpine
 #FROM php:alpine
 COPY --from=builder /tmp/rinetd/rinetd /usr/sbin/rinetd
@@ -319,10 +321,26 @@ ENV APACHE_PID_FILE=/var/run/apache2/apache2.pid
 ENV APACHE_RUN_DIR=/var/run/apache2
 ENV APACHE_LOG_DIR=/var/log/apache2
 
+COPY dataserver/. /var/www/zotero/
+
+RUN rm -rf /var/www/zotero/include/Zend
+COPY Zend /var/www/zotero/include/Zend
+COPY docker/dataserver/create-user.sh /var/www/zotero/admin/
+COPY docker/dataserver/config.inc.php /var/www/zotero/include/config/
+COPY docker/dataserver/dbconnect.inc.php /var/www/zotero/include/config/
+COPY docker/dataserver/header.inc.php /var/www/zotero/include/
+COPY docker/dataserver/Storage.inc.php /var/www/zotero/model/
+COPY docker/dataserver/FullText.inc.php /var/www/zotero/model/
+COPY docker/db/init-mysql.sh /var/www/zotero/misc/
+COPY docker/db/db_update.sh /var/www/zotero/misc/
+COPY docker/db/www.sql /var/www/zotero/misc/
+COPY docker/db/shard.sql /var/www/zotero/misc/
+
+
 # Expose and entrypoint
 COPY docker/dataserver/entrypoint.sh /
 RUN chmod +x /entrypoint.sh
-VOLUME /var/www/zotero
+#VOLUME /var/www/zotero
 EXPOSE 80/tcp
 #EXPOSE 81/TCP
 #EXPOSE 82/TCP

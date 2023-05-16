@@ -1,0 +1,176 @@
+---
+# Source: localstack/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+  namespace: "default"
+  labels:
+    helm.sh/chart: localstack-0.6.0
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    
+spec:
+  type: NodePort
+  externalTrafficPolicy: ""
+  ports:
+    - name: edge
+      port: 4566
+      targetPort: 4566
+      nodePort: 31566
+    - name: "external-service-port-4510"
+      port: 4510
+      targetPort: "ext-svc-4510"
+    - name: "external-service-port-4511"
+      port: 4511
+      targetPort: "ext-svc-4511"
+    - name: "external-service-port-4512"
+      port: 4512
+      targetPort: "ext-svc-4512"
+    - name: "external-service-port-4513"
+      port: 4513
+      targetPort: "ext-svc-4513"
+    - name: "external-service-port-4514"
+      port: 4514
+      targetPort: "ext-svc-4514"
+    - name: "external-service-port-4515"
+      port: 4515
+      targetPort: "ext-svc-4515"
+    - name: "external-service-port-4516"
+      port: 4516
+      targetPort: "ext-svc-4516"
+    - name: "external-service-port-4517"
+      port: 4517
+      targetPort: "ext-svc-4517"
+    - name: "external-service-port-4518"
+      port: 4518
+      targetPort: "ext-svc-4518"
+    - name: "external-service-port-4519"
+      port: 4519
+      targetPort: "ext-svc-4519"
+    - name: "external-service-port-4520"
+      port: 4520
+      targetPort: "ext-svc-4520"
+    - name: "external-service-port-4521"
+      port: 4521
+      targetPort: "ext-svc-4521"
+    - name: "external-service-port-4522"
+      port: 4522
+      targetPort: "ext-svc-4522"
+    - name: "external-service-port-4523"
+      port: 4523
+      targetPort: "ext-svc-4523"
+    - name: "external-service-port-4524"
+      port: 4524
+      targetPort: "ext-svc-4524"
+    - name: "external-service-port-4525"
+      port: 4525
+      targetPort: "ext-svc-4525"
+    - name: "external-service-port-4526"
+      port: 4526
+      targetPort: "ext-svc-4526"
+    - name: "external-service-port-4527"
+      port: 4527
+      targetPort: "ext-svc-4527"
+    - name: "external-service-port-4528"
+      port: 4528
+      targetPort: "ext-svc-4528"
+    - name: "external-service-port-4529"
+      port: 4529
+      targetPort: "ext-svc-4529"
+    - name: "external-service-port-4530"
+      port: 4530
+      targetPort: "ext-svc-4530"
+    - name: "external-service-port-4531"
+      port: 4531
+      targetPort: "ext-svc-4531"
+    - name: "external-service-port-4532"
+      port: 4532
+      targetPort: "ext-svc-4532"
+    - name: "external-service-port-4533"
+      port: 4533
+      targetPort: "ext-svc-4533"
+    - name: "external-service-port-4534"
+      port: 4534
+      targetPort: "ext-svc-4534"
+    - name: "external-service-port-4535"
+      port: 4535
+      targetPort: "ext-svc-4535"
+    - name: "external-service-port-4536"
+      port: 4536
+      targetPort: "ext-svc-4536"
+    - name: "external-service-port-4537"
+      port: 4537
+      targetPort: "ext-svc-4537"
+    - name: "external-service-port-4538"
+      port: 4538
+      targetPort: "ext-svc-4538"
+    - name: "external-service-port-4539"
+      port: 4539
+      targetPort: "ext-svc-4539"
+    - name: "external-service-port-4540"
+      port: 4540
+      targetPort: "ext-svc-4540"
+    - name: "external-service-port-4541"
+      port: 4541
+      targetPort: "ext-svc-4541"
+    - name: "external-service-port-4542"
+      port: 4542
+      targetPort: "ext-svc-4542"
+    - name: "external-service-port-4543"
+      port: 4543
+      targetPort: "ext-svc-4543"
+    - name: "external-service-port-4544"
+      port: 4544
+      targetPort: "ext-svc-4544"
+    - name: "external-service-port-4545"
+      port: 4545
+      targetPort: "ext-svc-4545"
+    - name: "external-service-port-4546"
+      port: 4546
+      targetPort: "ext-svc-4546"
+    - name: "external-service-port-4547"
+      port: 4547
+      targetPort: "ext-svc-4547"
+    - name: "external-service-port-4548"
+      port: 4548
+      targetPort: "ext-svc-4548"
+    - name: "external-service-port-4549"
+      port: 4549
+      targetPort: "ext-svc-4549"
+    - name: "external-service-port-4550"
+      port: 4550
+      targetPort: "ext-svc-4550"
+    - name: "external-service-port-4551"
+      port: 4551
+      targetPort: "ext-svc-4551"
+    - name: "external-service-port-4552"
+      port: 4552
+      targetPort: "ext-svc-4552"
+    - name: "external-service-port-4553"
+      port: 4553
+      targetPort: "ext-svc-4553"
+    - name: "external-service-port-4554"
+      port: 4554
+      targetPort: "ext-svc-4554"
+    - name: "external-service-port-4555"
+      port: 4555
+      targetPort: "ext-svc-4555"
+    - name: "external-service-port-4556"
+      port: 4556
+      targetPort: "ext-svc-4556"
+    - name: "external-service-port-4557"
+      port: 4557
+      targetPort: "ext-svc-4557"
+    - name: "external-service-port-4558"
+      port: 4558
+      targetPort: "ext-svc-4558"
+    - name: "external-service-port-4559"
+      port: 4559
+      targetPort: "ext-svc-4559"
+  selector:
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack

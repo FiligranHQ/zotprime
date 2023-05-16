@@ -1,0 +1,68 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  creationTimestamp: null
+  labels:
+    zotprime/service: zotprime-k8s
+  name: zotprime-k8s
+  namespace: zotprime
+  annotations:
+#    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/use-forwarded-headers: "true"
+spec:
+  rules:
+    - host: zotprime.localdomain
+      http:
+        paths:
+          - backend:
+              service:
+                name: zotprime-streamserver
+                port:
+                  name: port-8081
+            path: /streamserver
+            pathType: Prefix
+#          - backend:
+#              service:
+#                name: zotprime-tinymceclean
+#                port:
+#                  name: port-16342
+#            path: /zotprime-tinymceclean
+#            pathType: Prefix
+          - backend:
+              service:
+                name: zotprime-minio
+                port:
+                  name: port-9001
+            path: /minio
+            pathType: Prefix
+          - backend:
+              service:
+                name: zotprime-dataserver
+                port:
+                  name: port-8080
+            path: /dataserver
+            pathType: Prefix
+#status:
+#  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zotprime-ingress
+  namespace: ingress
+spec:
+  selector:
+    zotprime/service: zotprime-k8s
+#    name: zotprime-k8s
+  type: LoadBalancer
+  loadBalancerIP: 10.77.77.228
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 443

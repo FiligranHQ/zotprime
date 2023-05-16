@@ -1,5 +1,9 @@
 .git
 .github
+**/secret.json
+**/secret.txt
+**/secret.yaml
+.env
 bin
 build
 client

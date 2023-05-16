@@ -39,7 +39,7 @@ ${CONTAINER_RUNTIME} build -f ds.Dockerfile -t zotprime-dataserver .
 
 echo 'building image zotprime-minio'
 
-${CONTAINER_RUNTIME} build -f minio.Dockerfile -t db-zotprime-minio .
+${CONTAINER_RUNTIME} build -f minio.Dockerfile -t zotprime-minio .
 
 
 echo 'building image zotprime-tinymceclean'
@@ -48,7 +48,7 @@ ${CONTAINER_RUNTIME} build -f tmcs.Dockerfile -t zotprime-tinymceclean .
 
 
 echo 'building image zotprime-streamserver'
-cd source/stream-server
+
 ${CONTAINER_RUNTIME} build -f sts.Dockerfile -t zotprime-streamserver .
 cd -
 

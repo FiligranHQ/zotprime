@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    apps: zotprime-streamserver
+  name: zotprime-streamserver
+  namespace: zotprime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-streamserver
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-streamserver
+      name: zotprime-streamserver
+    spec:
+      containers:
+        - image: localhost:32000/zotprime-k8s/zotprime-streamserver:latest
+          imagePullPolicy: Always
+          name: zotprime-streamserver
+          ports:
+            - containerPort: 81
+          volumeMounts:
+            - name: streamserver-config
+              mountPath: /usr/src/app/config/
+              readOnly: true              
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "0.1"
+      volumes:
+      - name: streamserver-config
+        configMap:
+          name: streamserver-config          
+      restartPolicy: Always
+      securityContext: {}
+status: {}

@@ -1,0 +1,97 @@
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zotprime-elasticsearch
+  namespace: zotprime
+  labels:
+#    component: elasticsearch
+    apps: zotprime-elasticsearch
+spec:
+  selector:
+    matchLabels:
+      apps: zotprime-elasticsearch
+  serviceName: "elasticsearch-masterservice"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+#        component: elasticsearch
+        apps: zotprime-elasticsearch
+    spec:
+      initContainers:
+      - name: init-sysctl
+        image: busybox:1.27.2
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+      containers:
+      - name: elasticsearch
+        image: "localhost:32000/elasticsearch:8.7.0"
+        env:
+        - name: CLUSTER_NAME
+          value: zotero
+        - name: xpack.security.enabled
+          value: "true"
+        - name: cluster.routing.allocation.disk.threshold_enabled
+          value: "false"
+        - name: discovery.type
+          value: single-node
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+#        - name: NODE_NAME
+#          valueFrom:
+#            fieldRef:
+#              fieldPath: metadata.name
+#        - name: NUMBER_OF_MASTERS
+#          value: "2"
+#        - name: NODE_MASTER
+#          value: "true"
+#        - name: NODE_INGEST
+#          value: "false"
+#        - name: NODE_DATA
+#          value: "false"
+#        - name: HTTP_ENABLE
+#          value: "false"
+#        - name: ES_JAVA_OPTS
+#          value: -Xms256m -Xmx256m
+        - name: PROCESSORS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        resources:
+          limits:
+            cpu: "0.5"
+#            cpu: "1"
+#            memory: 2Gi
+            memory: 512M
+          requests:
+            cpu: 100m
+#            cpu: "0.25"
+#            memory: 1500Mi
+            memory: 256M
+        ports:
+        - containerPort: 9300
+          name: transport
+#        livenessProbe:
+#          tcpSocket:
+#            port: transport
+#          initialDelaySeconds: 120
+#          periodSeconds: 10
+        volumeMounts:
+        - name: storage
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: storage
+    spec:
+#      storageClassName: standard
+      accessModes: [ ReadWriteOnce ]
+      resources:
+        requests:
+          storage: 2Gi

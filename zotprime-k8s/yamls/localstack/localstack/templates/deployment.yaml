@@ -1,0 +1,234 @@
+---
+# Source: localstack/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack
+  namespace: "default"
+  labels:
+    helm.sh/chart: localstack-0.6.0
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: localstack
+      app.kubernetes.io/instance: localstack
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: localstack
+        app.kubernetes.io/instance: localstack
+    spec:
+      serviceAccountName: localstack
+      securityContext:
+        {}
+      containers:
+        - name: localstack
+          securityContext:
+            {}
+          image: "localstack/localstack:latest"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: edge
+              containerPort: 4566
+              protocol: TCP
+            - name: "ext-svc-4510"
+              containerPort: 4510
+              protocol: TCP
+            - name: "ext-svc-4511"
+              containerPort: 4511
+              protocol: TCP
+            - name: "ext-svc-4512"
+              containerPort: 4512
+              protocol: TCP
+            - name: "ext-svc-4513"
+              containerPort: 4513
+              protocol: TCP
+            - name: "ext-svc-4514"
+              containerPort: 4514
+              protocol: TCP
+            - name: "ext-svc-4515"
+              containerPort: 4515
+              protocol: TCP
+            - name: "ext-svc-4516"
+              containerPort: 4516
+              protocol: TCP
+            - name: "ext-svc-4517"
+              containerPort: 4517
+              protocol: TCP
+            - name: "ext-svc-4518"
+              containerPort: 4518
+              protocol: TCP
+            - name: "ext-svc-4519"
+              containerPort: 4519
+              protocol: TCP
+            - name: "ext-svc-4520"
+              containerPort: 4520
+              protocol: TCP
+            - name: "ext-svc-4521"
+              containerPort: 4521
+              protocol: TCP
+            - name: "ext-svc-4522"
+              containerPort: 4522
+              protocol: TCP
+            - name: "ext-svc-4523"
+              containerPort: 4523
+              protocol: TCP
+            - name: "ext-svc-4524"
+              containerPort: 4524
+              protocol: TCP
+            - name: "ext-svc-4525"
+              containerPort: 4525
+              protocol: TCP
+            - name: "ext-svc-4526"
+              containerPort: 4526
+              protocol: TCP
+            - name: "ext-svc-4527"
+              containerPort: 4527
+              protocol: TCP
+            - name: "ext-svc-4528"
+              containerPort: 4528
+              protocol: TCP
+            - name: "ext-svc-4529"
+              containerPort: 4529
+              protocol: TCP
+            - name: "ext-svc-4530"
+              containerPort: 4530
+              protocol: TCP
+            - name: "ext-svc-4531"
+              containerPort: 4531
+              protocol: TCP
+            - name: "ext-svc-4532"
+              containerPort: 4532
+              protocol: TCP
+            - name: "ext-svc-4533"
+              containerPort: 4533
+              protocol: TCP
+            - name: "ext-svc-4534"
+              containerPort: 4534
+              protocol: TCP
+            - name: "ext-svc-4535"
+              containerPort: 4535
+              protocol: TCP
+            - name: "ext-svc-4536"
+              containerPort: 4536
+              protocol: TCP
+            - name: "ext-svc-4537"
+              containerPort: 4537
+              protocol: TCP
+            - name: "ext-svc-4538"
+              containerPort: 4538
+              protocol: TCP
+            - name: "ext-svc-4539"
+              containerPort: 4539
+              protocol: TCP
+            - name: "ext-svc-4540"
+              containerPort: 4540
+              protocol: TCP
+            - name: "ext-svc-4541"
+              containerPort: 4541
+              protocol: TCP
+            - name: "ext-svc-4542"
+              containerPort: 4542
+              protocol: TCP
+            - name: "ext-svc-4543"
+              containerPort: 4543
+              protocol: TCP
+            - name: "ext-svc-4544"
+              containerPort: 4544
+              protocol: TCP
+            - name: "ext-svc-4545"
+              containerPort: 4545
+              protocol: TCP
+            - name: "ext-svc-4546"
+              containerPort: 4546
+              protocol: TCP
+            - name: "ext-svc-4547"
+              containerPort: 4547
+              protocol: TCP
+            - name: "ext-svc-4548"
+              containerPort: 4548
+              protocol: TCP
+            - name: "ext-svc-4549"
+              containerPort: 4549
+              protocol: TCP
+            - name: "ext-svc-4550"
+              containerPort: 4550
+              protocol: TCP
+            - name: "ext-svc-4551"
+              containerPort: 4551
+              protocol: TCP
+            - name: "ext-svc-4552"
+              containerPort: 4552
+              protocol: TCP
+            - name: "ext-svc-4553"
+              containerPort: 4553
+              protocol: TCP
+            - name: "ext-svc-4554"
+              containerPort: 4554
+              protocol: TCP
+            - name: "ext-svc-4555"
+              containerPort: 4555
+              protocol: TCP
+            - name: "ext-svc-4556"
+              containerPort: 4556
+              protocol: TCP
+            - name: "ext-svc-4557"
+              containerPort: 4557
+              protocol: TCP
+            - name: "ext-svc-4558"
+              containerPort: 4558
+              protocol: TCP
+            - name: "ext-svc-4559"
+              containerPort: 4559
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /_localstack/health
+              port: edge
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /_localstack/health
+              port: edge
+          resources:
+            {}
+          env:
+            - name: DEBUG
+              value: "0"
+            - name: EXTERNAL_SERVICE_PORTS_START
+              value: "4510"
+            - name: EXTERNAL_SERVICE_PORTS_END
+              value: "4560"
+            - name: LOCALSTACK_K8S_SERVICE_NAME
+              value: localstack
+            - name: LOCALSTACK_K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: LAMBDA_RUNTIME_EXECUTOR
+              value: "docker"
+            - name: LAMBDA_K8S_IMAGE_PREFIX
+              value: "localstack/lambda-"
+            - name: LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT
+              value: "60"
+            - name: OVERRIDE_IN_DOCKER
+              value: "1"
+      volumes:

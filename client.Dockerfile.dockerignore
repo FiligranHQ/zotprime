@@ -12,6 +12,10 @@ clinet/zotero-standalone-build/dist
 clinet/zotero-standalone-build/staging
 clinet/zotero-standalone-build/xulrunner
 clinet/zotero-standalone-build/pdftools
+**/secret.json
+**/secret.txt
+**/secret.yaml
+.env
 *.Dockerfile
 .github
 bin

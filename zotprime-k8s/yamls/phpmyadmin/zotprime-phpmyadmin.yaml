@@ -1,0 +1,41 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zotprime-phpmyadmin
+  namespace: zotprime
+  labels:
+    apps: zotprime-phpmyadmin
+spec:
+  selector:
+    matchLabels:
+      apps: zotprime-phpmyadmin
+  template:
+    metadata:
+      labels:
+        apps: zotprime-phpmyadmin
+    spec:
+      containers:
+        - name: phpmyadmin
+          image: localhost:32000/zotprime-phpmyadmin:dev
+          ports:
+            - containerPort: 80
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: "0.1"
+          env:
+            - name: PMA_HOST
+              value: mysql
+            - name: PMA_PORT
+              value: "3306"
+#            - name: PMA_ARBITRARY
+#              value: "1"
+#        - name: PMA_ABSOLUTE_URI
+#          value: [uri]
+
+#        - name: MYSQL_ROOT_PASSWORD
+#          valueFrom:
+#            secretKeyRef:
+#              name: mysql-secret
+#              key: root_password

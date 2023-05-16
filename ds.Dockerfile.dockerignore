@@ -1,9 +1,13 @@
+**/secret.json
+**/secret.txt
+**/secret.yaml
+.env
 .git
 .github
 bin
 build
 client
-dataserver
+#dataserver
 doc
 docker/stream-server
 docker/minio
@@ -11,6 +15,6 @@ docker-compose.yml
 logs
 stream-server
 tinymce-clean-server
-Zend
+#Zend
 zotprime-k8s
 

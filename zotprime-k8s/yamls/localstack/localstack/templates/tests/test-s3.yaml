@@ -1,0 +1,27 @@
+---
+# Source: localstack/templates/tests/test-s3.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "localstack-test-s3"
+  labels:
+    app.kubernetes.io/name: localstack
+    helm.sh/chart: localstack-0.6.0
+    app.kubernetes.io/instance: localstack
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  containers:
+    - name: awscli-s3
+      image: amazon/aws-cli
+      args: ['--debug', '--endpoint-url', 'http://localstack:4566', 's3', 'ls']
+      env:
+      - name: AWS_ACCESS_KEY_ID
+        value: test
+      - name: AWS_SECRET_ACCESS_KEY
+        value: test
+      - name: AWS_DEFAULT_REGION
+        value: us-east-1
+  restartPolicy: Never

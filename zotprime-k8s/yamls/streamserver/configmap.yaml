@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  default.js: "var os = require(\"os\");\n\n// Default config\nvar config = {\n\tdev:
+    false,\n\tlogLevel: 'info',\n\thostname: os.hostname().split('.')[0],\n\thttpPort:
+    81,\n\tproxyProtocol: false,\n\thttps: false,\n\ttrustedProxies: [],\n\tstatusInterval:
+    10,\n\tkeepaliveInterval: 25,\n\tretryTime: 10,\n\tshutdownDelay: 100,\n\tredis:
+    {\n\t\thost: 'redis',\n\t\tprefix: ''\n\t},\n\tapiURL: 'http://zotprime-dataserver/',\n\tapiVersion:
+    3,\n\tapiRequestHeaders: {},\n\tlongStackTraces: false,\n\tglobalTopics: [\n\t\t'styles',\n\t\t'translators'\n\t],\n\t//
+    Minimum delay before clients should act on global topic notifications -- since
+    these are triggered\n\t// by webhooks or other queued notifications, they need
+    time to be processed elsewhere\n\tglobalTopicsMinDelay: 30 * 1000,\n\t// Notification
+    action period -- clients are given a randomly chosen delay within this time\n\t//
+    period before they should act upon the notification, so that we don't DDoS ourselves\n\tglobalTopicsDelayPeriod:
+    60 * 1000,\n\tcontinuedDelayDefault: 3 * 1000,\n\tcontinuedDelay: 30 * 1000,\n\tstatsD:
+    {\n\t\thost: ''\n\t}\n};\n\nmodule.exports = config;\n"
+kind: ConfigMap
+metadata:
+  name: streamserver-config
+  namespace: zotprime
