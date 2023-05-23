@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+  labels:
+    apps: localstack
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.localstack.type }}
+  selector:
+    apps: zotprime-localstack
+  ports:
+	{{- .Values.localstack.ports | toYaml | nindent 2 -}}

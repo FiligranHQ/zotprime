@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  labels:
+    apps: minio
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  type: {{ .Values.minio.type }}
+  clusterIP: 10.30.11.11
+  selector:
+    apps: zotprime-minio
+  ports:
+	{{- .Values.minio.ports | toYaml | nindent 2 -}}

@@ -1,0 +1,9 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-high-priority
+  labels:
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+globalDefault: false
+preemptionPolicy: PreemptLowerPriority
+value: 1000000

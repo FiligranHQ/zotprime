@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    apps: zotprime-streamserver
+  name: zotprime-streamserver
+  namespace: zotprime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-streamserver
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-streamserver
+      name: zotprime-streamserver
+    spec:
+      containers:
+        - image: uniuu/zotprime-streamserver:2.6.1-rc
+          name: zotprime-streamserver
+          ports:
+            - containerPort: 81           
+          resources:
+            limits:
+              memory: 256Mi
+#              cpu: "0.5"
+            requests:
+              memory: 256Mi
+              cpu: "1"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 81
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 20
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /health
+              port: 81
+      priorityClassName: medium-priority      
+      restartPolicy: Always
+      securityContext: {}
+status: {}

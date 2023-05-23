@@ -1,0 +1,532 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-dataserver
+  labels:
+    apps: zotprime-dataserver
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeDataserver.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-dataserver
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-dataserver
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: DSURI
+          value: {{ quote .Values.zotprimeDataserver.zotprimeDataserver.env.dsuri }}
+        - name: S3POINTURI
+          value: {{ quote .Values.zotprimeDataserver.zotprimeDataserver.env.s3Pointuri
+            }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeDataserver.zotprimeDataserver.image.repository }}:{{
+          .Values.zotprimeDataserver.zotprimeDataserver.image.tag | default .Chart.AppVersion
+          }}
+        imagePullPolicy: {{ .Values.zotprimeDataserver.zotprimeDataserver.imagePullPolicy
+          }}
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -xc
+              - sleep 180; bash /tmp/_conf/init.sh ; exit 0
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 195
+          periodSeconds: 30
+        name: zotprime-dataserver
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 190
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {{- toYaml .Values.zotprimeDataserver.zotprimeDataserver.resources |
+          nindent 10 }}
+        volumeMounts:
+        - mountPath: /tmp/_conf
+          name: dataserver-config
+          readOnly: true
+      hostAliases:
+      - hostnames:
+        - s3min.projectdev.net
+        ip: 10.30.11.11
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-low-priority
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+      - configMap:
+          name: {{ include "zotprime-k8s.fullname" . }}-dataserver-config
+        name: dataserver-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-localstack
+  labels:
+    apps: zotprime-localstack
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeLocalstack.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-localstack
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-localstack
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: SERVICES
+          value: {{ quote .Values.zotprimeLocalstack.localstack.env.services }}
+        - name: DEBUG
+          value: {{ quote .Values.zotprimeLocalstack.localstack.env.debug }}
+        - name: LOCALSTACK_K8S_SERVICE_NAME
+          value: {{ quote .Values.zotprimeLocalstack.localstack.env.localstackK8SServiceName
+            }}
+        - name: LOCALSTACK_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeLocalstack.localstack.image.repository }}:{{ .Values.zotprimeLocalstack.localstack.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.zotprimeLocalstack.localstack.imagePullPolicy }}
+        name: localstack
+        ports:
+        - containerPort: 4566
+          name: edge
+          protocol: TCP
+        - containerPort: 4575
+          name: sns-4575
+          protocol: TCP
+        - containerPort: 4576
+          name: sqs-4576
+          protocol: TCP
+        - containerPort: 4567
+          name: apigateway-4567
+          protocol: TCP
+        - containerPort: 4510
+          name: ext-svc-4510
+          protocol: TCP
+        - containerPort: 4511
+          name: ext-svc-4511
+          protocol: TCP
+        - containerPort: 4512
+          name: ext-svc-4512
+          protocol: TCP
+        - containerPort: 4513
+          name: ext-svc-4513
+          protocol: TCP
+        - containerPort: 4514
+          name: ext-svc-4514
+          protocol: TCP
+        - containerPort: 4515
+          name: ext-svc-4515
+          protocol: TCP
+        - containerPort: 4516
+          name: ext-svc-4516
+          protocol: TCP
+        - containerPort: 4517
+          name: ext-svc-4517
+          protocol: TCP
+        - containerPort: 4518
+          name: ext-svc-4518
+          protocol: TCP
+        - containerPort: 4519
+          name: ext-svc-4519
+          protocol: TCP
+        - containerPort: 4520
+          name: ext-svc-4520
+          protocol: TCP
+        - containerPort: 4521
+          name: ext-svc-4521
+          protocol: TCP
+        - containerPort: 4522
+          name: ext-svc-4522
+          protocol: TCP
+        - containerPort: 4523
+          name: ext-svc-4523
+          protocol: TCP
+        - containerPort: 4524
+          name: ext-svc-4524
+          protocol: TCP
+        - containerPort: 4525
+          name: ext-svc-4525
+          protocol: TCP
+        - containerPort: 4526
+          name: ext-svc-4526
+          protocol: TCP
+        - containerPort: 4527
+          name: ext-svc-4527
+          protocol: TCP
+        - containerPort: 4528
+          name: ext-svc-4528
+          protocol: TCP
+        - containerPort: 4529
+          name: ext-svc-4529
+          protocol: TCP
+        - containerPort: 4530
+          name: ext-svc-4530
+          protocol: TCP
+        - containerPort: 4531
+          name: ext-svc-4531
+          protocol: TCP
+        - containerPort: 4532
+          name: ext-svc-4532
+          protocol: TCP
+        - containerPort: 4533
+          name: ext-svc-4533
+          protocol: TCP
+        - containerPort: 4534
+          name: ext-svc-4534
+          protocol: TCP
+        - containerPort: 4535
+          name: ext-svc-4535
+          protocol: TCP
+        - containerPort: 4536
+          name: ext-svc-4536
+          protocol: TCP
+        - containerPort: 4537
+          name: ext-svc-4537
+          protocol: TCP
+        - containerPort: 4538
+          name: ext-svc-4538
+          protocol: TCP
+        - containerPort: 4539
+          name: ext-svc-4539
+          protocol: TCP
+        - containerPort: 4540
+          name: ext-svc-4540
+          protocol: TCP
+        - containerPort: 4541
+          name: ext-svc-4541
+          protocol: TCP
+        - containerPort: 4542
+          name: ext-svc-4542
+          protocol: TCP
+        - containerPort: 4543
+          name: ext-svc-4543
+          protocol: TCP
+        - containerPort: 4544
+          name: ext-svc-4544
+          protocol: TCP
+        - containerPort: 4545
+          name: ext-svc-4545
+          protocol: TCP
+        - containerPort: 4546
+          name: ext-svc-4546
+          protocol: TCP
+        - containerPort: 4547
+          name: ext-svc-4547
+          protocol: TCP
+        - containerPort: 4548
+          name: ext-svc-4548
+          protocol: TCP
+        - containerPort: 4549
+          name: ext-svc-4549
+          protocol: TCP
+        - containerPort: 4550
+          name: ext-svc-4550
+          protocol: TCP
+        - containerPort: 4551
+          name: ext-svc-4551
+          protocol: TCP
+        - containerPort: 4552
+          name: ext-svc-4552
+          protocol: TCP
+        - containerPort: 4553
+          name: ext-svc-4553
+          protocol: TCP
+        - containerPort: 4554
+          name: ext-svc-4554
+          protocol: TCP
+        - containerPort: 4555
+          name: ext-svc-4555
+          protocol: TCP
+        - containerPort: 4556
+          name: ext-svc-4556
+          protocol: TCP
+        - containerPort: 4557
+          name: ext-svc-4557
+          protocol: TCP
+        - containerPort: 4558
+          name: ext-svc-4558
+          protocol: TCP
+        - containerPort: 4559
+          name: ext-svc-4559
+          protocol: TCP
+        resources: {{- toYaml .Values.zotprimeLocalstack.localstack.resources | nindent
+          10 }}
+        securityContext: {{- toYaml .Values.zotprimeLocalstack.localstack.containerSecurityContext
+          | nindent 10 }}
+      securityContext: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-memcached
+  labels:
+    apps: zotprime-memcached
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeMemcached.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-memcached
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-memcached
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - args: {{- toYaml .Values.zotprimeMemcached.memcached.args | nindent 8 }}
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeMemcached.memcached.image.repository }}:{{ .Values.zotprimeMemcached.memcached.image.tag
+          | default .Chart.AppVersion }}
+        name: memcached
+        ports:
+        - containerPort: 11211
+          protocol: TCP
+        resources: {{- toYaml .Values.zotprimeMemcached.memcached.resources | nindent 10
+          }}
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-high-priority
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-minio
+  labels:
+    apps: zotprime-minio
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeMinio.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-minio
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-minio
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - args: {{- toYaml .Values.zotprimeMinio.zotprimeMinio.args | nindent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            configMapKeyRef:
+              key: minio-user
+              name: {{ include "zotprime-k8s.fullname" . }}-minio-config
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeMinio.zotprimeMinio.image.repository }}:{{ .Values.zotprimeMinio.zotprimeMinio.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.zotprimeMinio.zotprimeMinio.imagePullPolicy }}
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          timeoutSeconds: 20
+        name: zotprime-minio
+        ports:
+        - containerPort: 9000
+          name: data
+        - containerPort: 9001
+          name: ui
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 10
+          periodSeconds: 25
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {{- toYaml .Values.zotprimeMinio.zotprimeMinio.resources | nindent 10
+          }}
+        volumeMounts:
+        - mountPath: /data
+          name: s3data
+        - mountPath: /tmp/_key
+          name: {{ include "zotprime-k8s.fullname" . }}-minio-secret
+          readOnly: true
+      - env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            configMapKeyRef:
+              key: minio-user
+              name: {{ include "zotprime-k8s.fullname" . }}-minio-config
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeMinio.zotprimeMiniomc.image.repository }}:{{ .Values.zotprimeMinio.zotprimeMiniomc.image.tag
+          | default .Chart.AppVersion }}
+        name: zotprime-miniomc
+        resources: {{- toYaml .Values.zotprimeMinio.zotprimeMiniomc.resources | nindent
+          10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: s3data
+        - mountPath: /tmp/_key
+          name: {{ include "zotprime-k8s.fullname" . }}-minio-secret
+          readOnly: true
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-high-priority
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+      - name: s3data
+        persistentVolumeClaim:
+          claimName: {{ include "zotprime-k8s.fullname" . }}-dataminio
+      - name: {{ include "zotprime-k8s.fullname" . }}-minio-secret
+        secret:
+          secretName: {{ include "zotprime-k8s.fullname" . }}-minio-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-phpmyadmin
+  labels:
+    apps: zotprime-phpmyadmin
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      apps: zotprime-phpmyadmin
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-phpmyadmin
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: PMA_HOST
+          value: {{ quote .Values.zotprimePhpmyadmin.phpmyadmin.env.pmaHost }}
+        - name: PMA_PORT
+          value: {{ quote .Values.zotprimePhpmyadmin.phpmyadmin.env.pmaPort }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimePhpmyadmin.phpmyadmin.image.repository }}:{{ .Values.zotprimePhpmyadmin.phpmyadmin.image.tag
+          | default .Chart.AppVersion }}
+        name: phpmyadmin
+        ports:
+        - containerPort: 80
+        resources: {{- toYaml .Values.zotprimePhpmyadmin.phpmyadmin.resources | nindent
+          10 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-streamserver
+  labels:
+    apps: zotprime-streamserver
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeStreamserver.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-streamserver
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-streamserver
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeStreamserver.zotprimeStreamserver.image.repository }}:{{
+          .Values.zotprimeStreamserver.zotprimeStreamserver.image.tag | default .Chart.AppVersion
+          }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 81
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 20
+        name: zotprime-streamserver
+        ports:
+        - containerPort: 81
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 81
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {{- toYaml .Values.zotprimeStreamserver.zotprimeStreamserver.resources
+          | nindent 10 }}
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-medium-priority
+      restartPolicy: Always
+      securityContext: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-tinymceclean
+  labels:
+    apps: zotprime-tinymceclean
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeTinymceclean.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-tinymceclean
+    {{- include "zotprime-k8s.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-tinymceclean
+      {{- include "zotprime-k8s.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeTinymceclean.zotprimeTinymceclean.image.repository }}:{{
+          .Values.zotprimeTinymceclean.zotprimeTinymceclean.image.tag | default .Chart.AppVersion
+          }}
+        imagePullPolicy: {{ .Values.zotprimeTinymceclean.zotprimeTinymceclean.imagePullPolicy
+          }}
+        name: zotprime-tinymceclean
+        ports:
+        - containerPort: 16342
+        resources: {{- toYaml .Values.zotprimeTinymceclean.zotprimeTinymceclean.resources
+          | nindent 10 }}
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-medium-priority
+      restartPolicy: Always
+      securityContext: {}

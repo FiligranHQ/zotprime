@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: phpmyadmin
+  labels:
+    apps: phpmyadmin
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.phpmyadmin.type }}
+  selector:
+    apps: zotprime-phpmyadmin
+  ports:
+	{{- .Values.phpmyadmin.ports | toYaml | nindent 2 -}}

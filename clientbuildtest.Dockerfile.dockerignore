@@ -3,6 +3,7 @@
 **/secret.yaml
 .env
 .github
+.vscode/
 bin
 build
 dataserver

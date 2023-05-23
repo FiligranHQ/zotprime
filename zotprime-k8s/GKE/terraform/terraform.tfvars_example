@@ -1,0 +1,15 @@
+project_id             = <addprojectname>
+region                 = "asia-southeast1"
+zones                  = ["asia-southeast1-b"]
+node-locations         = "asia-southeast1-b"
+minnode                = 1
+maxnode                = 2
+disksize               = 30
+machine                = "n1-standard-8"
+env_name               = "prod"
+cluster_name           = "zotprime-k8s"
+network                = "zotprime-network"
+subnetwork             = "zotprime-subnet"
+ip_range_pods_name     = "ip-range-pods"
+ip_range_services_name = "ip-range-services"
+service-account-id     = "serviceaccount-id"

@@ -1,0 +1,120 @@
+displayName: cloudtrace.googleapis.com
+location: global
+name: //serviceusage.googleapis.com/projects/414581404162/services/cloudtrace.googleapis.com
+parentAssetType: cloudresourcemanager.googleapis.com/Project
+parentFullResourceName: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+project: projects/414581404162
+state: ENABLED
+---
+assetType: servicedirectory.googleapis.com/Service
+createTime: '2023-05-23T03:16:25Z'
+displayName: gk3-zotprime-k8s-dev-7cfbec75-b20aaa5f-pe
+location: asia-southeast1
+name: //servicedirectory.googleapis.com/projects/clever-span-387012/locations/asia-southeast1/namespaces/goog-psc-default/services/gk3-zotprime-k8s-dev-7cfbec75-b20aaa5f-pe
+parentAssetType: servicedirectory.googleapis.com/Namespace
+parentFullResourceName: //servicedirectory.googleapis.com/projects/clever-span-387012/locations/asia-southeast1/namespaces/goog-psc-default
+project: projects/414581404162
+updateTime: '2023-05-23T03:16:25Z'
+---
+assetType: servicedirectory.googleapis.com/Endpoint
+createTime: '2023-05-23T03:16:25Z'
+displayName: default
+location: asia-southeast1
+name: //servicedirectory.googleapis.com/projects/clever-span-387012/locations/asia-southeast1/namespaces/goog-psc-default/services/gk3-zotprime-k8s-dev-7cfbec75-b20aaa5f-pe/endpoints/default
+parentAssetType: servicedirectory.googleapis.com/Service
+parentFullResourceName: //servicedirectory.googleapis.com/projects/clever-span-387012/locations/asia-southeast1/namespaces/goog-psc-default/services/gk3-zotprime-k8s-dev-7cfbec75-b20aaa5f-pe
+project: projects/414581404162
+updateTime: '2023-05-23T03:16:25Z'
+---
+assetType: servicedirectory.googleapis.com/Namespace
+createTime: '2023-05-18T13:39:54Z'
+displayName: goog-psc-default
+location: asia-southeast1
+name: //servicedirectory.googleapis.com/projects/clever-span-387012/locations/asia-southeast1/namespaces/goog-psc-default
+parentAssetType: cloudresourcemanager.googleapis.com/Project
+parentFullResourceName: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+--
+displayName: goog-psc-default
+location: asia-southeast2
+name: //servicedirectory.googleapis.com/projects/clever-span-387012/locations/asia-southeast2/namespaces/goog-psc-default
+parentAssetType: cloudresourcemanager.googleapis.com/Project
+parentFullResourceName: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+project: projects/414581404162
+updateTime: '2023-05-18T11:46:58Z'
+---
+assetType: iam.googleapis.com/ServiceAccountKey
+createTime: '2023-05-18T00:17:24Z'
+displayName: projects/clever-span-387012/serviceAccounts/zotprimedev@clever-span-387012.iam.gserviceaccount.com/keys/c5f845ae9ab4d44411e076a2ed20bdc294dd654b
+name: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/100423131905129830241/keys/c5f845ae9ab4d44411e076a2ed20bdc294dd654b
+parentAssetType: iam.googleapis.com/ServiceAccount
+parentFullResourceName: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/zotprimedev@clever-span-387012.iam.gserviceaccount.com
+project: projects/414581404162
+---
+additionalAttributes:
+  email: zotprimedev@clever-span-387012.iam.gserviceaccount.com
+  uniqueId: '100423131905129830241'
+assetType: iam.googleapis.com/ServiceAccount
+name: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/zotprimedev@clever-span-387012.iam.gserviceaccount.com
+parentAssetType: cloudresourcemanager.googleapis.com/Project
+parentFullResourceName: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+project: projects/414581404162
+state: ENABLED
+---
+additionalAttributes:
+  email: zotprime-account@clever-span-387012.iam.gserviceaccount.com
+  uniqueId: '113908771108760021782'
+assetType: iam.googleapis.com/ServiceAccount
+description: zotprime
+displayName: zotprime-account
+name: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/zotprime-account@clever-span-387012.iam.gserviceaccount.com
+parentAssetType: cloudresourcemanager.googleapis.com/Project
+parentFullResourceName: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+project: projects/414581404162
+state: ENABLED
+---
+assetType: compute.googleapis.com/Route
+createTime: '2023-05-17T19:27:12Z'
+description: Default local route to the subnetwork 10.196.0.0/20.
+displayName: default-route-dba043b2dff2cf4d
+location: global
+--
+assetType: cloudresourcemanager.googleapis.com/Project
+createTime: '2023-05-17T12:11:58Z'
+displayName: My First Project
+location: global
+name: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+project: projects/414581404162
+state: ACTIVE
+---
+assetType: iam.googleapis.com/ServiceAccountKey
+createTime: '2023-05-17T11:43:25Z'
+displayName: projects/clever-span-387012/serviceAccounts/zotprimedev@clever-span-387012.iam.gserviceaccount.com/keys/4a9bd0e8e791c35a1d6e6338531e18138129c355
+name: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/100423131905129830241/keys/4a9bd0e8e791c35a1d6e6338531e18138129c355
+parentAssetType: iam.googleapis.com/ServiceAccount
+parentFullResourceName: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/zotprimedev@clever-span-387012.iam.gserviceaccount.com
+project: projects/414581404162
+---
+assetType: iam.googleapis.com/ServiceAccountKey
+createTime: '2023-05-17T00:00:27Z'
+displayName: projects/clever-span-387012/serviceAccounts/414581404162-compute@developer.gserviceaccount.com/keys/624df6fa5dcf48a290c86d7f976f367f7ec2d671
+name: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/115346479826571902556/keys/624df6fa5dcf48a290c86d7f976f367f7ec2d671
+parentAssetType: iam.googleapis.com/ServiceAccount
+parentFullResourceName: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/414581404162-compute@developer.gserviceaccount.com
+project: projects/414581404162
+---
+assetType: iam.googleapis.com/ServiceAccountKey
+createTime: '2023-05-17T00:00:16Z'
+displayName: projects/clever-span-387012/serviceAccounts/zotprime-account@clever-span-387012.iam.gserviceaccount.com/keys/5b4f1968d7aeaa9e87a278b7405261151d63e6f4
+name: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/113908771108760021782/keys/5b4f1968d7aeaa9e87a278b7405261151d63e6f4
+parentAssetType: iam.googleapis.com/ServiceAccount
+parentFullResourceName: //iam.googleapis.com/projects/clever-span-387012/serviceAccounts/zotprime-account@clever-span-387012.iam.gserviceaccount.com
+project: projects/414581404162
+---
+assetType: logging.googleapis.com/LogSink
+displayName: _Default
+location: global
+name: //logging.googleapis.com/projects/414581404162/sinks/_Default
+parentAssetType: cloudresourcemanager.googleapis.com/Project
+parentFullResourceName: //cloudresourcemanager.googleapis.com/projects/clever-span-387012
+project: projects/414581404162
+---
