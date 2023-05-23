@@ -4,6 +4,7 @@
 .git
 .github
 .env
+.vscode/
 bin
 build
 client

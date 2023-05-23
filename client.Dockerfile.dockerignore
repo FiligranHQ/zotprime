@@ -18,6 +18,7 @@ clinet/zotero-standalone-build/pdftools
 .env
 *.Dockerfile
 .github
+.vscode/
 bin
 build
 dataserver

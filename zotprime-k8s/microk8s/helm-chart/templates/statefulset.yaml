@@ -1,0 +1,266 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-db
+  labels:
+    apps: zotprime-db
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeDb.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-db
+  serviceName: db-service
+  template:
+    metadata:
+      labels:
+        apps: zotprime-db
+    spec:
+      containers:
+      - args: {{- toYaml .Values.zotprimeDb.mariadb.args | nindent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        env:
+        - name: MARIADB_USER
+          valueFrom:
+            configMapKeyRef:
+              key: mariadb-user
+              name: {{ include "zotprime-k8s.fullname" . }}-db-config
+        - name: MARIADB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              key: mariadb-databasename
+              name: {{ include "zotprime-k8s.fullname" . }}-db-config
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeDb.mariadb.image.repository }}:{{ .Values.zotprimeDb.mariadb.image.tag
+          | default .Chart.AppVersion }}
+        name: mariadb
+        ports:
+        - containerPort: 3306
+          name: mariadb-port
+        resources: {{- toYaml .Values.zotprimeDb.mariadb.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.zotprimeDb.mariadb.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /var/lib/mysql/
+          name: datadb
+        - mountPath: tmp/_key/
+          name: {{ include "zotprime-k8s.fullname" . }}-db-secret
+      initContainers:
+      - command:
+        - chown
+        - -R
+        - 999:999
+        - /var/lib/mysql
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeDb.takeDataDirOwnership.image.repository }}:{{ .Values.zotprimeDb.takeDataDirOwnership.image.tag
+          | default .Chart.AppVersion }}
+        name: take-data-dir-ownership
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/mysql
+          name: datadb
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-high-priority
+      volumes:
+      - name: {{ include "zotprime-k8s.fullname" . }}-db-secret
+        secret:
+          secretName: {{ include "zotprime-k8s.fullname" . }}-db-secret
+  updateStrategy: {}
+  volumeClaimTemplates:
+  - metadata:
+      creationTimestamp: null
+      name: datadb
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources: {{ .Values.zotprimeDb.volumeClaims.datadb | toYaml | nindent 8 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-elasticsearch
+  labels:
+    apps: zotprime-elasticsearch
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeElasticsearch.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-elasticsearch
+  serviceName: elasticsearch-masterservice
+  template:
+    metadata:
+      labels:
+        apps: zotprime-elasticsearch
+    spec:
+      containers:
+      - env:
+        - name: CLUSTER_NAME
+          value: {{ quote .Values.zotprimeElasticsearch.elasticsearch.env.clusterName
+            }}
+        - name: xpack.security.enabled
+          value: {{ quote .Values.zotprimeElasticsearch.elasticsearch.env.xpackSecurityEnabled
+            }}
+        - name: cluster.routing.allocation.disk.threshold_enabled
+          value: {{ quote .Values.zotprimeElasticsearch.elasticsearch.env.clusterRoutingAllocationDiskThresholdEnabled
+            }}
+        - name: discovery.type
+          value: {{ quote .Values.zotprimeElasticsearch.elasticsearch.env.discoveryType
+            }}
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: PROCESSORS
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeElasticsearch.elasticsearch.image.repository }}:{{
+          .Values.zotprimeElasticsearch.elasticsearch.image.tag | default .Chart.AppVersion
+          }}
+        name: elasticsearch
+        ports:
+        - containerPort: 9300
+          name: transport
+        resources: {{- toYaml .Values.zotprimeElasticsearch.elasticsearch.resources
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /data
+          name: dataes
+      initContainers:
+      - command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeElasticsearch.initSysctl.image.repository }}:{{ .Values.zotprimeElasticsearch.initSysctl.image.tag
+          | default .Chart.AppVersion }}
+        name: init-sysctl
+        resources: {}
+        securityContext: {{- toYaml .Values.zotprimeElasticsearch.initSysctl.containerSecurityContext
+          | nindent 10 }}
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-high-priority
+  updateStrategy: {}
+  volumeClaimTemplates:
+  - metadata:
+      creationTimestamp: null
+      name: dataes
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources: {{ .Values.zotprimeElasticsearch.volumeClaims.dataes | toYaml | nindent
+        8 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-redis
+  labels:
+    apps: zotprime-redis
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.zotprimeRedis.replicas }}
+  selector:
+    matchLabels:
+      apps: zotprime-redis
+  serviceName: redis-service
+  template:
+    metadata:
+      labels:
+        apps: zotprime-redis
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - redis
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args: {{- toYaml .Values.zotprimeRedis.redis.args | nindent 8 }}
+        command:
+        - redis-server
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.zotprimeRedis.redis.image.repository }}:{{ .Values.zotprimeRedis.redis.image.tag
+          | default .Chart.AppVersion }}
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - /probes/liveness.sh
+          failureThreshold: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: redis
+        ports:
+        - containerPort: 6379
+          name: redis
+          protocol: TCP
+        - containerPort: 16379
+          name: cluster
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - /probes/readiness.sh
+          failureThreshold: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {{- toYaml .Values.zotprimeRedis.redis.resources | nindent 10 }}
+        startupProbe:
+          failureThreshold: 20
+          periodSeconds: 5
+          successThreshold: 1
+          tcpSocket:
+            port: redis
+          timeoutSeconds: 5
+        volumeMounts:
+        - mountPath: /conf
+          name: conf
+        - mountPath: /data
+          name: dataredis
+        - mountPath: /probes
+          name: probes
+          readOnly: true
+      priorityClassName: {{ include "zotprime-k8s.fullname" . }}-high-priority
+      terminationGracePeriodSeconds: 20
+      volumes:
+      - configMap:
+          defaultMode: 493
+          name: {{ include "zotprime-k8s.fullname" . }}-redis-config
+        name: conf
+      - configMap:
+          defaultMode: 365
+          name: {{ include "zotprime-k8s.fullname" . }}-redis-probes
+        name: probes
+  updateStrategy: {}
+  volumeClaimTemplates:
+  - metadata:
+      creationTimestamp: null
+      name: dataredis
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources: {{ .Values.zotprimeRedis.volumeClaims.dataredis | toYaml | nindent
+        8 }}

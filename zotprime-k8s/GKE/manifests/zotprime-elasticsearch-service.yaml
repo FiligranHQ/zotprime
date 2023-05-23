@@ -1,0 +1,15 @@
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+  namespace: zotprime
+  labels:
+    apps: elasticsearch
+spec:
+  ports:
+  - port: 9300
+    name: elasticsearch
+  clusterIP: None
+  selector:
+    apps: zotprime-elasticsearch

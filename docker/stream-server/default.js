@@ -12,12 +12,12 @@ var config = {
 	statusInterval: 10,
 	keepaliveInterval: 25,
 	retryTime: 10,
-	shutdownDelay: 100,
+	//shutdownDelay: 100,
 	redis: {
 		host: 'redis',
 		prefix: ''
 	},
-	apiURL: 'http://zotprime-dataserver/',
+	apiURL: 'http://dataserver/',
 	apiVersion: 3,
 	apiRequestHeaders: {},
 	longStackTraces: false,
@@ -30,7 +30,7 @@ var config = {
 	globalTopicsMinDelay: 30 * 1000,
 	// Notification action period -- clients are given a randomly chosen delay within this time
 	// period before they should act upon the notification, so that we don't DDoS ourselves
-	globalTopicsDelayPeriod: 60 * 1000,
+	globalTopicsDelayPeriod: 180 * 1000,
 	continuedDelayDefault: 3 * 1000,
 	continuedDelay: 30 * 1000,
 	statsD: {

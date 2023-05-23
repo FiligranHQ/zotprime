@@ -48,6 +48,9 @@ echo 'building and pushing image zotprime-minio'
 
 docker buildx build --platform ${PLATFORMS} -f minio.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-minio .
 
+echo 'building and pushing image zotprime-miniomc'
+
+docker buildx build --platform ${PLATFORMS} -f miniomc.Dockerfile  --push --tag ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-miniomc .
 
 echo 'building and pushing image zotprime-tinymceclean'
 

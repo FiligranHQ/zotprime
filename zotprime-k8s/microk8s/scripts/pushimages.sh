@@ -52,4 +52,31 @@ echo 'pushing image db-zotprime-minio'
 ${CONTAINER_RUNTIME} tag zotprime-minio ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-minio
 ${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-minio
 
+echo 'pushing image db-zotprime-miniomc'
+${CONTAINER_RUNTIME} tag zotprime-miniomc ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-miniomc
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-miniomc
+
+echo 'pushing image db-zotprime-db'
+${CONTAINER_RUNTIME} tag zotprime-db ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-db
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-db
+
+echo 'pushing image db-zotprime-elasticsearch'
+${CONTAINER_RUNTIME} tag zotprime-elasticsearch ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-elasticsearch
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-elasticsearch
+
+echo 'pushing image db-zotprime-localstack'
+${CONTAINER_RUNTIME} tag zotprime-localstack ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-localstack
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-localstack
+
+echo 'pushing image db-zotprime-memcached'
+${CONTAINER_RUNTIME} tag zotprime-memcached ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-memcached
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-memcached
+
+echo 'pushing image db-zotprime-phpmyadmin'
+${CONTAINER_RUNTIME} tag zotprime-phpmyadmin ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-phpmyadmin
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-phpmyadmin
+
+echo 'pushing image db-zotprime-redis'
+${CONTAINER_RUNTIME} tag zotprime-redis ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-redis
+${CONTAINER_RUNTIME} push ${REGISTRY_URL}/${REGISTRY_NAMESPACE}/zotprime-redis
 echo 'done'

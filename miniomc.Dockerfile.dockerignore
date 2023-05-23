@@ -4,12 +4,15 @@
 .git
 .github
 .env
+.vscode/
 bin
 build
 client
 dataserver
 doc
-docker
+docker/dataserver
+docker/db
+docker/stream-server
 docker-compose.yml
 logs
 stream-server

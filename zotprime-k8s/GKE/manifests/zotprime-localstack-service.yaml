@@ -1,0 +1,27 @@
+---
+# Source: localstack/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+  namespace: "zotprime"
+  labels:
+    apps: localstack
+#  annotations:
+    
+spec:
+#  type: NodePort
+#  externalTrafficPolicy: ""
+  ports:
+    - name: "localstack-sns"
+      port: 4575
+      targetPort: "sns-4575"
+#      nodePort: 31566
+    - name: "localstack-sqs"
+      port: 4576
+      targetPort: "sqs-4576"
+    - name: "localstack-apigateway"
+      port: 4567
+      targetPort: "apigateway-4567"
+  selector:
+    apps: zotprime-localstack

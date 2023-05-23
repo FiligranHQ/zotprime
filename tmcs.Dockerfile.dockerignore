@@ -1,9 +1,11 @@
-.git
-.github
+
 **/secret.json
 **/secret.txt
 **/secret.yaml
 .env
+.git
+.github
+.vscode/
 bin
 build
 client

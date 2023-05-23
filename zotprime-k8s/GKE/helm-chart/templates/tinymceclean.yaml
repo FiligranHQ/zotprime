@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: tinymceclean
+  labels:
+    apps: tinymceclean
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.tinymceclean.type }}
+  selector:
+    apps: zotprime-tinymceclean
+  ports:
+	{{- .Values.tinymceclean.ports | toYaml | nindent 2 -}}

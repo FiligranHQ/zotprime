@@ -18,7 +18,7 @@ spec:
       name: zotprime-tinymceclean
     spec:
       containers:
-        - image: localhost:32000/zotprime-k8s/zotprime-tinymceclean:latest
+        - image: uniuu/zotprime-tinymceclean:2.6.1-rc
           imagePullPolicy: Always
           name: zotprime-tinymceclean
           ports:
@@ -26,7 +26,11 @@ spec:
           resources:
             limits:
               memory: 256Mi
+#              cpu: "0.1"
+            requests:
+              memory: 256Mi
               cpu: "0.1"
+      priorityClassName: medium-priority
       restartPolicy: Always
       securityContext: {}
 status: {}

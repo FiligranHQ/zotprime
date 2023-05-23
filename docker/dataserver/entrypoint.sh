@@ -1,19 +1,29 @@
 #!/bin/sh
 set -eux
 # Env vars
-export APACHE_RUN_USER=${RUN_USER}
-export APACHE_RUN_GROUP=${RUN_GROUP}
-export APACHE_LOCK_DIR=/var/lock/apache2
-export APACHE_PID_FILE=/var/run/apache2/apache2.pid
-export APACHE_RUN_DIR=/var/run/apache2
-export APACHE_LOG_DIR=/var/log/apache2
+#export APACHE_RUN_USER=${RUN_USER}
+#export APACHE_RUN_GROUP=${RUN_GROUP}
+#export APACHE_LOCK_DIR=/var/lock/apache2
+#export APACHE_PID_FILE=/var/run/apache2/apache2.pid
+#export APACHE_RUN_DIR=/var/run/apache2
+#export APACHE_LOG_DIR=/var/log/apache2
 
 # Start log
 #/etc/init.d/rsyslog start
 
 # Start rinetd
-echo "logfile /dev/stdout" >> /etc/rinetd.conf
-rinetd -f -c /etc/rinetd.conf &
+#echo "logfile /dev/stdout" >> /etc/rinetd.conf
+
+#(until rinetd -f -c /etc/rinetd.conf; do
+#    echo "'rinetd' crashed with exit code $?. Restarting..." >&2
+#    sleep 1
+#done) & 
+
+#(while true; do
+#    rinetd -f -c /etc/rinetd.conf
+#done) &
+
+#rinetd -f -c /etc/rinetd.conf &
 #/etc/init.d/rinetd start
 
 #a2enmod headers 
@@ -46,6 +56,11 @@ rinetd -f -c /etc/rinetd.conf &
 chmod 777 /var/www/zotero/tmp
 
 sed -i 's/AGPL-3.0"/AGPL-3.0-only"/g' /var/www/zotero/composer.json
+
+sed -i "s#http://localhost:8080/#$DSURI#g" /var/www/zotero/include/config/config.inc.php
+sed -i "s#10.5.5.1:9000#$S3POINTURI#g" /var/www/zotero/include/config/config.inc.php
+sed -i "s#10.5.5.1:9000#$S3POINTURI#g" /var/www/zotero/include/Zend/Service/Amazon/S3.php
+
 
 # Elastica Composer
 #cd /var/www/zotero/include/Elastica && composer -v install

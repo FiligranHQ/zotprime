@@ -1,7 +1,7 @@
 version: '3.9'
 services:
   zotprime-db:
-    image: "zotprime-db:${VER}"
+    image: "uniuu/zotprime-db:${VER}"
 #    image: mysql:5.6
     build:
       context: .
@@ -20,8 +20,11 @@ services:
 #      nofile:
 #         soft: 262144
 #         hard: 262144
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.2
   zotprime-elasticsearch:
-    image: "zotprime-elasticsearch:${VER}"
+    image: "uniuu/zotprime-elasticsearch:${VER}"
     mem_limit: 512m
     mem_reservation: 256M
     build:
@@ -42,8 +45,11 @@ services:
  #  sysctls:
  #           - vm.max_map_count=262144
 #   command: "sysctl -w vm.max_map_count=262144"
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.3
   zotprime-redis:
-    image: "zotprime-redis:${VER}"
+    image: "uniuu/zotprime-redis:${VER}"
     build:
       context: .
       dockerfile: r.Dockerfile
@@ -53,15 +59,21 @@ services:
  #      - sysctl vm.overcommit_memory=1
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.4
   zotprime-memcached:
-    image: "zotprime-memcached:${VER}"
+    image: "uniuu/zotprime-memcached:${VER}"
     build:
       context: .
       dockerfile: m.Dockerfile
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.5
   zotprime-localstack:
-    image: "zotprime-localstack:${VER}"
+    image: "uniuu/zotprime-localstack:${VER}"
     build:
       context: .
       dockerfile: ls.Dockerfile
@@ -69,8 +81,11 @@ services:
       - SERVICES=sns,sqs,apigateway
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.6
   zotprime-minio:
-    image: "zotprime-minio:${VER}"
+    image: "uniuu/zotprime-minio:${VER}"
     build:
       context: .
       dockerfile: minio.Dockerfile
@@ -79,29 +94,39 @@ services:
       - MINIO_ROOT_PASSWORD=${MINIOROOTPASSWORD}
     command: server /data --console-address ":9001"
     ports:
-#      - "8082:9000"
+      - "9000:9000"
       - "9001:9001"
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.7
   zotprime-miniomc:
-    image: "zotprime-miniomc:${VER}"
+    image: "uniuu/zotprime-miniomc:${VER}"
+    restart: always
     build:
       context: .
       dockerfile: miniomc.Dockerfile
-#    entrypoint:
-#      - /bin/sh
-    entrypoint: >
-         /bin/sh -c "
-         /usr/bin/mc config host add minio http://zotprime-minio:9000 ${MINIOROOTUSER} ${MINIOROOTPASSWORD}; 
-         exec mc admin trace -v -a minio;
-         "
+    environment:
+      - MINIO_ROOT_USER=${MINIOROOTUSER}
+      - MINIO_ROOT_PASSWORD=${MINIOROOTPASSWORD}
+#    entrypoint: >
+#         /bin/sh -c "
+#         /usr/bin/mc config host add minio http://zotprime-minio:9000 ${MINIOROOTUSER} ${MINIOROOTPASSWORD}; 
+#         exec mc admin trace -v -a minio;
+#         "
 #          exec sleep inf;
     volumes:
       - /etc/localtime:/etc/localtime:ro
     depends_on:
       - zotprime-minio
+    links:
+      - zotprime-minio:minio
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.12
   zotprime-dataserver:
-    image: "zotprime-dataserver:${VER}"
+    image: "uniuu/zotprime-dataserver:${VER}"
     build:
       context: .
       dockerfile: ds.Dockerfile
@@ -113,22 +138,12 @@ services:
       - "8082:8082"
 #      - "9000:9000"
     volumes:
-#      - "./dataserver/:/var/www/zotero:rw"
-#      - "./Zend/:/var/www/zotero/include/Zend:rw"
-#      - "./docker/dataserver/create-user.sh:/var/www/zotero/admin/create-user.sh:ro" 
-#      - "./docker/dataserver/config.inc.php:/var/www/zotero/include/config/config.inc.php:ro"
-#      - "./docker/dataserver/dbconnect.inc.php:/var/www/zotero/include/config/dbconnect.inc.php:ro"
-#      - "./docker/dataserver/header.inc.php:/var/www/zotero/include/header.inc.php:ro"
-#      - "./docker/dataserver/Storage.inc.php:/var/www/zotero/model/Storage.inc.php:ro"    
-#      - "./docker/dataserver/config/FullText.inc.php:/var/www/zotero/model/FullText.inc.php:ro"
-#      - "./docker/db/init-mysql.sh:/var/www/zotero/misc/init-mysql.sh:ro"
-#      - "./docker/db/db_update.sh:/var/www/zotero/misc/db_update.sh:ro"
-#      - "./docker/db/www.sql:/var/www/zotero/misc/www.sql:ro"
-#      - "./docker/db/shard.sql:/var/www/zotero/misc/shard.sql:ro"
       - "/etc/localtime:/etc/localtime:ro"
     environment:
       - RUN_USER=apache
       - RUN_GROUP=apache
+      - DSURI=${DSHOST}
+      - S3POINTURI=${S3HOST}
     depends_on:
       - zotprime-db
       - zotprime-elasticsearch
@@ -146,8 +161,13 @@ services:
       - zotprime-tinymceclean:tinymceclean
       - zotprime-streamserver:streamserver
     restart: always
+    networks:
+      zotprime:
+        aliases:
+          - dataserver
+        ipv4_address: 10.5.5.8
   zotprime-tinymceclean:
-    image: "zotprime-tinymceclean:${VER}"
+    image: "uniuu/zotprime-tinymceclean:${VER}"
     build:
       context: .
       dockerfile: tmcs.Dockerfile
@@ -161,15 +181,18 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
     restart: always
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.9
   zotprime-streamserver:
-    image: "zotprime-streamserver:${VER}"
+    image: "uniuu/zotprime-streamserver:${VER}"
     build:
       context: .
       dockerfile: sts.Dockerfile
     ports:
       - "8081:81"
     volumes:
-      - "./docker/stream-server/default.js:/usr/src/app/config/default.js:ro"
+#      - "./docker/stream-server/default.js:/usr/src/app/config/default.js:ro"
       - /etc/localtime:/etc/localtime:ro
     restart: always
     depends_on:
@@ -179,8 +202,11 @@ services:
       - zotprime-memcached 
     links:
       - zotprime-redis:redis
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.10
   zotprime-phpmyadmin:
-    image: "zotprime-phpmyadmin:${VER}"
+    image: "uniuu/zotprime-phpmyadmin:${VER}"
     build:
       context: .
       dockerfile: pa.Dockerfile
@@ -192,8 +218,19 @@ services:
       - zotprime-db:mysql
     volumes:
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.11
+
 
 volumes:
   dbdata:
    driver: local
 
+networks:
+  zotprime:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.5.0/28
+          gateway: 10.5.5.1
