@@ -1,0 +1,61 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "zotprime-k8s.fullname" . }}-zotprime-ingress-http
+  labels:
+    apps: zotprime-ingress-http
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+  annotations:
+    cloud.google.com/load-balancer-type: External
+    kubernetes.io/ingress.class: gce
+#    cert-manager.io/issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+#  tls:
+#   - secretName: web-ssl
+#     hosts:
+#      - {{ .Values.ingressHostnames.minios3Web }}
+#      - {{ .Values.ingressHostnames.minios3Data }}
+#      - {{ .Values.ingressHostnames.phpmyadmin }}
+#      - {{ .Values.ingressHostnames.api }}
+  rules:
+  - host: {{ .Values.ingressHostnames.minios3Web }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: minio
+            port:
+              name: minio-ui
+        path: /
+        pathType: Prefix
+  - host: {{ .Values.ingressHostnames.minios3Data }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: minio
+            port:
+              name: minio-data
+        path: /
+        pathType: Prefix
+  - host: {{ .Values.ingressHostnames.phpmyadmin }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: phpmyadmin
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  - host: {{ .Values.ingressHostnames.api }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: dataserver
+            port:
+              name: dataserver-api
+        path: /
+        pathType: Prefix

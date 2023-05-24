@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  labels:
+    apps: zotprime-ingress-http
+  name: zotprime-ingress-http
+  namespace: zotprime
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cloud.google.com/load-balancer-type: "External"
+    kubernetes.io/ingress.class: "gce"
+#    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+#    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+spec:
+  rules:
+    - host: min.projectdev.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  name: minio-ui
+    - host: s3min.projectdev.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  name: minio-data
+    - host: pm.projectdev.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: phpmyadmin
+                port:
+#                  name: phpmyadmin
+                  number: 80
+    - host: api.projectdev.net
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dataserver
+                port:
+                  name: dataserver-api
+#                  number: 8080

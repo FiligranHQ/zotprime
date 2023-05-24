@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zotprime-db
+  namespace: zotprime
+  labels:
+    apps: zotprime-db
+spec:
+  serviceName: "db-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-db
+  template:
+    metadata:
+      labels:
+        apps: zotprime-db
+    spec:
+      initContainers:
+      - name: take-data-dir-ownership
+        image: alpine:3
+        # Give `mysql` user permissions a mounted volume
+        # https://stackoverflow.com/a/51195446/4360433
+        command:
+        - chown
+        - -R
+        - 999:999
+        - /var/lib/mysql
+        volumeMounts:
+        - name: datadb
+          mountPath: /var/lib/mysql 
+      containers:
+      - name: mariadb
+        image: uniuu/zotprime-db:2.6.1-rc
+        ports:
+        - containerPort: 3306
+          name: mariadb-port
+        resources:
+          limits:
+            memory: 512Mi
+#            cpu: "1"
+#            cpu: "0.5"
+          requests:
+            memory: 512Mi
+            cpu: "0.5"
+        command:
+          - /bin/bash
+          - -c
+        args: 
+          -  set -o allexport && source tmp/_key/secret-db.txt && set +o allexport && /usr/local/bin/docker-entrypoint.sh mysqld         
+        env:
+        - name: MARIADB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: db-config
+              key: mariadb-user
+        - name: MARIADB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: db-config
+              key: mariadb-databasename
+        volumeMounts:
+        - name: datadb
+          mountPath: /var/lib/mysql/
+        - name: db-secret
+          mountPath: tmp/_key/
+#          subPath: _key/
+        securityContext:
+          runAsUser: 999
+          runAsGroup: 999
+      volumes:
+        - name: db-secret
+          secret:
+            secretName: db-secret
+      priorityClassName: high-priority
+  volumeClaimTemplates:
+  - metadata:
+      name: datadb
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi

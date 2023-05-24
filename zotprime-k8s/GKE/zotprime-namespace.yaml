@@ -1,0 +1,7 @@
+# Deploys a new Namespace for the ZotPrime
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zotprime
+  labels:
+    name: zotprime

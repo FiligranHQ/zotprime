@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: zotprime
+#  annotations:
+#    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  labels:
+    apps: redis
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    apps: zotprime-redis
+  clusterIP: None
+#  publishNotReadyAddresses: True

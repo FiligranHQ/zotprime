@@ -1,0 +1,17 @@
+---
+# Source: localstack/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: "default"
+  name: localstack
+  labels:
+    helm.sh/chart: localstack-0.6.0
+    app.kubernetes.io/name: localstack
+    app.kubernetes.io/instance: localstack
+    app.kubernetes.io/version: "latest"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["*"]

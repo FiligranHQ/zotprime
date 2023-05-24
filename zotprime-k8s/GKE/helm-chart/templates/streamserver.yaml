@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: streamserver
+  labels:
+    apps: streamserver
+  {{- include "zotprime-k8s.labels" . | nindent 4 }}
+  annotations:
+    cloud.google.com/backend-config: '{"default": "streamserver-backendconfig"}'
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  type: {{ .Values.streamserver.type }}
+  selector:
+    apps: zotprime-streamserver
+  ports:
+	{{- .Values.streamserver.ports | toYaml | nindent 2 -}}

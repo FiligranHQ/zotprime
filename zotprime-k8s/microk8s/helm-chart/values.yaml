@@ -1,0 +1,318 @@
+ingressHostnames:
+  api: api.zotprime
+  streamserver: stream.zotprime
+  minios3Data: s3min.zotprime
+  phpmyadmin: pm.zotprime
+  minios3Web: min.zotprime
+zotprimeDataserver:
+  replicas: 1
+  zotprimeDataserver:
+    env:
+      dsuri: http://api.zotprime/
+      s3Pointuri: s3min.zotprime
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-dataserver
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: "1"
+        memory: 512Mi
+minioSecret:
+  secretTxt: "TUlOSU9fUk9PVF9QQVNTV09SRD16b3Rlcm9kb2NrZXIK"
+dbSecret:
+  secretTxt: "TUFSSUFEQl9ST09UX1BBU1NXT1JEPXpvdGVybwpNQVJJQURCX1BBU1NXT1JEPXpvdGVyb3Rlc3QK"
+dataserver:
+  ports:
+  - name: dataserver-api
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+dataserverConfig:
+  initSh: |-
+    #!/bin/sh
+    set -eux
+    cd /var/www/zotero/misc && ./init-mysql.sh
+    cd /var/www/zotero/misc && ./db_update.sh
+    aws --endpoint-url "http://minio:9000" s3 mb s3://zotero
+    aws --endpoint-url "http://minio:9000" s3 mb s3://zotero-fulltext
+    aws --endpoint-url "http://localstack:4575" sns create-topic --name zotero
+dbConfig:
+  mariadbDatabasename: zoterotest
+  mariadbUser: zotero
+elasticsearch:
+  ports:
+  - name: elasticsearch
+    port: 9300
+    targetPort: 0
+  type: ClusterIP
+kubernetesClusterDomain: cluster.local
+localstack:
+  ports:
+  - name: localstack-sns
+    port: 4575
+    targetPort: sns-4575
+  - name: localstack-sqs
+    port: 4576
+    targetPort: sqs-4576
+  - name: localstack-apigateway
+    port: 4567
+    targetPort: apigateway-4567
+  type: ClusterIP
+memcached:
+  ports:
+  - name: memcached
+    port: 11211
+    targetPort: 11211
+  type: ClusterIP
+minio:
+  ports:
+  - name: minio-ui
+    port: 9001
+    targetPort: 9001
+  - name: minio-data
+    port: 9000
+    targetPort: 9000
+  - name: minio-data2
+    port: 80
+    targetPort: 9000
+  type: ClusterIP
+minioConfig:
+  minioUser: zotero
+mysql:
+  ports:
+  - name: mariadb
+    port: 3306
+    targetPort: 3306
+  type: ClusterIP
+phpmyadmin:
+  ports:
+  - name: phpmyadmin
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+pvc:
+  dataminio:
+    storageClass: standard-rwo
+    storageRequest: 10Gi
+redis:
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  type: ClusterIP
+redisConfig:
+  redisConf: |-
+    cluster-enabled no
+    appendonly yes
+    protected-mode no
+    dir /data
+    port 6379
+redisProbes:
+  livenessSh: |-
+    #!/bin/sh
+    pingResponse="$(redis-cli -h localhost ping | head -n1 | awk '{print $1;}')"
+    if [ "$?" -eq "124" ]; then
+      echo "PING timed out"
+      exit 1
+    fi
+    if [ "$pingResponse" != "PONG"] && [ "$pingResponse" != "LOADING" ] && [ "$pingResponse" != "MASTERDOWN" ]; then
+      echo "$pingResponse"
+      exit 1
+    fi
+  readinessSh: |-
+    #!/bin/sh
+    pingResponse="$(redis-cli -h localhost ping)"
+    if [ "$?" -eq "124" ]; then
+      echo "PING timed out"
+      exit 1
+    fi
+    if [ "$pingResponse" != "PONG"]; then
+      echo "$pingResponse"
+      exit 1
+    fi
+streamserver:
+  ports:
+  - name: streamserver
+    port: 81
+    targetPort: 81
+  type: ClusterIP
+tinymceclean:
+  ports:
+  - name: tinymceclean
+    port: 16342
+    targetPort: 16342
+  type: ClusterIP
+zotprimeDb:
+  mariadb:
+    args:
+    - set -o allexport && source tmp/_key/secret-db.txt && set +o allexport && /usr/local/bin/docker-entrypoint.sh
+      mysqld
+    containerSecurityContext:
+      runAsGroup: 999
+      runAsUser: 999
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-db
+      tag: latest
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+  replicas: 1
+  takeDataDirOwnership:
+    image:
+      repository: alpine
+      tag: "3"
+  volumeClaims:
+    datadb:
+      requests:
+        storage: 2Gi
+zotprimeElasticsearch:
+  elasticsearch:
+    env:
+      clusterName: zotero
+      clusterRoutingAllocationDiskThresholdEnabled: "false"
+      discoveryType: single-node
+      xpackSecurityEnabled: "true"
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-elasticsearch
+      tag: latest
+    resources:
+      limits:
+        memory: 1536Mi
+      requests:
+        cpu: "1"
+        memory: 1536Mi
+  initSysctl:
+    containerSecurityContext:
+      privileged: true
+    image:
+      repository: busybox
+      tag: 1.27.2
+  replicas: 1
+  volumeClaims:
+    dataes:
+      requests:
+        storage: 2Gi
+zotprimeLocalstack:
+  localstack:
+    containerSecurityContext: {}
+    env:
+      debug: "0"
+      localstackK8SServiceName: localstack
+      services: sns,sqs,apigateway
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-localstack
+      tag: latest
+    imagePullPolicy: IfNotPresent
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+  replicas: 1
+zotprimeMemcached:
+  memcached:
+    args:
+    - -m 2047
+    - -I 50M
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-memcached
+      tag: latest
+    resources:
+      limits:
+        memory: 1536Mi
+      requests:
+        cpu: 200m
+        memory: 1536Mi
+  replicas: 1
+zotprimeMinio:
+  replicas: 1
+  zotprimeMinio:
+    args:
+    - set -o allexport && source tmp/_key/secret-minio.txt && set +o allexport && minio
+      server /data --console-address :9001
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-minio
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        memory: 512Mi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+  zotprimeMiniomc:
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-miniomc
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+zotprimePhpmyadmin:
+  phpmyadmin:
+    env:
+      pmaHost: mysql
+      pmaPort: "3306"
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-phpmyadmin
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+zotprimeRedis:
+  redis:
+    args:
+    - /conf/redis.conf
+    - --protected-mode
+    - "no"
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-redis
+      tag: latest
+    resources:
+      limits:
+        memory: 100Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+  replicas: 1
+  volumeClaims:
+    dataredis:
+      requests:
+        storage: 1Gi
+zotprimeStreamserver:
+  replicas: 1
+  zotprimeStreamserver:
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-streamserver
+      tag: latest
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: "1"
+        memory: 256Mi
+zotprimeTinymceclean:
+  replicas: 1
+  zotprimeTinymceclean:
+    image:
+      repository: localhost:32000/zotprime-k8s/zotprime-tinymceclean
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi

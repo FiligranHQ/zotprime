@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    apps: streamserver
+  name: streamserver
+  namespace: zotprime
+  annotations:
+#    beta.cloud.google.com/backend-config: '{"ports": {"81": "config-broker-ws"}}'
+    cloud.google.com/backend-config: '{"default": "streamserver-backendconfig"}'
+spec:
+  ports:
+    - name: streamserver
+      port: 81
+      targetPort: 81
+  selector:
+    apps: zotprime-streamserver
+  type: ClusterIP
+#status:
+#  loadBalancer: {}
+

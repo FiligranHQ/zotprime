@@ -1,0 +1,15 @@
+**/secret.json
+**/secret.txt
+**/secret.yaml
+.git
+.github
+.env
+.vscode/
+bin
+build
+doc
+docker-compose.yml
+logs
+#Zend
+zotprime-k8s
+

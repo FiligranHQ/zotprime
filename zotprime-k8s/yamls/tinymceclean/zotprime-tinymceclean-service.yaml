@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    apps: tinymceclean
+  name: tinymceclean
+  namespace: zotprime
+spec:
+  ports:
+    - name: port-16342
+      port: 16342
+      targetPort: 16342
+  selector:
+    apps: zotprime-tinymceclean
+  type: ClusterIP
+#status:
+#  loadBalancer: {}

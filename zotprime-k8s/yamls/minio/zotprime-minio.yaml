@@ -1,0 +1,76 @@
+# Deploys a new MinIO Pod into the metadata.namespace Kubernetes namespace
+#
+# The `spec.containers[0].args` contains the command run on the pod
+# The `/data` directory corresponds to the `spec.containers[0].volumeMounts[0].mountPath`
+# That mount path corresponds to a Kubernetes HostPath which binds `/data` to a local drive or volume on the worker node where the pod runs
+# 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: zotprime-minio
+  name: zotprime-minio
+  namespace: zotprime # Change this value to match the namespace metadata.name
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-minio
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-minio
+      name: zotprime-minio
+    spec:
+      containers:
+        - name: zotprime-minio
+          image: quay.io/minio/minio:latest
+#          imagePullPolicy: Always
+          resources:
+            limits:
+              memory: 512Mi
+              cpu: "1"
+          command:
+            - /bin/bash
+            - -c
+          args: 
+            -  set -o allexport && source tmp/_key/secret.txt && set +o allexport && minio server /data --console-address :9001 
+#| tee /data/test.log
+#    lifecycle:
+#      preStop:
+#        exec:
+#          command:
+#            - /bin/sh
+#            - -c
+#          args: ls -lha /tmp/_key/
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                 configMapKeyRef:
+                   name: minio-config
+                   key: minio-user
+          volumeMounts:
+            - name: localvolumeminio # Corresponds to the `spec.volumes` Persistent Volume
+              mountPath: /data
+            - name: minio-secret
+              mountPath: "/tmp/_key"
+#             subPath: secret.txt
+              readOnly: true
+      nodeSelector:
+        kubernetes.io/hostname: localhost.localdomain # Specify a node label associated to the Worker Node on which you want to deploy the pod.
+#  terminationGracePeriodSeconds: 30
+      restartPolicy: Always
+      securityContext: {}
+      volumes:
+        - name: localvolumeminio
+          hostPath: # MinIO generally recommends using locally-attached volumes
+            path: /mnt/disk1/data # Specify a path to a local drive or volume on the Kubernetes worker node
+            type: DirectoryOrCreate # The path to the last directory must exist
+        - name: minio-secret
+          secret:
+            secretName: minio-secret
+#      items:
+#        - key: _key
+#          path: _key
+status: {}

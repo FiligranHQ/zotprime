@@ -1,0 +1,155 @@
+version: '3.9'
+services:
+  zotprime-db:
+    image: "uniuu/zotprime-db:${VER}"
+    restart: always
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MYSQLROOTPASSWORD}
+      - MARIADB_DATABASE=${MYSQLDATABASE}
+      - MARIADB_USER=${MYSQLUSER}
+      - MARIADB_PASSWORD=${MYSQLPASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.2
+  zotprime-elasticsearch:
+    image: "uniuu/zotprime-elasticsearch:${VER}"
+    mem_limit: 512m
+    mem_reservation: 256M
+    environment:
+      - cluster.name=zotero
+      - xpack.security.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false 
+      - discovery.type=single-node
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.3
+  zotprime-redis:
+    image: "uniuu/zotprime-redis:${VER}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.4
+  zotprime-memcached:
+    image: "uniuu/zotprime-memcached:${VER}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.5
+  zotprime-localstack:
+    image: "uniuu/zotprime-localstack:${VER}"
+    environment:
+      - SERVICES=sns,sqs,apigateway
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.6
+  zotprime-minio:
+    image: "uniuu/zotprime-minio:${VER}"
+    environment:
+      - MINIO_ROOT_USER=${MINIOROOTUSER}
+      - MINIO_ROOT_PASSWORD=${MINIOROOTPASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - "9001:9001"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.7
+  zotprime-dataserver:
+    image: "uniuu/zotprime-dataserver:${VER}"
+    ports:
+      - "8080:80"
+      - "8082:8082"
+    volumes:
+      - "/etc/localtime:/etc/localtime:ro"
+    environment:
+      - RUN_USER=apache
+      - RUN_GROUP=apache
+      - DSURI=${DSHOST}
+      - S3POINTURI=${S3HOST}
+    depends_on:
+      - zotprime-db
+      - zotprime-elasticsearch
+      - zotprime-redis
+      - zotprime-memcached 
+      - zotprime-tinymceclean
+      - zotprime-streamserver
+    links:
+      - zotprime-db:mysql
+      - zotprime-elasticsearch:elasticsearch
+      - zotprime-redis:redis
+      - zotprime-memcached:memcached
+      - zotprime-localstack:localstack
+      - zotprime-minio:minio
+      - zotprime-tinymceclean:tinymceclean
+      - zotprime-streamserver:streamserver
+    restart: always
+    networks:
+      zotprime:
+        aliases:
+          - dataserver
+        ipv4_address: 10.5.5.8
+  zotprime-tinymceclean:
+    image: "uniuu/zotprime-tinymceclean:${VER}"
+    depends_on:
+      - zotprime-db
+      - zotprime-elasticsearch
+      - zotprime-redis
+      - zotprime-memcached
+    links:
+      - zotprime-redis:redis 
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.9
+  zotprime-streamserver:
+    image: "uniuu/zotprime-streamserver:${VER}"
+    ports:
+      - "8081:81"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    restart: always
+    depends_on:
+      - zotprime-db
+      - zotprime-elasticsearch
+      - zotprime-redis
+      - zotprime-memcached 
+    links:
+      - zotprime-redis:redis
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.10
+  zotprime-phpmyadmin:
+    image: "uniuu/zotprime-phpmyadmin:${VER}"
+    ports:
+      - "8083:80"
+    environment:
+      - PMA_HOST=mysql
+    links:
+      - zotprime-db:mysql
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      zotprime:
+        ipv4_address: 10.5.5.11
+volumes:
+  dbdata:
+   driver: local
+networks:
+  zotprime:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.5.0/28
+          gateway: 10.5.5.1

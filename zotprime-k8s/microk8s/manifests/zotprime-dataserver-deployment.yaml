@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    apps: zotprime-dataserver
+  name: zotprime-dataserver
+  namespace: zotprime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      apps: zotprime-dataserver
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        apps: zotprime-dataserver
+      name: zotprime-dataserver
+    spec:
+      containers:
+        - image: uniuu/zotprime-dataserver:2.6.1-rc
+          imagePullPolicy: Always
+          name: zotprime-dataserver
+          ports:
+            - containerPort: 80
+#            - containerPort: 8082
+          env:
+            - name: DSURI
+              value: http://api.projectdev.net/
+            - name: S3POINTURI
+              value: s3min.projectdev.net
+          lifecycle:
+            postStart:
+              exec:
+                command: [ "/bin/sh", "-xc", 'sleep 120; bash /tmp/_conf/init.sh ; exit 0' ]
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 160
+            periodSeconds: 30
+#            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 150
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+            httpGet:
+              path: /
+              port: 80
+          resources:
+            limits:
+              memory: 512Mi
+#              cpu: "0.3"
+            requests:
+              memory: 512Mi
+              cpu: "1"
+          volumeMounts:
+            - name: dataserver-config
+              mountPath: "/tmp/_conf"
+              readOnly: true
+      priorityClassName: low-priority
+      restartPolicy: Always
+      hostAliases:
+        - ip: "10.30.11.11"
+          hostnames:
+          - "s3min.projectdev.net"
+      securityContext: {}
+      volumes:
+        - name: dataserver-config
+          configMap:
+            name: dataserver-config
+status: {}
